@@ -21,9 +21,7 @@ The Steam Link SDK has support for the following major APIs:
 	Qt 5.4
 	SDL 2.0
 
-It also provides a simple API for gamepad support that works with supported game controllers
-as well as Steam Controllers. The header is SLGamepad.h and the library is libSLGamepad.so
-The example applications show how to use this API for Qt and SDL.
+The SDL game controller API is recommended for Steam Controller support on the Steam Link.
 
 
 Contents:
@@ -47,7 +45,9 @@ Contents:
 Building:
 --------
 
-Source the top level setenv.sh
+Steam Link applications are built using this SDK on Linux.
+
+To set up the build environment, source the top level setenv.sh
 
 # source setenv.sh
 
