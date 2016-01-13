@@ -28,7 +28,7 @@ Contents:
 --------
 
 	examples 
-		very simple example applications to demostrate how to build applications using the SDK
+		very simple example applications to demonstrate how to build applications using the SDK
 	external
 		source code to 3rd party components of the Steam Link, each directory has a
 		"build_soc.sh" script to rebuild the component.
