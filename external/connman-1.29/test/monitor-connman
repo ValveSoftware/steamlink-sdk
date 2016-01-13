@@ -1,0 +1,87 @@
+#!/usr/bin/python
+
+import gobject
+
+import dbus
+import dbus.mainloop.glib
+
+from dbus.lowlevel import MethodCallMessage, HANDLER_RESULT_NOT_YET_HANDLED
+
+def extract_list(list):
+	val = "["
+	for i in list:
+		if type(i).__name__ == 'Dictionary':
+			val = extract_values(i)
+		else:
+			val += " " + str(i)
+	val += " ]"
+	return val
+
+def extract_values(values):
+	val = "{"
+	for key in values.keys():
+		val += " " + key + "="
+		if key in ["PrefixLength"]:
+			val += "%s" % (int(values[key]))
+		elif key in ["IPv4", "IPv6", "Ethernet" ]:
+			val += extract_values(values[key])
+		elif key in [ "AllowedBearers" ]:
+			val += extract_list(values[key])
+		else:
+			if key in ["Servers", "Excludes"]:
+				val += extract_list(values[key])
+			else:
+				val += str(values[key])
+	val += " }"
+	return val
+
+def extract(name, value):
+	val = None
+
+	if name in ["Strength", "Priority"]:
+		val = int(value)
+	elif name in ["IPv4", "IPv6", "Ethernet", "Proxy" ]:
+		val = extract_values(value)
+	elif name in ["Services", "Technologies",
+			"Nameservers", "Domains", "Timeservers"]:
+		val = extract_list(value)
+	else:
+		val = str(value)
+
+	return val
+
+def property_changed(name, value, path, interface):
+	iface = interface[interface.rfind(".") + 1:]
+	val = extract(name, value)
+
+	print "{%s} [%s] %s = %s" % (iface, path, name, val)
+
+def message_filter(connection, message):
+	if not isinstance(message, MethodCallMessage):
+		return HANDLER_RESULT_NOT_YET_HANDLED
+
+	interface = message.get_interface()
+	path = message.get_path()
+	name = message.get_member()
+	args = message.get_args_list()
+
+	property_changed(name, args, path, interface)
+
+if __name__ == '__main__':
+	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+	bus = dbus.SystemBus()
+
+	bus.add_signal_receiver(property_changed,
+					bus_name="net.connman",
+					signal_name = "PropertyChanged",
+						path_keyword="path",
+						interface_keyword="interface")
+
+	bus.add_match_string("member=Change,interface=net.connman.Session")
+	bus.add_match_string("member=Update,interface=net.connman.Notification")
+	bus.add_message_filter(message_filter)
+
+	mainloop = gobject.MainLoop()
+
+	mainloop.run()

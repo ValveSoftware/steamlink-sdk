@@ -1,0 +1,121 @@
+diff --git android-openssl.orig/ssl/ssl_locl.h android-openssl/ssl/ssl_locl.h
+index 3732825..4e27d9e 100644
+--- android-openssl.orig/ssl/ssl_locl.h
++++ android-openssl/ssl/ssl_locl.h
+@@ -1127,8 +1127,8 @@ int tls1_ec_nid2curve_id(int nid);
+ #endif /* OPENSSL_NO_EC */
+ 
+ #ifndef OPENSSL_NO_TLSEXT
+-unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned char *limit); 
+-unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned char *limit); 
++unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *buf, unsigned char *limit); 
++unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *buf, unsigned char *limit); 
+ int ssl_parse_clienthello_tlsext(SSL *s, unsigned char **data, unsigned char *d, int n, int *al);
+ int ssl_parse_serverhello_tlsext(SSL *s, unsigned char **data, unsigned char *d, int n, int *al);
+ int ssl_prepare_clienthello_tlsext(SSL *s);
+diff --git android-openssl.orig/ssl/t1_lib.c android-openssl/ssl/t1_lib.c
+index 7a507f9..a53d56b 100644
+--- android-openssl.orig/ssl/t1_lib.c
++++ android-openssl/ssl/t1_lib.c
+@@ -341,15 +341,16 @@ int tls12_get_req_sig_algs(SSL *s, unsigned char *p)
+ 	return (int)slen;
+ 	}
+ 
+-unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned char *limit)
++unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *buf, unsigned char *limit)
+ 	{
+ 	int extdatalen=0;
+-	unsigned char *ret = p;
++	unsigned char *orig = buf;
++	unsigned char *ret = buf;
+ 
+ 	/* don't add extensions for SSLv3 unless doing secure renegotiation */
+ 	if (s->client_version == SSL3_VERSION
+ 					&& !s->s3->send_connection_binding)
+-		return p;
++		return orig;
+ 
+ 	ret+=2;
+ 
+@@ -398,7 +399,7 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
+               return NULL;
+               }
+ 
+-          if((limit - p - 4 - el) < 0) return NULL;
++          if((limit - ret - 4 - el) < 0) return NULL;
+           
+           s2n(TLSEXT_TYPE_renegotiate,ret);
+           s2n(el,ret);
+@@ -647,7 +648,7 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
+ 
+                 ssl_add_clienthello_use_srtp_ext(s, 0, &el, 0);
+                 
+-                if((limit - p - 4 - el) < 0) return NULL;
++                if((limit - ret - 4 - el) < 0) return NULL;
+ 
+                 s2n(TLSEXT_TYPE_use_srtp,ret);
+                 s2n(el,ret);
+@@ -686,24 +687,25 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *p, unsigned cha
+ 	}
+ 
+ 
+-	if ((extdatalen = ret-p-2)== 0) 
+-		return p;
++	if ((extdatalen = ret-orig-2)== 0) 
++		return orig;
+ 
+-	s2n(extdatalen,p);
++	s2n(extdatalen, orig);
+ 	return ret;
+ 	}
+ 
+-unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned char *limit)
++unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *buf, unsigned char *limit)
+ 	{
+ 	int extdatalen=0;
+-	unsigned char *ret = p;
++	unsigned char *orig = buf;
++	unsigned char *ret = buf;
+ #ifndef OPENSSL_NO_NEXTPROTONEG
+ 	int next_proto_neg_seen;
+ #endif
+ 
+ 	/* don't add extensions for SSLv3, unless doing secure renegotiation */
+ 	if (s->version == SSL3_VERSION && !s->s3->send_connection_binding)
+-		return p;
++		return orig;
+ 	
+ 	ret+=2;
+ 	if (ret>=limit) return NULL; /* this really never occurs, but ... */
+@@ -726,7 +728,7 @@ unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned cha
+               return NULL;
+               }
+ 
+-          if((limit - p - 4 - el) < 0) return NULL;
++          if((limit - ret - 4 - el) < 0) return NULL;
+           
+           s2n(TLSEXT_TYPE_renegotiate,ret);
+           s2n(el,ret);
+@@ -806,7 +808,7 @@ unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned cha
+ 
+                 ssl_add_serverhello_use_srtp_ext(s, 0, &el, 0);
+                 
+-                if((limit - p - 4 - el) < 0) return NULL;
++                if((limit - ret - 4 - el) < 0) return NULL;
+ 
+                 s2n(TLSEXT_TYPE_use_srtp,ret);
+                 s2n(el,ret);
+@@ -885,10 +887,10 @@ unsigned char *ssl_add_serverhello_tlsext(SSL *s, unsigned char *p, unsigned cha
+ 		s2n(0,ret);
+ 		}
+ 
+-	if ((extdatalen = ret-p-2)== 0) 
+-		return p;
++	if ((extdatalen = ret-orig-2)== 0) 
++		return orig;
+ 
+-	s2n(extdatalen,p);
++	s2n(extdatalen, orig);
+ 	return ret;
+ 	}
+ 

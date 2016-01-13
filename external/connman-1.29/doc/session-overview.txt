@@ -1,0 +1,94 @@
+Session API
+***********
+
+
+Connection management algorithm basics
+======================================
+
+The Session core uses the normal auto-connect algorithm for selecting
+which services will be connected or disconnected. That means only
+Services with AutoConnect set to true will be used. The Session
+core will assign a connected Service to a Session if the Service
+is matching the AllowedBearer filter.
+
+By using the normal auto-connect algorithm, it is possible to
+use the Session API and the Service API at the same time.
+
+
+Session States and Transitions
+==============================
+
+There is only one state which is called Free Ride.
+
+The Free Ride state means that a session will go online if a matching
+service goes online without calling Service.Connect() itself. The idea
+behind this is that a session doesn't request a connection for itself
+instead waits until another session actively requires to go online.
+This is comparable to piggy-backing.
+
+Connnect()
+ +------+
+ |      v
++------------+
+|  Free Ride |
++------------+
+  |     ^
+  +-----+
+ Disconnect()
+
+
+If an application wants to stay offline it can set an empty
+AllowedBearers list.
+
+
+Session application identification
+==================================
+
+Application using session can be identified through different means.
+
+  - SELinux
+  - UID
+  - GID
+
+ConnMan will try to identify the application in the given order above.
+If SELinux is not supported by the system or not configured, ConnMan
+will ignore it and fallback asking the D-Bus daemon about the UID of
+the application.
+
+The identification is only useful in combination with the policy plugin.
+
+
+Policy Plugin
+=============
+
+The policy plugin allows the administrator to provision/configure
+sessions. Each policy needs an application identification in order to
+match the policy to a session.
+
+See session-policy-format.txt for more details.
+
+
+Per application routing
+=======================
+
+For each session a policy routing table is maintained. Each policy
+routing table contains a default route to the selected service.
+
+Per session iptables rules:
+
+iptables -t mangle -A OUTPUT -m owner [--uid-owner|--gid-owner] $OWNER \
+	  -j MARK --set-mark $MARK
+
+Global rules for all sessions:
+
+iptables -t mangle -A INPUT -j CONNMARK --restore-mark
+iptables -t mangle -A POSTROUTING -j CONNMARK --save-mark
+
+Per application routing is only available when policy files are
+used. Without the policy plugin or a valid configuration, the default
+session configuration is applied.
+
+The default session configuration does not enable the per application
+routing. Sessions are still useful in this setup, because the
+notification of sessions is still available, e.g. the online/offline
+notification.

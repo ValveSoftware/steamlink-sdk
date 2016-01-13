@@ -1,0 +1,72 @@
+'\" -*- coding: UTF-8 -*-
+.\" Copyright (C) 1998-2003 Miquel van Smoorenburg.
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+.\"
+.TH INITSCRIPT 5 "July 10, 2003" "" "Linux System Administrator's Manual"
+.SH NAME
+initscript \- script that executes inittab commands.
+.SH SYNOPSIS
+/bin/sh /etc/initscript id runlevels action process
+.SH DESCRIPTION
+When the shell script \fI/etc/initscript\fP is present, \fBinit\fP
+will use it to execute the commands from \fIinittab\fP.
+This script can be used to set things like \fBulimit\fP and
+\fBumask\fP default values for every process.
+.SH EXAMPLES
+This is a sample initscript, which might be installed on your
+system as \fI/etc/initscript.sample\fP.
+.RS
+.sp
+.nf
+.ne 7
+
+#
+# initscript   Executed by init(8) for every program it
+#              wants to spawn like this:
+#
+#              /bin/sh /etc/initscript <id> <level> <action> <process>
+#
+
+  # Set umask to safe level, and enable core dumps.
+  umask 022
+  ulimit -c 2097151
+  PATH=/bin:/sbin:/usr/bin:/usr/sbin
+  export PATH
+
+  # Increase the hard file descriptor limit for all processes
+  # to 8192.  The soft limit is still 1024, but any unprivileged
+  # process can increase its soft limit up to the hard limit
+  # with "ulimit -Sn xxx" (needs a 2.2.13 or later Linux kernel).
+  ulimit -Hn 8192
+
+  # Execute the program.
+  eval exec "$4"
+
+.sp
+.RE
+.SH NOTES
+This script is not meant as startup script for daemons or somesuch.
+It has nothing to do with a \fIrc.local\fP style script. It's just
+a handler for things executed from \fB/etc/inittab\fP. Experimenting
+with this can make your system un(re)bootable.
+.RE
+.SH FILES
+/etc/inittab,
+/etc/initscript.
+.SH AUTHOR
+Miquel van Smoorenburg ,<miquels@cistron.nl>
+.SH "SEE ALSO"
+init(8), inittab(5).

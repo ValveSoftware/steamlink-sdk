@@ -1,0 +1,41 @@
+IP configuration handling
+*************************
+
+
+IP basics
+=========
+
+The core IP handling is designed around network interfaces or more precisely
+what the Linux kernel handles as struct net_device. Via RTNL every interface
+is tracked and an IP device created for it.
+
+	+--------+           +---- eth0 -----+
+	|        |           |               |
+	|  RTNL  +-----+---->|   IP device   |
+	|        |     |     |               |
+	+--------+     |     +---------------+
+                       |
+                       |     +---- wlan0 ----+
+	               |     |               |
+	               +---->|   IP device   |
+	                     |               |
+	                     +---------------+
+
+The IP device tracks link configuration, IP address setting and routing
+information for that interface. Every IP device also contains a configuration
+element. That element contains an operation table for callbacks based on
+different events.
+
+	struct connman_ipconfig_ops {
+		void (*up)         (struct connman_ipconfig *);
+		void (*down)       (struct connman_ipconfig *);
+		void (*lower_up)   (struct connman_ipconfig *);
+		void (*lower_down) (struct connman_ipconfig *);
+		void (*ip_bound)   (struct connman_ipconfig *);
+		void (*ip_release) (struct connman_ipconfig *);
+	};
+
+All configuration objects created directly by RTNL are tightly bound to the
+IP device. They will trigger DHCP or other configuration helpers.
+
+

@@ -1,0 +1,34 @@
+diff --git a/nss/lib/ssl/ssl3ext.c b/nss/lib/ssl/ssl3ext.c
+index 6f3fe2f..523e49a 100644
+--- a/nss/lib/ssl/ssl3ext.c
++++ b/nss/lib/ssl/ssl3ext.c
+@@ -295,9 +295,12 @@ ssl3HelloExtensionSender clientHelloSendersTLS[SSL_MAX_EXTENSIONS] = {
+     { ssl_use_srtp_xtn,           &ssl3_SendUseSRTPXtn },
+     { ssl_channel_id_xtn,         &ssl3_ClientSendChannelIDXtn },
+     { ssl_cert_status_xtn,        &ssl3_ClientSendStatusRequestXtn },
+-    { ssl_signature_algorithms_xtn, &ssl3_ClientSendSigAlgsXtn },
+     { ssl_signed_certificate_timestamp_xtn,
+-      &ssl3_ClientSendSignedCertTimestampXtn }
++      &ssl3_ClientSendSignedCertTimestampXtn },
++    /* WebSphere Application Server 7.0 is intolerant to the last extension
++     * being zero-length. It is not intolerant of TLS 1.2, so move
++     * signature_algorithms to the end. */
++    { ssl_signature_algorithms_xtn, &ssl3_ClientSendSigAlgsXtn }
+     /* any extra entries will appear as { 0, NULL }    */
+ };
+ 
+@@ -2347,9 +2350,11 @@ ssl3_CalculatePaddingExtensionLength(unsigned int clientHelloLength)
+     }
+ 
+     extensionLength = 512 - recordLength;
+-    /* Extensions take at least four bytes to encode. */
+-    if (extensionLength < 4) {
+-	extensionLength = 4;
++    /* Extensions take at least four bytes to encode. Always include at least
++     * one byte of data if including the extension. WebSphere Application Server
++     * 7.0 is intolerant to the last extension being zero-length. */
++    if (extensionLength < 4 + 1) {
++	extensionLength = 4 + 1;
+     }
+ 
+     return extensionLength;

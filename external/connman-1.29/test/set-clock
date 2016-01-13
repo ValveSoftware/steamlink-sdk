@@ -1,0 +1,32 @@
+#!/usr/bin/python
+
+import sys
+import dbus
+
+def print_usage():
+	print "Usage: %s TimeUpdates|TimezoneUpdates manual|auto" % (sys.argv[0])
+	sys.exit(1)
+
+
+def make_variant(string):
+	return dbus.String(string, variant_level=1)
+
+
+if (len(sys.argv) != 3):
+	print_usage()
+
+if (sys.argv[1] != "TimeUpdates" and sys.argv[1] != "TimezoneUpdates"):
+	print_usage()
+
+if (sys.argv[2] != "manual" and sys.argv[2] != "auto"):
+	print_usage()
+
+bus = dbus.SystemBus()
+
+clock = dbus.Interface(bus.get_object('net.connman', '/'),
+					'net.connman.Clock')
+
+print "Setting %s to %s" % (sys.argv[1], sys.argv[2])
+
+clock.SetProperty(sys.argv[1], make_variant(sys.argv[2]),
+		  signature=dbus.Signature('sv'))

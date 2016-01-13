@@ -1,0 +1,81 @@
+#!/usr/bin/python
+
+import gobject
+
+import dbus
+import dbus.mainloop.glib
+
+from dbus.lowlevel import MethodCallMessage, HANDLER_RESULT_NOT_YET_HANDLED
+
+def extract_list(list):
+	val = "["
+	for i in list:
+		if type(i).__name__ == 'Dictionary':
+			val += extract_values(i)
+		elif type(i).__name__ == 'Struct':
+			val += extract_list(i)
+		else:
+			val += " " + str(i)
+	val += "]"
+	return val
+
+def extract_values(values):
+	val = "{"
+	for key in values.keys():
+		val += " " + key + "="
+		if key in ["ProtocolFamily"]:
+			val += "%s" % (int(values[key]))
+		elif key in ["IPv4", "IPv6"]:
+			val += extract_values(values[key])
+		else:
+			val += str(values[key])
+	val += " }"
+	return val
+
+def extract(name, value):
+	val = None
+
+	if name in ["Index"]:
+		val = int(value)
+	elif name in ["IPv4", "IPv6" ]:
+		val = extract_values(value)
+	elif name in ["UserRoutes", "ServerRoutes", "Nameservers"]:
+		val = extract_list(value)
+	else:
+		val = str(value)
+
+	return val
+
+def property_changed(name, value, path, interface):
+	iface = interface[interface.rfind(".") + 1:]
+	val = extract(name, value)
+
+	print "{%s} [%s] %s = %s" % (iface, path, name, val)
+
+def message_filter(connection, message):
+	if not isinstance(message, MethodCallMessage):
+		return HANDLER_RESULT_NOT_YET_HANDLED
+
+	interface = message.get_interface()
+	path = message.get_path()
+	name = message.get_member()
+	args = message.get_args_list()
+
+	property_changed(name, args, path, interface)
+
+if __name__ == '__main__':
+	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+	bus = dbus.SystemBus()
+
+	bus.add_signal_receiver(property_changed,
+					bus_name="net.connman.vpn",
+					signal_name = "PropertyChanged",
+						path_keyword="path",
+						interface_keyword="interface")
+
+	bus.add_message_filter(message_filter)
+
+	mainloop = gobject.MainLoop()
+
+	mainloop.run()

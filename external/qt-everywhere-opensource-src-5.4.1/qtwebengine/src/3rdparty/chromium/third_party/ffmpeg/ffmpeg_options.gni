@@ -1,0 +1,43 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/arm.gni")
+
+if (is_chrome_branded) {
+  _default_ffmpeg_branding = "Chrome"
+} else {
+  _default_ffmpeg_branding = "Chromium"
+}
+
+if (is_chromeos) {
+  _default_ffmpeg_branding = ffmpeg_branding + "OS"
+}
+
+declare_args() {
+  # Controls whether we build the Chromium or Google Chrome version of FFmpeg.
+  # The Google Chrome version contains additional codecs. Typical values are
+  # Chromium, Chrome, ChromiumOS, and ChromeOS.
+  ffmpeg_branding = _default_ffmpeg_branding
+
+  # When set to false will build Chromium against Chrome's FFmpeg headers, but
+  # not build ffmpegsumo itself.  Users are expected to build and provide
+  # their own version of ffmpegsumo.
+  build_ffmpegsumo = true
+}
+
+assert(ffmpeg_branding == "Chromium" ||
+       ffmpeg_branding == "Chrome" ||
+       ffmpeg_branding == "ChromiumOS" ||
+       ffmpeg_branding == "ChromeOS")
+
+if (cpu_arch == "arm" && arm_version == 7 && arm_use_neon) {
+  ffmpeg_arch = "arm-neon"
+} else {
+  ffmpeg_arch = cpu_arch
+}
+
+os_config = os
+if (is_linux && is_msan) {
+  os_config = "linux-noasm"
+}

@@ -1,0 +1,10 @@
+Qt uses a layout-based approach to widget management. Widgets are arranged in
+the optimal positions in windows based on simple layout rules, leading to a
+consistent look and feel.
+
+Custom layouts can be used to provide more control over the positions and
+sizes of child widgets.
+
+
+Documentation for these examples can be found via the Examples
+link in the main Qt documentation.

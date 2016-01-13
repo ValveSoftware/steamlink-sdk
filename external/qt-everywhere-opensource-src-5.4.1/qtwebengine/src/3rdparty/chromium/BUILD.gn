@@ -1,0 +1,160 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This is the root build file for GN. GN will start processing by loading this
+# file, and recursively load all dependencies until all dependencies are either
+# resolved or known not to exist (which will cause the build to fail). So if
+# you add a new build file, there must be some path of dependencies from this
+# file to your new one or GN won't know about it.
+
+import("//build/config/ui.gni")
+
+# In GN, a "group" is a dummy target that just lists other targets.
+group("root") {
+  # Note that some dependencies are commented out. These are things that are
+  # currently written but not hooked up to the build yet. They may need to be
+  # completed or possibly just tested and then re-enabled.
+  deps = [
+    # This is a temporary test of the not-yet-complete NaCl cross-compilation.
+    #"//base(//build/toolchain/nacl:x86_newlib)",
+
+    "//apps/common/api:apps_api",
+    "//cc",
+    "//chrome/common",
+    "//components:all_components",
+    "//content",
+    "//crypto",
+    "//extensions/common/api:extensions_api",
+    "//device/usb",
+    "//gin",
+    "//gpu",
+    "//google_apis",
+    "//ipc",
+    "//mojo",
+    "//mojo/common",
+    "//mojo/environment:chromium",
+    "//mojo/service_manager",
+    "//mojo/system",
+    "//net",
+    "//pdf",
+    "//ppapi:ppapi_c",
+    "//printing",
+    "//sandbox",
+    "//sdch",
+    "//skia",
+    "//sql",
+    "//third_party/angle:translator",
+    "//third_party/brotli",
+    "//third_party/ffmpeg",
+    "//third_party/flac",
+    "//third_party/harfbuzz-ng",
+    "//third_party/iccjpeg",
+    "//third_party/icu",
+    "//third_party/leveldatabase",
+    "//third_party/libpng",
+    "//third_party/libusb",
+    "//third_party/libwebm",
+    "//third_party/libwebp",
+    "//third_party/libxslt",
+    "//third_party/libyuv",
+    "//third_party/lzma_sdk",
+    "//third_party/mesa",
+    "//third_party/ots",
+    "//third_party/protobuf:protobuf_lite",
+    "//third_party/qcms",
+    "//third_party/re2",
+    "//third_party/smhasher:cityhash",
+    "//third_party/smhasher:murmurhash3",
+    "//third_party/smhasher:pmurhash",
+    "//third_party/speex",
+    "//third_party/WebKit/public:all_blink",
+    "//third_party/widevine/cdm:version_h",
+    "//third_party/zlib",
+    "//third_party:jpeg",
+    "//tools/gn",
+    "//ui/aura",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/events",
+    "//ui/gfx",
+    "//ui/gl",
+    "//ui/native_theme",
+    "//ui/resources",
+    "//ui/snapshot",
+    "//ui/strings",
+    "//ui/surface",
+    "//url",
+    "//v8:v8",
+    "//webkit/browser:storage",
+    "//webkit/child",
+  ]
+
+  if (!is_win) {
+    deps += [ "//breakpad:symupload" ]
+  }
+
+  if (is_linux) {
+    deps += [
+      "//dbus",
+      "//third_party/fontconfig",
+      "//third_party/freetype2",
+    ]
+  }
+
+  if (is_win) {
+    deps += [
+      "//ui/metro_viewer",
+    ]
+  }
+
+  if (is_win || is_mac || is_chromeos) {
+    # RLZ works on these platforms.
+    deps += [
+      "//rlz:rlz_lib",
+    ]
+  }
+
+  if (cpu_arch == "x86" || cpu_arch == "x64") {
+    # YASM is x86/x64 only.
+    deps += [ "//third_party/yasm($host_toolchain)" ]
+  }
+
+  if (is_android) {
+    deps -= [
+      "//cc",
+      "//chrome/common",  # Blocked on content.
+      "//content",
+      "//extensions/common/api:extensions_api",
+      "//pdf",  # Not compiled on Android in GYP yet, either.
+      "//ppapi:ppapi_c",
+      "//sandbox",
+      "//third_party/libusb",
+
+      # Seems to not be compiled on Android. Otherwise it will need a config.h.
+      "//third_party/libxslt",
+
+      "//tools/gn",
+      "//ui/aura",
+
+      # Fails on Android for unknown reasons.
+      "//third_party/flac",
+      "//breakpad:symupload",
+
+      # TODO(brettw) make Blink work on Android.
+      "//third_party/WebKit/public:all_blink",
+
+      # Not tested on Android yet:
+      "//third_party/ffmpeg",
+      "//webkit/browser:storage",
+      "//webkit/child",
+    ]
+  }
+
+  if (use_ozone) {
+    deps += [
+      "//ui/events/ozone:events_ozone",
+      "//ui/events/ozone:events_ozone_evdev",
+    ]
+  }
+}

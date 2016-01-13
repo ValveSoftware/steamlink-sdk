@@ -1,0 +1,118 @@
+diff -pu a/nss/lib/ssl/ssl3con.c b/nss/lib/ssl/ssl3con.c
+--- a/nss/lib/ssl/ssl3con.c	2014-01-17 18:04:43.127747463 -0800
++++ b/nss/lib/ssl/ssl3con.c	2014-01-17 18:06:21.919386088 -0800
+@@ -44,6 +44,9 @@
+ #ifdef NSS_ENABLE_ZLIB
+ #include "zlib.h"
+ #endif
++#ifdef LINUX
++#include <dlfcn.h>
++#endif
+ 
+ #ifndef PK11_SETATTRS
+ #define PK11_SETATTRS(x,id,v,l) (x)->type = (id); \
+@@ -1842,6 +1845,69 @@ ssl3_BuildRecordPseudoHeader(unsigned ch
+     return 13;
+ }
+ 
++typedef SECStatus (*PK11CryptFcn)(
++    PK11SymKey *symKey, CK_MECHANISM_TYPE mechanism, SECItem *param,
++    unsigned char *out, unsigned int *outLen, unsigned int maxLen,
++    const unsigned char *in, unsigned int inLen);
++
++static PK11CryptFcn pk11_encrypt = NULL;
++static PK11CryptFcn pk11_decrypt = NULL;
++
++static PRCallOnceType resolvePK11CryptOnce;
++
++static PRStatus
++ssl3_ResolvePK11CryptFunctions(void)
++{
++#ifdef LINUX
++    /* On Linux we use the system NSS libraries. Look up the PK11_Encrypt and
++     * PK11_Decrypt functions at run time. */
++    void *handle = dlopen(NULL, RTLD_LAZY);
++    if (!handle) {
++	PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++	return PR_FAILURE;
++    }
++    pk11_encrypt = (PK11CryptFcn)dlsym(handle, "PK11_Encrypt");
++    pk11_decrypt = (PK11CryptFcn)dlsym(handle, "PK11_Decrypt");
++    dlclose(handle);
++    return PR_SUCCESS;
++#else
++    /* On other platforms we use our own copy of NSS. PK11_Encrypt and
++     * PK11_Decrypt are known to be available. */
++    pk11_encrypt = PK11_Encrypt;
++    pk11_decrypt = PK11_Decrypt;
++    return PR_SUCCESS;
++#endif
++}
++
++/* 
++ * In NSS 3.15, PK11_Encrypt and PK11_Decrypt were added to provide access
++ * to the AES GCM implementation in the NSS softoken. So the presence of
++ * these two functions implies the NSS version supports AES GCM.
++ */
++static PRBool
++ssl3_HasGCMSupport(void)
++{
++    (void)PR_CallOnce(&resolvePK11CryptOnce, ssl3_ResolvePK11CryptFunctions);
++    return pk11_encrypt != NULL;
++}
++
++/* On this socket, disable the GCM cipher suites */
++SECStatus
++ssl3_DisableGCMSuites(sslSocket * ss)
++{
++    unsigned int i;
++
++    for (i = 0; i < PR_ARRAY_SIZE(cipher_suite_defs); i++) {
++	const ssl3CipherSuiteDef *cipher_def = &cipher_suite_defs[i];
++	if (cipher_def->bulk_cipher_alg == cipher_aes_128_gcm) {
++	    SECStatus rv = ssl3_CipherPrefSet(ss, cipher_def->cipher_suite,
++					      PR_FALSE);
++	    PORT_Assert(rv == SECSuccess); /* else is coding error */
++	}
++    }
++    return SECSuccess;
++}
++
+ static SECStatus
+ ssl3_AESGCM(ssl3KeyMaterial *keys,
+ 	    PRBool doDecrypt,
+@@ -1893,10 +1959,10 @@ ssl3_AESGCM(ssl3KeyMaterial *keys,
+     gcmParams.ulTagBits = tagSize * 8;
+ 
+     if (doDecrypt) {
+-	rv = PK11_Decrypt(keys->write_key, CKM_AES_GCM, &param, out, &uOutLen,
++	rv = pk11_decrypt(keys->write_key, CKM_AES_GCM, &param, out, &uOutLen,
+ 			  maxout, in, inlen);
+     } else {
+-	rv = PK11_Encrypt(keys->write_key, CKM_AES_GCM, &param, out, &uOutLen,
++	rv = pk11_encrypt(keys->write_key, CKM_AES_GCM, &param, out, &uOutLen,
+ 			  maxout, in, inlen);
+     }
+     *outlen += (int) uOutLen;
+@@ -5103,6 +5169,10 @@ ssl3_SendClientHello(sslSocket *ss, PRBo
+ 	ssl3_DisableNonDTLSSuites(ss);
+     }
+ 
++    if (!ssl3_HasGCMSupport()) {
++	ssl3_DisableGCMSuites(ss);
++    }
++
+     /* how many suites are permitted by policy and user preference? */
+     num_suites = count_cipher_suites(ss, ss->ssl3.policy, PR_TRUE);
+     if (!num_suites) {
+@@ -8080,6 +8150,10 @@ ssl3_HandleClientHello(sslSocket *ss, SS
+ 	ssl3_DisableNonDTLSSuites(ss);
+     }
+ 
++    if (!ssl3_HasGCMSupport()) {
++	ssl3_DisableGCMSuites(ss);
++    }
++
+ #ifdef PARANOID
+     /* Look for a matching cipher suite. */
+     j = ssl3_config_match_init(ss);

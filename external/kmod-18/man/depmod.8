@@ -1,0 +1,173 @@
+'\" t
+.\"     Title: depmod
+.\"    Author: Jon Masters <jcm@jonmasters.org>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 06/14/2014
+.\"    Manual: depmod
+.\"    Source: kmod
+.\"  Language: English
+.\"
+.TH "DEPMOD" "8" "06/14/2014" "kmod" "depmod"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+depmod \- Generate modules\&.dep and map files\&.
+.SH "SYNOPSIS"
+.HP \w'\fBdepmod\fR\ 'u
+\fBdepmod\fR [\fB\-b\ \fR\fB\fIbasedir\fR\fR] [\fB\-e\fR] [\fB\-E\ \fR\fB\fIModule\&.symvers\fR\fR] [\fB\-F\ \fR\fB\fISystem\&.map\fR\fR] [\fB\-n\fR] [\fB\-v\fR] [\fB\-A\fR] [\fB\-P\ \fR\fB\fIprefix\fR\fR] [\fB\-w\fR] [\fB\fIversion\fR\fR]
+.HP \w'\fBdepmod\fR\ 'u
+\fBdepmod\fR [\fB\-e\fR] [\fB\-E\ \fR\fB\fIModule\&.symvers\fR\fR] [\fB\-F\ \fR\fB\fISystem\&.map\fR\fR] [\fB\-m\fR] [\fB\-n\fR] [\fB\-v\fR] [\fB\-P\ \fR\fB\fIprefix\fR\fR] [\fB\-w\fR] [\fB\fIversion\fR\fR] [\fB\fIfilename\fR\fR...]
+.SH "DESCRIPTION"
+.PP
+Linux kernel modules can provide services (called "symbols") for other modules to use (using one of the EXPORT_SYMBOL variants in the code)\&. If a second module uses this symbol, that second module clearly depends on the first module\&. These dependencies can get quite complex\&.
+.PP
+\fBdepmod\fR
+creates a list of module dependencies by reading each module under
+/lib/modules/\fIversion\fR
+and determining what symbols it exports and what symbols it needs\&. By default, this list is written to
+modules\&.dep, and a binary hashed version named
+modules\&.dep\&.bin, in the same directory\&. If filenames are given on the command line, only those modules are examined (which is rarely useful unless all modules are listed)\&.
+\fBdepmod\fR
+also creates a list of symbols provided by modules in the file named
+modules\&.symbols
+and its binary hashed version,
+modules\&.symbols\&.bin\&. Finally,
+\fBdepmod\fR
+will output a file named
+modules\&.devname
+if modules supply special device names (devname) that should be populated in /dev on boot (by a utility such as systemd\-tmpfiles)\&.
+.PP
+If a
+\fIversion\fR
+is provided, then that kernel version\*(Aqs module directory is used rather than the current kernel version (as returned by
+\fBuname \-r\fR)\&.
+.SH "OPTIONS"
+.PP
+\fB\-a\fR, \fB\-\-all\fR
+.RS 4
+Probe all modules\&. This option is enabled by default if no file names are given in the command\-line\&.
+.RE
+.PP
+\fB\-A\fR, \fB\-\-quick\fR
+.RS 4
+This option scans to see if any modules are newer than the
+modules\&.dep
+file before any work is done: if not, it silently exits rather than regenerating the files\&.
+.RE
+.PP
+\fB\-b \fR\fB\fIbasedir\fR\fR, \fB\-\-basedir \fR\fB\fIbasedir\fR\fR
+.RS 4
+If your modules are not currently in the (normal) directory
+/lib/modules/\fIversion\fR, but in a staging area, you can specify a
+\fIbasedir\fR
+which is prepended to the directory name\&. This
+\fIbasedir\fR
+is stripped from the resulting
+modules\&.dep
+file, so it is ready to be moved into the normal location\&. Use this option if you are a distribution vendor who needs to pre\-generate the meta\-data files rather than running depmod again later\&.
+.RE
+.PP
+\fB\-C\fR, \fB\-\-config \fR\fB\fIfile or directory\fR\fR
+.RS 4
+This option overrides the default configuration directory at
+/etc/depmod\&.d/\&.
+.RE
+.PP
+\fB\-e\fR, \fB\-\-errsyms\fR
+.RS 4
+When combined with the
+\fB\-F\fR
+option, this reports any symbols which a module needs which are not supplied by other modules or the kernel\&. Normally, any symbols not provided by modules are assumed to be provided by the kernel (which should be true in a perfect world), but this assumption can break especially when additionally updated third party drivers are not correctly installed or were built incorrectly\&.
+.RE
+.PP
+\fB\-E\fR, \fB\-\-symvers\fR
+.RS 4
+When combined with the
+\fB\-e\fR
+option, this reports any symbol versions supplied by modules that do not match with the symbol versions provided by the kernel in its
+Module\&.symvers\&. This option is mutually incompatible with
+\fB\-F\fR\&.
+.RE
+.PP
+\fB\-F\fR, \fB\-\-filesyms \fR\fB\fISystem\&.map\fR\fR
+.RS 4
+Supplied with the
+System\&.map
+produced when the kernel was built, this allows the
+\fB\-e\fR
+option to report unresolved symbols\&. This option is mutually incompatible with
+\fB\-E\fR\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print the help message and exit\&.
+.RE
+.PP
+\fB\-n\fR, \fB\-\-dry\-run\fR
+.RS 4
+This sends the resulting modules\&.dep and the various map files to standard output rather than writing them into the module directory\&.
+.RE
+.PP
+\fB\-P\fR
+.RS 4
+Some architectures prefix symbols with an extraneous character\&. This specifies a prefix character (for example \*(Aq_\*(Aq) to ignore\&.
+.RE
+.PP
+\fB\-v\fR, \fB\-\-verbose\fR
+.RS 4
+In verbose mode,
+\fBdepmod\fR
+will print (to stdout) all the symbols each module depends on and the module\*(Aqs file name which provides that symbol\&.
+.RE
+.PP
+\fB\-V\fR, \fB\-\-version\fR
+.RS 4
+Show version of program and exit\&. See below for caveats when run on older kernels\&.
+.RE
+.PP
+\fB\-w\fR
+.RS 4
+Warn on duplicate dependencies, aliases, symbol versions, etc\&.
+.RE
+.SH "COPYRIGHT"
+.PP
+This manual page originally Copyright 2002, Rusty Russell, IBM Corporation\&. Portions Copyright Jon Masters, and others\&.
+.SH "SEE ALSO"
+.PP
+\fBdepmod.d\fR(5),
+\fBmodprobe\fR(8),
+\fBmodules.dep\fR(5)
+.SH "AUTHORS"
+.PP
+\fBJon Masters\fR <\&jcm@jonmasters\&.org\&>
+.RS 4
+Developer
+.RE
+.PP
+\fBRobby Workman\fR <\&rworkman@slackware\&.com\&>
+.RS 4
+Developer
+.RE
+.PP
+\fBLucas De Marchi\fR <\&lucas\&.de\&.marchi@gmail\&.com\&>
+.RS 4
+Developer
+.RE

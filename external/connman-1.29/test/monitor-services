@@ -1,0 +1,106 @@
+#!/usr/bin/python
+
+import gobject
+
+import dbus
+import dbus.mainloop.glib
+
+def extract_values(values):
+	val = "{"
+	for key in values.keys():
+		val += " " + key + "="
+		if key in ["Servers", "Excludes"]:
+			val += extract_list(values[key])
+		else:
+			val += str(values[key])
+	val += " }"
+	return val
+
+def extract_list(list):
+	val = "["
+	for i in list:
+		val += " " + str(i)
+	val += " ]"
+	return val
+
+def property_changed(name, value, path):
+	service = path[path.rfind("/") + 1:]
+	if name in ["Services"]:
+		val = "["
+		for i in value:
+			val = val + " " + i[i.rfind("/") + 1:]
+		val = val + " ]"
+	elif name in ["IPv4", "IPv4.Configuration",
+			"IPv6", "IPv6.Configuration",
+			"Proxy", "Proxy.Configuration", "Ethernet", "Provider"]:
+		val = extract_values(value)
+	elif name in ["Nameservers", "Nameservers.Configuration",
+			"Domains", "Domains.Configuration",
+			"Timeservers", "Timeservers.Configuration", "Security"]:
+		val = extract_list(value)
+	elif name in ["Strength", "Priority"]:
+		val = int(value)
+	else:
+		val = str(value)
+	print "[%s] %s = %s" % (service, name, val)
+
+def services_changed(services, removed):
+	for i in services:
+		service = i[0][i[0].rfind("/") + 1:]
+		print "[%s] changed" % (service)
+		for n in i[1].keys():
+			property_changed(n, i[1][n], i[0])
+	for i in removed:
+		service = i[i.rfind("/") + 1:]
+		print "[%s] removed" % (service)
+
+def technology_added(path, properties):
+	technology = path[path.rfind("/") + 1:]
+	print "[%s] added" % (technology)
+	for n in properties.keys():
+		property_changed(n, properties[n], technology)
+
+def technology_removed(path):
+	technology = path[path.rfind("/") + 1:]
+	print "[%s] removed" % (technology)
+
+if __name__ == '__main__':
+	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+	bus = dbus.SystemBus()
+
+	bus.add_signal_receiver(property_changed,
+				bus_name="net.connman",
+				dbus_interface="net.connman.Manager",
+				signal_name="PropertyChanged",
+				path_keyword="path")
+
+	bus.add_signal_receiver(services_changed,
+				bus_name="net.connman",
+				dbus_interface="net.connman.Manager",
+				signal_name="ServicesChanged")
+
+	bus.add_signal_receiver(property_changed,
+				bus_name="net.connman",
+				dbus_interface="net.connman.Service",
+				signal_name="PropertyChanged",
+				path_keyword="path")
+
+	bus.add_signal_receiver(technology_added,
+				bus_name="net.connman",
+				dbus_interface="net.connman.Manager",
+				signal_name="TechnologyAdded")
+
+	bus.add_signal_receiver(technology_removed,
+				bus_name="net.connman",
+				dbus_interface="net.connman.Manager",
+				signal_name="TechnologyRemoved")
+
+	bus.add_signal_receiver(property_changed,
+				bus_name="net.connman",
+				dbus_interface="net.connman.Technology",
+				signal_name="PropertyChanged",
+				path_keyword="path")
+
+	mainloop = gobject.MainLoop()
+	mainloop.run()

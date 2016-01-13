@@ -1,0 +1,39 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//content/browser/browser.gni")
+import("//build/config/ui.gni")
+
+source_set("browser") {
+  if (is_ios) {
+    # iOS doesn't get the normal file list and only takes these whitelisted
+    # files.
+    sources = [
+      "browser_main_parts.cc",
+      "content_browser_client.cc",
+      "favicon_status.cc",
+      "navigation_details.cc",
+      "notification_registrar.cc",
+      "page_navigator.cc",
+      "web_ui_controller.cc",
+    ]
+  } else {
+    sources = rebase_path(content_browser_gypi_values.public_browser_sources,
+                          ".", "//content")
+  }
+
+  if (use_aura) {
+    sources -= [ "context_factory.h" ]
+  }
+
+  configs += [ "//content:content_implementation" ]
+
+  deps = [
+    "//content/browser",
+    "//skia",
+  ]
+
+  # We expose skia headers in the public API.
+  forward_dependent_configs_from = [ "//skia" ]
+}

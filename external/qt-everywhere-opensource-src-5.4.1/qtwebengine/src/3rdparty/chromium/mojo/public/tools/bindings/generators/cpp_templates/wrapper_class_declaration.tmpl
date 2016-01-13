@@ -1,0 +1,31 @@
+
+class {{struct.name}} {
+ public:
+  typedef internal::{{struct.name}}_Data Data_;
+
+{#--- Constants #}
+{%- for constant in struct.constants %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}};
+{%- endfor %}
+{#--- Enums #}
+{%- for enum in struct.enums -%}
+{%    macro enum_def() %}{% include "enum_declaration.tmpl" %}{% endmacro %}
+  {{enum_def()|indent(2)}}
+{%- endfor %}
+  static {{struct.name}}Ptr New();
+
+  template <typename U>
+  static {{struct.name}}Ptr From(const U& u) {
+    return mojo::TypeConverter<{{struct.name}}Ptr, U>::ConvertFrom(u);
+  }
+
+  {{struct.name}}();
+  ~{{struct.name}}();
+
+{#--- Getters #}
+{%  for field in struct.fields %}
+{%-   set type = field.kind|cpp_wrapper_type %}
+{%-   set name = field.name %}
+  {{type}} {{name}};
+{%- endfor %}
+};

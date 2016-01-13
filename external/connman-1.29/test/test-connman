@@ -1,0 +1,193 @@
+#!/usr/bin/python
+
+import sys
+import dbus
+
+bus = dbus.SystemBus()
+
+manager = dbus.Interface(bus.get_object("net.connman", "/"),
+					"net.connman.Manager")
+
+if len(sys.argv) < 2:
+	print "Usage: %s <command>" % (sys.argv[0])
+	print ""
+	print "  state"
+	print "  services"
+	print "  autoconnect <service> [autoconnect]"
+	print "  connect <service>"
+	print "  disconnect <service>"
+	print "  remove <service>"
+	print ""
+	print "  scan <type>"
+	print "  enable <type>"
+	print "  disable <type>"
+	print "  offlinemode [on|off]"
+	sys.exit(1)
+
+def print_services(services):
+	for path, properties in services:
+		identifier = path[path.rfind("/") + 1:]
+		state = " "
+		autoconnect = "  "
+
+		if properties["Favorite"] == dbus.Boolean(1):
+			favorite = "*"
+
+			if properties["AutoConnect"] == dbus.Boolean(1):
+				autoconnect = " A"
+			else:
+				autoconnect = "  "
+
+			if properties["State"] == "ready":
+				state = "R"
+			elif properties["State"] == "online":
+				state = "O"
+		else:
+			favorite = " "
+
+		if "Name" in properties.keys():
+			name = properties["Name"]
+		else:
+			name = "{" + properties["Type"] + "}"
+
+		print "%s%s%s %-26s { %s }" % (favorite, autoconnect, state,
+					       name, identifier)
+
+if sys.argv[1] == "state":
+	properties = manager.GetProperties()
+
+	print "System is %s" % (properties["State"])
+
+elif sys.argv[1] in ["services", "list", "show"]:
+	print_services(manager.GetServices())
+
+elif sys.argv[1] in ["autoconnect", "autoconn"]:
+	if (len(sys.argv) < 3):
+		print "Need at least service parameter"
+		sys.exit(1)
+
+	path = "/net/connman/service/" + sys.argv[2]
+
+	service = dbus.Interface(bus.get_object("net.connman", path),
+						"net.connman.Service")
+
+	if (len(sys.argv) > 3):
+		flag = sys.argv[3].strip().lower()
+		autoconnect = dbus.Boolean(flag not in ['false', 'f', 'n', '0'])
+
+		service.SetProperty("AutoConnect", autoconnect);
+
+		print "Auto connect %s for %s" % (autoconnect, sys.argv[2])
+	else:
+		properties = service.GetProperties()
+
+		if "Name" in properties.keys():
+			name = properties["Name"]
+		else:
+			name = "{" + properties["Type"] + "}"
+
+		if "AutoConnect" in properties.keys():
+			autoconnect = properties["AutoConnect"]
+		else:
+			autoconnect = dbus.Boolean(0)
+
+		print "Auto connect %s for %s" % (autoconnect, name)
+
+elif sys.argv[1] in ["connect", "conn"]:
+	if (len(sys.argv) < 3):
+		print "Need at least service parameter"
+		sys.exit(1)
+
+	path = "/net/connman/service/" + sys.argv[2]
+
+	service = dbus.Interface(bus.get_object("net.connman", path),
+						"net.connman.Service")
+
+	try:
+		service.Connect(timeout=60000)
+	except dbus.DBusException, error:
+		print "%s: %s" % (error._dbus_error_name, error.message)
+
+elif sys.argv[1] in ["disconnect", "disc"]:
+	if (len(sys.argv) < 3):
+		print "Need at least service parameter"
+		sys.exit(1)
+
+	path = "/net/connman/service/" + sys.argv[2]
+
+	service = dbus.Interface(bus.get_object("net.connman", path),
+						"net.connman.Service")
+
+	try:
+		service.Disconnect()
+	except dbus.DBusException, error:
+		print "%s: %s" % (error._dbus_error_name, error.message)
+
+elif sys.argv[1] in ["remove"]:
+	if (len(sys.argv) < 3):
+		print "Need at least service parameter"
+		sys.exit(1)
+
+	path = "/net/connman/service/" + sys.argv[2]
+
+	service = dbus.Interface(bus.get_object("net.connman", path),
+						"net.connman.Service")
+
+	properties = service.GetProperties()
+
+	if properties["Favorite"] == dbus.Boolean(0):
+		print "Only favorite services can be removed"
+		sys.exit(1)
+
+	try:
+		service.Remove()
+	except dbus.DBusException, error:
+		print "%s: %s" % (error._dbus_error_name, error.message)
+
+elif sys.argv[1] == "scan":
+	if len(sys.argv) == 3:
+		path = "/net/connman/technology/" + sys.argv[2]
+		technology = dbus.Interface(bus.get_object("net.connman", path),
+						"net.connman.Technology")
+		technology.Scan()
+	else:
+		print "'%s' takes two arguments" % sys.argv[1]
+
+elif sys.argv[1] == "enable":
+	if len(sys.argv) == 3:
+		path = "/net/connman/technology/" + sys.argv[2]
+		technology = dbus.Interface(bus.get_object("net.connman", path),
+					    "net.connman.Technology")
+		technology.SetProperty("Powered", True)
+	else:
+		print "'%s' takes two arguments" % sys.argv[1]
+
+elif sys.argv[1] == "disable":
+	if len(sys.argv) == 3:
+		path = "/net/connman/technology/" + sys.argv[2]
+		technology = dbus.Interface(bus.get_object("net.connman", path),
+					    "net.connman.Technology")
+		technology.SetProperty("Powered", False)
+	else:
+		print "'%s' takes two arguments" % sys.argv[1]
+
+
+elif sys.argv[1] in ["offlinemode", "flightmode"]:
+	if len(sys.argv) == 3:
+		if sys.argv[2] == "on" or sys.argv[2] == "1" or sys.argv[2] == "yes":
+			active = dbus.Boolean(1)
+		elif sys.argv[2] == "off" or sys.argv[2] == "0" or sys.argv[2] == "no":
+			active = dbus.Boolean(0)
+		else:
+			print "Use either 'on', '1', 'yes', 'off', '0' or 'no'"
+			exit()
+
+		manager.SetProperty("OfflineMode", active)
+	elif len(sys.argv) == 2:
+		properties = manager.GetProperties()
+		print "Offline mode is %s" % (properties["OfflineMode"])
+	else:
+		print "'%s' takes max. two arguments" % sys.argv[1]
+
+else:
+	print "Unknown command"

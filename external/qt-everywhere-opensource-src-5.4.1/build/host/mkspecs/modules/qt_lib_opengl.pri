@@ -1,0 +1,17 @@
+QT.opengl.VERSION = 5.4.1
+QT.opengl.MAJOR_VERSION = 5
+QT.opengl.MINOR_VERSION = 4
+QT.opengl.PATCH_VERSION = 1
+QT.opengl.name = QtOpenGL
+QT.opengl.libs = $$QT_MODULE_LIB_BASE
+QT.opengl.rpath = /usr/local/Qt-5.4.1/lib
+QT.opengl.includes = $$QT_MODULE_INCLUDE_BASE $$QT_MODULE_INCLUDE_BASE/QtOpenGL
+QT.opengl.bins = $$QT_MODULE_BIN_BASE
+QT.opengl.libexecs = $$QT_MODULE_LIBEXEC_BASE
+QT.opengl.plugins = $$QT_MODULE_PLUGIN_BASE
+QT.opengl.imports = $$QT_MODULE_IMPORT_BASE
+QT.opengl.qml = $$QT_MODULE_QML_BASE
+QT.opengl.depends = core gui widgets
+QT.opengl.module_config =
+QT.opengl.DEFINES = QT_OPENGL_LIB
+QT_MODULES += opengl

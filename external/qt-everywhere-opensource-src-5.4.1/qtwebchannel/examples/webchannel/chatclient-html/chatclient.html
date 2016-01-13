@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ChatClient</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <link rel="stylesheet" href="http://code.jquery.com/mobile/1.4.2/jquery.mobile-1.4.2.css" />
+    <link rel="stylesheet" type="text/css" href="http://www.jeasyui.com/easyui/themes/default/easyui.css" />
+    <link rel="stylesheet" type="text/css" href="http://www.jeasyui.com/easyui/themes/icon.css" />
+    <link rel="stylesheet" type="text/css" href="http://www.jeasyui.com/easyui/demo/demo.css" />
+    <script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+    <script type="text/javascript" src="http://www.jeasyui.com/easyui/jquery.easyui.min.js"></script>
+    <script type="text/javascript" src="qwebchannel.js"></script>
+
+    <script>
+        'use strict';
+        var wsUri = "ws://localhost:12345";
+        window.loggedin = false;
+
+        window.onload = function() {
+            var socket = new WebSocket(wsUri);
+
+            socket.onclose = function()
+            {
+                console.error("web channel closed");
+            };
+            socket.onerror = function(error)
+            {
+                console.error("web channel error: " + error);
+            };
+            socket.onopen = function()
+            {
+                window.channel = new QWebChannel(socket, function(channel) {
+                    //connect to the changed signal of a property
+                    channel.objects.chatserver.userListChanged.connect(function() {
+                        $('#userlist').empty();
+                        //access the property
+                        channel.objects.chatserver.userList.forEach(function(user) {
+                            $('#userlist').append(user + '<br>');
+                        });
+                    });
+                    //connect to a signal
+                    channel.objects.chatserver.newMessage.connect(function(time, user, message) {
+                        $('#chat').append("[" + time + "] " + user + ": " +  message + '<br>');
+                    });
+                    //connect to a signal
+                    channel.objects.chatserver.keepAlive.connect(function(args) {
+                        if(window.loggedin) {
+                            //call a method
+                            channel.objects.chatserver.keepAliveResponse($('#loginname').val())
+                            console.log("sent alive");
+                        }
+                    });
+
+                });
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div id="loginDialog" class="easyui-dialog" title="Chat Login" data-options="iconCls:'icon-save'" style="width:400px;height:200px;padding:10px">
+    <form id="loginForm" method="post">
+        <table cellpadding="5">
+        <tr><td>Name:</td><td><input class="easyui-validatebox" type="text" id="loginname" name="name" data-options="required:true"></input></td></tr>
+        </table>
+    </form>
+    <div style="text-align:center;padding:5px">
+        <a href="javascript:void(0)" class="easyui-linkbutton" onclick="submitForm()">Login</a>
+    </div>
+    <div style="text-align:center;padding:5px" id="loginError">
+        Username already in use.
+    </div>
+    <script>
+    $('#loginForm').submit(submitForm);
+    function submitForm(event) {
+        console.log("DEBUG login: " + channel);
+        channel.objects.chatserver.login($('#loginname').val(), function(arg) {
+            console.log("DEBUG login response: " + arg);
+            if(arg === true) {
+                $('#loginError').hide();
+                $('#loginDialog').dialog('close');
+                window.loggedin = true;
+            } else {
+                $('#loginError').show();
+            }
+        });
+        console.log($('#loginname').val());
+        if(event !== undefined)
+            event.preventDefault();
+        return false;
+
+    }
+    </script>
+</div>
+
+
+<div class="easyui-layout" style="width:500px;height:300px;">
+    <div data-options="region:'east',split:true" title="Users" id="userlist" style="width:100px;">
+
+    </div>
+    <div data-options="region:'south',split:true" style="height:50px;">
+        <form id="messageForm">
+            <input class="easyui-validatebox" type="text" id="message" name="name" style="width: 97%"></input>
+        </form>
+    </div>
+    <div data-options="region:'center'" id="chat">
+
+    </div>
+    <script>
+    $('#messageForm').submit(submitMessage);
+    function submitMessage(event) {
+        channel.objects.chatserver.sendMessage($('#loginname').val(), $('#message').val());
+        $('#message').val('');
+        if(event !== undefined)
+            event.preventDefault();
+        return false;
+    }
+    </script>
+</div>
+
+
+<script type="text/javascript">
+$(document).ready(function(){
+    $('#loginError').hide();
+});
+</script>
+
+</body>
+</html>

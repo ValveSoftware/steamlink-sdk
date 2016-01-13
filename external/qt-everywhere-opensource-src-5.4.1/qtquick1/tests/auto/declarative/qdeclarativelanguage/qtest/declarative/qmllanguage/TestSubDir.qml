@@ -1,0 +1,2 @@
+import "subdir"
+SubTest { }

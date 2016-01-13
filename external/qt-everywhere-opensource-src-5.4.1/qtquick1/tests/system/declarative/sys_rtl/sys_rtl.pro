@@ -1,0 +1,3 @@
+CONFIG+=systemtest
+SOURCES=sys_rtl.qtt
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

@@ -1,0 +1,138 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+
+\title FolderListModel - a C++ model plugin
+\example src/imports/folderlistmodel
+\depends helper/qmlapplicationviewer
+
+\brief The FolderListModel plugin example shows how to make a C++ model available to QML.
+
+It presents
+a simple file list for a single folder (directory) and allows the presented
+folder to be changed.
+
+\image declarative-folderlistmodel.png The FolderListModel used to choose a QML file
+
+We do not explain the model implementation in detail, but rather focus on the mechanics of
+making the model available to QML.
+
+\section1 Usage from QML
+
+The FolderListModel can be used from QML like this:
+
+\snippet doc/src/snippets/declarative/folderlistmodel.qml 0
+
+This displays a list of all subfolders and QML files in the current folder.
+
+The FolderListModel \c folder property can be set to change the folder that
+is currently displayed.
+
+\section1 Defining the Model
+
+We are subclassing QAbstractListModel which will allow us to give data to QML and
+send notifications when the data changes:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h class begin
+
+As you see, we also inherit the QDeclarativeParserStatus interface, so that we
+can delay initial processing until we have all properties set (via componentComplete() below).
+
+The first thing to do when devising a new type for QML is to define the properties
+you want the type to have:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h class props
+
+The purposes of each of these should be pretty obvious - in QML we will set the folder
+to display (a file: URL), and the kinds of files we want to show in the view of the model.
+
+Next are the constructor, destructor, and standard QAbstractListModel subclassing requirements:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h abslistmodel
+
+The data() function is where we provide model values. The rowCount() function
+is also a standard part of the QAbstractListModel interface, but we also want to provide
+a simpler count property:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h count
+
+Then we have the functions for the remaining properties which we defined above:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h prop funcs
+
+Imperative actions upon the model are made available to QML via a Q_INVOKABLE tag on
+a normal member function. The isFolder(index) function says whether the value at \e index
+is a folder:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h isfolder
+
+Then we have the QDeclarativeParserStatus interface:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h parserstatus
+
+Then the NOTIFY function for the folders property. The implementation will emit this
+when the folder property is changed.
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h notifier
+
+The class ends with some implementation details:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h class end
+
+Lastly, the boilerplare to declare the type for QML use:
+
+\snippet src/imports/folderlistmodel/qdeclarativefolderlistmodel.h qml decl
+
+\section1 Connecting the Model to QML
+
+To make this class available to QML, we only need to make a simple subclass of QDeclarativeExtensionPlugin:
+
+\snippet src/imports/folderlistmodel/plugin.cpp class decl
+
+and then use the standard Qt plugin export macro:
+
+\snippet src/imports/folderlistmodel/plugin.cpp plugin export decl
+
+Finally, in order for QML to connect the "import" statement to our plugin, we list it in the qmldir file:
+
+\l{src/imports/folderlistmodel/qmldir}
+
+This qmldir file and the compiled plugin will be installed in \c $QTDIR/imports/Qt/labs/folderlistmodel/ where
+the QML engine will find it (since \c $QTDIR/imports is the value of QLibraryInf::libraryPath()).
+
+\section1 Implementing the Model
+
+We'll not discuss the model implementation in detail, as it is not specific to QML - any Qt C++ model
+can be interfaced to QML.
+This implementation is basically just takes the krufty old QDirModel,
+which is a tree with lots of detailed roles and re-presents it as a simpler list model where
+each item is just a fileName and a filePath (as a file: URL rather than a plain file, since QML
+works with URLs for all content).
+
+\l{src/imports/folderlistmodel/qdeclarativefolderlistmodel.cpp}
+*/

@@ -1,0 +1,402 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\title Enginio QML Examples - Social Todos
+\example socialtodos
+\brief Social Todos is a todo list application with a social twist,
+demonstrating the user management and access control features of Enginio.
+\ingroup enginio-qml-examples
+\inmodule enginio-qml
+
+
+\section1 Introduction
+
+Social Todos is a simple todo list application with a social twist, demonstrating the user management and access control features of the Enginio service.
+The application allows the end user to register a new user account, log in, and create and delete task lists, manage tasks on those lists and share lists with selected other users.
+
+\image socialtodo-example.png
+
+The application data is modeled as \e {todo items} and \e {todo lists}.
+\list
+    \li A \e {todo item} represents a single tasks which needs to be done.
+        Todo item contais a textual description of the task and a boolean status flag telling whether the task is completed or not.
+    \li A \e {todo list} represents a list of tasks.
+        Todo list contains zero or more todo items and each todo item belongs to just one todo list.
+        Todo lists are created by the application end users. By default only the user who created a list can access it and its todo items.
+        However, the creator can share the list with other users.
+\endlist
+
+The Social Todos example uses the following Enginio features:
+\div {class="qt-enginio-example-2-col-desc-table"}
+    \table
+        \row
+            \li \b {User management with integrated Enginio accounts}
+            \li Enables end users to register and login.
+                end users are identified by username and password.
+        \row
+            \li \b {Object storage}
+            \li Provides shared persistent storage for task lists and tasks.
+        \row
+            \li \b {Data validation}
+            \li Enforces required data structure for task lists and tasks.
+        \row
+            \li \b {Access control mechanisms}
+            \li Restricts access to application data so that it is available only to authenticated (logged-in) end users. End users can see and manipulate only those task lists and tasks which they are entitled to.
+    \endtable
+\enddiv
+
+
+To get the Social Todos application working correctly you will need to:
+\list 1
+    \li Create a new application backend via \l {https://dashboard.engin.io} {Enginio Dashboard}.
+    \li Configure the backend as instructed in the \l {Configure Backend} section.
+    \li And then run the application as explained in the \l {Configure and Run QML Application} section.
+    \li Finally you can check the QML application details in \l {QML Application Walk-through}.
+\endlist
+
+
+\section1 Configure Backend
+
+This section presents steps for configuring a fresh Enginio Backend for the Social Todos example.
+A big part of the backend configuration is related to restricting who can create and access the application data.
+
+\div {class="qt-enginio-example-2-col-desc-table"}
+    \table
+        \row
+            \li \b {Data creation controls}
+            \li Todo list and todo item creation is allowed for registered application users only.
+                The protection is based on having a single usergroup (group name 'allUsers') in the backend configuration.
+                Todo list and todo item creation rights are granted to members of this group.
+                Application users are added to this usergroup when they use the QML application.
+
+                For built-in users and usergroups the creation control is handled slightly differently.
+                New users can be freely created and thus anyone can register to use the application.
+                Usergroups creation is completely blocked, since the application uses just one fixed usergroup.
+
+        \row
+            \li \b {Data access controls}
+            \li Data access (and manipulation) to todo lists and todo items is allowed only for logged-in users.
+                By default only the user who creates the todo list can access the list and its todo items.
+
+                However, the creator can share the list with other users.
+                List sharing happens by granting the right to access the list to selected other users.
+
+                Access permissions are explicitly managed only for todo lists.
+                Todo items are configured to inherit permissions from the todo list which they belong to.
+
+                For user objects, the access is allowed only to logged-in users which are members of 'allUsers' usergroup.
+
+                For usergroups objects, the access is allowed so that everyone can see the single fixed 'allUsers' usergroup.
+    \endtable
+\enddiv
+
+
+
+\section2 1. Create 'allUsers' Usergroup
+
+Create a new usergroup \c {allUsers}.
+The usergroup will be used to restrict that only registered application end users can store new todo lists and items to the backend.
+The usergroup itself is secured with suitable data access permissions.
+
+First create the usergroup:
+\list
+    \li In the Dashboard: Select \b {Usergroups}, click \b {Add}, enter name \c {allUsers} for the usergroup, and select \b {Save}.
+\endlist
+
+
+Then secure the usergroup by configuring suitable permission settings:
+\list
+    \li In the Dashboard: Open \b {allUsers} usergroup for editing, apply the configurations below, and finally select \b {Save} in usergroup editor.
+\endlist
+
+
+\div {class="qt-enginio-example-3-col-conf-table"}
+    \table
+        \header
+            \li Setting area
+            \li Required configurations
+            \li
+        \row
+            \li \b {Object permissions}
+            \li Configure the following permissions:
+                \list
+                    \li Grant \c {read} permission to \c {all}.
+                    \li Clear other permission grants.
+                \endlist
+            \li \e {Object permissions} control who can perform operations to \c {allUsers} usergroup.
+
+                In this case read-only access is given to everybody, so the QML application can read the \c {allUsers} data even when the application doesn't have any logged in user.
+        \row
+            \li \b {Member management permissions}
+            \li Configure the following permissions:
+                \list
+                    \li Grant \c {create} permission to \c {all}.
+                    \li Clear other permission grants.
+                \endlist
+            \li \e {Member management permissions} control who can add new members to the \c {allUsers} usergroup or remove existing ones.
+
+                Now everyone can add members, and consequently the QML application can add the end user to the \c {allUsers} usergroup.
+                However, since other permissions are not granted, usergroup members can not be listed or removed.
+    \endtable
+\enddiv
+
+
+
+\section2 2. Create 'todoLists' Object Type
+
+Create a new object type \c {objects.todoLists}.
+The object type defines the data schema and other settings for todo list objects.
+
+Create the object type:
+\list
+    \li In Dashboard: Select \b {Object Types}, click \b {Add}, enter name \c {objects.todoLists} for the object type, and select \b {Save}.
+\endlist
+
+
+Then configure the object type with needed details:
+\list
+    \li In Dashboard: Open \b {objects.todoLists} object type for editing, apply the configurations below, and finally select \b {Save} in object type editor.
+\endlist
+
+
+\div {class="qt-enginio-example-3-col-conf-table"}
+    \table
+        \header
+            \li Setting area
+            \li Required configurations
+            \li
+        \row
+            \li \b {Properties}
+            \li Add following property:
+                \list
+                    \li \c {name}, with data type \e {string}
+                \endlist
+            \li \e {Properties} are key/value pairs containing actual object data.
+
+                The '\c {name}' property will hold the name of the todo list.
+        \row
+            \li \b {Permissions}
+            \li Configure following permissions:
+                \list
+                    \li Collection permissions
+                        \list
+                            \li Grant \e {read} and \e {create} permission to \c {allUsers} usergroup.
+                            \li Clear other permission grants.
+                        \endlist
+                    \li Object permissions template
+                        \list
+                            \li Grant \e {admin} permission to \e {creator} subject.
+                            \li Clear other permission grants.
+                        \endlist
+                \endlist
+            \li \e {Collection permissions} control who is able to create new \c {objects.todoLists} objects or list existing ones.
+                Now those rights are granted to \c {allUsers} usergroup members.
+
+                \e {Object permissions template} define how object level permissions will be initially set for created \c {objects.todoLists} objects.
+                Now \e {admin} permission will be granted to the user who creates the \c {objects.todoLists} object.
+
+                \e {Admin} right allows the user to perform all 'normal' operations on the \c {objects.todoLists} object (i.e. read, update and delete the object).
+                \e {Admin} right allows the user also to manage object's permissions (i.e. grant and withdraw rights for other users).
+    \endtable
+\enddiv
+
+
+\section2 3. Create 'todos' Object Type
+
+Create a new object type \c {objects.todos}.
+The object type defines data schema and other settings for todo item objects.
+
+
+Create the object type:
+\list
+    \li In Dashboard: Select \b {Object Types}, click \b {Add}, enter name \c {objects.todos} for the object type, and select \b {Save}.
+\endlist
+
+
+Then configure the object type with needed details:
+\list
+    \li In Dashboard: Open \b {objects.todos} object type for editing, apply the configurations below, and finally select \b {Save} in object type editor.
+\endlist
+
+
+\div {class="qt-enginio-example-3-col-conf-table"}
+\table
+    \header
+        \li Setting area
+        \li Required configurations
+        \li
+    \row
+        \li \b {Properties}
+        \li Add following properties:
+            \list
+                \li \c {title}, with data type \e {string}
+                \li \c {done}, with data type \e {boolean}
+                \li \c {todoList}, with data type \e {ref} and target \c {objects.todoLists}
+            \endlist
+        \li \e {Properties} are key/value pairs containing actual object data.
+
+                The '\c {title}' property will hold the textual content for the todo item.
+
+                The '\c {done}' property is boolean status whether the item is done or not.
+
+                The '\c {todoList}' is a reference to parent todo list, i.e. a link to todo list object to which this todo item belongs to.
+    \row
+        \li \b {Reference constraints}
+        \li Configure following reference constraint action:
+            \list
+                \li For \c {todoList} reference, setup \e {cascade delete} action.
+            \endlist
+
+        \li \e {Reference constraints} are mechanism to enforce "exists" relationships between objects.
+            \e {Action} specifies what is done when a referenced object is deleted.
+            \e {Cascade delete} selection means that the referencing \c {objects.todos} object is also deleted in this case.
+    \row
+        \li \b {Permissions}
+        \li Configure following permissions:
+            \list
+                \li Collection permissions
+                    \list
+                        \li Grant \e {read} and \e {create} permission to \c {allUsers} usergroup.
+                        \li Clear other permission grants.
+                    \endlist
+                \li Object permissions template
+                    \list
+                        \li Clear all permissions grants.
+                    \endlist
+                \li Object permissions inheritance
+                    \list
+                        \li Enable object permissions inheritance for \c {todoList} reference.
+                    \endlist
+            \endlist
+            \li \e {Collection permissions} control who is able to create new \c {objects.todos} objects or list existing ones.
+                Now those rights are granted to \c {allUsers} usergroup members.
+
+                \e {Object permissions template} define how object level permissions will be initially set for created \c {objects.todos} objects.
+                Now object permissions template is left empty, because dynamic permission inheritance is used.
+
+                Object permissions inheritance enables inheriting object level permissions dynamically from referenced objects.
+                Now permissions inheritance is enabled for \c {todoList} reference. Thus \c {objects.todos} object inherits its permissions from referenced \c {objects.todoLists} object.
+\endtable
+\enddiv
+
+
+\section2 4. Configure 'users' Object Type
+
+Configure built-in \c {users} object type with needed security permissions.
+The \c {users} object type defines data schema and other settings for user objects, modeling application end users.
+
+\list
+    \li In Dashboard: select \b {Object Types}, open \b {users} object type for editing, apply the configurations below, and finally select \b {Save} in object type editor.
+\endlist
+
+
+\div {class="qt-enginio-example-3-col-conf-table"}
+    \table
+        \header
+            \li Setting area
+            \li Required configurations
+            \li
+        \row
+            \li \b {Permissions}
+            \li Configure permissions and dynamic rules:
+                \list
+                    \li Collection permissions
+                        \list
+                            \li Grant \e {create} permission to \c {all}.
+                            \li Grant \e {read} permission to \c {allUsers} usergroup.
+                            \li Clear other permission grants.
+                        \endlist
+                    \li Object permissions template
+                        \list
+                            \li Grant \e {read} permission to \c {allUsers} usergroup.
+                            \li Grant \e {admin} permission to \e {creator} subject.
+                            \li Clear other permission grants.
+                        \endlist
+                \endlist
+            \li \e {Collection permissions} control who is able to create new \c {users} objects or list existing ones.
+                In this case create right is granted to all, so anyone can freely register to application as a new user.
+                However, listing of existing users is granted only to members of \c {allUsers} usergroup.
+
+                \e {Object permissions template} define how object level permissions will be initially set for created \c {users} objects.
+                Read-only right is given to \c {allUsers} usergroup members, so registered users are able to see each other details for sharing purposes.
+
+                Now \e {admin} permission will be granted to the user who creates the \c {users} object, i.e. to user itself.
+                \e {Admin} right allows the user to perform all operations on the \c {users} object (i.e. read, update and delete the object and also to manage its access rights).
+    \endtable
+\enddiv
+
+
+
+\section2 5. Configure 'usergroups' Object Type
+
+
+Configure built-in \c {usergroups} object type with needed security permissions.
+The \c {usergroups} object type defines data schema and other settings for usergroups objects.
+
+\list
+    \li In Dashboard: select \b {Object Types}, open \b {usergroups} object type for editing, apply the configurations below, and finally select \b {Save} in object type editor.
+\endlist
+
+
+\div {class="qt-enginio-example-3-col-conf-table"}
+    \table
+        \header
+            \li Setting area
+            \li Required configurations
+            \li
+        \row
+            \li \b {Permissions}
+            \li Configure permissions and dynamic rules:
+                \list
+                    \li Collection permissions
+                        \list
+                            \li Grant \e {read} permission to \c {all}.
+                            \li Clear other permission grants.
+                        \endlist
+                    \li Object permissions template
+                        \list
+                            \li No changes.
+                        \endlist
+                \endlist
+            \li \e {Collection permissions} control which users are able to create new \c {usergroups} objects or list existing ones.
+                In this case listing rights are granted for everyone (i.e. those are publicly readable).
+                Thus the QML application can locate the \c {allUsers} usergoup in the application startup phase, even before the end user logs in to the system.
+                However, since create right is not granted to anyone, new usergroups can not be created.
+
+                \e {Object permissions template} define how object level permissions will be set initially for the created \c {usergroups} objects.
+                Since new usergoups will not be created dynamically, there is no need to modify the permission template.
+                Note that changes made in the permissions template will effect existing \c {usergroups} objects and thus the \c {allUsers} group as well.
+    \endtable
+\enddiv
+
+
+\section1 Configure and Run QML Application
+
+\section1 QML Application Walk-through
+
+*/
+

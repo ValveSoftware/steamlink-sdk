@@ -1,0 +1,72 @@
+diff --git a/ssl/s3_clnt.c b/ssl/s3_clnt.c
+index e47eef1..d1b3224 100644
+--- a/ssl/s3_clnt.c
++++ b/ssl/s3_clnt.c
+@@ -557,7 +557,8 @@ int ssl3_connect(SSL *s)
+ 				}
+ 			else
+ 				{
+-				if ((SSL_get_mode(s) & SSL_MODE_HANDSHAKE_CUTTHROUGH) && SSL_get_cipher_bits(s, NULL) >= 128
++				if ((SSL_get_mode(s) & SSL_MODE_HANDSHAKE_CUTTHROUGH)
++				    && ssl3_can_cutthrough(s)
+ 				    && s->s3->previous_server_finished_len == 0 /* no cutthrough on renegotiation (would complicate the state machine) */
+ 				   )
+ 					{
+diff --git a/ssl/ssl_lib.c b/ssl/ssl_lib.c
+index 45a76ae..d75b9f7 100644
+--- a/ssl/ssl_lib.c
++++ b/ssl/ssl_lib.c
+@@ -3305,12 +3305,39 @@ int SSL_cutthrough_complete(const SSL *s)
+ 		s->version >= SSL3_VERSION &&
+ 		s->s3->in_read_app_data == 0 &&   /* cutthrough only applies to write() */
+ 		(SSL_get_mode((SSL*)s) & SSL_MODE_HANDSHAKE_CUTTHROUGH) &&  /* cutthrough enabled */
+-		SSL_get_cipher_bits(s, NULL) >= 128 &&                      /* strong cipher choosen */
++		ssl3_can_cutthrough(s) &&                                   /* cutthrough allowed */
+ 		s->s3->previous_server_finished_len == 0 &&                 /* not a renegotiation handshake */
+ 		(s->state == SSL3_ST_CR_SESSION_TICKET_A ||                 /* ready to write app-data*/
+ 			s->state == SSL3_ST_CR_FINISHED_A));
+ 	}
+ 
++int ssl3_can_cutthrough(const SSL *s)
++	{
++	const SSL_CIPHER *c;
++
++	/* require a strong enough cipher */
++	if (SSL_get_cipher_bits(s, NULL) < 128)
++		return 0;
++
++	/* require NPN extension */
++#ifndef OPENSSL_NO_NEXTPROTONEG
++	if (!s->s3->next_proto_neg_seen)
++		return 0;
++#else
++	return 0;
++#endif
++
++	/* require a forward-secret cipher */
++	c = SSL_get_current_cipher(s);
++	if (!c || (c->algorithm_mkey != SSL_kEDH &&
++			c->algorithm_mkey != SSL_kEECDH))
++		{
++		return 0;
++		}
++
++	return 1;
++	}
++
+ /* Allocates new EVP_MD_CTX and sets pointer to it into given pointer
+  * vairable, freeing  EVP_MD_CTX previously stored in that variable, if
+  * any. If EVP_MD pointer is passed, initializes ctx with this md
+diff --git a/ssl/ssl_locl.h b/ssl/ssl_locl.h
+index 2f8cda8..3732825 100644
+--- a/ssl/ssl_locl.h
++++ b/ssl/ssl_locl.h
+@@ -1160,6 +1160,8 @@ const EVP_MD *tls12_get_hash(unsigned char hash_alg);
+ int tls1_channel_id_hash(EVP_MD_CTX *ctx, SSL *s);
+ #endif
+ 
++int ssl3_can_cutthrough(const SSL *s);
++
+ EVP_MD_CTX* ssl_replace_hash(EVP_MD_CTX **hash,const EVP_MD *md) ;
+ void ssl_clear_hash_ctx(EVP_MD_CTX **hash);
+ int ssl_add_serverhello_renegotiate_ext(SSL *s, unsigned char *p, int *len,

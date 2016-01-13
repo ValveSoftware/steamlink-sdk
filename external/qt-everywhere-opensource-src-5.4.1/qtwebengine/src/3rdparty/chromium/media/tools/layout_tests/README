@@ -1,0 +1,93 @@
+Layout test analyzer script.
+
+* Prerequisite:
+
+This script requires PySVN (http://pysvn.tigris.org/) to be installed on the
+machine.
+
+* How to execute
+
+python layouttest_analyzer.py (Please run with '-h' for available command-line
+                               options)
+
+Example: python layouttest_analyzer.py -r imasaki@chromium.org 
+-t /var/www/analyzer/graph.html
+
+* File/Directory structure
+
+layout_tests/
+  README: this file.
+  *.py: python scripts.
+  tmp/: temp files.
+  test_data/: data for unit tests.
+  graph/: the default location for graph files.
+  anno/: the default location for bug annotation files.
+  result/: the default location for the analyzer results.
+  testname/: the default location for the test group definition files in CSV.
+
+* Execution overview.
+
+1) using PySVN, the script collects layout test of interest
+(specified in command-line parameter and testnames/*.csv file) from
+Webkit SVN repository as well as test description. Then, it gets the
+latest test expectation file and does the simple parsing. The
+parsed test expectation is joined with the layout tests using test name
+as its join key. The tests are classified into 'whole', 'skip',
+'nonskip' test groups. 'Whole' contains all tests, 'skip' contains
+tests that are skipped as specified in the test expectation file, 'nonskip'
+tests are in the test expectation file and not skipped (these are tests
+that need attention).
+
+2) the script reads the previous latest analyzer results, then,
+compares it with current results for each test group ('whole', 'skip',
+and 'nonskip'). It also looks into the SVN test expectation history
+diff for the time period for the test names of interest.
+
+3) all obtained information is sent out to a email list specified
+in the parameters in pretty HTML format.
+
+4) the trend graph is updated using the current results.
+
+* Components
+
+** LayoutTests:
+
+A class to store test names in layout tests. The test names (including
+regular expression patterns) are read from a CSV file and used for
+getting layout test names from Webkit SVN as well as test description.
+
+** TestExpectations:
+
+A class to model the content of test expectation file for analysis.
+The location of the test expectations file can be found in
+|TEST_EXPECTATIONS_LOCATIONS|. It is necessary to parse this
+file and store meaningful information for the analysis (joining with
+existing layout tests using a test name).  Instance variable
+|all_test_expectation_info| is used.  A test name such as
+'media/video-source-type.html' is used for the key to store
+information. However, a test name can appear multiple times in the
+test expectation file. So, the map should keep all the occurrence
+information. For example, the current test expectation file has the
+following two entries: 
+
+BUGWK58587 LINUX DEBUG GPU : media/video-zoom.html = IMAGE 
+BUGCR86714 MAC GPU : media/video-zoom.html = CRASH IMAGE 
+
+In this case, all_test_expectation_info['media/video-zoom.html'] will
+have a list with two elements, each of which is the map of the test
+expectation information.
+
+** TestExpectationsHistory:
+
+A class to represent history of the test expectation file. The history
+is obtained by calling PySVN.log()/diff() APIs using the specified time
+period.
+
+** TrendGraph: 
+
+A class to manage trend graph which is using Google Visualization
+  APIs. Google Visualization API
+  (http://code.google.com/apis/chart/interactive/docs/gallery/annotatedtimeline.html)
+  is used to present the historical analyzer result. Currently, data
+  is directly written to JavaScript file using file in-place
+  replacement for simplicity.

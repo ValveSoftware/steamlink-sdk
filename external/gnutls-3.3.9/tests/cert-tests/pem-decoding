@@ -1,0 +1,101 @@
+#!/bin/sh
+
+# Copyright (C) 2006-2008, 2010, 2012 Free Software Foundation, Inc.
+#
+# Author: Simon Josefsson
+#
+# This file is part of GnuTLS.
+#
+# GnuTLS is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at
+# your option) any later version.
+#
+# GnuTLS is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GnuTLS; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+#set -e
+
+srcdir=${srcdir:-.}
+CERTTOOL=${CERTTOOL:-../../src/certtool$EXEEXT}
+DIFF=${DIFF:-diff}
+if ! test -z "${VALGRIND}";then
+VALGRIND="${LIBTOOL:-libtool} --mode=execute ${VALGRIND}"
+fi
+
+#check whether "funny" spaces can be interpreted
+$VALGRIND $CERTTOOL --certificate-info --infile $srcdir/funny-spacing.pem >/dev/null 2>&1
+rc=$?
+
+# We're done.
+if test "$rc" != "0"; then
+  echo "Funny-spacing cert decoding failed 1"
+  exit $rc
+fi
+
+#check whether a BMPString attribute can be properly decoded
+$VALGRIND $CERTTOOL --certificate-info --infile $srcdir/bmpstring.pem >tmp-pem.pem
+rc=$?
+
+if test "$rc" != "0"; then
+  echo "BMPString cert decoding failed 1"
+  exit $rc
+fi
+
+#Note that --strip-trailing-cr is used for the test
+#to run on windows platform.
+$DIFF $srcdir/bmpstring.pem tmp-pem.pem || $DIFF --strip-trailing-cr $srcdir/bmpstring.pem tmp-pem.pem
+rc=$?
+
+if test "$rc" != "0"; then
+  echo "BMPString cert decoding failed 2"
+  exit $rc
+fi
+
+#check whether complex-cert is decoded as expected
+$VALGRIND $CERTTOOL --certificate-info --infile $srcdir/complex-cert.pem >tmp-pem.pem
+rc=$?
+
+if test "$rc" != "0"; then
+  echo "Complex cert decoding failed 1"
+  exit $rc
+fi
+
+cat $srcdir/complex-cert.pem |grep -v "Not After:" >tmp1
+cat tmp-pem.pem |grep -v "Not After:" >tmp2
+$DIFF tmp1 tmp2 || $DIFF --strip-trailing-cr tmp1 tmp2
+rc=$?
+
+if test "$rc" != "0"; then
+  echo "Complex cert decoding failed 2"
+  exit $rc
+fi
+
+#check whether the cert with many othernames is decoded as expected
+$VALGRIND $CERTTOOL --certificate-info --infile $srcdir/xmpp-othername.pem >tmp-pem.pem
+rc=$?
+
+if test "$rc" != "0"; then
+  echo "XMPP cert decoding failed 1"
+  exit $rc
+fi
+
+cat $srcdir/xmpp-othername.pem |grep -v "Not After:" >tmp1
+cat tmp-pem.pem |grep -v "Not After:" >tmp2
+$DIFF tmp1 tmp2 || $DIFF --strip-trailing-cr tmp1 tmp2
+rc=$?
+
+if test "$rc" != "0"; then
+  echo "XMPP cert decoding failed 2"
+  exit $rc
+fi
+
+rm -f tmp-pem.pem tmp1 tmp2
+
+exit 0

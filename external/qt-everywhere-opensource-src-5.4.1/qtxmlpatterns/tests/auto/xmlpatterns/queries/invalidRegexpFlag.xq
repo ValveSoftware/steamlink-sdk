@@ -1,0 +1,1 @@
+tokenize("input", "pattern", "INVALID")

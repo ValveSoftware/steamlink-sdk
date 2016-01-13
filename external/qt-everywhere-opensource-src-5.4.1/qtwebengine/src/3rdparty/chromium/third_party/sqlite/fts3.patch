@@ -1,0 +1,68 @@
+diff --git ext/fts3/fts3.c ext/fts3/fts3.c
+index 20da051..71e22ae 100644
+--- ext/fts3/fts3.c
++++ ext/fts3/fts3.c
+@@ -291,6 +291,7 @@
+ ** deletions and duplications.  This would basically be a forced merge
+ ** into a single segment.
+ */
++#define CHROMIUM_FTS3_CHANGES 1
+ 
+ #if !defined(SQLITE_CORE) || defined(SQLITE_ENABLE_FTS3)
+ 
+@@ -1226,7 +1227,13 @@ static int fts3ScanInteriorNode(
+     isFirstTerm = 0;
+     zCsr += sqlite3Fts3GetVarint32(zCsr, &nSuffix);
+     
+-    if( nPrefix<0 || nSuffix<0 || &zCsr[nSuffix]>zEnd ){
++    /* NOTE(shess): Previous code checked for negative nPrefix and
++    ** nSuffix and suffix overrunning zEnd.  Additionally corrupt if
++    ** the prefix is longer than the previous term, or if the suffix
++    ** causes overflow.
++    */
++    if( nPrefix<0 || nSuffix<0 || nPrefix>nBuffer
++     || &zCsr[nSuffix]<zCsr || &zCsr[nSuffix]>zEnd ){
+       rc = SQLITE_CORRUPT;
+       goto finish_scan;
+     }
+@@ -3646,7 +3660,11 @@ int sqlite3Fts3Init(sqlite3 *db){
+   ** module with sqlite.
+   */
+   if( SQLITE_OK==rc 
++#if CHROMIUM_FTS3_CHANGES && !SQLITE_TEST
++      /* fts3_tokenizer() disabled for security reasons. */
++#else
+    && SQLITE_OK==(rc = sqlite3Fts3InitHashTable(db, pHash, "fts3_tokenizer"))
++#endif
+    && SQLITE_OK==(rc = sqlite3_overload_function(db, "snippet", -1))
+    && SQLITE_OK==(rc = sqlite3_overload_function(db, "offsets", 1))
+    && SQLITE_OK==(rc = sqlite3_overload_function(db, "matchinfo", 1))
+@@ -3656,11 +3674,15 @@ int sqlite3Fts3Init(sqlite3 *db){
+     rc = sqlite3_create_module_v2(
+         db, "fts3", &fts3Module, (void *)pHash, hashDestroy
+     );
++#if CHROMIUM_FTS3_CHANGES && !SQLITE_TEST
++    /* Disable fts4 pending review. */
++#else
+     if( rc==SQLITE_OK ){
+       rc = sqlite3_create_module_v2(
+           db, "fts4", &fts3Module, (void *)pHash, 0
+       );
+     }
++#endif
+     return rc;
+   }
+ 
+diff --git ext/fts3/fts3_icu.c ext/fts3/fts3_icu.c
+index 85390d3..a75b14a 100644
+--- ext/fts3/fts3_icu.c
++++ ext/fts3/fts3_icu.c
+@@ -198,7 +198,7 @@ static int icuNext(
+ 
+     while( iStart<iEnd ){
+       int iWhite = iStart;
+-      U8_NEXT(pCsr->aChar, iWhite, pCsr->nChar, c);
++      U16_NEXT(pCsr->aChar, iWhite, pCsr->nChar, c);
+       if( u_isspace(c) ){
+         iStart = iWhite;
+       }else{

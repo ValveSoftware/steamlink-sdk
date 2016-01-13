@@ -1,0 +1,116 @@
+Name: Network Security Services (NSS)
+URL: http://www.mozilla.org/projects/security/pki/nss/
+Version: 3.15.5 Beta 2
+Security Critical: Yes
+License: MPL 2
+License File: NOT_SHIPPED
+
+This directory includes a copy of NSS's libssl from the hg repo at:
+  https://hg.mozilla.org/projects/nss
+
+The same module appears in crypto/third_party/nss (and third_party/nss on some
+platforms), so we don't repeat the license file here.
+
+The snapshot was updated to the hg tag: NSS_3_15_5_BETA2
+
+Patches:
+
+  * Cache the peer's intermediate CA certificates in session ID, so that
+    they're available when we resume a session.
+    patches/cachecerts.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=731478
+
+  * Add support for client auth with native crypto APIs on Mac and Windows.
+    patches/clientauth.patch
+    ssl/sslplatf.c
+
+  * Add a function to export whether the last handshake on a socket resumed a
+    previous session.
+    patches/didhandshakeresume.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=731798
+
+  * Add function to retrieve TLS client cert types requested by server.
+    https://bugzilla.mozilla.org/show_bug.cgi?id=51413
+    patches/getrequestedclientcerttypes.patch
+
+  * Add a function to restart a handshake after a client certificate request.
+    patches/restartclientauth.patch
+
+  * Add support for TLS Channel IDs
+    patches/channelid.patch
+
+  * Add support for extracting the tls-unique channel binding value
+    patches/tlsunique.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=563276
+
+  * SSL_ExportKeyingMaterial should get the RecvBufLock and SSL3HandshakeLock.
+    This change was made in https://chromiumcodereview.appspot.com/10454066.
+    patches/secretexporterlocks.patch
+
+  * Change ssl3_SuiteBOnly to always return PR_TRUE. The softoken in NSS
+    versions older than 3.15 report an EC key size range of 112 bits to 571
+    bits, even when it is compiled to support only the NIST P-256, P-384, and
+    P-521 curves. Remove this patch when all system NSS softoken packages are
+    NSS 3.15 or later.
+    patches/suitebonly.patch
+
+  * Define the SECItemArray type and declare the SECItemArray handling
+    functions, which were added in NSS 3.15. Remove this patch when all system
+    NSS packages are NSS 3.15 or later.
+    patches/secitemarray.patch
+
+  * Update Chromium-specific code for TLS 1.2.
+    patches/tls12chromium.patch
+
+  * Add Chromium-specific code to detect AES GCM support in the system NSS
+    libraries at run time. Remove this patch when all system NSS packages are
+    NSS 3.15 or later.
+    patches/aesgcmchromium.patch
+
+  * Support ChaCha20+Poly1305 ciphersuites
+    http://tools.ietf.org/html/draft-agl-tls-chacha20poly1305-01
+    patches/chacha20poly1305.patch
+
+  * Fix session cache lock creation race.
+    patches/cachelocks.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=764646
+
+  * Support the Certificate Transparency (RFC 6962) TLS extension
+    signed_certificate_timestamp (client only).
+    patches/signedcertificatetimestamps.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=944175
+
+  * Add a function to allow the cipher suites preference order to be set.
+    patches/cipherorder.patch
+
+  * Add TLS_FALLBACK_SCSV cipher suite to version fallback connections.
+    patches/fallbackscsv.patch
+
+  * Add explicit functions for managing the SSL/TLS session cache.
+    This is a temporary workaround until Chromium migrates to NSS's
+    asynchronous certificate verification.
+    patches/sessioncache.patch
+
+  * Use NSSRWLock instead of PRRWLock in sslSessionID. This avoids the bugs
+    in the lock rank checking code in PRRWLock.
+    patches/nssrwlock.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=957812
+
+  * Use the IANA-assigned value for the TLS padding extension.
+    patches/paddingextvalue.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=994883
+
+  * Move the signature_algorithms extension to the end of the extension list.
+    This works around a bug in WebSphere Application Server 7.0 which is
+    intolerant to the final extension having zero length.
+    patches/reorderextensions.patch
+
+  * Ignore out-of-order DTLS ChangeCipherSpec.
+    patches/ignorechangecipherspec.patch
+    https://bugzilla.mozilla.org/show_bug.cgi?id=1009227
+
+Apply the patches to NSS by running the patches/applypatches.sh script.  Read
+the comments at the top of patches/applypatches.sh for instructions.
+
+The ssl/bodge directory contains files taken from the NSS repo that we required
+for building libssl outside of its usual build environment.

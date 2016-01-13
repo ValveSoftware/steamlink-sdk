@@ -1,0 +1,169 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webkitwidgets/previewer
+    \title Previewer Example
+    \brief Demonstrates how to preview HTML data
+    \ingroup webkit-widgetexamples
+
+    \brief The Previewer example shows how to use QtWebKit's QWebView to preview
+    HTML data written in a QPlainTextEdit.
+
+    \image previewer-example.png
+
+    \section1 The User Interface
+
+    Before we begin, we create a user interface using Qt Designer. Two QGroupBox
+    objects - the editor group box and the previewer group box are separated
+    by a QSplitter. In the editor group box, we have a QPlainTextEdit object,
+    \c plainTextEdit, and two QPushButton objects. In the previewer group box,
+    we have a QWebView object, \c webView.
+
+    \image previewer-ui.png
+
+    \section1 Previewer Class Definition
+
+    The \c Previewer class is a subclass of both QWidget and Ui::Form.
+    We subclass Ui::Form in order to embed the Qt Designer user interface form
+    created earlier. This method of embedding forms is known as the
+    \l{The Multiple Inheritance Approach}{multiple inheritance approach}.
+
+    In our \c previewer.h file, we have a constructor and a slot,
+    \c on_previewButton_clicked().
+
+    \snippet webkitwidgets/previewer/previewer.h 0
+
+    \section1 Previewer Class Implementation
+
+    The \c{Previewer}'s constructor is only responsible for setting up the
+    user interface.
+
+    \snippet webkitwidgets/previewer/previewer.cpp 0
+
+    The \c on_previewButton_clicked() is a slot corresponding to the
+    \c{previewButton}'s \l{QPushButton::}{clicked()} signal. When the
+    \c previewButton is clicked, we extract the contents of \c plainTextEdit,
+    and then invoke the \l{QWebView::}{setHtml()} function to display our
+    contents as HTML.
+
+    \snippet webkitwidgets/previewer/previewer.cpp 1
+
+    \section1 MainWindow Class Definition
+
+    The \c MainWindow class for the Previewer example is a subclass of
+    QMainWindow with a constructor and five private slots: \c open(),
+    \c openUrl(), \c save(), \c about() and \c updateTextEdit().
+
+    \snippet webkitwidgets/previewer/mainwindow.h 0
+
+    The private objects in \c MainWindow are \c centralWidget, which is
+    a \c Previewer object, \c fileMenu, \c helpMenu and the QAction objects
+    \c openAct, \c openUrlAct, \c saveAct, \c exitAct, \c aboutAct and
+    \c aboutQtAct.
+
+    \snippet webkitwidgets/previewer/mainwindow.h 1
+
+    There are three private functions: \c createActions(), \c createMenus()
+    and \c setStartupText(). The \c createActions() and \c createMenus()
+    functions are necessary to set up the main window's actions and
+    assign them to the \gui File and \gui Help menus. The \c setStartupText()
+    function, on the other hand, displays a description about the example
+    in its HTML Previewer window.
+
+    \section1 MainWindow Class Implementation
+
+    The \c{MainWindow}'s constructor invokes \c createActions() and
+    \c createMenus() to set up the \gui File menu and \gui Help menu. Then,
+    the \c Previewer object, \c centralWidget, is set to the main window's
+    central widget. Also, we connect \c webView's
+    \l{QWebView::}{loadFinished()} signal to our \c updateTextEdit() slot.
+    Finally, we call the \c setStartupText() function to display the
+    description of the example.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 0
+
+    Within the \c createActions() function, we instantiate all our private
+    QAction objects which we declared in \c{mainwindow.h}. We set the
+    short cut and status tip for these actions and connect their
+    \l{QAction::}{triggered()} signal to appropriate slots.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 1
+    \dots
+
+    The \c createMenus() function instantiates the QMenu items, \c fileMenu
+    and \c helpMenu and adds them to the main window's
+    \l{QMainWindow::menuBar()}{menu bar}.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 2
+
+    The example also provides an \c about() slot to describe its purpose.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 3
+
+    The \c MainWindow class provides two types of \gui Open functions:
+    \c open() and \c openUrl(). The \c open() function opens an HTML file
+    with \c fileName, and reads it with QTextStream. The function then
+    displays the output on \c plainTextEdit. The file's name is obtained
+    using QFileDialog's \l{QFileDialog::}{getOpenFileName()} function.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 4
+
+    The \c openUrl() function, on the other hand, displays a QInputDialog
+    to obtain a URL, and displays it on \c webView.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 5
+
+    In order to save a HTML file, the \c save() function first extracts the
+    contents of \c plainTextEdit and displays a QFileDialog to obtain
+    \c fileName. Then, we use a QTextStream object, \c in, to write to
+    \c file.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 6
+
+    Earlier, in \c{MainWindow}'s constructor, we connected \c{webView}'s
+    \l{QWebView::}{loadFinished()} signal to our private \c updateTextEdit()
+    slot. This slot updates the contents of \c plainTextEdit with the HTML
+    source of the web page's main frame, obtained using \l{QWebFrame}'s
+    \l{QWebFrame::}{toHtml()} function.
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 7
+
+    To provide a description about the Previewer example, when it starts up,
+    we use the \c setStartupText() function, as shown below:
+
+    \snippet webkitwidgets/previewer/mainwindow.cpp 8
+
+
+    \section1 The \c{main()} Function
+
+    The \c main() function instantiates a \c MainWindow object, \c mainWindow,
+    and displays it with the \l{QWidget::}{show()} function.
+
+    \snippet webkitwidgets/previewer/main.cpp 0
+
+*/

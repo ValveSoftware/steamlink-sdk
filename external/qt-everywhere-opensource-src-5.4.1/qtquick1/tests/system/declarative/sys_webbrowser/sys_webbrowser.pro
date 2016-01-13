@@ -1,0 +1,3 @@
+SOURCES=sys_webbrowser.qtt
+CONFIG+=systemtest
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

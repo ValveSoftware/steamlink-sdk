@@ -1,0 +1,3 @@
+CONFIG+=systemtest
+SOURCES=sys_pincharea.qtt
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

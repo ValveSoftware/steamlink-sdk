@@ -1,0 +1,80 @@
+diff --git android-openssl.orig/include/openssl/ssl.h android-openssl/include/openssl/ssl.h
+index a3944f1..e559608 100644
+--- android-openssl.orig/include/openssl/ssl.h
++++ android-openssl/include/openssl/ssl.h
+@@ -1982,6 +1982,9 @@ STACK_OF(X509_NAME) *SSL_CTX_get_client_CA_list(const SSL_CTX *s);
+ int SSL_add_client_CA(SSL *ssl,X509 *x);
+ int SSL_CTX_add_client_CA(SSL_CTX *ctx,X509 *x);
+ 
++void SSL_get_client_certificate_types(const SSL *s, const unsigned char **ctype,
++	size_t *ctype_num);
++
+ void SSL_set_connect_state(SSL *s);
+ void SSL_set_accept_state(SSL *s);
+ 
+diff --git android-openssl.orig/include/openssl/ssl3.h android-openssl/include/openssl/ssl3.h
+index 899c8a8..019e8d8 100644
+--- android-openssl.orig/include/openssl/ssl3.h
++++ android-openssl/include/openssl/ssl3.h
+@@ -508,7 +508,7 @@ typedef struct ssl3_state_st
+ 		/* used for certificate requests */
+ 		int cert_req;
+ 		int ctype_num;
+-		char ctype[SSL3_CT_NUMBER];
++		unsigned char ctype[SSL3_CT_NUMBER];
+ 		STACK_OF(X509_NAME) *ca_names;
+ 
+ 		int use_rsa_tmp;
+diff --git android-openssl.orig/ssl/ssl.h android-openssl/ssl/ssl.h
+index a3944f1..e559608 100644
+--- android-openssl.orig/ssl/ssl.h
++++ android-openssl/ssl/ssl.h
+@@ -1982,6 +1982,9 @@ STACK_OF(X509_NAME) *SSL_CTX_get_client_CA_list(const SSL_CTX *s);
+ int SSL_add_client_CA(SSL *ssl,X509 *x);
+ int SSL_CTX_add_client_CA(SSL_CTX *ctx,X509 *x);
+ 
++void SSL_get_client_certificate_types(const SSL *s, const unsigned char **ctype,
++	size_t *ctype_num);
++
+ void SSL_set_connect_state(SSL *s);
+ void SSL_set_accept_state(SSL *s);
+ 
+diff --git android-openssl.orig/ssl/ssl3.h android-openssl/ssl/ssl3.h
+index 899c8a8..019e8d8 100644
+--- android-openssl.orig/ssl/ssl3.h
++++ android-openssl/ssl/ssl3.h
+@@ -508,7 +508,7 @@ typedef struct ssl3_state_st
+ 		/* used for certificate requests */
+ 		int cert_req;
+ 		int ctype_num;
+-		char ctype[SSL3_CT_NUMBER];
++		unsigned char ctype[SSL3_CT_NUMBER];
+ 		STACK_OF(X509_NAME) *ca_names;
+ 
+ 		int use_rsa_tmp;
+diff --git android-openssl.orig/ssl/ssl_cert.c android-openssl/ssl/ssl_cert.c
+index 5123a89..8a61650 100644
+--- android-openssl.orig/ssl/ssl_cert.c
++++ android-openssl/ssl/ssl_cert.c
+@@ -655,6 +655,21 @@ int SSL_CTX_add_client_CA(SSL_CTX *ctx,X509 *x)
+ 	return(add_client_CA(&(ctx->client_CA),x));
+ 	}
+ 
++void SSL_get_client_certificate_types(const SSL *s, const unsigned char **ctype,
++	size_t *ctype_num)
++	{
++	if (s->s3 == NULL)
++		{
++		*ctype = NULL;
++		*ctype_num = 0;
++		return;
++		}
++
++	/* This always returns nothing for the server. */
++	*ctype = s->s3->tmp.ctype;
++	*ctype_num = s->s3->tmp.ctype_num;
++	}
++
+ static int xname_cmp(const X509_NAME * const *a, const X509_NAME * const *b)
+ 	{
+ 	return(X509_NAME_cmp(*a,*b));

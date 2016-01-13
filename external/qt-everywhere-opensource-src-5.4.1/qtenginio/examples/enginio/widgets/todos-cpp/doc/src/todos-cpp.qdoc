@@ -1,0 +1,146 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+    \title Enginio C++ Examples - Todos
+    \example todos-cpp
+    \brief The Todo example shows how to use the \l {EnginioModel} with Qt Widgets.
+    \ingroup enginio-examples
+    \inmodule enginio-qt
+
+    In this example, a list of objects is displayed in a \l QTreeView.
+    Each item in the list is a \c {Todo} object, which can be marked
+    \c {Done} or \c {Not done}.  A \c {Todo} can be added, removed,
+    or altered. We will be using the classes and concepts duscussed in
+    \l {Model/View Programming} {Model/View Programming}.
+
+    \image todo-example.png
+
+    In this simple schema, each \c {ToDo} object will have two properties:
+    a \c {string} named \c {title} and a \c {bool} named \c {completed}.
+    These properties are added to the default properties e.g.: creation date,
+    which always exist.
+
+    A \c {Todo} object will look like this in \l {http://json.org} {JSON}:
+
+    \code
+{
+  "title": "Buy Milk",
+  "completed": false
+}
+    \endcode
+
+    A ToDo object can be created and appended to an EnginioModel using
+    \l {EnginioModel::append()} {append()}, as shown in
+    \l {mainwindow_appenditem} {MainWindow::appendItem()}. Alternatively,
+    if many ToDo objects are to be added to the model all at once, they
+    can be inserted directly into the server database via the model's
+    \l {EnginioClient} {Enginio client}. The client is obtained from
+    the model with \l {EnginioModel::client()} {client()}. Then the
+    ToDo objects are inserted into the server database with the client's
+    \l {EnginioClient::create()} {create()} function. The model can then
+     be reloaded from the server with \l {EnginioModel::reload()} {reload()}.
+
+    But first we must create some infrastructure. Our \c{TodosModel}
+    class is declared in \l{todos-cpp/todosmodel.h}. It inherits
+    \l[CPP]{EnginioModel}, which is a \l{QAbstractListModel}{list
+    model}. We add two roles to the \l {Enginio::Role} {Enginio::Role
+    enum}, chosen for the new properties, one for the ToDo \c title
+    and one for marking a ToDo as \c{completed}. We assign enum values
+    to the new roles, equating \c{TitleRole} to
+    \l{Enginio::CustomPropertyRole}, which is itself equated to
+    \l{Qt::UserRole} + 10.  \snippet todos-cpp/todosmodel.h definition
+
+    The new roles can be used for displaying and editing the values of
+    the new properties. Views of the model also use roles from in
+    \l{Qt::ItemDataRole} enum. The example's view is a \l {QTreeView},
+    as shown in the \l{todos-cpp/mainwindow.h} {MainWindow class},
+    which holds a pointer to the view, a pointer to the
+    \l{EnginioClient} {client}, and a pointer to the
+    \l{todos-cpp/todosmodel.h} {model}.
+
+    A new \l [CPP] {EnginioModel} is empty. It automatically populates itself
+    from the server, when its \l{EnginioModel::query}{query} and
+    \l{EnginioModel::client}{client} properties have both been set. In the
+    example, these properties are set in the constructor for the
+    \l {todos-cpp/mainwindow.cpp} {main window}. The \l {EnginioClient} is
+    created first. Then an instance of the \c ToDosModel is created, and its
+    client is set using EnginioModel::setClient(). Then the query is created
+    as a QJsonObject, and the model's query is set using EnginioModel::setQuery().
+
+    Once the ToDo data has been downloaded, the model resets itself, and sets up
+    the internal data cache and roles names. \l [CPP] {EnginioModel} guesses the
+    role names based on heuristics. It may be wrong if not all objects received
+    from the backend have exactly the same structure. For example, a property can
+    be missing in certain objects. To protect against such cases, we overload
+    \l{EnginioModel::roleNames()}{roleNames()}.  Overriding
+    \l{EnginioModel::roleNames()}{roleNames()} can also be used to
+    match default Qt roles to the named ones.
+
+    \snippet todos-cpp/todosmodel.cpp roleNames
+
+    In this example, we map the \l Qt::DisplayRole and \l Qt::EditRole
+    to the \c title property in the JSON.  This way the right string
+    is shown by default and editing works as expected.
+
+    Remember to always call the base class implementation to avoid
+    situations in which the internal cache is not in sync.
+
+    By default \l [CPP] {EnginioModel} operates on \l{QJsonValue}, and
+    that is what the \l{EnginioModel::data()}{data()} function returns
+    inside the \l QVariant, but standard views, such as \l QListView,
+    use predefined roles which do not map directly to our roles.  That
+    is why we need to write a mapping between them:
+
+    \snippet todos-cpp/todosmodel.cpp data
+
+    As we have our model defined, we need to create an instance of \l {EnginioClient}:
+
+    \snippet todos-cpp/mainwindow.cpp client
+
+    It is used by the model to connect to the Enginio backend. Next we
+    need to construct and configure our model too. The configuration
+    is based on two steps, assigning an \l {EnginioClient} instance
+    and by creating a query.
+
+    \snippet todos-cpp/mainwindow.cpp model
+
+    The model has to be assigned to a view. In this example it is a
+    \l QTreeView.
+
+    \snippet todos-cpp/mainwindow.cpp assignModel
+
+    To make the application fully functional, a way to add and remove
+    a Todo is needed.  To do so, we need to connect the correct
+    buttons to slots for adding a new item:
+
+    \target mainwindow_appenditem
+    \snippet todos-cpp/mainwindow.cpp appendItem
+
+    and for removing it:
+
+    \snippet todos-cpp/mainwindow.cpp removeItem
+*/

@@ -1,0 +1,147 @@
+#!/usr/bin/python
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+"""Pull latest revisions of the W3C test repos and update our DEPS entries."""
+import optparse
+import subprocess
+import sys
+
+from webkitpy.common import version_check
+
+from webkitpy.common.host import Host
+from webkitpy.common.webkit_finder import WebKitFinder
+
+def main():
+    parser = optparse.OptionParser()
+    parser.description = __doc__
+    parser.add_option('-v', '--verbose', action='store_true',
+                      help='log what we are doing')
+    parser.add_option('--allow-local-blink-commits', action='store_true',
+                      help='allow script to run even if we have local blink commits')
+
+    options, args = parser.parse_args()
+    if args:
+        parser.error('%prog does not take any arguments')
+        sys.exit(1)
+
+    cmd = CommandRunner(Host(), options)
+
+    update_repo(cmd, 'web-platform-tests')
+    update_repo(cmd, 'csswg-test')
+
+
+def update_repo(cmd, repo):
+    if cmd.options.verbose:
+        print >>sys.stderr, 'updating %s' % repo
+        print >>sys.stderr, ''
+
+    cmd.cd('')
+    if cmd.call(['git', 'diff', '--quiet', 'HEAD']):
+        print >>sys.stderr, "blink checkout is dirty, exiting"
+        sys.exit(1)
+
+    local_blink_commits = cmd.run(['git', 'log', '--oneline', 'origin/master..HEAD'])
+    if local_blink_commits and not cmd.options.allow_local_blink_commits:
+        print >>sys.stderr, "blink checkout has local commits, exiting"
+        sys.exit(1)
+
+    # Find the Blink rev we are currently sync'ed to, so we can include
+    # it in the commit message.
+    blink_commitish = cmd.run(['git', 'show-ref', 'HEAD']).split()[0]
+
+    # Check to make sure we don't have any local changes to the repo.
+    cmd.cd('LayoutTests', 'w3c', repo)
+    if cmd.call(['git', 'diff', '--quiet', 'HEAD']):
+        print >> sys.stderr, "%s is not clean, exiting" % repo
+        sys.exit(1)
+
+    # Check to make sure that there is something to merge.
+    cmd.run(['git', 'fetch', 'origin'])
+    new_commits = cmd.run(['git', 'log', '--oneline', 'origin/blink..origin/master'])
+    if not new_commits and cmd.options.verbose:
+        print >>sys.stderr, 'No new commits found in %s' % repo
+        # FIXME: We also need to see if there were any changes to
+        # W3CImportExpectations since the last time this ran.
+        return
+
+    # Find the rev we're merging in, so we can include it in the commit message.
+    master_commitish = cmd.run(['git', 'show-ref', 'origin/master']).split()[0]
+
+    # Create a new local branch to track origin/blink.
+    if cmd.run(['git', 'branch', '--list', 'blink']):
+        cmd.run(['git', 'checkout', 'origin/master'])
+        cmd.run(['git', 'branch', '-D', 'blink'])
+    cmd.run(['git', 'checkout', '--track', '-b', 'blink', 'origin/blink'])
+
+    # FIXME: Ideally, at this point we'd record an empty merge commit
+    # so that we have a record in git of doing the merge. However, Gerrit
+    # is refusing to let me push a merge commit back to the repo.
+    # See crbug.com/329096.
+    # cmd.run(['git', 'merge', '--no-commit', '-s', 'ours', 'origin/master'])
+
+    # Actually manually merge in origin/master.
+    cmd.run(['git', 'rm', '-fr', '*'])
+    cmd.run(['git', 'checkout', 'origin/blink', 'README.blink'])
+    cmd.run(['git', 'checkout', 'origin/master', '--', '.'])
+    cmd.run([sys.executable, cmd.path_from_webkit_base('Tools', 'Scripts', 'import-w3c-tests')])
+    cmd.run(['git', 'add', '--all', '.'])
+
+    # Now commit the changes.
+    # We wouldn't need the --allow-empty flag if we could do merge commits.
+    if not cmd.call(['git', 'diff', '--quiet', 'HEAD']):
+        no_changes = ' (no changes resulted)'
+        allow_empty = ['--allow-empty']
+    else:
+        no_changes = ''
+        allow_empty = []
+
+    cmd.run(['git', 'commit', '-m', 'import origin/master@%s using blink@%s%s' %
+             (master_commitish, blink_commitish, no_changes)] + allow_empty)
+
+
+class CommandRunner(object):
+    def __init__(self, host, options):
+        host = host
+        self.executive = host.executive
+        self.fs = host.filesystem
+        self.finder = WebKitFinder(self.fs)
+        self.options = options
+
+    def call(self, cmd, **args):
+        cmd_str = ' '.join([arg for arg in cmd])
+        if self.options.verbose:
+            print >>sys.stderr, cmd_str
+        return self.executive.call(cmd)
+
+    def run(self, cmd, **args):
+        cmd_str = ' '.join([arg for arg in cmd])
+        if self.options.verbose:
+            print >>sys.stderr, cmd_str
+
+        proc = self.executive.popen(cmd, stdout=self.executive.PIPE,
+                                    stderr=self.executive.PIPE, **args)
+        out, err = proc.communicate()
+        if proc.returncode:
+            print >> sys.stderr, "'%s' failed:\n%s\%s" % (cmd_str, out, err)
+            sys.exit(proc.returncode)
+        if self.options.verbose:
+            if out:
+                print out
+            if err:
+                print >>sys.stderr, err
+        return out
+
+    def cd(self, *comps):
+        dest = self.path_from_webkit_base(*comps)
+        if self.options.verbose:
+            print "cd %s" % dest
+        self.fs.chdir(dest)
+
+    def path_from_webkit_base(self, *comps):
+        return self.finder.path_from_webkit_base(*comps)
+
+
+if __name__ == '__main__':
+    main()

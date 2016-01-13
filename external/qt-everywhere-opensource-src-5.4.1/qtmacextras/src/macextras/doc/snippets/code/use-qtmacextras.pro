@@ -1,0 +1,3 @@
+#! [link]
+QT += macextras
+#! [link]

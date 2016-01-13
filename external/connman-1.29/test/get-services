@@ -1,0 +1,58 @@
+#!/usr/bin/python
+
+import dbus
+
+def extract_values(values):
+	val = "{"
+	for key in values.keys():
+		val += " " + key + "="
+		if key in ["Servers", "Excludes"]:
+			val += extract_list(values[key])
+		else:
+			val += str(values[key])
+	val += " }"
+	return val
+
+def extract_list(list):
+	val = "["
+	for i in list:
+		val += " " + str(i)
+	val += " ]"
+	return val
+
+bus = dbus.SystemBus()
+
+manager = dbus.Interface(bus.get_object('net.connman', '/'),
+					'net.connman.Manager')
+
+services = manager.GetServices()
+
+for entry in services:
+	path = entry[0]
+	properties = entry[1]
+
+	print "[ %s ]" % (path)
+
+	for key in properties.keys():
+		if key in ["IPv4", "IPv4.Configuration",
+					"IPv6", "IPv6.Configuration",
+					"Proxy", "Proxy.Configuration",
+						"Ethernet", "Provider"]:
+			val = extract_values(properties[key])
+		elif key in ["Nameservers", "Nameservers.Configuration",
+					"Domains", "Domains.Configuration",
+						"Security"]:
+			val = extract_list(properties[key])
+		elif key in ["Favorite", "Immutable", "AutoConnect",
+				"PassphraseRequired"]:
+			if properties[key] == dbus.Boolean(1):
+				val = "true"
+			else:
+				val = "false"
+		elif key in ["Strength"]:
+			val = int(properties[key])
+		else:
+			val = str(properties[key])
+		print "    %s = %s" % (key, val)
+
+	print

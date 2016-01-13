@@ -1,0 +1,468 @@
+#!/usr/bin/python
+
+# Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This script is a meta-driver for the toolchain. It transforms the command
+# line to allow the following:
+# 1. This script ensures that '--sysroot' is passed to whatever it is wrapping.
+#
+# 2. It adds hardened flags to gcc invocation. The hardened flags are:
+#   -fstack-protector-strong
+#   -fPIE
+#   -pie
+#   -D_FORTIFY_SOURCE=2
+#
+# It can disable -fPIE -pie by checking if -nopie is passed to gcc. In this
+# case it removes -nopie as it is a non-standard flag.
+#
+# 3. Enable clang diagnostics with -clang-syntax option
+#
+# 4. Add new -print-cmdline option to print the command line before executon
+#
+# 5. Enable clang codegen.
+# This is currently implemented as two loops on the list of arguments. The
+# first loop # identifies hardening flags, as well as determining if clang
+# invocation is specified. The second loop build command line for clang
+# invocation as well adjusting gcc command line.
+#
+# This implementation ensure compile time of default path remains mostly
+# the same.
+#
+# There is a similar hardening wrapper that wraps ld and adds -z now -z relro
+# to the link command line (see ldwrapper).
+#
+# To use:
+#   mv <tool> <tool>.real
+#   ln -s <path_to_sysroot_wrapper> <tool>
+
+from __future__ import print_function
+
+import errno
+import os
+import re
+import sys
+
+
+# Full hardening. Some/all of these may be discarded depending on
+# other flags.
+# Temporarily disable function splitting because of chromium:434751.
+flags_to_add = set(['-fstack-protector-strong', '-fPIE', '-pie',
+                    '-D_FORTIFY_SOURCE=2', '-frecord-gcc-switches', '-fuse-ld=bfd',
+                    '-fno-reorder-blocks-and-partition',
+                    '-Wno-unused-local-typedefs',
+                    '-Wno-maybe-uninitialized',
+                    '-Wno-deprecated-declarations'])
+x86_disable_flags = set(['-mno-movbe'])
+
+# Only FORTIFY_SOURCE hardening flag is applicable for clang.
+clang_flags = set(['-Qunused-arguments', '-D_FORTIFY_SOURCE=2', '-fPIE', '-Wno-deprecated-declarations'])
+
+# If -clang-syntax is present or the command line uses clang instead of gcc.
+invoke_clang = False
+
+# If -print-cmdline is present.
+print_cmdline = False
+
+# If ccache should be used automatically.
+use_ccache = False
+
+fstack = set(['-D__KERNEL__', '-fno-stack-protector', '-nodefaultlibs',
+              '-nostdlib'])
+fPIE = set(['-D__KERNEL__', '-fPIC', '-fPIE', '-fno-PIC', '-fno-PIE',
+            '-fno-pic', '-fno-pie', '-fpic', '-fpie', '-nopie',
+            '-nostartfiles', '-nostdlib', '-pie', '-static'])
+pie = set(['-D__KERNEL__', '-A', '-fno-PIC', '-fno-PIE', '-fno-pic', '-fno-pie',
+           '-nopie', '-nostartfiles', '-nostdlib', '-pie', '-r', '--shared',
+           '-shared', '-static'])
+sse = set(['-msse3', '-mssse3', '-msse4.1', '-msse4.2', '-msse4', '-msse4a'])
+wrapper_only_options = set(['-clang-syntax', '-print-cmdline',
+                            '-nopie', '-noccache'])
+
+myargs = sys.argv[1:]
+
+if fstack.intersection(myargs):
+  flags_to_add.remove('-fstack-protector-strong')
+  flags_to_add.add('-fno-stack-protector')
+if fPIE.intersection(myargs):
+  flags_to_add.remove('-fPIE')
+  clang_flags.remove('-fPIE')
+if pie.intersection(myargs):
+  flags_to_add.remove('-pie')
+print_cmdline = '-print-cmdline' in myargs
+clang_cmdline = list(clang_flags)
+clang_codegen = sys.argv[0].split('-')[-1] in ('clang', 'clang++')
+
+# We will start to enable ASAN for cros-workon packages.
+# For ASAN, if a library is built with ASAN, then all the binaries that use
+# this library should at lease link against ASAN.
+# Our solution is to add '-fsanitize=address' to LDFLAGS for asan bot.
+# This causes another problem. Packages that are built with gcc.real have the
+# '-fsanitize=address' option in the link time. We use clang for all asan
+# built. This is a conflict. Our solution is if we see a gcc command with
+# '-fsanitize=address', we first try to run it without '-fsanitize=address'.
+# If it is successful, then we are fine. otherwise, we check the output of the
+# command, if it contains some thing like undefinited symbol "asan_init", we
+# invoke clang and run again. If there is an error in the gcc command, that is
+# not related to ASAN, we just exit.
+
+ASAN_FLAG = '-fsanitize=address'
+# some package will transfer '-fsanitize=address' to '-Wl,-fsanitize=address'.
+myargs = [ASAN_FLAG if ASAN_FLAG in x else x for x in myargs]
+link_with_asan = not clang_codegen and ASAN_FLAG in myargs
+clang_codegen |= link_with_asan
+invoke_clang = '-clang-syntax' in myargs or clang_codegen
+
+if '-noccache' in myargs or clang_codegen and not link_with_asan:
+  # TODO make clang work with ccache.
+  # Clang does not work with ccache well. At lease it fails at
+  # package adhd.
+
+  # Only explicitly disable so we can set defaults up top.
+  use_ccache = False
+cmdline = [x for x in myargs if x not in wrapper_only_options]
+
+if re.match(r'i.86|x86_64', os.path.basename(sys.argv[0])):
+  cmdline.extend(x86_disable_flags)
+
+if not invoke_clang:
+  gcc_cmdline = cmdline
+else:
+  import subprocess
+  # Gcc flags to remove from the clang command line.
+  # TODO: Once clang supports gcc compatibility mode, remove
+  # these checks.
+  #
+  # Use of -Qunused-arguments allows this set to be small, just those
+  # that clang still warns about.
+  clang_unsupported = set(['-pass-exit-codes', '-Ofast', '-Wclobbered',
+                           '-Wunsafe-loop-optimizations', '-Wlogical-op',
+                           '-Wmissing-parameter-type', '-Woverride-init',
+                           '-Wold-style-declaration', '-Wno-psabi',
+                           '-Wno-unused-local-typedefs',
+                           '-mno-movbe',])
+  clang_unsupported_prefixes = ('-Wstrict-aliasing=')
+
+  # Clang may use different options for the same or similar functionality.
+  gcc_to_clang = {
+      '-Wno-error=unused-but-set-variable': '-Wno-error=unused-variable',
+      '-Wno-error=maybe-uninitialized': '-Wno-error=uninitialized',
+      '-Wno-unused-but-set-variable': '-Wno-unused-variable',
+      '-Wunused-but-set-variable': '-Wunused-variable',
+      '-fstack-protector-strong': '-fstack-protector-all',
+      '-fvisibility=internal': '-fvisibility=hidden',
+      '-Wno-error=cpp': '-Wno-#warnings',
+  }
+
+  # If these options are specified, do not run clang, even if -clang-syntax is
+  # specified.
+  # This is mainly for utilities that depend on compiler output.
+  skip_clang_prefixes = ('-print-', '-dump', '@')
+  skip_clang_set = set(['-', '-E', '-M'])
+
+  # Reset gcc cmdline too. Only change is to remove -Xclang-only
+  # options if specified.
+  gcc_cmdline = []
+
+  skip_clang = False
+  for flag in cmdline:
+    if (not clang_codegen and
+        (flag.startswith(skip_clang_prefixes) or
+         flag in skip_clang_set or
+         flag.endswith('.S'))):
+      skip_clang = True
+    elif not (flag in clang_unsupported or
+              flag.startswith(clang_unsupported_prefixes)):
+      # Strip off -Xclang-only= if present.
+      if flag.startswith('-Xclang-only='):
+        opt = flag.partition('=')[2]
+        clang_cmdline.append(opt)
+        # No need to add to gcc_cmdline.
+        continue
+      elif flag in gcc_to_clang.keys():
+        clang_cmdline.append(gcc_to_clang[flag])
+      else:
+        clang_cmdline.append(flag)
+    gcc_cmdline.append(flag)
+
+
+def get_proc_cmdline(pid):
+  with open('/proc/%i/cmdline' % pid) as fp:
+    return fp.read().replace('\0', ' ')
+  return None
+
+
+def get_proc_status(pid, item):
+  with open('/proc/%i/status' % pid) as fp:
+    for line in fp:
+      m = re.match(r'%s:\s*(.*)' % re.escape(item), line)
+      if m:
+        return m.group(1)
+  return None
+
+
+def log_parent_process_tree(log, ppid):
+  depth = 0
+
+  while ppid > 1:
+    cmd = get_proc_cmdline(ppid)
+    log.warning(' %*s {%5i}: %s' % (depth, '', ppid, cmd))
+
+    ppid = get_proc_status(ppid, 'PPid')
+    if not ppid:
+      break
+    ppid = int(ppid)
+    depth += 2
+
+
+# clang doesn't provide its own viable libstdc++ implementation.
+# Instead, it uses gcc's. So we need to find and include path and
+# the lib path from gcc. There is no gcc-config for cros-compiler,
+# so we have to do it in this way.
+#
+# TODO: make ebuild calculate the values and write it to the wrapper to
+# avoid calling gcc everytime.
+def get_gcc_include():
+  """Get the libstdc++ path."""
+  lang_parameter = 'c'
+  if sys.argv[0].endswith('++'):
+    lang_parameter += '++'
+  origin_cmd = sys.argv[0]
+  if 'clang++' in origin_cmd:
+    origin_cmd = origin_cmd.replace('clang++', 'g++')
+  if 'clang' in origin_cmd:
+    origin_cmd = origin_cmd.replace('clang', 'gcc')
+  real_cmd = '%s.real' % origin_cmd
+
+  command = [real_cmd, '-v', '-E', '-x', lang_parameter, '-']
+  p = subprocess.Popen(command, stdin=subprocess.PIPE,
+                       stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  out, err = p.communicate(input='')
+  gcc_include = []
+  include_start = False
+  for line in err.splitlines():
+    if '#include <...> search starts here:' in line:
+      include_start = True
+      continue
+    if 'End of search list' in line:
+      include_start = False
+    if include_start:
+      if not line.endswith('include'):
+        gcc_include.append('-I' + line.strip())
+    if 'LIBRARY_PATH' in line:
+      lib_path = line.split(':')[0].split('=')[1]
+      gcc_include.append('-B' + lib_path)
+  return gcc_include
+
+
+def get_cmd_path(cmd):
+  """Return the canonicalized dir for the cmd found via $PATH."""
+
+  for path in os.environ['PATH'].split(':'):
+    cmd_path = os.path.join(path, cmd)
+    if os.path.exists(cmd_path):
+      cmd_full = os.path.realpath(cmd_path)
+      return os.path.dirname(cmd_full)
+  return None
+
+
+def link_asan():
+  """link process when '-fsanitize=address' appears in a gcc command."""
+  orig_gcc_cmdline = [x for x in gcc_cmdline if ASAN_FLAG not in x]
+  gcc_execargs = (execargs + [real_gcc] +
+                  list(flags_to_add) + orig_gcc_cmdline)
+
+  p = subprocess.Popen(gcc_execargs,
+                       stdout=subprocess.PIPE,
+                       stderr=subprocess.PIPE)
+  out, err = p.communicate()
+  errorcode = p.returncode
+  found_clang_undef = False
+  if (out and '__asan_' in out or
+      err and '__asan_' in err):
+    found_clang_undef = True
+
+  if errorcode != 0 and found_clang_undef:
+    if print_cmdline:
+      print('%s %s\n' % (clang_comp, ' '.join(clang_cmdline)))
+    clang_execargs = [clang_comp] + clang_cmdline
+    sys.stdout.flush()
+    os.execv(clang_comp, clang_execargs)
+  else:
+    if print_cmdline:
+      print('[%s] %s' % (argv0, ' '.join(gcc_execargs)))
+    if out:
+      print(out)
+    if err:
+      print(err, file=sys.stderr)
+    sys.exit(errorcode)
+
+
+def get_gomacc_command():
+  """Return the gomacc command if it is found in $GOMACC_PATH."""
+  gomacc = os.environ.get('GOMACC_PATH')
+  if gomacc and os.path.isfile(gomacc):
+    return gomacc
+  return None
+
+
+def syntax_check_with_clang(clang_comp, clang_cmdline):
+  """Execute clang for syntax checking."""
+  command = [clang_comp] + clang_cmdline
+  gomacc = get_gomacc_command()
+  if gomacc:
+    command.insert(0, gomacc)
+  if print_cmdline:
+    print('%s\n' % ' '.join(command))
+  p = subprocess.Popen(command)
+  p.wait()
+  if p.returncode != 0:
+    sys.exit(p.returncode)
+
+
+sysroot = os.environ.get('SYSROOT', '')
+if sysroot:
+  clang_cmdline.insert(0, '--sysroot=%s' % sysroot)
+  gcc_cmdline.insert(0, '--sysroot=%s' % sysroot)
+else:
+  import logging
+  import logging.handlers
+  import traceback
+
+  log_file = '/tmp/sysroot_wrapper.error.' + os.environ.get('USER', '')
+
+  log = logging.getLogger('sysroot_wrapper')
+  log.setLevel(logging.DEBUG)
+
+  handler = logging.handlers.RotatingFileHandler(log_file, maxBytes=0x20000000,
+                                                 backupCount=1)
+  formatter = logging.Formatter('%(asctime)s %(message)s')
+  handler.setFormatter(formatter)
+  log.addHandler(handler)
+
+  log.warning('Invocation with missing SYSROOT: %s' % ' '.join(sys.argv))
+  try:
+    log_parent_process_tree(log, os.getppid())
+  except IOError:
+    log.error('%s' % traceback.format_exc())
+
+  try:
+    # The logging module does not support setting permissions.
+    os.chmod(log_file, 0666)
+  except OSError:
+    pass
+
+if invoke_clang and not skip_clang:
+  clang_comp = os.environ.get('CLANG', '/usr/bin/clang')
+
+  # Check for clang or clang++.
+  if sys.argv[0].endswith('++'):
+    clang_comp += '++'
+
+  # Specify the target for clang.
+  gcc_comp = os.path.basename(sys.argv[0])
+  arch = '-'.join(gcc_comp.split('-')[0:-1])
+  linker = arch + '-ld'
+  linker_path = get_cmd_path(linker)
+  clang_cmdline += ['-B' + linker_path]
+  if re.match(r'i.86', arch):
+    # We can not set -target for x86 because our target is i686-pc-linux-gnu.
+    # If the target is set, it will search for libclang_rt.asan-i686.a
+    # when linking against ASAN. However, this file does not exist.
+    # The libclang_rt.asan-i386.a is there, but we can not set target to
+    # i386-pc-linux-gnu, because the i386-pc-linux-gnu-ld does not exist.
+    clang_cmdline += ['-m32']
+  else:
+    clang_cmdline += ['-target', arch]
+
+  if clang_codegen and sys.argv[0].endswith('++'):
+    clang_cmdline += get_gcc_include()
+  elif not clang_codegen:
+    clang_cmdline.append('-fsyntax-only')
+
+  if not clang_codegen:
+    syntax_check_with_clang(clang_comp, clang_cmdline)
+
+execargs = []
+real_gcc = '%s.real' % sys.argv[0]
+gomacc = get_gomacc_command()
+if gomacc:
+  argv0 = gomacc
+  execargs += [gomacc]
+elif use_ccache:
+  # Portage likes to set this for us when it has FEATURES=-ccache.
+  # The other vars we need to setup manually because of tools like
+  # scons that scrubs the env before we get executed.
+  os.environ.pop('CCACHE_DISABLE', None)
+
+  # We should be able to share the objects across compilers as
+  # the pre-processed output will differ.  This allows boards
+  # that share compiler flags (like x86 boards) to share caches.
+  ccache_dir = '/var/cache/distfiles/ccache'
+  os.environ['CCACHE_DIR'] = ccache_dir
+
+  # If RESTRICT=sandbox is enabled, then sandbox won't be setup,
+  # and the env vars won't be available for appending.
+  if 'SANDBOX_WRITE' in os.environ:
+    os.environ['SANDBOX_WRITE'] += ':%s' % ccache_dir
+
+  # We need to get ccache to make relative paths from within the
+  # sysroot.  This lets us share cached files across boards (if
+  # all other things are equal of course like CFLAGS) as well as
+  # across versions.  A quick test is something like:
+  #   $ export CFLAGS='-O2 -g -pipe' CXXFLAGS='-O2 -g -pipe'
+  #   $ BOARD=x86-alex
+  #   $ cros_workon-$BOARD stop cros-disks
+  #   $ emerge-$BOARD cros-disks
+  #   $ cros_workon-$BOARD start cros-disks
+  #   $ emerge-$BOARD cros-disks
+  #   $ BOARD=amd64-generic
+  #   $ cros_workon-$BOARD stop cros-disks
+  #   $ emerge-$BOARD cros-disks
+  #   $ cros_workon-$BOARD start cros-disks
+  #   $ emerge-$BOARD cros-disks
+  # All of those will get cache hits (ignoring the first one
+  # which will seed the cache) due to this setting.
+  if sysroot:
+    os.environ['CCACHE_BASEDIR'] = sysroot
+
+  # Minor speed up as we don't care about this in general.
+  # os.environ['CCACHE_NOSTATS'] = 'no'
+  # Useful for debugging.
+  # os.environ['CCACHE_LOG'] = '/dev/stderr'
+
+  # The gcc ebuild takes care of nuking the cache in the whenever it revbumps
+  # in a way that matters, so we should be able to disable ccache's check.
+  # We've found in practice though that sometimes that doesn't happen.  Since
+  # the default check is cheap (it's a stat() in mtime mode), keep it enabled.
+  # os.environ['CCACHE_COMPILERCHECK'] = 'none'
+
+  # Make sure we keep the cached files group writable.
+  os.environ['CCACHE_UMASK'] = '002'
+
+  argv0 = '/usr/bin/ccache'
+  execargs += ['ccache']
+else:
+  argv0 = real_gcc
+
+if link_with_asan:
+  link_asan()
+
+if clang_codegen:
+  execargs += [clang_comp] + clang_cmdline
+  argv0 = clang_comp
+else:
+  execargs += [real_gcc] + list(flags_to_add) + gcc_cmdline
+
+if print_cmdline:
+  print('[%s] %s' % (argv0, ' '.join(execargs)))
+
+sys.stdout.flush()
+try:
+  os.execv(argv0, execargs)
+except OSError as e:
+  if use_ccache and e.errno == errno.ENOENT:
+    print('error: make sure you install ccache\n', file=sys.stderr)
+  print('error: os.execv(%s, %s) failed' % (argv0, execargs), file=sys.stderr)
+  raise

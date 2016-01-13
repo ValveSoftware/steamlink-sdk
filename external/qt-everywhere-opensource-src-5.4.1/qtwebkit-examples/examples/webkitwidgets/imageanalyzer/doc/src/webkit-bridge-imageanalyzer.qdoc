@@ -1,0 +1,162 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webkitwidgets/imageanalyzer
+    \title The Webkit Bridge Tutorial - Hybrid Client Application
+    \brief Demonstrates how to integrate web functionality with other core
+           functionality.
+    \ingroup webkit-widgetexamples
+
+    In this example, we will show how to write a hybrid application using
+\l{The Qt WebKit Bridge}{Qt WebKit Bridge}, which distinguishes itself from a
+thin client in that it performs heavy calculations on the client side in C++,
+like a native application, but presents nothing more than a \c QWebView for its
+user interface, displaying web content written in HTML/JavaScript. The
+application uses QtConcurrent to distribute its work across as many CPU cores as
+are available from the system, so it can process each image in parallel.
+
+For the full reference documentation of QtWebKit hybrid development, see
+\l{qtwebkit-bridge.html}{The Qt WebKit Bridge}.
+
+Initially, you will see a user interface with an empty list of images. Clicking
+on some of the images in the lower pane below adds them to the list view above,
+as shown in the screenshot below.
+
+    \image webkit-imageanalyzer-screenshot.png
+
+Now, we can click on \b Analyze, and each image is analyzed using some
+computationally intensive C++ function, in parallel and on different cores.
+Progress is shown while the analysis is proceeding.
+
+    \image webkit-imageanalyzer-progress.png
+
+and in the end, we will see something like this, where the average RGB values of
+each image are shown.
+
+    \image webkit-imageanalyzer-complete.png
+
+The MainWindow is defined in C++, and creates a \l QNetworkDiskCache and a
+\l QWebView, and tells the \l QWebView to load the starting page, providing us
+with a user interface for the client.
+
+  \snippet webkitwidgets/imageanalyzer/mainwindow.cpp MainWindow - constructor
+
+In this example, the sample content is addressed with the \tt qrc:/index.html
+URL. \tt qrc:/ indicates that the file is stored as a Qt resource (attached to
+the executable). In a real-world application, the content and images would
+likely be retrieved from the network rather than from resources.
+
+We wish to initialize an object reference in the JavaScript web page to point
+to our \tt ImageAnalyzer before any other scripts are run. To do this, we
+connect the \l{QWebFrame::}{javaScriptWindowObjectCleared()} signal to a slot
+which does the object creation and handoff to JavaScript.
+
+  \snippet webkitwidgets/imageanalyzer/mainwindow.cpp MainWindow - addJSObject
+
+The ImageAnalyzer object is created and added to a JavaScript object on the web
+page's mainFrame with \c addToJavaScriptWindowObject().
+
+    The start page is resources/index.html.
+    In one of its <div> regions, we have images, each
+    with an \c onClick() handler that calls \c addImage().
+
+    \snippet webkitwidgets/imageanalyzer/resources/index.html sample images
+
+Clicking an image adds it to an images list.
+
+    \snippet webkitwidgets/imageanalyzer/resources/index.html addImage
+
+The \b {Analyze} button at the bottom of the image list is clicked when we
+want to start the analysis:
+
+    \snippet webkitwidgets/imageanalyzer/resources/index.html images list
+
+When the user clicks the \b {Analyze} button, \c analyzeImages() is called,
+another regular JavaScript method, shown below.
+Notice it assumes the \c imageAnalyzer object is already defined and initialized
+in JavaScript space, but we guaranteed that by connecting our setup slot to the
+appropriate signal, \l{QWebFrame::}{javaScriptWindowObjectCleared()}.
+
+    \snippet webkitwidgets/imageanalyzer/resources/index.html analyzeImages
+
+The only methods on \c ImageAnalyzer that we can or do call from JavaScript are
+those which are exposed through \{The Meta-Object System}{Qt's MetaObject}
+system: \l{The Property System}{property} getter/setter methods,
+\c public \l {Signals & Slots}{signals and slots}, and other
+\l{Q_INVOKABLE}{Q_INVOKABLE} functions.
+
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.h ImageAnalyzer - public interface
+\dots
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.h ImageAnalyzer - private members
+
+Most of the members are set up in the constructor:
+
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.cpp ImageAnalyzer - Constructor
+
+Back on the JavaScript side, we want to connect signals from this object to
+JavaScript functions on our web page, after the web page is loaded, but before
+the images are analyzed.
+
+From \c connectSlots(), we can see how to connect signals from the imageAnalyzer
+object to regular JavaScript functions, which can also behave like slots. We use
+this to monitor and display progress from the C++ side.
+
+    \snippet webkitwidgets/imageanalyzer/resources/index.html connect slots
+
+The only public slot is \c startAnalysis(), called to place
+a list of URLs into the image analyzer's QtConcurrent processing queue
+from JavaScript space.
+
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.cpp ImageAnalyzer - startAnalysis
+
+The images need to be loaded again now, which is why fetchURLs first checks the
+cache to see if we can save an extra network get.
+
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.cpp ImageAnalyzer - fetchURLs
+
+For the images that were not in the cache, \c handleReply()
+will load them into a QImage when the data is ready.
+
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.cpp ImageAnalyzer - handleReply
+
+After the images are loaded, they are queued up in preparation to be
+sent in a batch for analysis to a \l QFutureWatcher, which will distribute the
+processing across multiple threads and cores, depending on how many are available.
+
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.cpp ImageAnalyzer - queueImage
+
+The function that gets performed on each image is \c averageRGB(),
+as specified in argument 2 to the \l{QtConcurrent::mapped()} function.
+Notice it repeats the same calculations 100 times on each pixel to keep the CPU
+very busy. This is done only for the purposes of the demo so that the analysis
+takes a noticeable time to complete.
+
+\snippet webkitwidgets/imageanalyzer/imageanalyzer.cpp ImageAnalyzer - averageRGB
+
+*/
+

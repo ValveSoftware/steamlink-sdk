@@ -1,0 +1,90 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Generate C++ and JavaScript source files from mojom files.
+template("mojom") {
+  assert(defined(invoker.sources),
+         "\"sources\" must be defined for the $target_name template.")
+
+  generator_root = "//mojo/public/tools/bindings"
+  generator_script = "$generator_root/mojom_bindings_generator.py"
+  generator_sources = [
+    generator_script,
+    "$generator_root/generators/cpp_templates/enum_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/interface_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/interface_definition.tmpl",
+    "$generator_root/generators/cpp_templates/interface_macros.tmpl",
+    "$generator_root/generators/cpp_templates/interface_proxy_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/interface_request_validator_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/interface_response_validator_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/interface_stub_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/module.cc.tmpl",
+    "$generator_root/generators/cpp_templates/module.h.tmpl",
+    "$generator_root/generators/cpp_templates/module-internal.h.tmpl",
+    "$generator_root/generators/cpp_templates/params_definition.tmpl",
+    "$generator_root/generators/cpp_templates/struct_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/struct_definition.tmpl",
+    "$generator_root/generators/cpp_templates/struct_serialization_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/struct_serialization_definition.tmpl",
+    "$generator_root/generators/cpp_templates/struct_macros.tmpl",
+    "$generator_root/generators/cpp_templates/wrapper_class_declaration.tmpl",
+    "$generator_root/generators/cpp_templates/wrapper_class_definition.tmpl",
+    "$generator_root/generators/js_templates/enum_definition.tmpl",
+    "$generator_root/generators/js_templates/interface_definition.tmpl",
+    "$generator_root/generators/js_templates/module.js.tmpl",
+    "$generator_root/generators/js_templates/struct_definition.tmpl",
+    "$generator_root/generators/mojom_cpp_generator.py",
+    "$generator_root/generators/mojom_js_generator.py",
+    "$generator_root/pylib/mojom/__init__.py",
+    "$generator_root/pylib/mojom/error.py",
+    "$generator_root/pylib/mojom/generate/__init__.py",
+    "$generator_root/pylib/mojom/generate/data.py",
+    "$generator_root/pylib/mojom/generate/generator.py",
+    "$generator_root/pylib/mojom/generate/module.py",
+    "$generator_root/pylib/mojom/generate/pack.py",
+    "$generator_root/pylib/mojom/generate/template_expander.py",
+    "$generator_root/pylib/mojom/parse/__init__.py",
+    "$generator_root/pylib/mojom/parse/ast.py",
+    "$generator_root/pylib/mojom/parse/lexer.py",
+    "$generator_root/pylib/mojom/parse/parser.py",
+    "$generator_root/pylib/mojom/parse/translate.py",
+  ]
+  generator_cpp_outputs = [
+    "$target_gen_dir/{{source_name_part}}.mojom.cc",
+    "$target_gen_dir/{{source_name_part}}.mojom.h",
+    "$target_gen_dir/{{source_name_part}}.mojom-internal.h",
+  ]
+  generator_js_outputs = [
+    "$target_gen_dir/{{source_name_part}}.mojom.js",
+  ]
+
+  target_visibility = ":$target_name"
+
+  generator_target_name = target_name + "_generator"
+  action_foreach(generator_target_name) {
+    visibility = target_visibility
+    script = generator_script
+    source_prereqs = generator_sources
+    sources = invoker.sources
+    outputs = generator_cpp_outputs + generator_js_outputs
+    args = [
+      "{{source}}",
+      "--use_chromium_bundled_pylibs",
+      "-d", rebase_path("//", root_build_dir),
+      "-o", rebase_path(target_gen_dir, root_build_dir),
+    ]
+  }
+
+  source_set(target_name) {
+    if (defined(invoker.visibility)) {
+      visibility = invoker.visibility
+    }
+    sources = process_file_template(invoker.sources, generator_cpp_outputs)
+    data = process_file_template(invoker.sources, generator_js_outputs)
+    deps = [
+      ":$generator_target_name",
+      "//mojo/public/cpp/bindings",
+    ]
+  }
+}

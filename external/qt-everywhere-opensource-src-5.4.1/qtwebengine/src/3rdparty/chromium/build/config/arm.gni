@@ -1,0 +1,55 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (cpu_arch == "arm") {
+  declare_args() {
+    # Version of the ARM processor when compiling on ARM. Ignored on non-ARM
+    # platforms.
+    arm_version = 7
+
+    # The ARM floating point mode. This is either the string "hard", "soft", or
+    # "softfp". An empty string means to use the default one for the
+    # arm_version.
+    arm_float_abi = ""
+  }
+
+  assert(arm_float_abi == "" ||
+         arm_float_abi == "hard" ||
+         arm_float_abi == "soft" ||
+         arm_float_abi == "softfp")
+
+  if (is_android) {
+    arm_use_neon = false
+    arm_optionally_use_neon = false
+  } else {
+    arm_use_neon = true
+    arm_optionally_use_neon = true
+  }
+
+  if (arm_version == 6) {
+    arm_arch = "armv6"
+    arm_tune = ""
+    if (arm_float_abi == "") {
+      arm_float_abi = "softfp"
+    }
+    arm_fpu = "vfp"
+    # Thumb is a reduced instruction set available on some ARM processors that
+    # has increased code density.
+    arm_use_thumb = false
+
+  } else if (arm_version == 7) {
+    arm_arch = "armv7-a"
+    arm_tune = "generic-armv7-a"
+    if (arm_float_abi == "") {
+      arm_float_abi = "softfp"
+    }
+    arm_use_thumb = true
+
+    if (arm_use_neon) {
+      arm_fpu = "neon"
+    } else {
+      arm_fpu = "vfpv3-d16"
+    }
+  }
+}

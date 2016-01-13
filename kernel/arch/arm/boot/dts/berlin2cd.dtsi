@@ -1,0 +1,399 @@
+/*
+ * MARVELL BERLIN2CD SoC device tree source
+ *
+ * Author:	Jisheng Zhang <jszhang@marvell.com>
+ * Copyright (c) 2013 Marvell International Ltd.
+ *		http://www.marvell.com
+ *
+ * MARVELL BERLIN2CD SoC device nodes are listed in this file.
+ * BERLIN2CD based board files can include this file and provide
+ * values for board specfic bindings.
+ *
+ * Note: This file does not include device nodes for all the controllers in
+ * BERLIN2CD SoC. As device tree coverage for BERLIN2CD increases,
+ * additional nodes can be added to this file.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+*/
+
+/include/ "skeleton.dtsi"
+
+/ {
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a9";
+			reg = <0>;
+			next-level-cache = <&L2>;
+		};
+	};
+
+	memory {
+		name = "memory";
+		device_type = "memory";
+		linux,usable-memory = <0x01000000 0x11000000>;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200";
+	};
+
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		interrupt-parent = <&gic>;
+		ranges;
+
+		gic:interrupt-controller@F7AD1000 {
+			compatible = "arm,cortex-a9-gic";
+			#interrupt-cells = <3>;
+			interrupt-controller;
+			reg = <0xF7AD1000 0x1000>, <0xF7AD0100 0x100>;
+		};
+
+		L2: cache-controller@F7AC0000 {
+			compatible = "arm,pl310-cache";
+			reg = <0xF7AC0000 0x1000>;
+			arm,prefetch-ctrl = <0x70000007>;
+			arm,pwr-ctrl = <0x3>;
+		};
+
+		pmu {
+			compatible = "arm,cortex-a9-pmu";
+			interrupts = <0 30 4  0 31 4>;
+		};
+
+		timer@F7AD0600 {
+			compatible = "arm,cortex-a9-twd-timer";
+			reg = <0xF7AD0600 0x20>;
+			interrupts = <1 13 0x304>;
+		};
+
+		ethernet@F7B90000 {
+			compatible = "mrvl,fastethernet";
+			reg = <0xF7B90000 0x10000>;
+			interrupts = <0 24 4>;
+		};
+
+		usb@F7ED0000 {
+			compatible = "mrvl,berlin-ehci";
+			reg = <0xF7ED0000 0x10000>;
+			interrupts = <0 11 4>;
+			phy-base = <0xF7B74000>;
+			reset-bit = <23>;
+			pwr-gpio = <8>;
+		};
+
+		usb@F7EE0000 {
+			compatible = "mrvl,berlin-ehci";
+			reg = <0xF7EE0000 0x10000>;
+			interrupts = <0 12 4>;
+			phy-base = <0xF7B78000>;
+			reset-bit = <24>;
+			pwr-gpio = <5>;
+		};
+
+		sdhci@F7AB0000 {
+			compatible = "mrvl,berlin-sdhci";
+			reg = <0xF7AB0000 0x200>;
+			interrupts = <0 17 4>;
+			mrvl,no-hispd;
+			mrvl,host-off-card-on;
+		};
+
+		apb_ictl: interrupt-controller@F7E83000 {
+			compatible = "snps,dw-apb-ictl";
+			interrupts = <0 3 4>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			reg = <0xF7E83000 0x30>;
+			ictl-nr-irqs = <32>;
+		};
+
+		sm_ictl: interrupt-controller@F7FCE000 {
+			compatible = "snps,dw-apb-ictl";
+			interrupts = <0 15 4>;
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			reg = <0xF7FCE000 0x30>;
+			ictl-nr-irqs = <32>;
+		};
+
+		timer0: apbtimer@F7E82C00 {
+			compatible = "berlin,apb-timer";
+			interrupt-parent = <&apb_ictl>;
+			interrupts = <8>;
+			clock-freq = <106250000>;
+			reg = <0xF7E82C00 0x14>;
+		};
+
+		timer1: apbtimer@F7E82C8C {
+			compatible = "berlin,apb-timer";
+			clock-freq = <106250000>;
+			reg = <0xF7E82C8C 0x14>;
+		};
+
+		uart0: uart@F7FC9000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0xF7FC9000 0x100>;
+			interrupt-parent = <&sm_ictl>;
+			interrupts = <8>;
+			clock-frequency = <25000000>;
+			reg-shift = <2>;
+		};
+
+		uart1: uart@F7FCA000 {
+			compatible = "snps,dw-apb-uart";
+			reg = <0xF7FCA000 0x100>;
+			interrupt-parent = <&sm_ictl>;
+			interrupts = <9>;
+			clock-frequency = <25000000>;
+			reg-shift = <2>;
+		};
+
+		gpio@F7E80400 {
+			compatible = "berlin,apb-gpio";
+			interrupt-parent = <&apb_ictl>;
+			interrupts = <0 1 2 3>;
+		};
+
+		gpio@F7FCC000 {
+			compatible = "berlin,sm-gpio";
+			interrupt-parent = <&sm_ictl>;
+			interrupts = <11 4>;
+		};
+
+		gpio0: apbgpio@F7E80400 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0xF7E80400 0x400>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			banka: gpio-controller@0 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <8>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&apb_ictl>;
+				interrupts = <0>;
+			};
+		};
+
+                gpio1: apbgpio@F7E80800 {
+                        compatible = "snps,dw-apb-gpio";
+                        reg = <0xF7E80800 0x400>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+			bankb: gpio-controller@1 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <8>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&apb_ictl>;
+				interrupts = <1>;
+			};
+		};
+
+                gpio2: apbgpio@F7E80C00 {
+                        compatible = "snps,dw-apb-gpio";
+                        reg = <0xF7E80C00 0x400>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+			bankc: gpio-controller@2 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <8>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&apb_ictl>;
+				interrupts = <2>;
+			};
+		};
+
+                gpio3: apbgpio@F7E81000 {
+                        compatible = "snps,dw-apb-gpio";
+                        reg = <0xF7E81000 0x400>;
+                        #address-cells = <1>;
+                        #size-cells = <0>;
+
+			bankd: gpio-controller@3 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <8>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&apb_ictl>;
+				interrupts = <3>;
+			};
+		};
+
+		gpio4: apbgpio@F7FCC000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0xF7FCC000 0x400>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			banke: gpio-controller@4 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <8>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&sm_ictl>;
+				interrupts = <11>;
+			};
+		};
+
+		gpio5: apbgpio@F7FC5000 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0xF7FC5000 0x400>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			bankf: gpio-controller@5 {
+				compatible = "snps,dw-apb-gpio-bank";
+				gpio-controller;
+				reg = <0>;
+				#gpio-cells = <2>;
+				nr-gpio = <8>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				interrupt-parent = <&sm_ictl>;
+				interrupts = <4>;
+			};
+		};
+
+		i2c0: i2c@0 {
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&apb_ictl>;
+			reg = <0xF7E81400 0x100>;
+			interrupts = <16>;
+		};
+
+		i2c1: i2c@1 {
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&apb_ictl>;
+			reg = <0xF7E81800 0x100>;
+			interrupts = <17 18 19 20 21 22 23 24 25 26 27 28>;
+		};
+
+		i2c2: i2c@2 {
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&sm_ictl>;
+			reg = <0XF7FC7000 0x100>;
+			interrupts = <6>;
+		};
+
+		i2c3: i2c@3 {
+			compatible = "snps,designware-i2c";
+			interrupt-parent = <&sm_ictl>;
+			reg = <0xF7FC8000 0x100>;
+			interrupts = <7>;
+		};
+
+		i2c@F7E81400 {
+			compatible = "berlin,apb-twsi";
+			interrupt-parent = <&apb_ictl>;
+			interrupts = <17 18 19 20 21 22 23 24 25 26 27 28 16>;
+		};
+
+		i2c@F7FC7000 {
+			compatible = "berlin,sm-twsi";
+			interrupt-parent = <&sm_ictl>;
+			interrupts = <6 7>;
+		};
+
+		pe{
+			compatible = "mrvl,berlin-pe";
+			interrupts = <0 19 4  0 0 4  0 1 4  0 25 4  0 2 4>;
+			cec{
+				compatible = "mrvl,berlin-cec";
+				interrupt-parent = <&sm_ictl>;
+				interrupts = <16>;
+			};
+		};
+
+		amp{
+			compatible = "mrvl,berlin-amp";
+			interrupts = <0 19 4  0 0 4  0 1 4  0 25 4  0 2 4>;
+			cec{
+				compatible = "mrvl,berlin-cec";
+				interrupt-parent = <&sm_ictl>;
+				interrupts = <16>;
+			};
+		};
+
+		shm@29000000 {
+			compatible = "mrvl,berlin-shm";
+			reg = <0x12000000 0x0C000000>, <0x1E000000 0x02000000>;
+		};
+
+		gpu3d{
+			compatible = "marvell,berlin-gpu3d";
+			reg = <0xF7BC0000 0x800>;
+			interrupts = <0 5 4>;
+			marvell,nonsecure-mem-base = <0>;
+			marvell,nonsecure-mem-size = <0x200>;
+			marvell,phy-mem-size = <0x80000000>;
+		};
+
+		pmic{
+			compatible = "mrvl,berlin-pmic";
+			regulators {
+				vmmc_reg_sdio1: vmmc_sd {
+					regulator-min-microvolt = <3300000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-name = "VMMC_SD";
+					gpio-type = "soc";
+					pwr-gpio = <7>;
+				};
+				vqmmc_reg_sdio1: vqmmc_sd {
+					regulator-min-microvolt = <1800000>;
+					regulator-max-microvolt = <3300000>;
+					regulator-name = "VQMMC_SD";
+					gpio-type = "soc";
+					pwr-gpio = <22>;
+				};
+			};
+		};
+
+		nfc@F7F00000 {
+			compatible = "mrvl,berlin-nfc";
+			reg = <0xF7F00000 0x10000>, <0xF7D70000 0x10000>;
+			interrupts = <0 18 4>;
+			mrvl,nfc-dma;
+			mrvl,nfc-naked-cmd;
+			mrvl,nfc-arbi;
+		};
+
+		tsen@F7FCD000 {
+			compatible = "mrvl,berlin-tsen-adc33";
+			reg = <0xF7FCD000 0x100>;
+		};
+
+		wdt@F7E82000 {
+			compatible = "mrvl,berlin-wdt";
+			reg = <0xF7E82000 0x10000>;
+		};
+	};
+};

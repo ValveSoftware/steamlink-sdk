@@ -1,0 +1,40 @@
+;;
+;; Copyright (c) 2011 The Chromium Authors. All rights reserved.
+;; Use of this source code is governed by a BSD-style license that can be
+;; found in the LICENSE file.
+;;
+
+; *** The contents of content/common/common.sb are implicitly included here. ***
+
+; Needed for Fonts.
+(allow file-read* (regex #"^/System/Library/Fonts($|/)"))  ; 10.5.6
+; 10.6 for loading fonts in the renderer.
+; on 10.5 this is needed for the PDF plugin.
+(allow file-read* (regex #"^/Library/Fonts($|/)"))
+(allow mach-lookup (global-name "com.apple.FontObjectsServer"))  ; 10.5.6
+(allow mach-lookup (global-name "com.apple.FontServer"))  ; 10.6
+
+(allow file-read*
+  (regex #"^/System/Library/ColorSync($|/)")  ; 10.5.6 - http://crbug.com/46648
+  (regex #"^/System/Library/Keyboard Layouts($|/)")  ; http://crbug.com/152566
+  (literal "/Library/Preferences/.GlobalPreferences.plist") ; http://crbug.com/60917
+  (literal "@USER_HOMEDIR_AS_LITERAL@/Library/Preferences/.GlobalPreferences.plist")
+)
+
+; http://crbug.com/11269
+(allow file-read* (subpath "@USER_HOMEDIR_AS_LITERAL@/Library/Fonts"))  ; 10.6
+
+; http://crbug.com/60917
+(allow file-read-metadata
+  (literal "/")
+  (literal "/var")
+)
+
+; http://crbug.com/288697
+(allow file-read*
+  (regex #"^/(private/)?etc/localtime$")
+  (regex #"^/usr/share/zoneinfo/")
+)
+(allow file-read-metadata
+  (regex #"^/(private/)?etc$")
+)

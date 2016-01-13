@@ -1,0 +1,1 @@
+$externalVariable, $externalVariable

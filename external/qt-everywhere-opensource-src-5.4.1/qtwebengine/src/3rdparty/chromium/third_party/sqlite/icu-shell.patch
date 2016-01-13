@@ -1,0 +1,92 @@
+History uses fts3 with an icu-based segmenter.  These changes allow
+building a sqlite3 binary which can read those files.
+
+Index: src/shell.c
+===================================================================
+--- src/shell.c	2009-09-04 13:37:43.000000000 -0700
++++ src/shell.c	2009-09-15 11:32:08.000000000 -0700
+@@ -3007,6 +3007,14 @@
+   int i;
+   int rc = 0;
+ 
++  /* Begin evanm patch. */
++  extern int sqlite_shell_init_icu();
++  if( !sqlite_shell_init_icu() ){
++    fprintf(stderr, "%s: warning: couldn't find icudt38.dll; "
++                    "queries against ICU FTS tables will fail.\n", argv[0]);
++  }
++  /* End evanm patch. */
++
+   Argv0 = argv[0];
+   main_init(&data);
+   stdin_is_interactive = isatty(0);
+diff --git src/shell_icu_linux.c src/shell_icu_linux.c
+new file mode 100644
+index 0000000..4ad0e42
+--- /dev/null
++++ src/shell_icu_linux.c
+@@ -0,0 +1,27 @@
++/* Copyright 2007 Google Inc. All Rights Reserved.
++**/
++
++#include <limits.h>
++#include <unistd.h>
++#include "unicode/putil.h"
++#include "unicode/udata.h"
++
++/*
++** This function attempts to load the ICU data tables from a data file.
++** Returns 0 on failure, nonzero on success.
++** This a hack job of icu_utils.cc:Initialize().  It's Chrome-specific code.
++*/
++int sqlite_shell_init_icu() {
++  char bin_dir[PATH_MAX + 1];
++  int bin_dir_size = readlink("/proc/self/exe", bin_dir, PATH_MAX);
++  if (bin_dir_size < 0 || bin_dir_size > PATH_MAX)
++    return 0;
++  bin_dir[bin_dir_size] = 0;;
++
++  u_setDataDirectory(bin_dir);
++  // Only look for the packaged data file;
++  // the default behavior is to look for individual files.
++  UErrorCode err = U_ZERO_ERROR;
++  udata_setFileAccess(UDATA_ONLY_PACKAGES, &err);
++  return err == U_ZERO_ERROR;
++}
+Index: src/shell_icu_win.c
+===================================================================
+--- src/shell_icu_win.c	1969-12-31 16:00:00.000000000 -0800
++++ src/shell_icu_win.c	2011-03-03 14:29:11.000000000 -0700
+@@ -0,0 +1,32 @@
++/* Copyright 2011 Google Inc. All Rights Reserved.
++**/
++
++#include <windows.h>
++#include "unicode/udata.h"
++
++/*
++** This function attempts to load the ICU data tables from a DLL.
++** Returns 0 on failure, nonzero on success.
++** This a hack job of icu_utils.cc:Initialize().  It's Chrome-specific code.
++*/
++
++#define ICU_DATA_SYMBOL "icudt" U_ICU_VERSION_SHORT "_dat"
++int sqlite_shell_init_icu() {
++  HMODULE module;
++  FARPROC addr;
++  UErrorCode err;
++
++  // Chrome dropped U_ICU_VERSION_SHORT from the icu data dll name.
++  module = LoadLibrary(L"icudt.dll");
++  if (!module)
++    return 0;
++
++  addr = GetProcAddress(module, ICU_DATA_SYMBOL);
++  if (!addr)
++    return 0;
++
++  err = U_ZERO_ERROR;
++  udata_setCommonData(addr, &err);
++
++  return 1;
++}

@@ -1,0 +1,126 @@
+/****************************************************************************
+**
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtsensors-porting.html
+    \title Porting Applications from QtMobility Sensors to Qt Sensors
+    \brief Explain how to port from QtMobility Sensors to Qt Sensors
+    \since Qt 5.1
+
+    \tableofcontents
+
+    \section1 Overview
+
+    The initial release of Qt Sensors (5.0) is generally expected to be source
+    compatible with QtMobility Sensors 1.2. This document attempts to explain
+    where things need to be changed in order to port applications to Qt Sensors.
+
+    \section1 QML
+
+    In \c QtMobility, the C++ classes like \c QAccelerometer were directly used as QML types.
+    In Qt Sensors, there are now separate classes for the QML types, which have no public
+    C++ API.
+
+    The new QML types in Qt Sensors fix some issues the former QtMobility QML types had,
+    for example:
+    \list
+    \li The reading types now have proper change notifications.
+    \li \c availableDataRates and \c outputRanges of the \c Sensor type are now proper list types.
+    \li The \c identifier and \c type properties of \c Sensor can now be used.
+    \li The \c lux property of \c LightSensorReading has been renamed to \c illuminance.
+    \li The \c QmlSensors singleton now allows to query for sensor types.
+    \endlist
+
+    For more information, see the \l {Qt Sensors QML Types}{QML API} documentation.
+
+    \section1 C++
+
+    The C++ API mainly remained the same as in QtMobility.
+
+    \section2 Includes
+
+    QtMobility Sensors installed headers into a \c Qt Sensors directory. This is
+    also the directory that Qt Sensors uses. It is therefore expected that includes
+    that worked with QtMobility Sensors should continue to work.
+
+    For example:
+    \code
+    #include <QAccelerometer>
+    #include <qaccelerometer.h>
+    #include <QtSensors/QAccelerometer>
+    #include <QtSensors/qaccelerometer.h>
+    \endcode
+
+    \section2 Macros and Namespace
+
+    QtMobility Sensors was built in a \c QtMobility namespace. This was enabled by
+    the use of various macros. Qt Sensors does not normally build into a namespace
+    and the macros from QtMobility no longer exist.
+
+    \list
+    \li QTM_BEGIN_NAMESPACE
+    \li QTM_END_NAMESPACE
+    \li QTM_USE_NAMESPACE
+    \li QTM_PREPEND_NAMESPACE(x)
+    \endlist
+
+    Note that Qt can be configured to build into a namespace. If Qt is built in this
+    way then Qt Sensors is also built into the nominated namespace. However, as this
+    is optional, the macros for this are typically defined to do nothing.
+
+    \list
+    \li QT_BEGIN_NAMESPACE
+    \li QT_END_NAMESPACE
+    \li QT_USE_NAMESPACE
+    \li QT_PREPEND_NAMESPACE(x)
+    \endlist
+
+    \section2 qtimestamp
+
+    qtimestamp was previously defined as an opaque type equivalent to a quint64. It existed
+    as a class due to an implementation detail.
+
+    In Qt Sensors, the API uses quint64 instead of qtimestamp. qtimestamp still exists as a
+    typedef so that applications that refer to qtimestamp can be compiled.
+
+    \section1 Project Files
+
+    QtMobility Sensors applications used this in their project files to enable the Sensors API.
+
+    \code
+    CONFIG += mobility
+    MOBILITY += sensors
+    \endcode
+
+    Applications should remove these lines and instead use the following statement to enable
+    the Qt Sensors API:
+
+    \code
+    QT += sensors
+    \endcode
+*/
+

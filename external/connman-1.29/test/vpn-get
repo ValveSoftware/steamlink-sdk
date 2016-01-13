@@ -1,0 +1,48 @@
+#!/usr/bin/python
+
+import dbus
+
+def extract_values(values):
+	val = "{"
+	for key in values.keys():
+		val += " " + key + "="
+		if key in ["Servers", "Excludes"]:
+			val += extract_list(values[key])
+		else:
+			val += str(values[key])
+	val += " }"
+	return val
+
+def extract_list(list):
+	val = "["
+	for i in list:
+		if type(i).__name__ == 'Dictionary':
+			val += extract_values(i)
+		elif type(i).__name__ == 'Struct':
+			val += extract_list(i)
+		else:
+			val += " " + str(i)
+	val += "]"
+	return val
+
+bus = dbus.SystemBus()
+
+manager = dbus.Interface(bus.get_object('net.connman.vpn', '/'),
+					'net.connman.vpn.Manager')
+
+for entry in manager.GetConnections():
+	path = entry[0]
+	properties = entry[1]
+
+	print "[ %s ]" % (path)
+
+	for key in properties.keys():
+		if key in ["IPv4", "IPv6" ]:
+			val = extract_values(properties[key])
+		elif key in ["Nameservers","ServerRoutes","UserRoutes"]:
+			val = extract_list(properties[key])
+		else:
+			val = str(properties[key])
+		print "    %s = %s" % (key, val)
+
+	print

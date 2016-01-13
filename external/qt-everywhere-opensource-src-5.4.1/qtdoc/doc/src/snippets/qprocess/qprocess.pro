@@ -1,0 +1,1 @@
+SOURCES += qprocess-simpleexecution.cpp

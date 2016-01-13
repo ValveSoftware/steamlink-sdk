@@ -1,0 +1,209 @@
+diff -pu a/nss/lib/ssl/ssl3con.c b/nss/lib/ssl/ssl3con.c
+--- a/nss/lib/ssl/ssl3con.c	2014-01-17 17:55:01.518095989 -0800
++++ b/nss/lib/ssl/ssl3con.c	2014-01-17 17:55:19.158389328 -0800
+@@ -7199,6 +7199,85 @@ done:
+     return rv;
+ }
+ 
++/*
++ * attempt to restart the handshake after asynchronously handling
++ * a request for the client's certificate.
++ *
++ * inputs:
++ *	cert	Client cert chosen by application.
++ *		Note: ssl takes this reference, and does not bump the
++ *		reference count.  The caller should drop its reference
++ *		without calling CERT_DestroyCert after calling this function.
++ *
++ *	key	Private key associated with cert.  This function takes
++ *		ownership of the private key, so the caller should drop its
++ *		reference without destroying the private key after this
++ *		function returns.
++ *
++ *	certChain  DER-encoded certs, client cert and its signers.
++ *		Note: ssl takes this reference, and does not copy the chain.
++ *		The caller should drop its reference without destroying the
++ *		chain.  SSL will free the chain when it is done with it.
++ *
++ * Return value: XXX
++ *
++ * XXX This code only works on the initial handshake on a connection, XXX
++ *     It does not work on a subsequent handshake (redo).
++ *
++ * Caller holds 1stHandshakeLock.
++ */
++SECStatus
++ssl3_RestartHandshakeAfterCertReq(sslSocket *         ss,
++				CERTCertificate *    cert,
++				SECKEYPrivateKey *   key,
++				CERTCertificateList *certChain)
++{
++    SECStatus        rv          = SECSuccess;
++
++    /* XXX This code only works on the initial handshake on a connection,
++    ** XXX It does not work on a subsequent handshake (redo).
++    */
++    if (ss->handshake != 0) {
++	ss->handshake              = ssl_GatherRecord1stHandshake;
++	ss->ssl3.clientCertificate = cert;
++	ss->ssl3.clientPrivateKey  = key;
++	ss->ssl3.clientCertChain   = certChain;
++        if (!cert || !key || !certChain) {
++            /* we are missing the key, cert, or cert chain */
++            if (ss->ssl3.clientCertificate) {
++                CERT_DestroyCertificate(ss->ssl3.clientCertificate);
++                ss->ssl3.clientCertificate = NULL;
++            }
++            if (ss->ssl3.clientPrivateKey) {
++                SECKEY_DestroyPrivateKey(ss->ssl3.clientPrivateKey);
++                ss->ssl3.clientPrivateKey = NULL;
++            }
++            if (ss->ssl3.clientCertChain != NULL) {
++                CERT_DestroyCertificateList(ss->ssl3.clientCertChain);
++                ss->ssl3.clientCertChain = NULL;
++            }
++            if (ss->ssl3.prSpec->version > SSL_LIBRARY_VERSION_3_0) {
++                ss->ssl3.sendEmptyCert = PR_TRUE;
++            } else {
++                (void)SSL3_SendAlert(ss, alert_warning, no_certificate);
++            }
++	}
++    } else {
++	if (cert) {
++	    CERT_DestroyCertificate(cert);
++	}
++	if (key) {
++	    SECKEY_DestroyPrivateKey(key);
++	}
++	if (certChain) {
++	    CERT_DestroyCertificateList(certChain);
++	}
++	PORT_SetError(SEC_ERROR_LIBRARY_FAILURE);
++	rv = SECFailure;
++    }
++    return rv;
++}
++
+ static SECStatus
+ ssl3_CheckFalseStart(sslSocket *ss)
+ {
+diff -pu a/nss/lib/ssl/ssl.h b/nss/lib/ssl/ssl.h
+--- a/nss/lib/ssl/ssl.h	2014-01-17 17:55:01.538096321 -0800
++++ b/nss/lib/ssl/ssl.h	2014-01-17 17:55:19.158389328 -0800
+@@ -399,6 +399,11 @@ SSL_IMPORT SECStatus SSL_ForceHandshake(
+ SSL_IMPORT SECStatus SSL_ForceHandshakeWithTimeout(PRFileDesc *fd,
+                                                    PRIntervalTime timeout);
+ 
++SSL_IMPORT SECStatus SSL_RestartHandshakeAfterCertReq(PRFileDesc *fd,
++					    CERTCertificate *cert,
++					    SECKEYPrivateKey *key,
++					    CERTCertificateList *certChain);
++
+ /*
+ ** Query security status of socket. *on is set to one if security is
+ ** enabled. *keySize will contain the stream key size used. *issuer will
+diff -pu a/nss/lib/ssl/sslimpl.h b/nss/lib/ssl/sslimpl.h
+--- a/nss/lib/ssl/sslimpl.h	2014-01-17 17:55:01.538096321 -0800
++++ b/nss/lib/ssl/sslimpl.h	2014-01-17 17:55:19.158389328 -0800
+@@ -1588,16 +1588,17 @@ extern  SECStatus ssl3_MasterKeyDeriveBy
+ /* These functions are called from secnav, even though they're "private". */
+ 
+ extern int ssl2_SendErrorMessage(struct sslSocketStr *ss, int error);
+-extern int SSL_RestartHandshakeAfterCertReq(struct sslSocketStr *ss,
+-					    CERTCertificate *cert,
+-					    SECKEYPrivateKey *key,
+-					    CERTCertificateList *certChain);
+ extern sslSocket *ssl_FindSocket(PRFileDesc *fd);
+ extern void ssl_FreeSocket(struct sslSocketStr *ssl);
+ extern SECStatus SSL3_SendAlert(sslSocket *ss, SSL3AlertLevel level,
+ 				SSL3AlertDescription desc);
+ extern SECStatus ssl3_DecodeError(sslSocket *ss);
+ 
++extern SECStatus ssl3_RestartHandshakeAfterCertReq(sslSocket *    ss,
++					     CERTCertificate *    cert, 
++					     SECKEYPrivateKey *   key,
++					     CERTCertificateList *certChain);
++
+ extern SECStatus ssl3_AuthCertificateComplete(sslSocket *ss, PRErrorCode error);
+ 
+ /*
+diff -pu a/nss/lib/ssl/sslsecur.c b/nss/lib/ssl/sslsecur.c
+--- a/nss/lib/ssl/sslsecur.c	2014-01-17 17:49:26.072517368 -0800
++++ b/nss/lib/ssl/sslsecur.c	2014-01-17 17:55:19.158389328 -0800
+@@ -1518,17 +1518,70 @@ SSL_CertDBHandleSet(PRFileDesc *fd, CERT
+     return SECSuccess;
+ }
+ 
+-/* DO NOT USE. This function was exported in ssl.def with the wrong signature;
+- * this implementation exists to maintain link-time compatibility.
++/*
++ * attempt to restart the handshake after asynchronously handling
++ * a request for the client's certificate.
++ *
++ * inputs:  
++ *	cert	Client cert chosen by application.
++ *		Note: ssl takes this reference, and does not bump the 
++ *		reference count.  The caller should drop its reference
++ *		without calling CERT_DestroyCertificate after calling this
++ *		function.
++ *
++ *	key	Private key associated with cert.  This function takes
++ *		ownership of the private key, so the caller should drop its
++ *		reference without destroying the private key after this
++ *		function returns.
++ *
++ *	certChain  Chain of signers for cert.  
++ *		Note: ssl takes this reference, and does not copy the chain.
++ *		The caller should drop its reference without destroying the 
++ *		chain.  SSL will free the chain when it is done with it.
++ *
++ * Return value: XXX
++ *
++ * XXX This code only works on the initial handshake on a connection, XXX
++ *     It does not work on a subsequent handshake (redo).
+  */
+-int
+-SSL_RestartHandshakeAfterCertReq(sslSocket *         ss,
++SECStatus
++SSL_RestartHandshakeAfterCertReq(PRFileDesc *        fd,
+ 				CERTCertificate *    cert, 
+ 				SECKEYPrivateKey *   key,
+ 				CERTCertificateList *certChain)
+ {
+-    PORT_SetError(PR_NOT_IMPLEMENTED_ERROR);
+-    return -1;
++    sslSocket *   ss = ssl_FindSocket(fd);
++    SECStatus     ret;
++
++    if (!ss) {
++	SSL_DBG(("%d: SSL[%d]: bad socket in SSL_RestartHandshakeAfterCertReq",
++		 SSL_GETPID(), fd));
++	if (cert) {
++	    CERT_DestroyCertificate(cert);
++	}
++	if (key) {
++	    SECKEY_DestroyPrivateKey(key);
++	}
++	if (certChain) {
++	    CERT_DestroyCertificateList(certChain);
++	}
++	return SECFailure;
++    }
++
++    ssl_Get1stHandshakeLock(ss);   /************************************/
++
++    if (ss->version >= SSL_LIBRARY_VERSION_3_0) {
++	ret = ssl3_RestartHandshakeAfterCertReq(ss, cert, key, certChain);
++    } else {
++	if (certChain != NULL) {
++	    CERT_DestroyCertificateList(certChain);
++	}
++	PORT_SetError(SSL_ERROR_FEATURE_NOT_SUPPORTED_FOR_SSL2);
++	ret = SECFailure;
++    }
++
++    ssl_Release1stHandshakeLock(ss);  /************************************/
++    return ret;
+ }
+ 
+ /* DO NOT USE. This function was exported in ssl.def with the wrong signature;

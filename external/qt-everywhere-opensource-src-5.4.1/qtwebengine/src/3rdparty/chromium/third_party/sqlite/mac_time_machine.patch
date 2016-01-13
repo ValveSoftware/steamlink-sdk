@@ -1,0 +1,103 @@
+Index: src/sqliteInt.h
+===================================================================
+--- src/sqliteInt.h	(revision 87306)
++++ src/sqliteInt.h	(working copy)
+@@ -2522,6 +2522,16 @@
+ #endif
+ 
+ /*
++** The CoreServices.h and CoreFoundation.h headers are needed for excluding a
++** -journal file from Time Machine backups when its associated database has
++** previously been excluded by the client code.
++*/
++#if defined(__APPLE__)
++#include <CoreServices/CoreServices.h>
++#include <CoreFoundation/CoreFoundation.h>
++#endif
++
++/*
+ ** The following macros mimic the standard library functions toupper(),
+ ** isspace(), isalnum(), isdigit() and isxdigit(), respectively. The
+ ** sqlite versions only work for ASCII characters, regardless of locale.
+Index: src/pager.c
+===================================================================
+--- src/pager.c	(revision 87306)
++++ src/pager.c	(working copy)
+@@ -5130,7 +5130,21 @@
+   }
+ }
+ 
++#if defined(__APPLE__)
+ /*
++** Create and return a CFURLRef given a cstring containing the path to a file.
++*/
++static CFURLRef create_cfurl_from_cstring(const char* filePath){
++  CFStringRef urlString = CFStringCreateWithFileSystemRepresentation(
++      kCFAllocatorDefault, filePath);
++  CFURLRef urlRef = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
++      urlString, kCFURLPOSIXPathStyle, FALSE);
++  CFRelease(urlString);
++  return urlRef;
++}
++#endif
++
++/*
+ ** This function is called at the start of every write transaction.
+ ** There must already be a RESERVED or EXCLUSIVE lock on the database 
+ ** file when this routine is called.
+@@ -5189,6 +5203,24 @@
+   #else
+         rc = sqlite3OsOpen(pVfs, pPager->zJournal, pPager->jfd, flags, 0);
+   #endif
++#if defined(__APPLE__)
++        /* Set the TimeMachine exclusion metadata for the journal if it has
++        ** been set for the database. Only do this for unix-type vfs
++        ** implementations. */
++        if( rc==SQLITE_OK && pPager->zFilename!=NULL
++         && strlen(pPager->zFilename)>0
++         && strncmp(pVfs->zName, "unix", 4)==0
++         && ( pVfs->zName[4]=='-' || pVfs->zName[4]=='\0' ) ){
++          CFURLRef database = create_cfurl_from_cstring(pPager->zFilename);
++          if( CSBackupIsItemExcluded(database, NULL) ){
++            CFURLRef journal = create_cfurl_from_cstring(pPager->zJournal);
++            /* Ignore errors from the following exclusion call. */
++            CSBackupSetItemExcluded(journal, TRUE, FALSE);
++            CFRelease(journal);
++          }
++          CFRelease(database);
++        }
++#endif
+       }
+       assert( rc!=SQLITE_OK || isOpen(pPager->jfd) );
+     }
+Index: ext/fts3/fts3_porter.c
+===================================================================
+--- ext/fts3/fts3_porter.c	(revision 87306)
++++ ext/fts3/fts3_porter.c	(working copy)
+@@ -129,7 +129,7 @@
+ /*
+ ** Vowel or consonant
+ */
+-static const char cType[] = {
++static const char vOrCType[] = {
+    0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0,
+    1, 1, 1, 2, 1
+ };
+@@ -153,7 +153,7 @@
+   char x = *z;
+   if( x==0 ) return 0;
+   assert( x>='a' && x<='z' );
+-  j = cType[x-'a'];
++  j = vOrCType[x-'a'];
+   if( j<2 ) return j;
+   return z[1]==0 || isVowel(z + 1);
+ }
+@@ -162,7 +162,7 @@
+   char x = *z;
+   if( x==0 ) return 0;
+   assert( x>='a' && x<='z' );
+-  j = cType[x-'a'];
++  j = vOrCType[x-'a'];
+   if( j<2 ) return 1-j;
+   return isConsonant(z + 1);
+ }

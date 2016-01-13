@@ -1,0 +1,319 @@
+##############################################################################
+#
+#    Copyright (C) 2005 - 2014 by Vivante Corp.
+#
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the license, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with this program; if not write to the Free Software
+#    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+##############################################################################
+
+
+#
+# Linux build file for kernel HAL driver.
+#
+
+####modified for marvell bg2
+#copied from config
+USE_3D_VG                         ?= 1
+FORCE_ALL_VIDEO_MEMORY_CACHED     ?= 1
+NONPAGED_MEMORY_CACHEABLE         ?= 0
+NONPAGED_MEMORY_BUFFERABLE        ?= 0
+CACHE_FUNCTION_UNIMPLEMENTED      ?= 0
+VIVANTE_ENABLE_VG                 ?= 0
+VIVANTE_NO_3D                     ?= 0
+ENABLE_OUTER_CACHE_PATCH          ?= 1
+USE_BANK_ALIGNMENT                ?= 0
+BANK_BIT_START                    ?= 0
+BANK_BIT_END                      ?= 0
+BANK_CHANNEL_BIT                  ?= 0
+NO_DMA_COHERENT                   ?= 1
+ENABLE_GPU_CLOCK_BY_DRIVER        ?= 0
+USE_PLATFORM_DRIVER               ?= 1
+ANDROID        ?= 1
+DEBUG ?= 0
+USE_GALOIS_SHM ?= 1
+USE_MRVL_ION ?= 0
+SECURITY ?= 0
+
+EXTRA_CFLAGS	+= -I$(srctree)/arch/arm/mach-berlin/modules/shm
+
+AQROOT          := $(srctree)/arch/arm/mach-berlin/modules/gpu3D
+AQARCH          := $(AQROOT)/arch/XAQ2
+
+EXTRA_CFLAGS += -D__LINUX_KERNEL__
+
+DRV_NAME ?= gal3d
+EXTRA_CFLAGS   += -DDRV_NAME=\"$(DRV_NAME)\"
+
+GAL_DEV  ?= /dev/$(DRV_NAME)
+EXTRA_CFLAGS   += -DGAL_DEV=\"$(GAL_DEV)\"
+NO_USER_DIRECT_ACCESS_FROM_KERNEL ?= 1
+####end for marvell bg2
+
+DRIVER_OUT_DIR = hal/driver
+KERNEL_DIR ?= $(TOOL_DIR)/kernel
+
+OS_KERNEL_DIR   := hal/os/linux/kernel
+ARCH_KERNEL_DIR := hal/kernel/arch
+ARCH_VG_KERNEL_DIR := hal/kernel/archvg
+HAL_KERNEL_DIR  := hal/kernel
+
+CUSTOMER_ALLOCATOR_OBJS :=
+
+EXTRA_CFLAGS += -Werror
+
+OBJS := $(OS_KERNEL_DIR)/gc_hal_kernel_device.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_driver.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_linux.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_math.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_os.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_debugfs.o \
+        $(OS_KERNEL_DIR)/gc_hal_kernel_allocator.o \
+
+
+OBJS += $(HAL_KERNEL_DIR)/gc_hal_kernel.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_command.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_db.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_debug.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_event.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_heap.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_mmu.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_video_memory.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_power.o
+
+OBJS += $(ARCH_KERNEL_DIR)/gc_hal_kernel_context.o \
+        $(ARCH_KERNEL_DIR)/gc_hal_kernel_hardware.o
+
+ifeq ($(VIVANTE_ENABLE_VG), 1)
+OBJS +=\
+          $(HAL_KERNEL_DIR)/gc_hal_kernel_vg.o\
+          $(HAL_KERNEL_DIR)/gc_hal_kernel_command_vg.o\
+          $(HAL_KERNEL_DIR)/gc_hal_kernel_interrupt_vg.o\
+          $(HAL_KERNEL_DIR)/gc_hal_kernel_mmu_vg.o\
+          $(ARCH_VG_KERNEL_DIR)/gc_hal_kernel_hardware_command_vg.o\
+          $(ARCH_VG_KERNEL_DIR)/gc_hal_kernel_hardware_vg.o
+endif
+
+ifneq ($(CONFIG_SYNC),)
+OBJS += $(OS_KERNEL_DIR)/gc_hal_kernel_sync.o
+endif
+
+ifeq ($(SECURITY), 1)
+OBJS += $(OS_KERNEL_DIR)/gc_hal_kernel_security_channel.o \
+        $(HAL_KERNEL_DIR)/gc_hal_kernel_security.o
+endif
+
+ifneq ($(CUSTOMER_ALLOCATOR_OBJS),)
+OBJS += $(CUSTOMER_ALLOCATOR_OBJS)
+endif
+
+#ifeq ($(KERNELRELEASE), )
+
+#.PHONY: all clean install
+
+# Define targets.
+#all:
+#	@mkdir -p $(DRIVER_OUT_DIR)
+#	@$(MAKE) V=$(V) ARCH=$(ARCH_TYPE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
+
+#clean:
+#	@rm -rf $(OBJS)
+#	@rm -rf $(DRIVER_OUT_DIR)
+#	@rm -rf modules.order Module.symvers
+#	@find $(AQROOT) -name ".gc_*.cmd" | xargs rm -f
+
+#install: all
+#	@mkdir -p $(SDK_DIR)/drivers
+####modified for marvell bg2
+#	@cp $(DRIVER_OUT_DIR)/$(DRV_NAME).ko $(SDK_DIR)/drivers
+####end for marvell bg2
+
+#else
+
+
+EXTRA_CFLAGS += -DLINUX -DDRIVER
+
+####modified for marvell bg2
+ifeq ($(USE_GALOIS_SHM), 1)
+EXTRA_CFLAGS += -DUSE_GALOIS_SHM=1
+else
+EXTRA_CFLAGS += -DUSE_GALOIS_SHM=0
+endif
+
+ifeq ($(USE_MRVL_ION), 1)
+EXTRA_CFLAGS += -DMRVL_VIDEO_MEMORY_USE_ION=1
+else
+EXTRA_CFLAGS += -DMRVL_VIDEO_MEMORY_USE_ION=0
+endif
+
+ifeq ($(CONFIG_BERLIN2Q), y)
+EXTRA_CFLAGS += -DSOC_BERLIN2Q=1
+else
+EXTRA_CFLAGS += -DSOC_BERLIN2Q=0
+endif
+
+ifeq ($(CONFIG_BERLIN2CD), y)
+EXTRA_CFLAGS += -DSOC_BERLIN2CD=1
+else
+EXTRA_CFLAGS += -DSOC_BERLIN2CD=0
+endif
+
+ifeq ($(CONFIG_BERLIN2CDP), y)
+EXTRA_CFLAGS += -DSOC_BERLIN2CDP=1
+else
+EXTRA_CFLAGS += -DSOC_BERLIN2CDP=0
+endif
+
+####modified for marvell bg2 ics4
+
+ifeq ($(FLAREON),1)
+EXTRA_CFLAGS += -DFLAREON
+endif
+
+ifeq ($(DEBUG), 1)
+EXTRA_CFLAGS += -DDBG=1 -DDEBUG -D_DEBUG
+else
+EXTRA_CFLAGS += -DDBG=0
+endif
+
+ifeq ($(NO_DMA_COHERENT), 1)
+EXTRA_CFLAGS += -DNO_DMA_COHERENT
+endif
+
+ifeq ($(CONFIG_DOVE_GPU), 1)
+EXTRA_CFLAGS += -DCONFIG_DOVE_GPU=1
+endif
+
+ifneq ($(USE_PLATFORM_DRIVER), 0)
+EXTRA_CFLAGS += -DUSE_PLATFORM_DRIVER=1
+else
+EXTRA_CFLAGS += -DUSE_PLATFORM_DRIVER=0
+endif
+
+
+EXTRA_CFLAGS += -DVIVANTE_PROFILER=1
+EXTRA_CFLAGS += -DVIVANTE_PROFILER_CONTEXT=1
+
+
+ifeq ($(ANDROID), 1)
+EXTRA_CFLAGS += -DANDROID=1
+endif
+
+ifeq ($(ENABLE_GPU_CLOCK_BY_DRIVER), 1)
+EXTRA_CFLAGS += -DENABLE_GPU_CLOCK_BY_DRIVER=1
+else
+EXTRA_CFLAGS += -DENABLE_GPU_CLOCK_BY_DRIVER=0
+endif
+
+ifeq ($(USE_NEW_LINUX_SIGNAL), 1)
+EXTRA_CFLAGS += -DUSE_NEW_LINUX_SIGNAL=1
+else
+EXTRA_CFLAGS += -DUSE_NEW_LINUX_SIGNAL=0
+endif
+
+ifeq ($(FORCE_ALL_VIDEO_MEMORY_CACHED), 1)
+EXTRA_CFLAGS += -DgcdPAGED_MEMORY_CACHEABLE=1
+else
+EXTRA_CFLAGS += -DgcdPAGED_MEMORY_CACHEABLE=0
+endif
+
+ifeq ($(NONPAGED_MEMORY_CACHEABLE), 1)
+EXTRA_CFLAGS += -DgcdNONPAGED_MEMORY_CACHEABLE=1
+else
+EXTRA_CFLAGS += -DgcdNONPAGED_MEMORY_CACHEABLE=0
+endif
+
+ifeq ($(NONPAGED_MEMORY_BUFFERABLE), 1)
+EXTRA_CFLAGS += -DgcdNONPAGED_MEMORY_BUFFERABLE=1
+else
+EXTRA_CFLAGS += -DgcdNONPAGED_MEMORY_BUFFERABLE=0
+endif
+
+ifeq ($(CACHE_FUNCTION_UNIMPLEMENTED), 1)
+EXTRA_CFLAGS += -DgcdCACHE_FUNCTION_UNIMPLEMENTED=1
+else
+EXTRA_CFLAGS += -DgcdCACHE_FUNCTION_UNIMPLEMENTED=0
+endif
+
+ifeq ($(VIVANTE_ENABLE_VG), 1)
+EXTRA_CFLAGS += -DgcdENABLE_VG=1
+else
+EXTRA_CFLAGS += -DgcdENABLE_VG=0
+endif
+
+ifeq ($(CONFIG_SMP), y)
+EXTRA_CFLAGS += -DgcdSMP=1
+else
+EXTRA_CFLAGS += -DgcdSMP=0
+endif
+
+ifeq ($(VIVANTE_NO_3D),1)
+EXTRA_CFLAGS += -DVIVANTE_NO_3D
+endif
+
+ifeq ($(ENABLE_OUTER_CACHE_PATCH), 1)
+EXTRA_CFLAGS += -DgcdENABLE_OUTER_CACHE_PATCH=1
+else
+EXTRA_CFLAGS += -DgcdENABLE_OUTER_CACHE_PATCH=0
+endif
+
+ifeq ($(USE_BANK_ALIGNMENT), 1)
+    EXTRA_CFLAGS += -DgcdENABLE_BANK_ALIGNMENT=1
+    ifneq ($(BANK_BIT_START), 0)
+	        ifneq ($(BANK_BIT_END), 0)
+	            EXTRA_CFLAGS += -DgcdBANK_BIT_START=$(BANK_BIT_START)
+	            EXTRA_CFLAGS += -DgcdBANK_BIT_END=$(BANK_BIT_END)
+	        endif
+    endif
+
+    ifneq ($(BANK_CHANNEL_BIT), 0)
+        EXTRA_CFLAGS += -DgcdBANK_CHANNEL_BIT=$(BANK_CHANNEL_BIT)
+    endif
+endif
+
+ifeq ($(gcdFPGA_BUILD), 1)
+EXTRA_CFLAGS += -DgcdFPGA_BUILD=1
+else
+EXTRA_CFLAGS += -DgcdFPGA_BUILD=0
+endif
+
+ifeq ($(SECURITY), 1)
+EXTRA_CFLAGS += -DgcdSECURITY=1
+endif
+
+EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel/inc
+EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel
+EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel/arch
+EXTRA_CFLAGS += -I$(AQROOT)/hal/os/linux/kernel
+
+ifeq ($(SECURITY), 1)
+EXTRA_CFLAGS += -I$(AQROOT)/../../vendor/marvell-sdk/tee/include/
+EXTRA_CFLAGS += -I$(AQROOT)/../../vendor/marvell-sdk/tee/tee/client_api
+EXTRA_CFLAGS += -I$(AQROOT)/../../vendor/marvell-sdk/tee/tee/common/
+endif
+
+
+ifeq ($(VIVANTE_ENABLE_VG), 1)
+EXTRA_CFLAGS += -I$(AQROOT)/hal/kernel/archvg
+endif
+
+####modified for marvell bg2
+obj-$(CONFIG_BERLIN_GPU3D) += $(DRV_NAME).o
+####end for marvell bg2
+
+####modified for marvell bg2
+$(DRV_NAME)-objs  = $(OBJS)
+####end for marvell bg2
+
+#endif

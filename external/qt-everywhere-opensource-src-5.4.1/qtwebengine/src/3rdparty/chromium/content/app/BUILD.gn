@@ -1,0 +1,62 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("app") {
+  sources = [
+    "android/app_jni_registrar.cc",
+    "android/app_jni_registrar.h",
+    "android/child_process_service.cc",
+    "android/child_process_service.h",
+    "android/content_main.cc",
+    "android/content_main.h",
+    "android/library_loader_hooks.cc",
+    "content_main.cc",
+    "content_main_runner.cc",
+    "mojo/mojo_init.cc",
+    "mojo/mojo_init.h",
+    "startup_helper_win.cc",
+  ]
+
+  configs += [ "//content:content_implementation" ]
+
+  deps = [
+    "//base",
+    "//base:i18n",
+    # This is needed by app/content_main_runner.cc
+    # TODO(brettw) this shouldn't be here, only final executables should be
+    # picking the allocator.
+    "//base/allocator",
+    "//content:export",
+    "//crypto",
+    "//ui/base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (is_win) {
+    deps += [ "//sandbox" ]
+  } else if (is_android) {
+    sources -= [ "content_main.cc" ]
+    deps += [
+      "//content:content_jni_headers",
+      "//skia",
+      "//third_party/android_tools:cpu_features"
+    ]
+  }
+
+  if (is_ios) {
+    sources -= [
+      "content_main.cc",
+      "mojo/mojo_init.cc",
+      "mojo/mojo_init.h",
+    ]
+  } else {
+    deps += [
+      "//mojo/environment:chromium",
+      "//mojo/public/interfaces/service_provider:service_provider",
+      "//mojo/service_manager",
+      "//mojo/system",
+    ]
+  }
+}

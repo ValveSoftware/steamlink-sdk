@@ -1,0 +1,198 @@
+Name: sqlite
+URL: http://sqlite.org/
+Version: 3.7.6.3
+Included In Release: Yes
+Security Critical: Yes
+License: Public domain
+
+Instructions for importing a new release of SQLite from sqlite.org.
+
+Note: our current base version is 3.7.6.3.
+
+First, you need to be on Linux.
+
+# Determine the versions of the release you want and the release we currently
+# have. (See the VERSION file to determine which release we currently have.)
+# You may wish to consult http://www.sqlite.org/changes.html to find out what
+# changes have been made in each release.
+# Note - this is just an example. Always refer to the version above for our
+# real current version.
+# Set some variables to remember the versions, e.g.:
+BASE=3.7.6.3
+LATEST=3.7.6.4
+
+# Get to the src/third_party directory in your Chromium client:
+cd src/third_party
+
+# Download the .tar.gz files for the releases:
+# (If the URL changes you might need to find the new one.)
+# TODO(shess): Rewrite this to track the new naming format.  Meanwhile,
+# manually navigate to www.sqlite.org and find downloads, use "legacy" version.
+wget http://www.sqlite.org/sqlite-$BASE.tar.gz
+wget http://www.sqlite.org/sqlite-$LATEST.tar.gz
+
+# Extract the vanilla current and desired versions:
+tar xzf sqlite-$BASE.tar.gz
+tar xzf sqlite-$LATEST.tar.gz
+
+# Use kdiff3 to merge the changes:
+kdiff3 -m sqlite-$BASE sqlite-$LATEST sqlite
+
+# Resolve any conflicts.  Figure out if we've got everything we should
+# have (see below), or if we can omit any changes we no longer need.
+
+# Change to the sqlite directory:
+cd sqlite
+
+# Run the google_generate_amalgamation.sh script:
+./google_generate_amalgamation.sh
+
+# Find a sucker.  Send review.
+# TODO(shess) Describe an appropriate comment style.  Seems like it
+# should at least include the SQLite version number.
+
+--------------------------------------------
+
+For reference, all of our local patches are also kept as .patch files in the
+sqlite directory. Here is a list of the patches, in the order they should be
+applied to a vanilla SQLite (of the version we currently have) to get, in
+principle, exactly what is checked in:
+
+misc.patch
+safe-tolower.patch
+fts2.patch
+fts3.patch
+fts3_85522.patch
+icu-regexp.patch
+icu-shell.patch
+attach-integer.patch
+webdb.patch
+test.patch
+mac_time_machine.patch
+system-sqlite.patch
+sqlite-3.7.6.3-fix-out-of-scope-memory-reference.patch
+misalignment.patch
+memcmp.patch
+separate_cache_pool.patch
+recover.patch
+
+So, e.g. you could do this to apply all our patches to vanilla SQLite:
+
+cd sqlite-$LATEST
+patch -p0 < ../sqlite/misc.patch
+patch -p0 < ../sqlite/fts2.patch
+patch -p0 < ../sqlite/fts3.patch
+patch -p0 < ../sqlite/fts3_85522.patch
+patch -p0 < ../sqlite/icu-shell.patch
+patch -p0 < ../sqlite/webdb.patch
+patch -p0 < ../sqlite/test.patch
+patch -p0 < ../sqlite/mac_time_machine.patch
+patch -p0 < ../sqlite/system-sqlite.patch
+patch -p0 < ../sqlite/sqlite-3.7.6.3-fix-out-of-scope-memory-reference.patch
+patch -p0 < ../sqlite/misalignment.patch
+patch -p0 < ../sqlite/memcmp.patch
+patch -p0 < ../sqlite/separate_cache_pool.patch
+patch -p0 < ../sqlite/recover.patch
+
+This will only be the case if all changes we make also update the corresponding
+patch files. Therefore please remember to do that whenever you make a change!
+
+Descriptions of the changes we've made can be found at the bottom of this file.
+
+--------------------------------------------
+
+How to run the SQLite tests for the Chromium version of SQLite on Linux.
+
+Prerequisties: On my corp Ubuntu 8.04 workstation, I needed to install the
+following packages:
+sudo apt-get install tcl8.4-dev libicu-dev
+
+cd src/third_party/sqlite/src
+mkdir build
+cd build
+make -f ../Makefile.linux-gcc testfixture
+make -f ../Makefile.linux-gcc test > /tmp/test.log
+egrep -v 'Ok$' /tmp/test.log
+# For an ideal test run, you would see:
+# 0 errors out of 57887 tests
+# However, the current situation on my corp Linux Ubuntu 8.04 machine, with
+# test run on a locally mounted directory, is the failure of:
+# "rollback-2.3", "tkt3457-1.4"
+# I do not know why, but it is not related to our fts2.c changes -- I backed
+# them out to check.
+
+Chris Evans <cevans@google.com>, Oct 1, 2009
+
+--------------------------------------------
+
+As of May 07, 2010, these are our changes from sqlite_vendor:
+
+ - A fix for a crash passing an integer expression to ATTACH / DETACH. See
+ attach-integer.patch
+ - A fix for a crash mis-calling the REGEXP() function of the ICU extension.
+ See icu-regexp.patch
+ - A large number of fts2 robustness fixes against corrupt data in its metadata
+   tables.
+ - fts2.c disables fts2_tokenizer().
+ - fts3.c disables fts3_tokenizer().
+ - Tweak to SQLITE_EXTENSION_INIT* in sqlite3ext.h.
+   - That implied a change in src/test_autoext.c for testing.
+ - Added fts.test in tests, modified quick.test.
+ - Modifications to Makefile.linux-gcc and main.mk for compiling
+   SQLite tests.
+ - Compile warning (cast to void* for sqlite3_free) fixed in func.c.
+ - Avoid using tolower() in fts code which causes problem in some locales, see:
+   safe-tolower.patch
+   http://crbug.com/15261
+   http://www.sqlite.org/src/tktview/991789d9f3136a0460dc83a33e815c1aa9757c26
+ - Check that the third argument to memset() is nonzero in expr.c to avoid
+   a linker warning when the compiler can optimize it to a constant zero
+   (e.g. see http://www.sqlite.org/cvstrac/tktview?tn=3765,39)
+
+Changes from Chrome:
+ - I marked all changes I made with "evanm", so you can find them with
+   "grep evanm *".
+ - Most files include sqlite3ext.h with SQLITE_CORE #defined, but two don't:
+   fts2_tokenizer.c and icu.c.  Without this #define, the calls in
+   fts2_tokenizer.c try to go through some pointer to the sqlite API instead
+   of calling the functions directly (to work as a loadable module), but then
+   crash (because the other files never initialize that loadable module
+   support).  As a hack I #defined it in these files, but it'd be nice to
+   figure out what really ought to happen here (perhaps this file is new and
+   hasn't been tested to verify it works right).  Update: Seems this is an
+   issue we get because we're using fts2 instead of fts3.
+ - shell_icu_win.c and shell_icu_linux.c are Chrome-specific files used to load
+   our ICU data.  shell.c has been modifed to call into these files.
+ - fts2_icu.c and fts3_icu.c have a critical bug. U8_NEXT is used over
+   a UTF-16 string. It's rep$ by U16_NEXT (jungshik)
+ - Added a new function chromium_sqlite3_initialize_win_sqlite3_file()
+   at the end of os_win.c. It allows the Windows-specific Chromium VFS
+   to reuse most of the win32 SQLite VFS.
+ - Added a new function
+   chromium_sqlite3_initialize_unix_sqlite3_file() and made
+   fillInUnixFile() non-static in os_unix.c. It allows the
+   Linux-specific Chromium VFS to reuse most of the unix SQLite VFS.
+ - Exposed three functions that deal with unused file descriptors in
+   os_unix.c, to allow Chromium's Posix VFS implementation in
+   WebKit/WebCore/platform/sql/chromium/SQLiteFileSystemChromiumPosix.cpp
+   to correctly implement the "unused file descriptors" logic in the
+   xDlOpen() method. The new functions are
+   chromium_sqlite3_get_reusable_file_handle(),
+   chromium_sqlite3_update_reusable_file_handle() and
+   chromium_sqlite3_destroy_reusable_file_handle(). Also, added the
+   chromium_sqlite3_fill_in_unix_sqlite3_file() function that calls
+   fillInUnixFile(), which will be made static again as soon as a
+   WebKit patch using the new function lands.
+ - From mac_time_machine.patch:
+   When __APPLE__ and when creating a -journal file with any unix-type vfs,
+   determine if the database for which the journal is being created has been
+   excluded from being backed up using Apple's Time Machine and if so then also
+   exclude the journal. These changes were made in pager.c with includes of
+   Apple interfaces being made in sqliteInt.h. In order to eliminate a symbol
+   conflict with an Apple library after amalgamation it was also necessary to
+   rename fts3_porter.c's 'cType' to 'vOrCType'.
+ - fts3_85522.patch allows fts3 to work if PRAGMA is not authorized.
+ - src/recover.c file implements a virtual table which can read
+   through corruption.
+ - Enable the macro 'SQLITE_TEMP_STORE=3' for Android.
+ - memcmp.patch backports ASAN-related fixes from SQLite trunk.

@@ -1,0 +1,24 @@
+#!/bin/busybox sh
+
+FACTORY_DIR=/mnt/factory_setting
+
+/bin/busybox ifconfig | /bin/busybox grep -q ^eth0
+if [ $? -ne 0 ]; then
+  # set up Ethernet MAC address
+  if [ -f $FACTORY_DIR/MAC_ADDR ]; then
+    # use factory setting if available
+    mac_addr=$(cat $FACTORY_DIR/MAC_ADDR)
+    busybox ifconfig eth0 hw ether $mac_addr
+  else
+    # otherwise generate a random MAC address
+    mac_addr=`( busybox dd if=/dev/urandom bs=5 count=1 2> /dev/null) | busybox hexdump -e '5/1 "%02X"'`
+    mac_addr=00$mac_addr
+    busybox ifconfig eth0 hw ether $mac_addr
+
+    # store MAC address to factory setting
+    busybox mount -orw,remount $FACTORY_DIR
+    echo $mac_addr > $FACTORY_DIR/MAC_ADDR
+    busybox mount -oro,remount $FACTORY_DIR
+  fi
+fi
+ifconfig eth0 up

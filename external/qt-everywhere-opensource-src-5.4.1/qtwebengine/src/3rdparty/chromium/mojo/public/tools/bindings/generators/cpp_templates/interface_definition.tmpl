@@ -1,0 +1,315 @@
+{%- import "interface_macros.tmpl" as interface_macros %}
+{%- set class_name = interface.name %}
+{%- set proxy_name = interface.name ~ "Proxy" %}
+{%- set namespace_as_string = "%s"|format(namespace|replace(".","::")) %}
+
+{%- macro alloc_params(parameters) %}
+{%-   for param in parameters %}
+{%-     if param.kind|is_object_kind  %}
+{{param.kind|cpp_result_type}} p{{loop.index}};
+Deserialize_(params->{{param.name}}.ptr, &p{{loop.index}});
+{%      endif -%}
+{%-   endfor %}
+{%- endmacro %}
+
+{%- macro pass_params(parameters) %}
+{%-   for param in parameters %}
+{%-     if param.kind|is_string_kind -%}
+p{{loop.index}}
+{%-     elif param.kind|is_object_kind -%}
+p{{loop.index}}.Pass()
+{%-     elif param.kind|is_interface_kind -%}
+mojo::MakeProxy<{{param.kind|get_name_for_kind}}>(mojo::MakeScopedHandle(mojo::internal::FetchAndReset(&params->{{param.name}})))
+{%-     elif param.kind|is_interface_request_kind -%}
+mojo::MakeRequest<{{param.kind.kind|get_name_for_kind}}>(mojo::MakeScopedHandle(mojo::internal::FetchAndReset(&params->{{param.name}})))
+{%-     elif param.kind|is_handle_kind -%}
+mojo::MakeScopedHandle(mojo::internal::FetchAndReset(&params->{{param.name}}))
+{%-     elif param.kind|is_enum_kind -%}
+static_cast<{{param.kind|cpp_wrapper_type}}>(params->{{param.name}})
+{%-     else -%}
+params->{{param.name}}
+{%-     endif -%}
+{%-     if not loop.last %}, {% endif %}
+{%-   endfor %}
+{%- endmacro %}
+
+{%- macro compute_payload_size(params_name, parameters) -%}
+  size_t payload_size =
+      mojo::internal::Align(sizeof({{params_name}}));
+{#--- Computes #}
+{%-   for param in parameters %}
+{%-     if param.kind|is_object_kind %}
+  payload_size += GetSerializedSize_(in_{{param.name}});
+{%-     endif %}
+{%-   endfor %}
+{%- endmacro %}
+
+{%- macro build_message(params_name, parameters) -%}
+  {{params_name}}* params =
+      {{params_name}}::New(builder.buffer());
+{#--- Sets #}
+{%   for param in parameters %}
+{%-     if param.kind|is_object_kind %}
+  Serialize_(mojo::internal::Forward(in_{{param.name}}), builder.buffer(), &params->{{param.name}}.ptr);
+{%-     elif param.kind|is_interface_kind %}
+  if (!in_{{param.name}}.get()) {
+    params->{{param.name}} = mojo::MessagePipeHandle();
+  } else {
+    // Delegate handle.
+    params->{{param.name}} = in_{{param.name}}.PassMessagePipe().release();
+  }
+{%-     elif param.kind|is_interface_request_kind %}
+  // Delegate handle.
+  params->{{param.name}} = in_{{param.name}}.PassMessagePipe().release();
+{%-     elif param.kind|is_handle_kind %}
+  params->{{param.name}} = in_{{param.name}}.release();
+{%-     else %}
+  params->{{param.name}} = in_{{param.name}};
+{%-     endif %}
+{%-   endfor %}
+  mojo::Message message;
+  params->EncodePointersAndHandles(message.mutable_handles());
+  builder.Finish(&message);
+{%- endmacro %}
+
+{#--- Begin #}
+const char* {{class_name}}::Name_ = "{{namespace_as_string}}::{{class_name}}";
+{#--- Constants #}
+{%  for constant in interface.constants %}
+const {{constant.kind|cpp_pod_type}} {{interface.name}}::{{constant.name}} = {{constant.value|expression_to_text}};
+{%- endfor %}
+
+{#--- ForwardToCallback definition #}
+{%- for method in interface.methods -%}
+{%-   if method.response_parameters != None %}
+class {{class_name}}_{{method.name}}_ForwardToCallback
+    : public mojo::MessageReceiver {
+ public:
+  {{class_name}}_{{method.name}}_ForwardToCallback(
+      const {{interface_macros.declare_callback(method)}}& callback)
+      : callback_(callback) {
+  }
+  virtual bool Accept(mojo::Message* message) MOJO_OVERRIDE;
+ private:
+  {{interface_macros.declare_callback(method)}} callback_;
+  MOJO_DISALLOW_COPY_AND_ASSIGN({{class_name}}_{{method.name}}_ForwardToCallback);
+};
+bool {{class_name}}_{{method.name}}_ForwardToCallback::Accept(
+    mojo::Message* message) {
+  internal::{{class_name}}_{{method.name}}_ResponseParams_Data* params =
+      reinterpret_cast<internal::{{class_name}}_{{method.name}}_ResponseParams_Data*>(
+          message->mutable_payload());
+
+  params->DecodePointersAndHandles(message->mutable_handles());
+  {{alloc_params(method.response_parameters)|indent(2)}}
+  callback_.Run({{pass_params(method.response_parameters)}});
+  return true;
+}
+{%-   endif %}
+{%- endfor %}
+
+{{proxy_name}}::{{proxy_name}}(mojo::MessageReceiverWithResponder* receiver)
+    : receiver_(receiver) {
+}
+
+{#--- Proxy definitions #}
+
+{%- for method in interface.methods %}
+{%-   set message_name =
+          "internal::k%s_%s_Name"|format(interface.name, method.name) %}
+{%-   set params_name =
+          "internal::%s_%s_Params_Data"|format(interface.name, method.name) %}
+void {{proxy_name}}::{{method.name}}(
+    {{interface_macros.declare_request_params("in_", method)}}) {
+  {{compute_payload_size(params_name, method.parameters)}}
+
+{%- if method.response_parameters != None %}
+  mojo::internal::RequestMessageBuilder builder({{message_name}}, payload_size);
+{%- else %}
+  mojo::internal::MessageBuilder builder({{message_name}}, payload_size);
+{%- endif %}
+
+  {{build_message(params_name, method.parameters)}}
+
+{%- if method.response_parameters != None %}
+  mojo::MessageReceiver* responder =
+      new {{class_name}}_{{method.name}}_ForwardToCallback(callback);
+  if (!receiver_->AcceptWithResponder(&message, responder))
+    delete responder;
+{%- else %}
+  bool ok MOJO_ALLOW_UNUSED = receiver_->Accept(&message);
+  // This return value may be ignored as !ok implies the Connector has
+  // encountered an error, which will be visible through other means.
+{%- endif %}
+}
+{%- endfor %}
+
+{#--- ProxyToResponder definition #}
+{%- for method in interface.methods -%}
+{%-   if method.response_parameters != None %}
+{%-     set message_name =
+            "internal::k%s_%s_Name"|format(interface.name, method.name) %}
+{%-     set params_name =
+            "internal::%s_%s_ResponseParams_Data"|format(interface.name, method.name) %}
+class {{class_name}}_{{method.name}}_ProxyToResponder
+    : public {{interface_macros.declare_callback(method)}}::Runnable {
+ public:
+  virtual ~{{class_name}}_{{method.name}}_ProxyToResponder() {
+    delete responder_;
+  }
+
+  {{class_name}}_{{method.name}}_ProxyToResponder(
+      uint64_t request_id,
+      mojo::MessageReceiver* responder)
+      : request_id_(request_id),
+        responder_(responder) {
+  }
+
+  virtual void Run({{interface_macros.declare_params("in_", method.response_parameters)}}) const;
+
+ private:
+  uint64_t request_id_;
+  mutable mojo::MessageReceiver* responder_;
+  MOJO_DISALLOW_COPY_AND_ASSIGN({{class_name}}_{{method.name}}_ProxyToResponder);
+};
+void {{class_name}}_{{method.name}}_ProxyToResponder::Run(
+    {{interface_macros.declare_params("in_", method.response_parameters)}}) const {
+  {{compute_payload_size(params_name, method.response_parameters)}}
+  mojo::internal::ResponseMessageBuilder builder(
+      {{message_name}}, payload_size, request_id_);
+  {{build_message(params_name, method.response_parameters)}}
+  bool ok MOJO_ALLOW_UNUSED = responder_->Accept(&message);
+  // TODO(darin): !ok returned here indicates a malformed message, and that may
+  // be good reason to close the connection. However, we don't have a way to do
+  // that from here. We should add a way.
+  delete responder_;
+  responder_ = NULL;
+}
+{%-   endif -%}
+{%- endfor %}
+
+{{class_name}}Stub::{{class_name}}Stub()
+    : sink_(NULL) {
+}
+
+{#--- Stub definition #}
+
+bool {{class_name}}Stub::Accept(mojo::Message* message) {
+{%- if interface.methods %}
+  switch (message->header()->name) {
+{%-   for method in interface.methods %}
+    case internal::k{{class_name}}_{{method.name}}_Name: {
+{%-     if method.response_parameters == None %}
+      internal::{{class_name}}_{{method.name}}_Params_Data* params =
+          reinterpret_cast<internal::{{class_name}}_{{method.name}}_Params_Data*>(
+              message->mutable_payload());
+
+      params->DecodePointersAndHandles(message->mutable_handles());
+      {{alloc_params(method.parameters)|indent(6)}}
+      sink_->{{method.name}}({{pass_params(method.parameters)}});
+      return true;
+{%-     else %}
+      break;
+{%-     endif %}
+    }
+{%-   endfor %}
+  }
+{%- endif %}
+  return false;
+}
+
+bool {{class_name}}Stub::AcceptWithResponder(
+    mojo::Message* message, mojo::MessageReceiver* responder) {
+{%- if interface.methods %}
+  switch (message->header()->name) {
+{%-   for method in interface.methods %}
+    case internal::k{{class_name}}_{{method.name}}_Name: {
+{%-     if method.response_parameters != None %}
+      internal::{{class_name}}_{{method.name}}_Params_Data* params =
+          reinterpret_cast<internal::{{class_name}}_{{method.name}}_Params_Data*>(
+              message->mutable_payload());
+
+      params->DecodePointersAndHandles(message->mutable_handles());
+      {{interface_macros.declare_callback(method)}}::Runnable* runnable =
+          new {{class_name}}_{{method.name}}_ProxyToResponder(
+              message->request_id(), responder);
+      {{interface_macros.declare_callback(method)}} callback(runnable);
+      {{alloc_params(method.parameters)|indent(6)}}
+      sink_->{{method.name}}(
+{%- if method.parameters -%}{{pass_params(method.parameters)}}, {% endif -%}callback);
+      return true;
+{%-     else %}
+      break;
+{%-     endif %}
+    }
+{%-   endfor %}
+  }
+{%- endif %}
+  return false;
+}
+
+{#--- Request validator definitions #}
+
+{{class_name}}RequestValidator::{{class_name}}RequestValidator(
+    mojo::MessageReceiver* sink) : MessageFilter(sink) {
+}
+
+bool {{class_name}}RequestValidator::Accept(mojo::Message* message) {
+{%- if interface.methods %}
+  switch (message->header()->name) {
+{%-   for method in interface.methods %}
+    case internal::k{{class_name}}_{{method.name}}_Name: {
+{%-     if method.response_parameters != None %}
+      if (!message->has_flag(mojo::internal::kMessageExpectsResponse))
+        break;
+{%-     else %}
+      if (message->has_flag(mojo::internal::kMessageExpectsResponse) ||
+          message->has_flag(mojo::internal::kMessageIsResponse)) {
+        break;
+      }
+{%-     endif %}
+      mojo::internal::BoundsChecker bounds_checker(
+          message->payload(), message->payload_num_bytes(),
+          message->handles()->size());
+      if (!internal::{{class_name}}_{{method.name}}_Params_Data::Validate(
+              message->payload(), &bounds_checker)) {
+        return false;
+      }
+      break;
+    }
+{%-   endfor %}
+  }
+{%- endif %}
+
+  return sink_->Accept(message);
+}
+
+{#--- Response validator definitions #}
+{% if interface|has_callbacks %}
+{{class_name}}ResponseValidator::{{class_name}}ResponseValidator(
+    mojo::MessageReceiver* sink) : MessageFilter(sink) {
+}
+
+bool {{class_name}}ResponseValidator::Accept(mojo::Message* message) {
+{%- if interface.methods %}
+  switch (message->header()->name) {
+{%-   for method in interface.methods if method.response_parameters != None %}
+    case internal::k{{class_name}}_{{method.name}}_Name: {
+      if (!message->has_flag(mojo::internal::kMessageIsResponse))
+        break;
+      mojo::internal::BoundsChecker bounds_checker(
+          message->payload(), message->payload_num_bytes(),
+          message->handles()->size());
+      if (!internal::{{class_name}}_{{method.name}}_ResponseParams_Data::Validate(
+              message->payload(), &bounds_checker)) {
+        return false;
+      }
+      break;
+    }
+{%-   endfor %}
+  }
+{%- endif %}
+
+  return sink_->Accept(message);
+}
+{%- endif -%}

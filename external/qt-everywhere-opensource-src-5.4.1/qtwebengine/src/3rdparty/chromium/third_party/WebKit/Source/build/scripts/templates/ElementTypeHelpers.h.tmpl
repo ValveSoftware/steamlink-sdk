@@ -1,0 +1,67 @@
+{% from "macros.tmpl" import license %}
+{{ license() }}
+
+#ifndef {{namespace}}ElementTypeHelpers_h
+#define {{namespace}}ElementTypeHelpers_h
+
+#include "core/dom/ContextFeatures.h"
+#include "core/dom/Element.h"
+#include "{{namespace}}Names.h"
+#include "platform/RuntimeEnabledFeatures.h"
+
+namespace WebCore {
+// Type checking.
+{% for tag in tags|sort if not tag.multipleTagNames and not tag.noTypeHelpers %}
+{% filter enable_conditional(tag.Conditional) %}
+class {{tag.interface}};
+void is{{tag.interface}}(const {{tag.interface}}&); // Catch unnecessary runtime check of type known at compile time.
+void is{{tag.interface}}(const {{tag.interface}}*); // Catch unnecessary runtime check of type known at compile time.
+
+{# For HTML Elements, call hasLocalName() instead of hasTagName() to avoid checking the namespace unnecessarily #}
+{% if namespace == 'HTML' %}
+inline bool is{{tag.interface}}(const HTMLElement& element) {
+    {% if tag.runtimeEnabled or tag.contextConditional %}
+    if (element.isHTMLUnknownElement())
+        return false;
+    {% endif %}
+    return element.hasLocalName(HTMLNames::{{tag|symbol}}Tag);
+}
+inline bool is{{tag.interface}}(const Element& element) {
+    return element.isHTMLElement() && is{{tag.interface}}(toHTMLElement(element));
+}
+inline bool is{{tag.interface}}(const HTMLElement* element) { return element && is{{tag.interface}}(*element); }
+{% else %}
+inline bool is{{tag.interface}}(const Element& element) {
+    {% if tag.contextConditional %}
+    if (!ContextFeatures::{{tag.contextConditional}}Enabled(&element.document()))
+        return false;
+    {% endif %}
+    {% if tag.runtimeEnabled %}
+    if (!RuntimeEnabledFeatures::{{tag.runtimeEnabled}}Enabled())
+        return false;
+    {% endif %}
+    return element.hasTagName({{namespace}}Names::{{tag|symbol}}Tag);
+}
+{% endif %}
+inline bool is{{tag.interface}}(const Element* element) { return element && is{{tag.interface}}(*element); }
+template<typename T> inline bool is{{tag.interface}}(const PassRefPtr<T>& node) { return is{{tag.interface}}(node.get()); }
+template<typename T> inline bool is{{tag.interface}}(const RefPtr<T>& node) { return is{{tag.interface}}(node.get()); }
+inline bool is{{tag.interface}}(const Node& node) { return node.isElementNode() ? is{{tag.interface}}(toElement(node)) : false; }
+inline bool is{{tag.interface}}(const Node* node) { return node && node->isElementNode() ? is{{tag.interface}}(*toElement(node)) : false; }
+template <> inline bool isElementOfType<const {{tag.interface}}>(const Element& element) { return is{{tag.interface}}(element); }
+{% if namespace == "HTML" %}
+template <> inline bool isElementOfType<const {{tag.interface}}>(const HTMLElement& element) { return is{{tag.interface}}(element); }
+{% endif %}
+{% endfilter %}
+{% endfor %}
+// Using macros because the types are forward-declared and we don't want to use reinterpret_cast in the
+// casting functions above. reinterpret_cast would be unsafe due to multiple inheritence.
+
+{% for tag in tags|sort if not tag.multipleTagNames and not tag.noTypeHelpers %}
+{% filter enable_conditional(tag.Conditional) %}
+#define to{{tag.interface}}(x) WebCore::toElement<WebCore::{{tag.interface}}>(x)
+{% endfilter %}
+{% endfor %}
+} // WebCore
+
+#endif

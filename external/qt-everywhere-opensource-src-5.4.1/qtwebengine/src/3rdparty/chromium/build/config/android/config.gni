@@ -1,0 +1,128 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This file contains common system config stuff for the Android build.
+
+if (is_android) {
+  declare_args() {
+    # Absolute directory containing the Android source code.
+    android_src = ""
+
+    android_sdk_root = "//third_party/android_tools/sdk"
+    android_sdk_version = "20"
+
+    # This is set when building the Android WebView inside the Android build
+    # system, using the 'android' gyp backend. The WebView code is still built
+    # when this is unset, but builds using the normal chromium build system.
+    is_android_webview_build = false
+  }
+
+  if (is_android_webview_build) {
+    assert(android_src != "",
+           "You must specify android_src for an Android WebView build.")
+  }
+
+  # Host stuff -----------------------------------------------------------------
+
+  # Defines the name the Android build gives to the current host CPU
+  # architecture, which is different than the names GN uses.
+  if (build_cpu_arch == "x64") {
+    android_host_arch = "x86_64"
+  } else if (build_cpu_arch == "x86") {
+    android_host_arch = "x86"
+  } else {
+    assert(false, "Need Android toolchain support for your build CPU arch.")
+  }
+
+  # Defines the name the Android build gives to the current host CPU
+  # architecture, which is different than the names GN uses.
+  if (build_os == "linux") {
+    android_host_os = "linux"
+  } else {
+    assert(false, "Need Android toolchain support for your build OS.")
+  }
+
+  # Directories and files ------------------------------------------------------
+  #
+  # We define may of the dirs strings here for each output architecture (rather
+  # than just the current one) since these are needed by the Android toolchain
+  # file to define toolchains for all possible targets in one pass.
+
+  android_sdk = "${android_sdk_root}/platforms/android-${android_sdk_version}"
+
+  # Path to the Android NDK and SDK.
+  android_ndk_root = "//third_party/android_tools/ndk"
+
+  android_sdk = "${android_sdk_root}/platforms/android-${android_sdk_version}"
+
+  android_sdk_tools = "${android_sdk_root}/tools"
+  android_sdk_build_tools = "${android_sdk_root}/build-tools/20.0.0"
+
+  # Path to the SDK's android.jar
+  android_sdk_jar = "$android_sdk/android.jar"
+
+  # Subdirectories inside android_ndk_root that contain the sysroot for the
+  # associated platform.
+  _android_api_level = 14
+  x86_android_sysroot_subdir = "platforms/android-${_android_api_level}/arch-x86"
+  arm_android_sysroot_subdir = "platforms/android-${_android_api_level}/arch-arm"
+  mips_android_sysroot_subdir = "platforms/android-${_android_api_level}/arch-mips"
+
+  # Toolchain root directory for each build. The actual binaries are inside
+  # a "bin" directory inside of these.
+  _android_toolchain_version = "4.8"
+  x86_android_toolchain_root = "$android_ndk_root/toolchains/x86-${_android_toolchain_version}/prebuilt/${android_host_os}-${android_host_arch}"
+  arm_android_toolchain_root = "$android_ndk_root/toolchains/arm-linux-androideabi-${_android_toolchain_version}/prebuilt/${android_host_os}-${android_host_arch}"
+  mips_android_toolchain_root = "$android_ndk_root/toolchains/mipsel-linux-android-${_android_toolchain_version}/prebuilt/${android_host_os}-${android_host_arch}"
+
+  # Location of libgcc. This is only needed for the current GN toolchain, so we
+  # only need to define the current one, rather than one for every platform
+  # like the toolchain roots.
+  if (cpu_arch == "x86") {
+    android_libgcc_file =
+      "$x86_android_toolchain_root/lib/gcc/i686-linux-android/${_android_toolchain_version}/libgcc.a"
+  } else if (cpu_arch == "arm") {
+    android_libgcc_file =
+      "$arm_android_toolchain_root/lib/gcc/arm-linux-androideabi/${_android_toolchain_version}/libgcc.a"
+  } else if (cpu_arch == "mipsel") {
+    android_libgcc_file =
+      "$mips_android_toolchain_root/lib/gcc/mipsel-linux-android/${_android_toolchain_version}/libgcc.a"
+  } else {
+    assert(false, "Need android libgcc support for your target arch.")
+  }
+
+  # stlport stuff --------------------------------------------------------------
+
+  use_system_stlport = is_android_webview_build
+
+  if (use_system_stlport) {
+    android_stlport_library = "stlport"
+  } else if (component_mode == "shared_library") {
+    android_stlport_library = "stlport_shared"
+  } else {
+    android_stlport_library = "stlport_static"
+  }
+
+  # ABI ------------------------------------------------------------------------
+
+  if (cpu_arch == "x86") {
+    android_app_abi = "x86"
+  } else if (cpu_arch == "arm") {
+    import("//build/config/arm.gni")
+    if (arm_version < 7) {
+      android_app_abi = "armeabi"
+    } else {
+      android_app_abi = "armeabi-v7a"
+    }
+  } else if (cpu_arch == "mipsel") {
+    android_app_abi = "mips"
+  } else {
+    assert(false, "Unknown Android ABI: " + cpu_arch)
+  }
+} else {
+  if (!defined(is_android_webview_build)) {
+    is_android_webview_build = false
+  }
+  use_system_stlport = false
+}

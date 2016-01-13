@@ -1,0 +1,58 @@
+libkmod - linux kernel module handling library
+
+ABSTRACT
+========
+
+libkmod was created to allow programs to easily insert, remove and
+list modules, also checking its properties, dependencies and aliases.
+
+there is no shared/global context information and it can be used by
+multiple sites on a single program, also being able to be used from
+threads, although it's not thread safe (you must lock explicitly).
+
+
+OVERVIEW
+========
+
+Every user should create and manage it's own library context with:
+
+   struct kmod_ctx *ctx = kmod_new(kernel_dirname);
+   kmod_unref(ctx);
+
+
+Modules can be created by various means:
+
+   struct kmod_module *mod;
+   int err;
+
+   err = kmod_module_new_from_path(ctx, path, &mod);
+   if (err < 0) {
+      /* code */
+   } else {
+      /* code */
+      kmod_module_unref(mod);
+   }
+
+   err = kmod_module_new_from_name(ctx, name, &mod);
+   if (err < 0) {
+      /* code */
+   } else {
+      /* code */
+      kmod_module_unref(mod);
+   }
+
+
+Or could be resolved from a known alias to a list of alternatives:
+
+   struct kmod_list *list, *itr;
+   int err;
+   err = kmod_module_new_from_lookup(ctx, alias, &list);
+   if (err < 0) {
+      /* code */
+   } else {
+      kmod_list_foreach(itr, list) {
+         struct kmod_module *mod = kmod_module_get_module(itr);
+         /* code */
+      }
+   }
+

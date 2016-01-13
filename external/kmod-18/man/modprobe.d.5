@@ -1,0 +1,169 @@
+'\" t
+.\"     Title: modprobe.d
+.\"    Author: Jon Masters <jcm@jonmasters.org>
+.\" Generator: DocBook XSL Stylesheets v1.78.1 <http://docbook.sf.net/>
+.\"      Date: 06/14/2014
+.\"    Manual: modprobe.d
+.\"    Source: kmod
+.\"  Language: English
+.\"
+.TH "MODPROBE\&.D" "5" "06/14/2014" "kmod" "modprobe.d"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+modprobe.d \- Configuration directory for modprobe
+.SH "SYNOPSIS"
+.PP
+/lib/modprobe\&.d/*\&.conf
+.PP
+/etc/modprobe\&.d/*\&.conf
+.PP
+/run/modprobe\&.d/*\&.conf
+.SH "DESCRIPTION"
+.PP
+Because the
+\fBmodprobe\fR
+command can add or remove more than one module, due to modules having dependencies, we need a method of specifying what options are to be used with those modules\&. All files underneath the
+/etc/modprobe\&.d
+directory which end with the
+\&.conf
+extension specify those options as required\&. They can also be used to create convenient aliases: alternate names for a module, or they can override the normal
+\fBmodprobe\fR
+behavior altogether for those with special requirements (such as inserting more than one module)\&.
+.PP
+Note that module and alias names (like other module names) can have \- or _ in them: both are interchangeable throughout all the module commands as underscore conversion happens automatically\&.
+.PP
+The format of and files under
+modprobe\&.d
+is simple: one command per line, with blank lines and lines starting with \*(Aq#\*(Aq ignored (useful for adding comments)\&. A \*(Aq\e\*(Aq at the end of a line causes it to continue on the next line, which makes the file a bit neater\&.
+.SH "COMMANDS"
+.PP
+alias \fIwildcard\fR \fImodulename\fR
+.RS 4
+This allows you to give alternate names for a module\&. For example: "alias my\-mod really_long_modulename" means you can use "modprobe my\-mod" instead of "modprobe really_long_modulename"\&. You can also use shell\-style wildcards, so "alias my\-mod* really_long_modulename" means that "modprobe my\-mod\-something" has the same effect\&. You can\*(Aqt have aliases to other aliases (that way lies madness), but aliases can have options, which will be added to any other options\&.
+.sp
+Note that modules can also contain their own aliases, which you can see using
+\fBmodinfo\fR\&. These aliases are used as a last resort (ie\&. if there is no real module,
+\fBinstall\fR,
+\fBremove\fR, or
+\fBalias\fR
+command in the configuration)\&.
+.RE
+.PP
+blacklist \fImodulename\fR
+.RS 4
+Modules can contain their own aliases: usually these are aliases describing the devices they support, such as "pci:123\&.\&.\&."\&. These "internal" aliases can be overridden by normal "alias" keywords, but there are cases where two or more modules both support the same devices, or a module invalidly claims to support a device that it does not: the
+\fBblacklist\fR
+keyword indicates that all of that particular module\*(Aqs internal aliases are to be ignored\&.
+.RE
+.PP
+install \fImodulename\fR \fIcommand\&.\&.\&.\fR
+.RS 4
+This command instructs
+\fBmodprobe\fR
+to run your command instead of inserting the module in the kernel as normal\&. The command can be any shell command: this allows you to do any kind of complex processing you might wish\&. For example, if the module "fred" works better with the module "barney" already installed (but it doesn\*(Aqt depend on it, so
+\fBmodprobe\fR
+won\*(Aqt automatically load it), you could say "install fred /sbin/modprobe barney; /sbin/modprobe \-\-ignore\-install fred", which would do what you wanted\&. Note the
+\fB\-\-ignore\-install\fR, which stops the second
+\fBmodprobe\fR
+from running the same
+\fBinstall\fR
+command again\&. See also
+\fBremove\fR
+below\&.
+.sp
+The long term future of this command as a solution to the problem of providing additional module dependencies is not assured and it is intended to replace this command with a warning about its eventual removal or deprecation at some point in a future release\&. Its use complicates the automated determination of module dependencies by distribution utilities, such as mkinitrd (because these now need to somehow interpret what the
+\fBinstall\fR
+commands might be doing\&. In a perfect world, modules would provide all dependency information without the use of this command and work is underway to implement soft dependency support within the Linux kernel\&.
+.sp
+If you use the string "$CMDLINE_OPTS" in the command, it will be replaced by any options specified on the modprobe command line\&. This can be useful because users expect "modprobe fred opt=1" to pass the "opt=1" arg to the module, even if there\*(Aqs an install command in the configuration file\&. So our above example becomes "install fred /sbin/modprobe barney; /sbin/modprobe \-\-ignore\-install fred $CMDLINE_OPTS"
+.RE
+.PP
+options \fImodulename\fR \fIoption\&.\&.\&.\fR
+.RS 4
+This command allows you to add options to the module
+\fImodulename\fR
+(which might be an alias) every time it is inserted into the kernel: whether directly (using
+\fBmodprobe \fR\fImodulename\fR) or because the module being inserted depends on this module\&.
+.sp
+All options are added together: they can come from an
+\fBoption\fR
+for the module itself, for an alias, and on the command line\&.
+.RE
+.PP
+remove \fImodulename\fR \fIcommand\&.\&.\&.\fR
+.RS 4
+This is similar to the
+\fBinstall\fR
+command above, except it is invoked when "modprobe \-r" is run\&.
+.RE
+.PP
+softdep \fImodulename\fR pre: \fImodules\&.\&.\&.\fR post: \fImodules\&.\&.\&.\fR
+.RS 4
+The
+\fBsoftdep\fR
+command allows you to specify soft, or optional, module dependencies\&.
+\fImodulename\fR
+can be used without these optional modules installed, but usually with some features missing\&. For example, a driver for a storage HBA might require another module be loaded in order to use management features\&.
+.sp
+pre\-deps and post\-deps modules are lists of names and/or aliases of other modules that modprobe will attempt to install (or remove) in order before and after the main module given in the
+\fImodulename\fR
+argument\&.
+.sp
+Example: Assume "softdep c pre: a b post: d e" is provided in the configuration\&. Running "modprobe c" is now equivalent to "modprobe a b c d e" without the softdep\&. Flags such as \-\-use\-blacklist are applied to all the specified modules, while module parameters only apply to module c\&.
+.sp
+Note: if there are
+\fBinstall\fR
+or
+\fBremove\fR
+commands with the same
+\fImodulename\fR
+argument,
+\fBsoftdep\fR
+takes precedence\&.
+.RE
+.SH "COMPATIBILITY"
+.PP
+A future version of kmod will come with a strong warning to avoid use of the
+\fBinstall\fR
+as explained above\&. This will happen once support for soft dependencies in the kernel is complete\&. That support will complement the existing softdep support within this utility by providing such dependencies directly within the modules\&.
+.SH "COPYRIGHT"
+.PP
+This manual page originally Copyright 2004, Rusty Russell, IBM Corporation\&. Maintained by Jon Masters and others\&.
+.SH "SEE ALSO"
+.PP
+\fBmodprobe\fR(8),
+\fBmodules.dep\fR(5)
+.SH "AUTHORS"
+.PP
+\fBJon Masters\fR <\&jcm@jonmasters\&.org\&>
+.RS 4
+Developer
+.RE
+.PP
+\fBRobby Workman\fR <\&rworkman@slackware\&.com\&>
+.RS 4
+Developer
+.RE
+.PP
+\fBLucas De Marchi\fR <\&lucas\&.de\&.marchi@gmail\&.com\&>
+.RS 4
+Developer
+.RE

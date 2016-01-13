@@ -1,0 +1,235 @@
+Connman configuration file format for VPN
+*****************************************
+
+Connman VPN uses configuration files to provision existing providers.
+vpnd will be looking for its configuration files at VPN_STORAGEDIR
+which by default points to /var/lib/connman-vpn. Configuration file names
+must not include other characters than letters or numbers and must have
+a .config suffix. Those configuration files are text files with a simple
+key-value pair format organized into sections. Values do not comprise leading
+trailing whitespace. We typically have one file per provisioned network.
+
+If the config file is removed, then vpnd tries to remove the
+provisioned service. If an individual service entry inside a config is removed,
+then the corresponding provisioned service is removed. If a service
+section is changed, then the corresponding service is removed and immediately
+re-provisioned.
+
+
+Global section [global]
+=======================
+
+These files can have an optional global section describing the actual file.
+The two allowed fields for this section are:
+- Name: Name of the network.
+- Description: Description of the network.
+
+
+Provider section [provider_*]
+=============================
+
+Each provisioned provider must start with the [provider_*] tag.
+Replace * with an identifier unique to the config file.
+
+Allowed fields:
+- Type: Provider type. Value of OpenConnect, OpenVPN, VPNC, L2TP or PPTP
+
+VPN related parameters (M = mandatory, O = optional):
+- Name: A user defined name for the VPN (M)
+- Host: VPN server IP address (M)
+- Domain: Domain name for the VPN service (M)
+- Networks: The networks behind the VPN link can be defined here. This can
+  be missing if all traffic should go via VPN tunnel. If there are more
+  than one network, then separate them by comma. Format of the entry
+  is network/netmask/gateway. The gateway can be left out. (O)
+  Example: 192.168.100.0/24/10.1.0.1,192.168.200.0/255.255.255.0/10.1.0.2
+  For IPv6 addresses only prefix length is accepted like this 2001:db8::1/64
+
+OpenConnect VPN supports following options (see openconnect(8) for details):
+ Option name            OpenConnect option Description
+ OpenConnect.ServerCert --servercert       SHA1 certificate fingerprint of the
+                                           final VPN server after possible web
+                                           authentication login, selection and
+                                           redirection (O)
+ OpenConnect.CACert     --cafile           File containing other Certificate
+                                           Authorities in addition to the ones
+                                           in the system trust database (O)
+ OpenConnect.ClientCert --certificate      Client certificate file, if needed
+                                           by web authentication (O)
+ VPN.MTU                --mtu              Request MTU from server as the MTU
+                                           of the tunnel (O)
+ OpenConnect.Cookie     --cookie-on-stdin  Cookie received as a result of the
+                                           web authentication. As the cookie
+                                           lifetime can be very limited, it
+                                           does not usually make sense to add
+                                           it into the configuration file (O)
+ OpenConnect.VPNHost                       The final VPN server to use after
+                                           completing the web authentication.
+                                           Only usable for extremely simple VPN
+                                           configurations and should normally
+                                           be set only via the VPN Agent API.
+If OpenConnect.Cookie or OpenConnect.ServerCert are missing, the VPN Agent will
+be contacted to supply the information.
+
+OpenVPN VPN supports following options (see openvpn(8) for details):
+ Option name            OpenVPN option   Description
+ OpenVPN.CACert         --ca             Certificate authority file (M)
+ OpenVPN.Cert           --cert           Local peer's signed certificate (M)
+ OpenVPN.Key            --key            Local peer's private key (M)
+ OpenVPN.MTU            --mtu            MTU of the tunnel (O)
+ OpenVPN.NSCertType     --ns-cert-type   Peer certificate type, value of
+                                         either server or client (O)
+ OpenVPN.Proto          --proto          Use protocol (O)
+ OpenVPN.Port           --port           TCP/UDP port number (O)
+ OpenVPN.AuthUserPass   --auth-user-pass Authenticate with server using
+                                         username/password (O)
+ OpenVPN.AskPass        --askpass        Get certificate password from file (O)
+ OpenVPN.AuthNoCache    --auth-nocache   Don't cache --askpass or
+                                         --auth-user-pass value (O)
+ OpenVPN.TLSRemote      --tls-remote     Accept connections only from a host
+                                         with X509 name or common name equal
+                                         to name parameter (O)
+ OpenVPN.TLSAuth        sub-option of --tls-remote (O)
+ OpenVPN.TLSAuthDir     sub-option of --tls-remote (O)
+ OpenVPN.Cipher         --cipher         Encrypt packets with cipher algorithm
+                                         given as parameter (O)
+ OpenVPN.Auth           --auth           Authenticate  packets with HMAC using
+                                         message digest algorithm alg (O)
+ OpenVPN.CompLZO        --comp-lzo       Use  fast  LZO compression. Value can
+                                         be "yes", "no", or "adaptive". Default
+                                         is adaptive (O)
+ OpenVPN.RemoteCertTls  --remote-cert-tls Require that peer certificate was
+                                          signed based on RFC3280 TLS rules.
+                                          Value is "client" or "server" (O)
+ OpenVPN.ConfigFile     --config         OpenVPN config file that can contain
+                                         extra options not supported by OpenVPN
+                                         plugin (O)
+
+VPNC VPN supports following options (see vpnc(8) for details):
+ Option name         VPNC config value     Description
+ VPNC.IPSec.ID       IPSec ID              your group username (M)
+ VPNC.IPSec.Secret   IPSec secret          your group password (cleartext) (O)
+ VPNC.Xauth.Username Xauth username        your username (O)
+ VPNC.Xauth.Password Xauth password        your password (cleartext) (O)
+ VPNC.IKE.Authmode   IKE Authmode          IKE Authentication mode (O)
+ VPNC.IKE.DHGroup    IKE DH Group          name of the IKE DH Group (O)
+ VPNC.PFS Perfect    Forward Secrecy       Diffie-Hellman group to use for PFS (O)
+ VPNC.Domain         Domain                Domain name for authentication (O)
+ VPNC.Vendor         Vendor                vendor of your IPSec gateway (O)
+ VPNC.LocalPort      Local Port            local ISAKMP port number to use
+ VPNC.CiscoPort      Cisco UDP Encapsulation Port  Local UDP port number to use (O)
+ VPNC.AppVersion     Application Version   Application Version to report (O)
+ VPNC.NATTMode       NAT Traversal Mode    Which NAT-Traversal Method to use (O)
+ VPNC.DPDTimeout     DPD idle timeout (our side)  Send DPD packet after timeout (O)
+ VPNC.SingleDES      Enable Single DES     enables single DES encryption (O)
+ VPNC.NoEncryption   Enable no encryption  enables using no encryption for data traffic (O)
+
+L2TP VPN supports following options (see xl2tpd.conf(5) and pppd(8) for details)
+ Option name         xl2tpd config value    Description
+ L2TP.User           -                      L2TP user name, asked from the user
+                                            if not set here (O)
+ L2TP.Password       -                      L2TP password, asked from the user
+                                            if not set here (O)
+ L2TP.BPS            bps                    Max bandwith to use (O)
+ L2TP.TXBPS          tx bps                 Max transmit bandwith to use (O)
+ L2TP.RXBPS          rx bps                 Max receive bandwith to use (O)
+ L2TP.LengthBit      length bit             Use length bit (O)
+ L2TP.Challenge      challenge              Use challenge authentication (O)
+ L2TP.DefaultRoute   defaultroute           Default route (O)
+ L2TP.FlowBit        flow bit               Use seq numbers (O)
+ L2TP.TunnelRWS      tunnel rws             Window size (O)
+ L2TP.Exclusive      exclusive              Use only one control channel (O)
+ L2TP.Redial         redial                 Redial if disconnected (O)
+ L2TP.RedialTimeout  redial timeout         Redial timeout (O)
+ L2TP.MaxRedials     max redials            How many times to try redial (O)
+ L2TP.RequirePAP     require pap            Need pap (O)
+ L2TP.RequireCHAP    require chap           Need chap (O)
+ L2TP.ReqAuth        require authentication Need auth (O)
+ L2TP.AccessControl  access control         Accept only these peers (O)
+ L2TP.AuthFile       auth file              Authentication file location (O)
+ L2TP.ListenAddr     listen-addr            Listen address (O)
+ L2TP.IPsecSaref     ipsec saref            Use IPSec SA (O)
+ L2TP.Port           port                   What UDP port is used (O)
+
+ Option name         pppd config value      Description
+ PPPD.EchoFailure    lcp-echo-failure       Dead peer check count (O)
+ PPPD.EchoInterval   lcp-echo-interval      Dead peer check interval (O)
+ PPPD.Debug          debug                  Debug level (O)
+ PPPD.RefuseEAP      refuse-eap             Deny eap auth (O)
+ PPPD.RefusePAP      refuse-pap             Deny pap auth (O)
+ PPPD.RefuseCHAP     refuse-chap            Deny chap auth (O)
+ PPPD.RefuseMSCHAP   refuse-mschap          Deny mschap auth (O)
+ PPPD.RefuseMSCHAP2  refuse-mschapv2        Deny mschapv2 auth (O)
+ PPPD.NoBSDComp      nobsdcomp              Disables BSD compression (O)
+ PPPD.NoPcomp        nopcomp                Disable protocol compression (O)
+ PPPD.UseAccomp      accomp                 Disable address/control compression (O)
+ PPPD.NoDeflate      nodeflate              Disable deflate compression (O)
+ PPPD.ReqMPPE        require-mppe           Require the use of MPPE (O)
+ PPPD.ReqMPPE40      require-mppe-40        Require the use of MPPE 40 bit (O)
+ PPPD.ReqMPPE128     require-mppe-128       Require the use of MPPE 128 bit (O)
+ PPPD.ReqMPPEStateful mppe-stateful         Allow MPPE to use stateful mode (O)
+ PPPD.NoVJ           no-vj-comp             No Van Jacobson compression (O)
+
+
+PPTP VPN supports following options (see pptp(8) and pppd(8) for details)
+ Option name         pptp config value    Description
+ PPTP.User           -                    PPTP user name, asked from the user
+                                          if not set here (O)
+ PPTP.Password       -                    PPTP password, asked from the user
+                                          if not set here (O)
+
+ Option name         pppd config value    Description
+ PPPD.EchoFailure    lcp-echo-failure     Dead peer check count (O)
+ PPPD.EchoInterval   lcp-echo-interval    Dead peer check interval (O)
+ PPPD.Debug          debug                Debug level (O)
+ PPPD.RefuseEAP      refuse-eap           Deny eap auth (O)
+ PPPD.RefusePAP      refuse-pap           Deny pap auth (O)
+ PPPD.RefuseCHAP     refuse-chap          Deny chap auth (O)
+ PPPD.RefuseMSCHAP   refuse-mschap        Deny mschap auth (O)
+ PPPD.RefuseMSCHAP2  refuse-mschapv2      Deny mschapv2 auth (O)
+ PPPD.NoBSDComp      nobsdcomp            Disables BSD compression (O)
+ PPPD.NoDeflate      nodeflate            Disable deflate compression (O)
+ PPPD.RequirMPPE     require-mppe         Require the use of MPPE (O)
+ PPPD.RequirMPPE40   require-mppe-40      Require the use of MPPE 40 bit (O)
+ PPPD.RequirMPPE128  require-mppe-128     Require the use of MPPE 128 bit (O)
+ PPPD.RequirMPPEStateful mppe-stateful    Allow MPPE to use stateful mode (O)
+ PPPD.NoVJ           no-vj-comp           No Van Jacobson compression (O)
+
+
+Example
+=======
+
+This is a configuration file for a VPN providing L2TP, OpenVPN and
+OpenConnect services.
+
+
+example@example:[~]$ cat /var/lib/connman/vpn/example.config
+[global]
+Name = Example
+Description = Example VPN configuration
+
+[provider_l2tp]
+Type = L2TP
+Name = Connection to corporate network
+Host = 1.2.3.4
+Domain = corporate.com
+Networks = 10.10.30.0/24
+L2TP.User = username
+
+[provider_openconnect]
+Type = OpenConnect
+Name = Connection to corporate network using Cisco VPN
+Host = 7.6.5.4
+Domain = corporate.com
+Networks = 10.10.20.0/255.255.255.0/10.20.1.5,192.168.99.1/24,2001:db8::1/64
+OpenConnect.ServerCert = 263AFAB4CB2E6621D12E90182008AEF44AEFA031
+OpenConnect.CACert = /etc/certs/certificate.p12
+
+[provider_openvpn]
+Type = OpenVPN
+Name = Connection to corporate network using OpenVPN
+Host = 3.2.5.6
+Domain = my.home.network
+OpenVPN.CACert = /etc/certs/cacert.pem
+OpenVPN.Cert = /etc/certs/cert.pem
+OpenVPN.Key = /etc/certs/cert.key

@@ -1,0 +1,50 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This header file defines the "sysroot" variable which is the absolute path
+# of the sysroot. If no sysroot applies, the variable will be an empty string.
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  if (!is_android_webview_build) {
+    if (cpu_arch == "x86") {
+      sysroot = rebase_path("$android_ndk_root/$x86_android_sysroot_subdir")
+    } else if (cpu_arch == "arm") {
+      sysroot = rebase_path("$android_ndk_root/$arm_android_sysroot_subdir")
+    } else if (cpu_arch == "mipsel") {
+      sysroot = rebase_path("$android_ndk_root/$mips_android_sysroot_subdir")
+    } else {
+      sysroot = ""
+    }
+  } else {
+    sysroot = ""
+  }
+} else if (is_linux && is_chrome_branded && is_official_build && !is_chromeos) {
+  # For official builds, use the sysroot checked into the internal source repo
+  # so that the builds work on older versions of Linux.
+  if (cpu_arch == "x64") {
+    sysroot =
+        rebase_path("//chrome/installer/linux/debian_wheezy_amd64-sysroot")
+  } else if (cpu_arch == "x86") {
+    sysroot = rebase_path("//chrome/installer/linux/debian_wheezy_i386-sysroot")
+  } else {
+    # Any other builds don't use a sysroot.
+    sysroot = ""
+  }
+} else if (is_linux && !is_chromeos) {
+  if (cpu_arch == "mipsel") {
+    sysroot = rebase_path("//mipsel-sysroot/sysroot")
+  } else {
+    sysroot = ""
+  }
+} else if (is_mac) {
+  import("//build/config/mac/mac_sdk.gni")
+
+  sysroot = mac_sdk_path
+} else if (is_ios) {
+  import("//build/config/ios/ios_sdk.gni")
+  sysroot = ios_sdk_path
+} else {
+  sysroot = ""
+}

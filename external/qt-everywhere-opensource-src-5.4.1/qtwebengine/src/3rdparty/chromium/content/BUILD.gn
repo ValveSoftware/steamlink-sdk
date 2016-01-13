@@ -1,0 +1,125 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/grit/grit_rule.gni")
+
+# Applied by targets internal to content.
+config("content_implementation") {
+  defines = [ "CONTENT_IMPLEMENTATION" ]
+}
+
+content_components = [
+  "//content/app",
+  "//content/browser",
+  "//content/child",
+  "//content/gpu",
+  "//content/plugin",
+  "//content/ppapi_plugin",
+  "//content/public/app",
+  "//content/public/browser",
+  "//content/public/child",
+  "//content/public/plugin",
+  "//content/public/renderer",
+  "//content/renderer",
+  "//content/utility",
+  "//content/worker",
+]
+
+if (is_component_build) {
+  shared_library("content") {
+    deps = content_components
+  }
+} else {
+  group("content") {
+    deps = content_components
+  }
+}
+
+grit("resources") {
+  source = "content_resources.grd"
+}
+
+# This target exists to "hold" the content_export header so we can do proper
+# inclusion testing of it.
+source_set("export") {
+  visibility = "//content/*"
+  sources = [
+    "content/common/content_export.h"
+  ]
+}
+
+# Stubs ------------------------------------------------------------------------
+
+# TODO(brettw) remove this and add a proper dependency on libjingle once that
+# target has been converted to GN. This config sets up the include directories
+# so content can compile in the meantime.
+config("libjingle_stub_config") {
+  include_dirs = [
+    "//third_party/libjingle/overrides",
+    "//third_party/libjingle/source",
+    "//third_party/libyuv/include",
+    "//third_party/usrsctp",
+
+
+    "//third_party/webrtc/overrides",  # Must be before webrtc abd third_party.
+    "//third_party/webrtc",
+    "//third_party",
+  ]
+
+  defines = [
+    "FEATURE_ENABLE_SSL",
+    "FEATURE_ENABLE_VOICEMAIL",
+    "EXPAT_RELATIVE_PATH",
+    "GTEST_RELATIVE_PATH",
+    "NO_MAIN_THREAD_WRAPPING",
+    "NO_SOUND_SYSTEM",
+  ]
+
+  if (is_mac) {
+    defines += [ "OSX" ]
+  } else if (is_linux) {
+    defines += [ "LINUX" ]
+  } else if (is_android) {
+    defines += [ "ANDROID" ]
+  } else if (is_win) {
+    libs = [ "secur32.lib", "crypt32.lib", "iphlpapi.lib" ]
+  }
+
+  if (is_posix) {
+    defines += [ "POSIX" ]
+  }
+  if (is_chromeos) {
+    defines += [ "CHROMEOS" ]
+  }
+}
+
+# Sets up include dirs while webrtc is being converted to GN.
+# TODO(GYP) remove when webrtc is ready.
+config("webrtc_stub_config") {
+  defines = [ "WEBRTC_CHROMIUM_BUILD" ]
+  include_dirs = [
+    "//third_party/webrtc/overrides",  # Must be first.
+    "//third_party",
+  ]
+
+  if (is_mac) {
+    defines += [ "WEBRTC_MAC" ]
+  } else if (is_win) {
+    defines += [ "WEBRTC_WIN" ]
+  } else if (is_linux) {
+    defines += [ "WEBRTC_LINUX" ]
+  } else if (is_ios) {
+    defines += [ "WEBRTC_MAC", "WEBRTC_IOS" ]
+  } else if (is_android) {
+    defines += [ "WEBRTC_LINUX", "WEBRTC_ANDROID" ]
+    import("//build/config/crypto.gni")
+    if (use_openssl) {
+      defines += [ "WEBRTC_ANDROID_OPENSLEQS" ]
+    }
+  }
+
+  if (is_posix) {
+    defines += [ "WEBRTC_POSIX" ]
+  }
+}

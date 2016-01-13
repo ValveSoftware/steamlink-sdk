@@ -1,0 +1,72 @@
+#!/usr/bin/python
+
+import sys
+import dbus
+
+def make_variant(string):
+	return dbus.String(string, variant_level=1)
+
+def extract_values(values):
+	val = "{"
+	for key in values.keys():
+		val += " " + key + "="
+		if key in ["Servers", "Excludes"]:
+			val += extract_list(values[key])
+		else:
+			val += str(values[key])
+	val += " }"
+	return val
+
+def extract_list(list):
+	val = "["
+	for i in list:
+		if type(i).__name__ == 'Dictionary':
+			val += extract_values(i)
+		elif type(i).__name__ == 'Struct':
+			val += extract_list(i)
+		else:
+			val += " " + str(i)
+	val += "]"
+	return val
+
+argc = len(sys.argv)
+
+if (argc < 2):
+	print "Usage: %s <VPN connection id> [<property name>] [<property values>]" % (sys.argv[0])
+	sys.exit(1)
+
+bus = dbus.SystemBus()
+
+manager = dbus.Interface(bus.get_object("net.connman.vpn", "/"),
+					"net.connman.vpn.Manager")
+
+connections = manager.GetConnections()
+
+path = "/net/connman/vpn/connection/" + sys.argv[1]
+
+print "Attempting to connect VPN %s" % (path)
+
+connection = dbus.Interface(bus.get_object("net.connman.vpn", path),
+					    "net.connman.vpn.Connection")
+
+if (argc < 3):
+	properties = connection.GetProperties()
+	for key in properties.keys():
+		if key in ["IPv4", "IPv6" ]:
+			val = extract_values(properties[key])
+		elif key in ["Nameservers","ServerRoutes","UserRoutes"]:
+			val = extract_list(properties[key])
+		else:
+			val = str(properties[key])
+		print "    %s = %s" % (key, val)
+
+elif (argc < 4):
+	try:
+		connection.ClearProperty(sys.argv[2])
+	except dbus.DBusException, error:
+		print "%s: %s" % (error._dbus_error_name, error.message)
+else:
+	try:
+		connection.SetProperty(sys.argv[2], sys.argv[3])
+	except dbus.DBusException, error:
+		print "%s: %s" % (error._dbus_error_name, error.message)

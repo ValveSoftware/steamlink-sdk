@@ -1,0 +1,94 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import "network_error.mojom"
+
+module mojo {
+
+struct URLRequest {
+  // The URL to load.
+  string url;
+
+  // The HTTP method if applicable.
+  string method = "GET";
+
+  // Additional HTTP request headers.
+  string[] headers;
+
+  // The payload for the request body. For HTTP requests, the method must be
+  // set to "POST" or "PUT".
+  handle<data_pipe_consumer> body;
+
+  // The number of bytes to be read from |body|. A Content-Length header of
+  // this value will be sent. Set to -1 if length is unknown, which will cause
+  // |body| to be uploaded using a chunked encoding.
+  int64 body_length = 0;
+
+  // If set to true, then redirects will be automatically followed. Otherwise,
+  // when a redirect is encounterd, FollowRedirect must be called to proceed.
+  bool auto_follow_redirects = false;
+
+  // If set to true, then the HTTP request will bypass the local cache and will
+  // have a 'Cache-Control: nocache' header added in that causes any proxy
+  // servers to also not satisfy the request from their cache.  This has the
+  // effect of forcing a full end-to-end fetch.
+  bool bypass_cache = false;
+};
+
+struct URLResponse {
+  // The final URL of the response, after redirects have been followed.
+  string url;
+
+  // The HTTP status code. 0 if not applicable.
+  uint32 status_code;
+
+  // The HTTP status line.
+  string status_line;
+
+  // The HTTP response headers.
+  string[] headers;
+};
+
+[Client=URLLoaderClient]
+interface URLLoader {
+  // Start loading the given |request|. When available, the response body will
+  // be copied to |response_body_stream|.
+  //
+  // The client's |OnReceivedResponse| method will run when response meta data
+  // becomes available, or if a redirect response is encountered and
+  // |auto_follow_redirects| is false, the client's |OnRecievedRedirect| method
+  // will called instead.
+  //
+  // NOTE: You may observe data being pushed to |response_body_stream| before
+  // you receive |OnReceivedResponse|.
+  Start(URLRequest request, handle<data_pipe_producer> response_body_stream);
+
+  // If the request passed to |Start| had |auto_follow_redirects| set to false,
+  // then upon receiving a redirect, |OnReceivedRedirect| will be called. To
+  // follow the indicated redirect, call the |FollowRedirect| method.
+  FollowRedirect();
+};
+
+interface URLLoaderClient {
+  // This method is called when a redirect is encountered, provided the
+  // request's |auto_follow_redirects| attribute was set to false.
+  OnReceivedRedirect(URLResponse response, string new_url, string new_method);
+
+  // This method is called when response meta data becomes available.
+  OnReceivedResponse(URLResponse response);
+
+  // This method is called when a network level error is encountered. This can
+  // happen before or after OnReceivedResponse, but cannot happen after
+  // OnReceivedEndOfResponseBody.
+  OnReceivedError(NetworkError error);
+
+  // This method is called when the response body has been successfully
+  // downloaded and copied in its entirety to |response_body_stream|.
+  //
+  // NOTE: Because |response_body_stream| is limited in size, this event may be
+  // delayed until |response_body_stream| is consumed.
+  OnReceivedEndOfResponseBody();
+};
+
+}

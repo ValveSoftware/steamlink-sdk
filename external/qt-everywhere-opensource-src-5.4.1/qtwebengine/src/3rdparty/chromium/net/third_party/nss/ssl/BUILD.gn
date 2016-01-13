@@ -1,0 +1,139 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+config("ssl_config") {
+  include_dirs = [ "." ]
+
+  if (is_mac || is_win) {
+    defines = [ "NSS_PLATFORM_CLIENT_AUTH" ]
+  }
+}
+
+component("libssl") {
+  output_name = "crssl"
+
+  sources = [
+    "authcert.c",
+    "cmpcert.c",
+    "derive.c",
+    "dtlscon.c",
+    "preenc.h",
+    "prelib.c",
+    "ssl.h",
+    "ssl3con.c",
+    "ssl3ecc.c",
+    "ssl3ext.c",
+    "ssl3gthr.c",
+    "ssl3prot.h",
+    "sslauth.c",
+    "sslcon.c",
+    "ssldef.c",
+    "sslenum.c",
+    "sslerr.c",
+    "sslerr.h",
+    "SSLerrs.h",
+    "sslerrstrs.c",
+    "sslgathr.c",
+    "sslimpl.h",
+    "sslinfo.c",
+    "sslinit.c",
+    "sslmutex.c",
+    "sslmutex.h",
+    "sslnonce.c",
+    "sslplatf.c",
+    "sslproto.h",
+    "sslreveal.c",
+    "sslsecur.c",
+    "sslsnce.c",
+    "sslsock.c",
+    "sslt.h",
+    "ssltrace.c",
+    "sslver.c",
+    "unix_err.c",
+    "unix_err.h",
+    "win32err.c",
+    "win32err.h",
+    "bodge/secitem_array.c",
+  ]
+
+  direct_dependent_configs = [ ":ssl_config" ]
+
+  cflags = []
+  defines = [
+    "NO_PKCS11_BYPASS",
+    "NSS_ENABLE_ECC",
+    "USE_UTIL_DIRECTLY",
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+
+  if (is_win) {
+    cflags += [ "/wd4267" ]  # Disable warning: Conversion from size_t to 'type'.
+
+    sources -= [
+      "unix_err.c",
+      "unix_err.h",
+    ]
+    sources += [ "exports_win.def" ]
+  } else if (is_linux) {
+    if (component_mode == "shared_library") {
+      configs -= [ "//build/config/gcc:symbol_visibility_hidden" ]
+    }
+
+    libs = [ "dl" ]
+
+    include_dirs = [ "bodge" ]
+
+    # Must be after ssl_config since we want our SSL headers to take
+    # precedence.
+    direct_dependent_configs += [
+      "//third_party/nss:system_nss_no_ssl_config"
+    ]
+  } else if (is_mac) {
+    libs = [ "Security.framework" ]
+  }
+
+  if (is_posix) {
+    sources -= [
+      "win32err.c",
+      "win32err.h",
+    ]
+  }
+
+  if (is_mac || is_ios) {
+    defines += [
+      "XP_UNIX",
+      "DARWIN",
+      "XP_MACOSX",
+    ]
+  }
+
+  if (is_mac || is_ios || is_win) {
+    sources -= [
+      "bodge/secitem_array.c",
+    ]
+    deps = [
+      "//third_party/nss:nspr",
+      "//third_party/nss:nss",
+    ]
+    forward_dependent_configs_from = deps
+  }
+
+  if (is_clang) {
+    cflags += [
+      # See http://crbug.com/138571#c8. In short, sslsecur.c picks up the
+      # system's cert.h because cert.h isn't in chromium's repo.
+      "-Wno-incompatible-pointer-types",
+
+      # There is a broken header guard in /usr/include/nss/secmod.h:
+      # https://bugzilla.mozilla.org/show_bug.cgi?id=884072
+      "-Wno-header-guard",
+    ]
+  }
+
+  if (is_debug) {
+    defines += [ "DEBUG" ]
+  }
+}

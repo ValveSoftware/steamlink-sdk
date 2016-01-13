@@ -1,0 +1,7 @@
+/* Generated automatically. */
+static const char configuration_arguments[] = "/var/tmp/portage/cross-armv7a-cros-linux-gnueabi/gcc-4.9.1-r86/work/gcc-4.9.1/configure --disable-multilib --prefix=/usr --bindir=/usr/x86_64-pc-linux-gnu/armv7a-cros-linux-gnueabi/gcc-bin/4.9.x-google --datadir=/usr/share/gcc-data/armv7a-cros-linux-gnueabi/4.9.x-google --disable-canonical-system-headers --mandir=/usr/share/gcc-data/armv7a-cros-linux-gnueabi/4.9.x-google/man --infodir=/usr/share/gcc-data/armv7a-cros-linux-gnueabi/4.9.x-google/info --includedir=/usr/lib/gcc/armv7a-cros-linux-gnueabi/4.9.x-google/include --with-gxx-include-dir=/usr/lib/gcc/armv7a-cros-linux-gnueabi/4.9.x-google/include/g++-v4 --enable-libatomic --with-python-dir=/share/gcc-data/armv7a-cros-linux-gnueabi/4.9.x-google/python --host=x86_64-pc-linux-gnu --target=armv7a-cros-linux-gnueabi --build=x86_64-pc-linux-gnu --enable-languages=c,c++,go --with-float=hard --with-mode=thumb --with-sysroot=/usr/armv7a-cros-linux-gnueabi --disable-libmudflap --disable-libssp --enable-libgomp --enable-__cxa_atexit --enable-checking=release --disable-libquadmath --disable-libitm --disable-libcilkrts --with-arch=armv7-a --disable-esp --with-bugurl=http://code.google.com/p/chromium-os/issues/entry --with-pkgversion=4.9.1_cos_gg_2f9796c_4.9.1-r86 --enable-linker-build-id";
+static const char thread_model[] = "posix";
+
+static const struct {
+  const char *name, *value;
+} configure_default_options[] = { { "arch", "armv7-a" }, { "float", "hard" }, { "mode", "thumb" }, { "tls", "gnu" } };

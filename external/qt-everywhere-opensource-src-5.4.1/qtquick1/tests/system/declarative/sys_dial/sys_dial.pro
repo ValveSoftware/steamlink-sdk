@@ -1,0 +1,3 @@
+CONFIG+=systemtest
+SOURCES=sys_dial.qtt
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

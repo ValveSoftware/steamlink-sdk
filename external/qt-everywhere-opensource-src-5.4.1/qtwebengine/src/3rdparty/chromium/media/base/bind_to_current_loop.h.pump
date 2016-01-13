@@ -1,0 +1,86 @@
+$$ This is a pump file for generating file templates.  Pump is a python
+$$ script that is part of the Google Test suite of utilities.  Description
+$$ can be found here:
+$$
+$$ http://code.google.com/p/googletest/wiki/PumpManual
+$$
+
+$$ See comment for MAX_ARITY in base/bind.h.pump.
+$var MAX_ARITY = 7
+
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef MEDIA_BASE_BIND_TO_CURRENT_LOOP_H_
+#define MEDIA_BASE_BIND_TO_CURRENT_LOOP_H_
+
+#include "base/bind.h"
+#include "base/location.h"
+#include "base/message_loop/message_loop_proxy.h"
+#include "base/single_thread_task_runner.h"
+
+// This is a helper utility for base::Bind()ing callbacks to the current
+// MessageLoop. The typical use is when |a| (of class |A|) wants to hand a
+// callback such as base::Bind(&A::AMethod, a) to |b|, but needs to ensure that
+// when |b| executes the callback, it does so on |a|'s current MessageLoop.
+//
+// Typical usage: request to be called back on the current thread:
+// other->StartAsyncProcessAndCallMeBack(
+//    media::BindToCurrentLoop(base::Bind(&MyClass::MyMethod, this)));
+//
+// Note that like base::Bind(), BindToCurrentLoop() can't bind non-constant
+// references, and that *unlike* base::Bind(), BindToCurrentLoop() makes copies
+// of its arguments, and thus can't be used with arrays.
+
+namespace media {
+
+// Mimic base::internal::CallbackForward, replacing p.Pass() with
+// base::Passed(&p) to account for the extra layer of indirection.
+namespace internal {
+template <typename T>
+T& TrampolineForward(T& t) { return t; }
+
+template <typename T, typename R>
+base::internal::PassedWrapper<scoped_ptr<T, R> > TrampolineForward(
+    scoped_ptr<T, R>& p) { return base::Passed(&p); }
+
+template <typename T>
+base::internal::PassedWrapper<ScopedVector<T> > TrampolineForward(
+    ScopedVector<T>& p) { return base::Passed(&p); }
+
+template <typename T> struct TrampolineHelper;
+
+$range ARITY 0..MAX_ARITY
+$for ARITY [[
+$range ARG 1..ARITY
+
+template <$for ARG , [[typename A$(ARG)]]>
+struct TrampolineHelper<void($for ARG , [[A$(ARG)]])> {
+  static void Run(
+      const scoped_refptr<base::SingleThreadTaskRunner>& task_runner,
+      const base::Callback<void($for ARG , [[A$(ARG)]])>& cb
+$if ARITY != 0 [[, ]]
+$for ARG , [[A$(ARG) a$(ARG)]]
+) {
+    task_runner->PostTask(FROM_HERE, base::Bind(cb
+$if ARITY != 0 [[, ]]
+$for ARG , [[internal::TrampolineForward(a$(ARG))]]));
+  }
+};
+
+
+]]  $$ for ARITY
+
+}  // namespace internal
+
+template<typename T>
+static base::Callback<T> BindToCurrentLoop(
+    const base::Callback<T>& cb) {
+  return base::Bind(&internal::TrampolineHelper<T>::Run,
+                    base::MessageLoopProxy::current(), cb);
+}
+
+}  // namespace media
+
+#endif  // MEDIA_BASE_BIND_TO_CURRENT_LOOP_H_

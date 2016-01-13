@@ -1,0 +1,95 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+
+component("snapshot") {
+  sources = [
+    "snapshot.h",
+    "snapshot_android.cc",
+    "snapshot_async.cc",
+    "snapshot_async.h",
+    "snapshot_aura.cc",
+    "snapshot_export.h",
+    "snapshot_ios.mm",
+    "snapshot_mac.mm",
+    "snapshot_win.cc",
+    "snapshot_win.h",
+  ]
+
+  defines = [ "SNAPSHOT_IMPLEMENTATION" ]
+
+  deps = [
+    "//base",
+    "//skia",
+    "//ui/base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (use_aura || is_android) {
+    deps += [
+      "//cc",
+      "//gpu/command_buffer/common",
+    ]
+  } else {
+    sources -= [
+      "snapshot_async.cc",
+      "snapshot_async.h",
+    ]
+  }
+
+  if (use_aura) {
+    deps += [
+      #"//ui/aura",  TODO(GYP)
+      "//ui/compositor",
+    ]
+  } else {
+    sources -= [
+      "snapshot_aura.cc"
+    ]
+  }
+}
+
+# TODO(GYP) enable this when all targets are converted and it links
+#test("snapshot_unittests") {
+#  sources = [
+#    "snapshot_aura_unittest.cc",
+#    "snapshot_mac_unittest.mm",
+#    "test/run_all_unittests.cc",
+#  ]
+#
+#  deps = [
+#    "//base",
+#    "//base/allocator",
+#    "//base/test:test_support",
+#    "//skia",
+#    "//testing/gtest",
+#    "//ui/base",
+#    "//ui/gfx",
+#    "//ui/gfx/geometry",
+#  ]
+#
+#  if (use_aura) {
+#    deps += [
+#      #"//ui/aura:test_support",  TODO(GYP)
+#      "//ui/compositor",
+#      "//ui/compositor:test_support",
+#    ]
+#  } else {
+#    sources -= [ "snapshot_aura_unittest.cc" ]
+#  }
+#}
+
+if (is_win) {
+  source_set("test_support") {
+    sources = [
+      "test/snapshot_desktop.h",
+      "test/snapshot_desktop_win.cc",
+    ]
+    deps = [
+      ":snapshot",
+    ]
+  }
+}

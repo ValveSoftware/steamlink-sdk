@@ -1,0 +1,73 @@
+#!/usr/bin/python
+
+import sys
+import dbus
+
+if (len(sys.argv) < 4):
+	print "Usage: %s <type> ... " % (sys.argv[0])
+	print "  type: openconnect"
+	print "      <name> <host> <domain> <cookie> [servercert]"
+	print "  type: openvpn"
+	print "      <name> <host> <domain> [<cafile> <certfile> <keyfile>]"
+	print "  type: pptp"
+	print "      <name> <host> <domain> <user> <password>"
+	print "  type: l2tp"
+	print "      <name> <host> <domain> <user> <password>"
+	sys.exit(1)
+
+bus = dbus.SystemBus()
+
+manager = dbus.Interface(bus.get_object("net.connman", "/"),
+					"net.connman.Manager")
+
+print "Attempting to connect service %s" % (sys.argv[3])
+
+if sys.argv[1] == "openconnect":
+	if (len(sys.argv) > 6):
+		path = manager.ConnectProvider(({ "Type": "openconnect",
+					"Name": sys.argv[2],
+					"Host": sys.argv[3],
+					"VPN.Domain": sys.argv[4],
+					"OpenConnect.Cookie": sys.argv[5],
+					"OpenConnect.ServerCert": sys.argv[6]}))
+	else:
+		path = manager.ConnectProvider(({ "Type": "openconnect",
+					"Name": sys.argv[2],
+					"Host": sys.argv[3],
+					"VPN.Domain": sys.argv[4],
+					"OpenConnect.Cookie": sys.argv[5]}))
+elif sys.argv[1] == "openvpn":
+	if (len(sys.argv) < 6):
+		path = manager.ConnectProvider(({ "Type": "openvpn",
+						  "Name": sys.argv[2],
+						  "Host": sys.argv[3],
+						  "VPN.Domain": sys.argv[4] }))
+	else:
+		path = manager.ConnectProvider(({ "Type": "openvpn",
+						  "Name": sys.argv[2],
+						  "Host": sys.argv[3],
+						  "VPN.Domain": sys.argv[4],
+						  "OpenVPN.CACert": sys.argv[5],
+						  "OpenVPN.Cert": sys.argv[6],
+						  "OpenVPN.Key": sys.argv[7]}))
+
+elif sys.argv[1] == "pptp":
+	path = manager.ConnectProvider(({ "Type": "pptp",
+					"Name": sys.argv[2],
+					"Host": sys.argv[3],
+					"VPN.Domain": sys.argv[4],
+					"PPTP.User": sys.argv[5],
+					"PPTP.Password": sys.argv[6]}))
+elif sys.argv[1] == "l2tp":
+	path = manager.ConnectProvider(({ "Type": "l2tp",
+					"Name": sys.argv[2],
+					"Host": sys.argv[3],
+					"VPN.Domain": sys.argv[4],
+					"L2TP.User": sys.argv[5],
+					"L2TP.Password": sys.argv[6]}))
+
+else:
+	print "Unknown VPN type"
+	sys.exit(1)
+
+print "VPN service path is %s" %(path)

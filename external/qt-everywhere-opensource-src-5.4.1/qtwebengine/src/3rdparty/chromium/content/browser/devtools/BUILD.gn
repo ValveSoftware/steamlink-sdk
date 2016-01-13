@@ -1,0 +1,71 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/grit/grit_rule.gni")
+
+# In GYP: devtools_resources target.
+group("resources") {
+  deps = [
+    ":devtools_resources",
+    ":devtools_protocol_constants",
+  ]
+}
+
+# In GYP: devtools_resources action in the devtools_resources target.
+action("devtools_resources") {
+  visibility = ":resources"
+
+  # This can't use grit_rule.gni because the grd file is generated at build
+  # time, so the trick of using grit_info to get the real inputs/outputs at GYP
+  # time isn't possible.
+  script = "//tools/grit/grit.py"
+
+  grdfile = "$root_gen_dir/devtools/devtools_resources.grd"
+
+  source_prereqs = [ grdfile ] +
+    rebase_path(exec_script("//tools/grit/grit_info.py", [ "--inputs" ],
+                            "list lines"),
+                ".", "//")
+
+  out_dir = "$root_gen_dir/webkit"
+  outputs = [
+    "$out_dir/grit/devtools_resources.h",
+    "$out_dir/devtools_resources.pak",
+    "$out_dir/grit/devtools_resources_map.cc",
+    "$out_dir/grit/devtools_resources_map.h",
+  ]
+
+  args = [
+    "-i", rebase_path(grdfile, root_build_dir), "build",
+    "-f", rebase_path("//tools/gritsettings/resource_ids", root_build_dir),
+    "-o", rebase_path(out_dir, root_build_dir),
+    "-D", "SHARED_INTERMEDIATE_DIR=" +
+      rebase_path(root_gen_dir, root_build_dir),
+  ] + grit_defines
+
+  deps = [
+    # This is the action that generates out .grd input file.
+    "//third_party/WebKit/public:blink_generate_devtools_grd",
+  ]
+}
+
+action("devtools_protocol_constants") {
+  visibility = ":resources"
+
+  script = "//content/public/browser/devtools_protocol_constants_generator.py"
+
+  blink_protocol = "//third_party/WebKit/Source/devtools/protocol.json"
+  browser_protocol = "browser_protocol.json"
+  source_prereqs = [ blink_protocol, browser_protocol ]
+
+  outputs = [
+    "$target_gen_dir/devtools_protocol_constants.cc",
+    "$target_gen_dir/devtools_protocol_constants.h",
+  ]
+
+  args = [ "content" ] + rebase_path(outputs, root_build_dir) + [
+    rebase_path(blink_protocol, root_build_dir),
+    rebase_path(browser_protocol, root_build_dir),
+  ]
+}

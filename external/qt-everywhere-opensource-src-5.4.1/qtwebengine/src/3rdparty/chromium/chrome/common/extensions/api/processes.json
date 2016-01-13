@@ -1,0 +1,266 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+[
+  {
+    "namespace": "processes",
+    "description": "Use the <code>chrome.processes</code> API to interact with the browser's processes.",
+    "types": [
+      {
+        "id": "Process",
+        "type": "object",
+        "description": "An object containing information about one of the browser's processes.",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Unique ID of the process provided by the browser."
+          },
+          "osProcessId": {
+            "type": "integer",
+            "description": "The ID of the process, as provided by the OS."
+          },
+          "title": {
+            "type": "string",
+            "description": "The title of the process as seen in the task manager."
+          },
+          "type": {
+            "type": "string",
+            "enum": ["browser", "renderer", "extension", "notification", "plugin", "worker", "nacl", "utility", "gpu", "other"],
+            "description": "The type of process."
+          },
+          "profile": {
+            "type": "string",
+            "description": "The profile which the process is associated with."
+          },
+          "naclDebugPort": {
+            "type": "integer",
+            "description": "The debugging port for Native Client processes. Zero for other process types and for NaCl processes that do not have debugging enabled."
+          },
+          "tabs": {
+            "type": "array",  "items": {"type": "integer", "minimum": 0},
+            "description": "Array of Tab IDs that have a page rendered by this process. The list will be non-empty for renderer processes only."
+          },
+          "cpu": {
+            "type": "number",
+            "optional": true,
+            "description": "The most recent measurement of the process CPU usage, between 0 and 100%. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          },
+          "network": {
+            "type": "number",
+            "optional": true,
+            "description": "The most recent measurement of the process network usage, in bytes per second. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          },
+          "privateMemory": {
+            "type": "number",
+            "optional": true,
+            "description": "The most recent measurement of the process private memory usage, in bytes. Only available when receiving the object as part of a callback from onUpdatedWithMemory or getProcessInfo with the includeMemory flag."
+          },
+          "jsMemoryAllocated": {
+            "type": "number",
+            "optional": true,
+            "description": "The most recent measurement of the process JavaScript allocated memory, in bytes. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          },
+          "jsMemoryUsed": {
+            "type": "number",
+            "optional": true,
+            "description": "The most recent measurement of the process JavaScript memory used, in bytes. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          },
+          "sqliteMemory": {
+            "type": "number",
+            "optional": true,
+            "description": "The most recent measurement of the process’s SQLite memory usage, in bytes. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          },
+          "imageCache": {
+            "$ref": "Cache",
+            "optional": true,
+            "description": "The most recent information about the image cache for the process. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          },
+          "scriptCache": {
+            "$ref": "Cache",
+            "optional": true,
+            "description": "The most recent information about the script cache for the process. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          },
+          "cssCache": {
+            "$ref": "Cache",
+            "optional": true,
+            "description": "The most recent information about the CSS cache for the process. Only available when receiving the object as part of a callback from onUpdated or onUpdatedWithMemory."
+          }
+        }
+      },
+      {
+        "id": "Cache",
+        "type": "object",
+        "description": "The Cache object contains information about the size and utilization of a cache used by the browser.",
+        "properties": {
+          "size": {
+            "type": "number",
+            "description": "The size of the cache, in bytes."
+          },
+          "liveSize": {
+            "type": "number",
+            "description": "The part of the cache that is utilized, in bytes."
+          }
+        }
+      }
+    ],
+    "functions": [
+      {
+        "name": "terminate",
+        "type": "function",
+        "description": "Terminates the specified renderer process. Equivalent to visiting about:crash, but without changing the tab's URL.",
+        "parameters": [
+          {
+            "name": "processId",
+            "type": "integer",
+            "minimum": 0,
+            "description": "The ID of the process to be terminated."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "optional": true,
+            "parameters": [
+              {
+                "name": "didTerminate",
+                "type": "boolean",
+                "description": "True if terminating the process was successful, otherwise false."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "getProcessIdForTab",
+        "type": "function",
+        "description": "Returns the ID of the renderer process for the specified tab.",
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "integer",
+            "minimum": 0,
+            "description": "The ID of the tab for which the renderer process ID is to be returned."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "parameters": [
+              {
+                "name": "processId",
+                "type": "integer",
+                "description": "Process ID of the tab's renderer process."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "getProcessInfo",
+        "type": "function",
+        "description": "Retrieves the process information for each process ID specified.",
+        "parameters": [
+          {
+            "name": "processIds",
+            "choices": [
+              {"type": "integer", "minimum": 0},
+              {"type": "array", "items": {"type": "integer", "minimum": 0}}
+            ],
+            "description": "The list of process IDs or single process ID for which to return the process information. An empty list indicates all processes are requested."
+          },
+          {
+            "name": "includeMemory",
+            "type": "boolean",
+            "description": "True if detailed memory usage is required. Note, collecting memory usage information incurs extra CPU usage and should only be queried for when needed."
+          },
+          {
+            "name": "callback",
+            "type": "function",
+            "description": "Called when the processes information is collected.",
+            "parameters": [
+              {
+                "name": "processes",
+                "description": "A dictionary of Process objects for each requested process that is a live child process of the current browser process, indexed by process ID. Metrics requiring aggregation over time will not be populated in each Process object.",
+                "type": "object",
+                "additionalProperties": { "$ref": "Process" }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "onUpdated",
+        "type": "function",
+        "description": "Fired each time the Task Manager updates its process statistics, providing the dictionary of updated Process objects, indexed by process ID.",
+        "parameters": [
+          {
+            "name": "processes",
+            "type": "object",
+            "description": "A dictionary of updated Process objects for each live process in the browser, indexed by process ID.  Metrics requiring aggregation over time will be populated in each Process object.",
+            "additionalProperties": { "$ref": "Process" }
+          }
+        ]
+      },
+      {
+        "name": "onUpdatedWithMemory",
+        "type": "function",
+        "description": "Fired each time the Task Manager updates its process statistics, providing the dictionary of updated Process objects, indexed by process ID. Identical to onUpdate, with the addition of memory usage details included in each Process object. Note, collecting memory usage information incurs extra CPU usage and should only be listened for when needed.",
+        "parameters": [
+          {
+            "name": "processes",
+            "type": "object",
+            "description": "A dictionary of updated Process objects for each live process in the browser, indexed by process ID.  Memory usage details will be included in each Process object.",
+            "additionalProperties": { "$ref": "Process" }
+          }
+        ]
+      },
+      {
+        "name": "onCreated",
+        "type": "function",
+        "description": "Fired each time a process is created, providing the corrseponding Process object.",
+        "parameters": [
+          {
+            "name": "process",
+            "description": "Details of the process that was created. Metrics requiring aggregation over time will not be populated in the object.",
+            "$ref": "Process"
+          }
+        ]
+      },
+      {
+        "name": "onUnresponsive",
+        "type": "function",
+        "description": "Fired each time a process becomes unresponsive, providing the corrseponding Process object.",
+        "parameters": [
+          {
+            "name": "process",
+            "description": "Details of the unresponsive process. Metrics requiring aggregation over time will not be populated in the object. Only available for renderer processes.",
+            "$ref": "Process"
+          }
+        ]
+      },
+      {
+        "name": "onExited",
+        "type": "function",
+        "description": "Fired each time a process is terminated, providing the type of exit.",
+        "parameters": [
+          {
+            "name": "processId",
+            "description": "The ID of the process that exited.",
+            "type": "integer"
+          },
+          {
+            "name": "exitType",
+            "description": "The type of exit that occurred for the process - normal, abnormal, killed, crashed. Only available for renderer processes.",
+            "type": "integer"
+          },
+          {
+            "name": "exitCode",
+            "description": "The exit code if the process exited abnormally. Only available for renderer processes.",
+            "type": "integer"
+          }
+        ]
+      }
+    ]
+  }
+]

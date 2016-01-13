@@ -1,0 +1,96 @@
+#!/bin/sh
+#
+# Script to handle copying config files from USB and local system recovery
+
+MOUNT_DISK=/mnt/disk
+MOUNT_CONFIG=/mnt/config
+MOUNT_SCRATCH=/mnt/scratch
+OVERRIDE=${MOUNT_DISK}/steamlink
+
+# Wait a couple seconds for the kernel to detect a USB drive
+for i in `seq 4`; do
+	# Check if we have a Mass Media device on USB
+	mass_media_class=$(find /sys/devices/soc.0/f7ee0000.usb/ -name bInterfaceClass|xargs grep 08)
+	if [ -n "$mass_media_class" ]; then
+		# Additional wait for the disk device to be created
+		for j in 1 2; do
+			PART_DISK=$(echo /dev/block/sda? | sed 's, .*,,')
+			if [ -e ${PART_DISK} ]; then
+				break
+			fi
+			sleep 1
+		done
+	fi
+	sleep 0.5
+done
+
+# Check whether there is a USB drive connected
+if [ -e ${PART_DISK} ]; then
+	mkdir -p ${MOUNT_DISK}
+	mount ${PART_DISK} ${MOUNT_DISK}
+
+	# Copy any system config files
+	#
+	# Set the system update URL in:
+	#	${OVERRIDE}/config/system/update_url.txt
+	#
+	# Set the system update branch in:
+	#	${OVERRIDE}/config/system/update_branch.txt
+	#
+	if [ -d ${OVERRIDE}/config ]; then
+		cp -r ${OVERRIDE}/config/* ${MOUNT_CONFIG}/
+	fi
+
+	# Copy any system override files (/etc and /home are valid paths)
+	if [ -d ${OVERRIDE}/overlay ]; then
+		cp -r ${OVERRIDE}/overlay/* /
+	fi
+
+	# Copy any apps
+	APPROOT=/home/steam/apps
+	mkdir -p ${APPROOT}
+	for app in ${OVERRIDE}/apps/*; do
+		if [ -d "${app}" ]; then
+			appname=$(basename $app)
+			appdir=${APPROOT}/$appname
+			rm -rf "${appdir}"
+			cp -r "${app}" "${appdir}"
+			chmod +x -R "${appdir}"
+		fi
+	done
+
+	# Copy any scratch files
+	if [ -d ${OVERRIDE}/scratch ]; then
+		cp -r ${OVERRIDE}/scratch/* ${MOUNT_SCRATCH}/
+	fi
+
+	# Trigger a factory reset if needed
+	if [ -f  ${OVERRIDE}/factory_reset.txt ]; then
+		mkdir -p ${MOUNT_SCRATCH}/recovery
+		echo "--factory" >${MOUNT_SCRATCH}/recovery/command
+
+		fts-set bootloader.command boot-recovery && reboot -f
+	fi
+
+	# Reboot for local system recovery if needed
+	if [ -f ${OVERRIDE}/SystemUpdate.zip ]; then
+		mkdir -p ${MOUNT_SCRATCH}/recovery
+		cp ${OVERRIDE}/SystemUpdate.zip ${MOUNT_SCRATCH}/recovery/
+		echo "--update_package=/cache/recovery/SystemUpdate.zip" >${MOUNT_SCRATCH}/recovery/command
+		# Be absolutely sure that update package has been flushed to NAND before rebooting
+		sync
+		mount ${MOUNT_SCRATCH} -oro,remount
+		fts-set bootloader.command boot-recovery && reboot -f
+	fi
+
+	# Run factory test if needed
+	FACTORY_TEST=${OVERRIDE}/factory_test/run.sh
+	if [ -f ${FACTORY_TEST} ]; then
+		sh ${FACTORY_TEST}
+	fi
+fi
+
+# Remove any stale recovery files
+if [ -d ${MOUNT_SCRATCH}/recovery -a ! -f ${OVERRIDE}/keep_recovery.txt ]; then
+	rm -f ${MOUNT_SCRATCH}/recovery/*.zip*
+fi

@@ -1,0 +1,517 @@
+<?xml version='1.0'?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<refentry id="modprobe">
+  <refentryinfo>
+    <title>modprobe</title>
+    <productname>kmod</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Jon</firstname>
+        <surname>Masters</surname>
+        <email>jcm@jonmasters.org</email>
+      </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Robby</firstname>
+        <surname>Workman</surname>
+        <email>rworkman@slackware.com</email>
+      </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lucas</firstname>
+        <surname>De Marchi</surname>
+        <email>lucas.de.marchi@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>modprobe</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>modprobe</refname>
+    <refpurpose>Add and remove modules from the Linux Kernel</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>modprobe</command>
+      <arg><option>-v</option></arg>
+      <arg><option>-V</option></arg>
+      <arg><option>-C <replaceable>config-file</replaceable></option></arg>
+      <arg><option>-n</option></arg>
+      <arg><option>-i</option></arg>
+      <arg><option>-q</option></arg>
+      <arg><option>-b</option></arg>
+      <arg><replaceable>modulename</replaceable></arg>
+      <arg rep='repeat'><option><replaceable>module parameters</replaceable></option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>modprobe</command>
+      <arg>-r</arg>
+      <arg><option>-v</option></arg>
+      <arg><option>-n</option></arg>
+      <arg><option>-i</option></arg>
+      <arg rep='repeat'><option><replaceable>modulename</replaceable></option></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>modprobe</command>
+      <arg>-c</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>modprobe</command>
+      <arg>--dump-modversions</arg> <arg><replaceable>filename</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+      <command>modprobe</command> intelligently adds or removes a
+      module from the Linux kernel: note that for convenience, there
+      is no difference between _ and - in module names (automatic
+      underscore conversion is performed).
+      <command>modprobe</command> looks in the module directory
+      <filename>/lib/modules/`uname -r`</filename> for all
+      the modules and other files, except for the optional
+      configuration files in the
+      <filename>/etc/modprobe.d</filename> directory
+      (see <citerefentry>
+        <refentrytitle>modprobe.d</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry>). <command>modprobe</command> will also use module
+      options specified on the kernel command line in the form of
+      &lt;module&gt;.&lt;option&gt; and blacklists in the form of
+      modprobe.blacklist=&lt;module&gt;.
+    </para>
+    <para>
+      Note that unlike in 2.4 series Linux kernels (which are not supported
+      by this tool) this version of <command>modprobe</command> does not
+      do anything to the module itself: the work of resolving symbols
+      and understanding parameters is done inside the kernel.  So
+      module failure is sometimes accompanied by a kernel message: see
+      <citerefentry>
+        <refentrytitle>dmesg</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>.
+    </para>
+    <para>
+      <command>modprobe</command> expects an up-to-date
+      <filename>modules.dep.bin</filename> file as generated
+      by the corresponding <command>depmod</command> utility shipped
+      along with <command>modprobe</command> (see
+      <citerefentry><refentrytitle>depmod</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>).  This file lists what other modules each
+      module needs (if any), and <command>modprobe</command> uses this
+      to add or remove these dependencies automatically.
+    </para>
+    <para>
+      If any arguments are given after the
+      <replaceable>modulename</replaceable>, they are passed to the
+      kernel (in addition to any options listed in the configuration
+      file).
+    </para>
+  </refsect1>
+
+  <refsect1><title>OPTIONS</title>
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>-a</option>
+        </term>
+        <term>
+          <option>--all</option>
+        </term>
+        <listitem>
+          <para>Insert all module names on the command line.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-b</option>
+        </term>
+        <term>
+          <option>--use-blacklist</option>
+        </term>
+        <listitem>
+          <para>
+            This option causes <command>modprobe</command> to apply the
+            <command>blacklist</command> commands in the configuration files
+            (if any) to module names as well.  It is usually used by
+            <citerefentry>
+              <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+            </citerefentry>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-C</option>
+        </term>
+        <term>
+          <option>--config</option>
+        </term>
+        <listitem>
+          <para>This option overrides the default configuration directory
+            (<filename>/etc/modprobe.d</filename>).
+          </para>
+          <para>
+            This option is passed through <command>install</command>
+            or <command>remove</command> commands to other
+            <command>modprobe</command> commands in the
+            MODPROBE_OPTIONS environment variable.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-c</option>
+        </term>
+        <term>
+          <option>--showconfig</option>
+        </term>
+        <listitem>
+          <para>
+            Dump out the effective configuration from the config directory and
+            exit.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>--dump-modversions</option>
+        </term>
+        <listitem>
+          <para>
+            Print out a list of module versioning information required by a
+            module. This option is commonly used by distributions in order to
+            package up a Linux kernel module using module versioning deps.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-d</option>
+        </term>
+        <term>
+          <option>--dirname</option>
+        </term>
+        <listitem>
+          <para>
+            Root directory for modules, <filename>/</filename> by default.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>--first-time</option>
+        </term>
+        <listitem>
+          <para>
+            Normally, <command>modprobe</command> will succeed (and do
+            nothing) if told to insert a module which is already
+            present or to remove a module which isn't present.  This is
+            ideal for simple scripts; however, more complicated scripts often
+            want to know whether <command>modprobe</command> really
+            did something: this option makes modprobe fail in the
+            case that it actually didn't do anything.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>--force-vermagic</option>
+        </term>
+        <listitem>
+          <para>
+            Every module contains a small string containing important
+            information, such as the kernel and compiler versions.  If a module
+            fails to load and the kernel complains that the "version magic"
+            doesn't match, you can use this option to remove it.  Naturally,
+            this check is there for your protection, so this using option is
+            dangerous unless you know what you're doing.
+          </para>
+          <para>
+            This applies to any modules inserted: both the module (or alias) on
+            the command line and any modules on which it depends.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>--force-modversion</option>
+        </term>
+        <listitem>
+          <para>
+            When modules are compiled with CONFIG_MODVERSIONS set, a section
+            detailing the versions of every interfaced used by (or supplied by)
+            the module is created.  If a module fails to load and the kernel
+            complains that the module disagrees about a version of some
+            interface, you can use "--force-modversion" to remove the version
+            information altogether.  Naturally, this check is there for your
+            protection, so using this option is dangerous unless you know what
+            you're doing.
+          </para>
+          <para>
+            This applies any modules inserted: both the module (or alias) on
+            the command line and any modules on which it depends.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-f</option>
+        </term>
+        <term>
+          <option>--force</option>
+        </term>
+        <listitem>
+          <para>
+            Try to strip any versioning information from the module which might
+            otherwise stop it from loading: this is the same as using both
+            <option>--force-vermagic</option> and
+            <option>--force-modversion</option>.  Naturally, these checks are
+            there for your protection, so using this option is dangerous unless
+            you know what you are doing.
+          </para>
+          <para>
+            This applies to any modules inserted: both the module (or alias) on
+            the command line and any modules it on which it depends.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-i</option>
+        </term>
+        <term>
+          <option>--ignore-install</option>
+        </term>
+        <term>
+          <option>--ignore-remove</option>
+        </term>
+        <listitem>
+          <para>
+            This option causes <command>modprobe</command> to ignore
+            <command>install</command> and <command>remove</command> commands
+            in the configuration file (if any) for the module specified on the
+            command line (any dependent modules are still subject to commands
+            set for them in the configuration file). Both
+            <command>install</command> and <command>remove</command> commands
+            will currently be ignored when this option is used regardless of
+            whether the request was more specifically made with only one or
+            other (and not both) of <option>--ignore-install</option> or
+            <option>--ignore-remove</option>.  See <citerefentry>
+              <refentrytitle>modprobe.d</refentrytitle><manvolnum>5</manvolnum>
+            </citerefentry>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-n</option>
+        </term>
+        <term>
+          <option>--dry-run</option>
+        </term>
+        <term>
+          <option>--show</option>
+        </term>
+        <listitem>
+          <para>
+            This option does everything but actually insert or delete the
+            modules (or run the install or remove commands).  Combined with
+            <option>-v</option>, it is useful for debugging problems. For
+            historical reasons both <option>--dry-run</option> and
+            <option>--show</option> actually mean the same thing and are
+            interchangeable.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-q</option>
+        </term>
+        <term>
+          <option>--quiet</option>
+        </term>
+        <listitem>
+          <para>
+            With this flag, <command>modprobe</command> won't print an error
+            message if you try to remove or insert a module it can't find (and
+            isn't an alias or
+            <command>install</command>/<command>remove</command> command).
+            However, it will still return with a non-zero exit status. The
+            kernel uses this to opportunistically probe for modules which might
+            exist using request_module.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-R</option>
+        </term>
+        <term>
+          <option>--resolve-alias</option>
+        </term>
+        <listitem>
+          <para>
+            Print all module names matching an alias. This can be useful for
+            debugging module alias problems.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-r</option>
+        </term>
+        <term>
+          <option>--remove</option>
+        </term>
+        <listitem>
+          <para>
+            This option causes <command>modprobe</command> to remove rather
+            than insert a module.  If the modules it depends on are also
+            unused, <command>modprobe</command> will try to remove them too.
+            Unlike insertion, more than one module can be specified on the
+            command line (it does not make sense to specify module parameters
+            when removing modules).
+          </para>
+          <para>
+            There is usually no reason to remove modules, but some buggy
+            modules require it.  Your distribution kernel may not have been
+            built to support removal of modules at all.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-S</option>
+        </term>
+        <term>
+          <option>--set-version</option>
+        </term>
+        <listitem>
+          <para>
+            Set the kernel version, rather than using
+            <citerefentry><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+            to decide on the kernel version (which dictates where to find the
+            modules).
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>--show-depends</option>
+        </term>
+        <listitem>
+          <para>
+            List the dependencies of a module (or alias), including the module
+            itself.  This produces a (possibly empty) set of module filenames,
+            one per line, each starting with "insmod" and is typically used by
+            distributions to determine which modules to include when generating
+            initrd/initramfs images.  <command>Install</command> commands which
+            apply are shown prefixed by "install".  It does not run any of the
+            install commands.  Note that
+            <citerefentry><refentrytitle>modinfo</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            can be used to extract dependencies of a module from the module
+            itself, but knows nothing of aliases or install commands.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-s</option>
+        </term>
+        <term>
+          <option>--syslog</option>
+        </term>
+        <listitem>
+          <para>
+            This option causes any error messages to go through the syslog
+            mechanism (as LOG_DAEMON with level LOG_NOTICE) rather than to
+            standard error.  This is also automatically enabled when stderr is
+            unavailable.
+          </para>
+          <para>
+            This option is passed through <command>install</command> or
+            <command>remove</command> commands to other
+            <command>modprobe</command> commands in the MODPROBE_OPTIONS
+            environment variable.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-V</option>
+        </term>
+        <term>
+          <option>--version</option>
+        </term>
+        <listitem>
+          <para>Show version of program and exit.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-v</option>
+        </term>
+        <term>
+          <option>--verbose</option>
+        </term>
+        <listitem>
+          <para>
+            Print messages about what the program is doing.  Usually
+            <command>modprobe</command> only prints messages if something goes
+            wrong.
+          </para>
+          <para>
+            This option is passed through <command>install</command> or
+            <command>remove</command> commands to other
+            <command>modprobe</command> commands in the MODPROBE_OPTIONS
+            environment variable.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1><title>ENVIRONMENT</title>
+    <para>
+      The MODPROBE_OPTIONS environment variable can also be used to pass
+      arguments to <command>modprobe</command>.
+    </para>
+  </refsect1>
+
+  <refsect1><title>COPYRIGHT</title>
+    <para>
+      This manual page originally Copyright 2002, Rusty Russell, IBM
+      Corporation. Maintained by Jon Masters and others.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>SEE ALSO</title>
+    <para>
+      <citerefentry>
+        <refentrytitle>modprobe.d</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry>,
+      <citerefentry>
+        <refentrytitle>insmod</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>,
+      <citerefentry>
+        <refentrytitle>rmmod</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>,
+      <citerefentry>
+        <refentrytitle>lsmod</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>,
+      <citerefentry>
+        <refentrytitle>modinfo</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>
+    </para>
+  </refsect1>
+</refentry>

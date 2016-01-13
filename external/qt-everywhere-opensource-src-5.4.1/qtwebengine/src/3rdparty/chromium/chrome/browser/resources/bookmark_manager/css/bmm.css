@@ -1,0 +1,372 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+html,
+body {
+  cursor: default;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+body {
+  -webkit-flex-direction: column;
+  display: -webkit-flex;
+}
+
+list {
+  display: block;
+  overflow-x: hidden;
+  overflow-y: visible; /* let the container do the scrolling */
+}
+
+list > * {
+  -webkit-padding-end: 20px;
+  -webkit-padding-start: 3px;
+  color: hsl(0, 0%, 70%);
+  display: -webkit-flex;
+  line-height: 20px;
+  margin: 0;
+  overflow: visible;
+  padding-bottom: 0;
+  padding-top: 0;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+list > * > * {
+  -webkit-padding-start: 20px;
+  background: 0 50% no-repeat;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: pre; /* Don't collapse whitespace */
+}
+
+list > * > .label {
+  -webkit-transition: all 150ms;
+  color: black;
+  display: inline-block; /* We need to use inline-block here due to RTL. */
+}
+
+list > * > .url {
+  -webkit-flex: 1;
+  direction: ltr; /* URLs always read LTR */
+  display: none;
+}
+
+list > :hover > .url,
+list > [selected] > .url {
+  display: block;
+}
+
+/* Handle proper padding for URL field in an RTL context, where field order is
+ * |div.url||div.label| - so we need padding at the right of URL, not at the
+ * left. And since url is always LTR, that is padding at the end, not the start.
+ */
+html[dir=rtl] .url {
+  -webkit-padding-end: 20px;
+  -webkit-padding-start: 0;
+}
+
+html[dir=rtl] list .label {
+  background-position: 100% 50%;
+}
+
+list > .folder > .label {
+  background-image: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/common/folder_closed.png') 1x,
+      url('../../../../../ui/resources/default_200_percent/common/folder_closed.png') 2x);
+}
+
+/* We need to ensure that even empty labels take up space */
+list > * > .label:empty::after,
+list > * > .url:empty::after {
+  content: ' ';
+  white-space: pre;
+}
+
+list > .folder > .url:empty::after {
+  content: '';
+}
+
+list > * > button {
+  -webkit-transition: opacity 150ms;
+  background: #fff -webkit-canvas(drop-down-arrow) no-repeat center center;
+  border: 1px solid hsl(214, 91%, 85%);
+  border-radius: 3px;
+  bottom: 1px;
+  display: none;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  right: 3px;
+  top: 1px;
+  width: 15px;
+}
+
+list > [selected]:hover > button,
+list > * > button[menu-shown] {
+  border-color: hsl(214, 91%, 65%);
+}
+
+list > :hover > button {
+  display: block;
+}
+
+list > * > button:hover,
+list > * > button[menu-shown] {
+  display: block;
+}
+
+html[dir=rtl] list > * > button {
+  left: 3px;
+  right: auto;
+}
+
+/* Edit mode */
+
+list [editing] .label input,
+list [editing] .url input {
+  -webkit-margin-end: 4px;
+  -webkit-margin-start: -4px;
+  -webkit-padding-end: 3px;
+  -webkit-padding-start: 3px;
+  box-sizing: content-box;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  /* Do not inherit the line-height. */
+  line-height: normal;
+  margin-bottom: 0;
+  margin-top: 0;
+  min-height: 0;
+  text-decoration: none;
+  vertical-align: baseline;
+}
+
+.tree-item [editing] input {
+  line-height: normal;
+  margin: 0;
+  min-height: 0;
+  padding: 1px 0;
+}
+
+<if expr="is_macosx">
+list .label input,
+list .url input {
+  outline: none;
+}
+</if>
+
+list > [editing] {
+  overflow: visible;
+}
+
+list [editing] .label,
+list [editing] .url,
+list [editing] > * {
+  overflow: visible;
+}
+
+list [editing] .url {
+  -webkit-padding-start: 5px;
+}
+
+list [editing] input {
+  padding: 1px 0;
+}
+
+/* end editing */
+
+html[dir=rtl] list > .folder > .label {
+  background-image: -webkit-image-set(
+      url('../../../../../ui/resources/default_100_percent/common/folder_closed_rtl.png') 1x,
+      url('../../../../../ui/resources/default_200_percent/common/folder_closed_rtl.png') 2x);
+}
+
+<if expr="is_macosx">
+list > .folder > .label,
+.tree-label,
+.tree-row[may-have-children] > .tree-label,
+.tree-item[expanded] > .tree-row > .tree-label {
+  background-image: -webkit-image-set(
+      url('../../../../app/theme/default_100_percent/mac/bookmark_bar_folder.png') 1x,
+      url('../../../../app/theme/default_200_percent/mac/bookmark_bar_folder.png') 2x);
+}
+</if>
+
+.main {
+  -webkit-flex: 1;
+  display: -webkit-flex;
+}
+
+#tree-container {
+  -webkit-padding-end: 5px;
+  -webkit-padding-start: 10px;
+  box-sizing: border-box;
+  /* min-width and max-width are used by the split pane. */
+  max-width: 50%;
+  min-width: 50px;
+  overflow: auto;
+  padding-bottom: 5px;
+  padding-top: 5px;
+  width: 200px;
+}
+
+#tree {
+  display: inline-block;
+  min-width: 100%;
+  overflow: visible; /* let the container do the scrolling */
+}
+
+.tree-item > .tree-row {
+  line-height: 20px;
+}
+
+.tree-row .expand-icon {
+  top: 2px;
+}
+
+#list {
+  -webkit-flex: 1;
+  -webkit-padding-end: 5px;
+  box-sizing: border-box;
+  padding-bottom: 5px;
+  padding-top: 5px;
+}
+
+.splitter {
+  -webkit-border-end: 15px solid white;
+  -webkit-border-start: 0;
+  background-color: rgb(235, 239, 249);
+  cursor: e-resize;
+  width: 5px;
+<if expr="is_macosx">
+  cursor: col-resize;
+</if>
+}
+
+.logo {
+  -webkit-appearance: none;
+  background: url('../images/bookmarks_section_32.png') no-repeat 50% 50%;
+  border: 0;
+  cursor: pointer;
+  float: left;
+  height: 32px;
+  margin: 10px;
+  width: 32px;
+}
+
+html:not(.focus-outline-visible) .logo:focus {
+  outline: none;
+}
+
+.header form {
+  float: left;
+  margin: 14px 2px 0 2px;
+  width: 171px;
+}
+
+.header {
+  min-width: 400px;
+}
+
+html[dir=rtl] .logo,
+html[dir=rtl] .header > div,
+html[dir=rtl] .header form {
+  float: right;
+}
+
+.tree-row.drag-on,
+.drag-on {
+  background-color: hsla(214, 91%, 85%, .5);
+  border: 1px solid hsl(214, 91%, 85%);
+  border-radius: 3px;
+  box-sizing: border-box;
+}
+
+.drag-above::before,
+.drag-below::after {
+  background-clip: padding-box;
+  background-color: black;
+  border: 3px solid black;
+  border-bottom-color: transparent;
+  border-radius: 0;
+  border-top-color: transparent;
+  box-sizing: border-box;
+  content: '';
+  display: block;
+  height: 8px;
+  left: 0;
+  position: absolute;
+  right: 0;
+  z-index: 10;
+}
+
+.drag-above::before {
+  top: calc((8px/2 + 1px) * -1)
+}
+
+.drag-below::after {
+  bottom: calc((8px/2 + 1px) * -1)
+}
+
+list.drag-above::before {
+  top: 0
+}
+
+list > .drag-below,
+list > .drag-above {
+  overflow : visible;
+}
+
+.summary {
+  background-color: rgb(235, 239, 249);
+  border-top: 1px solid rgb(156, 194, 239);
+  clear: both;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.summary > * {
+  display: inline-block;
+  font-size: 100%;
+  margin: 0;
+}
+
+.summary button {
+  -webkit-appearance: none;
+  -webkit-margin-start: 10px;
+  -webkit-padding-end: 11px;
+  -webkit-padding-start: 0;
+  background: transparent -webkit-canvas(drop-down-arrow)
+              no-repeat right center;
+  border: 0;
+  font: inherit;
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+html[dir=rtl] .summary button {
+  background-position: left center;
+}
+
+@media (pointer:coarse) {
+  list > *,
+  menu > button,
+  .tree-item > .tree-row {
+    line-height: 28px;
+  }
+
+  list [editing] input,
+  .tree-item [editing] input {
+    padding: 3px 0;
+  }
+
+  .tree-row .expand-icon {
+    top: 6px;
+  }
+}

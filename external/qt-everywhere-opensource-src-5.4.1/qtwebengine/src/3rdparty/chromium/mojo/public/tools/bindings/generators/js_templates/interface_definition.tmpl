@@ -1,0 +1,122 @@
+{%- set namespace_as_string = namespace|replace(".","::") %}
+{%- for method in interface.methods %}
+  var k{{interface.name}}_{{method.name}}_Name = {{method.ordinal}};
+{%- endfor %}
+
+  function {{interface.name}}Proxy(receiver) {
+    this.receiver_ = receiver;
+  }
+
+  {{interface.name}}Proxy.NAME_ = '{{namespace_as_string}}::{{interface.name}}';
+
+{%- for method in interface.methods %}
+  {{interface.name}}Proxy.prototype.{{method.name|stylize_method}} = function(
+{%- for parameter in method.parameters -%}
+{{parameter.name}}{% if not loop.last %}, {% endif %}
+{%- endfor -%}
+) {
+    var params = new {{interface.name}}_{{method.name}}_Params();
+{%- for parameter in method.parameters %}
+    params.{{parameter.name}} = {{parameter.name}};
+{%- endfor %}
+
+{%- if method.response_parameters == None %}
+    var builder = new codec.MessageBuilder(
+        k{{interface.name}}_{{method.name}}_Name,
+        codec.align({{interface.name}}_{{method.name}}_Params.encodedSize));
+    builder.encodeStruct({{interface.name}}_{{method.name}}_Params, params);
+    var message = builder.finish();
+    this.receiver_.accept(message);
+{%- else %}
+    return new Promise(function(resolve, reject) {
+      var builder = new codec.MessageWithRequestIDBuilder(
+          k{{interface.name}}_{{method.name}}_Name,
+          codec.align({{interface.name}}_{{method.name}}_Params.encodedSize),
+          codec.kMessageExpectsResponse, 0);
+      builder.encodeStruct({{interface.name}}_{{method.name}}_Params, params);
+      var message = builder.finish();
+      this.receiver_.acceptWithResponder(message, {
+          accept: function(message) {
+            var reader = new codec.MessageReader(message);
+            var responseParams =
+                reader.decodeStruct({{interface.name}}_{{method.name}}_ResponseParams);
+            resolve(responseParams);
+          },
+          reject: function(result) {
+            reject(Error("Connection error: " + result));
+          },
+      }).catch(reject);
+    }.bind(this));
+{%- endif %}
+  };
+{%- endfor %}
+
+  function {{interface.name}}Stub() {
+  }
+
+  {{interface.name}}Stub.NAME_ = '{{namespace_as_string}}::{{interface.name}}';
+
+  {{interface.name}}Stub.prototype.accept = function(message) {
+    var reader = new codec.MessageReader(message);
+    switch (reader.messageName) {
+{%- for method in interface.methods %}
+{%- if method.response_parameters == None %}
+    case k{{interface.name}}_{{method.name}}_Name:
+      var params = reader.decodeStruct({{interface.name}}_{{method.name}}_Params);
+      this.{{method.name|stylize_method}}(
+{%- for parameter in method.parameters -%}
+params.{{parameter.name}}{% if not loop.last %}, {% endif %}
+{%- endfor %});
+      return true;
+{%- endif %}
+{%- endfor %}
+    default:
+      return false;
+    }
+  };
+
+  {{interface.name}}Stub.prototype.acceptWithResponder =
+      function(message, responder) {
+    var reader = new codec.MessageReader(message);
+    switch (reader.messageName) {
+{%- for method in interface.methods %}
+{%- if method.response_parameters != None %}
+    case k{{interface.name}}_{{method.name}}_Name:
+      var params = reader.decodeStruct({{interface.name}}_{{method.name}}_Params);
+      return this.{{method.name|stylize_method}}(
+{%- for parameter in method.parameters -%}
+params.{{parameter.name}}{% if not loop.last %}, {% endif -%}
+{%- endfor %}).then(function(response) {
+        var responseParams =
+            new {{interface.name}}_{{method.name}}_ResponseParams();
+{%-     for parameter in method.response_parameters %}
+        responseParams.{{parameter.name}} = response.{{parameter.name}};
+{%-     endfor %}
+        var builder = new codec.MessageWithRequestIDBuilder(
+            k{{interface.name}}_{{method.name}}_Name,
+            codec.align({{interface.name}}_{{method.name}}_ResponseParams.encodedSize),
+            codec.kMessageIsResponse, reader.requestID);
+        builder.encodeStruct({{interface.name}}_{{method.name}}_ResponseParams,
+                             responseParams);
+        var message = builder.finish();
+        responder.accept(message);
+      });
+{%- endif %}
+{%- endfor %}
+    default:
+      return Promise.reject(Error("Unhandled message: " + reader.messageName));
+    }
+  };
+
+{#--- Enums #}
+{%  from "enum_definition.tmpl" import enum_def -%}
+{%  for enum in interface.enums %}
+  {{enum_def("%sProxy.%s"|format(interface.name, enum.name), enum, module)}}
+  {{interface.name}}Stub.{{enum.name}} = {{interface.name}}Proxy.{{enum.name}};
+{%-  endfor %}
+
+{#--- Constants. #}
+{%  for constant in interface.constants %}
+  {{interface.name}}Proxy.{{constant.name}} = {{constant.value|expression_to_text}};
+  {{interface.name}}Stub.{{constant.name}} = {{interface.name}}Proxy.{{constant.name}};
+{%  endfor %}

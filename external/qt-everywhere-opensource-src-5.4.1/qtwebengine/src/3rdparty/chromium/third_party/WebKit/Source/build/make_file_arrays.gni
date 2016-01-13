@@ -1,0 +1,46 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Paraneters:
+#   filename
+#       Output base name (will be put into gen/blink with various extensions).
+#
+#   resources
+#       List of resource files.
+#
+#   namespace (optional)
+#       String. If specified, files will be wrapped in this namespace.
+template("make_file_arrays") {
+  assert(defined(invoker.resources), "Need resources in $target_name")
+  assert(defined(invoker.filename), "Need filename in $target_name")
+
+  code_gen_target_name = target_name + "_code_gen"
+
+  action(code_gen_target_name) {
+    source_prereqs = invoker.resources
+    script = "//third_party/WebKit/Source/build/scripts/make-file-arrays.py"
+    sources = [ script ]
+    sources += invoker.resources
+    outputs = [
+      "$root_gen_dir/blink/" + invoker.filename + ".h",
+      "$root_gen_dir/blink/" + invoker.filename + ".cpp",
+    ]
+    args = [
+      "--out-h=gen/blink/" + invoker.filename + ".h",
+      "--out-cpp=gen/blink/" + invoker.filename + ".cpp",
+    ]
+    if (defined(invoker.namespace)) {
+      args += [ "--namespace=" + invoker.namespace ]
+    }
+    args += rebase_path(invoker.resources, root_build_dir, ".")
+  }
+
+  source_set(target_name) {
+    sources = get_target_outputs(":$code_gen_target_name")
+    deps = [ ":$code_gen_target_name" ]
+    configs += [ "//third_party/WebKit/Source:config" ]
+  }
+}
+
+

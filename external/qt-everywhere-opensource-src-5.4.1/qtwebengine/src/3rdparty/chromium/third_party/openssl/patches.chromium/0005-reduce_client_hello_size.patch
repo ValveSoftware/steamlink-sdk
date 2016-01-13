@@ -1,0 +1,87 @@
+diff -burN android-openssl.orig/openssl.config android-openssl/openssl.config
+--- android-openssl.orig/openssl.config	2013-06-21 14:24:36.298545589 -0700
++++ android-openssl/openssl.config	2013-06-21 14:30:36.253997113 -0700
+@@ -995,6 +995,7 @@
+ eng_dyn_dirs.patch \
+ fix_clang_build.patch \
+ x509_hash_name_algorithm_change.patch \
++reduce_client_hello_size.patch \
+ "
+ 
+ OPENSSL_PATCHES_progs_SOURCES="\
+@@ -1054,3 +1055,7 @@
+ OPENSSL_PATCHES_x509_hash_name_algorithm_change_SOURCES="\
+ crypto/x509/by_dir.c \
+ "
++
++OPENSSL_PATCHES_reduce_client_hello_size_SOURCES="\
++ssl/t1_lib.c \
++"
+diff -burN android-openssl.orig/patches/reduce_client_hello_size.patch android-openssl/patches/reduce_client_hello_size.patch
+--- android-openssl.orig/patches/reduce_client_hello_size.patch	1969-12-31 16:00:00.000000000 -0800
++++ android-openssl/patches/reduce_client_hello_size.patch	2013-06-21 14:35:14.508212895 -0700
+@@ -0,0 +1,64 @@
++diff -burN android-openssl.orig/ssl/t1_lib.c android-openssl/ssl/t1_lib.c
++--- android-openssl.orig/ssl/t1_lib.c	2013-06-21 14:24:45.338681810 -0700
+++++ android-openssl/ssl/t1_lib.c	2013-06-21 14:34:07.977205221 -0700
++@@ -202,33 +202,14 @@
++ 		NID_secp521r1  /* secp521r1 (25) */	
++ 	};
++ 
+++/* We support only the elliptic curves that are also supported by NSS
+++ * to improve compatibility with sites that don't accept large ClientHellos.
+++ */
++ static int pref_list[] =
++ 	{
++-		NID_sect571r1, /* sect571r1 (14) */ 
++-		NID_sect571k1, /* sect571k1 (13) */ 
++ 		NID_secp521r1, /* secp521r1 (25) */	
++-		NID_sect409k1, /* sect409k1 (11) */ 
++-		NID_sect409r1, /* sect409r1 (12) */
++ 		NID_secp384r1, /* secp384r1 (24) */
++-		NID_sect283k1, /* sect283k1 (9) */
++-		NID_sect283r1, /* sect283r1 (10) */ 
++-		NID_secp256k1, /* secp256k1 (22) */ 
++ 		NID_X9_62_prime256v1, /* secp256r1 (23) */ 
++-		NID_sect239k1, /* sect239k1 (8) */ 
++-		NID_sect233k1, /* sect233k1 (6) */
++-		NID_sect233r1, /* sect233r1 (7) */ 
++-		NID_secp224k1, /* secp224k1 (20) */ 
++-		NID_secp224r1, /* secp224r1 (21) */
++-		NID_sect193r1, /* sect193r1 (4) */ 
++-		NID_sect193r2, /* sect193r2 (5) */ 
++-		NID_secp192k1, /* secp192k1 (18) */
++-		NID_X9_62_prime192v1, /* secp192r1 (19) */ 
++-		NID_sect163k1, /* sect163k1 (1) */
++-		NID_sect163r1, /* sect163r1 (2) */
++-		NID_sect163r2, /* sect163r2 (3) */
++-		NID_secp160k1, /* secp160k1 (15) */
++-		NID_secp160r1, /* secp160r1 (16) */ 
++-		NID_secp160r2, /* secp160r2 (17) */ 
++ 	};
++ 
++ int tls1_ec_curve_id2nid(int curve_id)
++@@ -1703,17 +1684,18 @@
++ 	if (using_ecc)
++ 		{
++ 		if (s->tlsext_ecpointformatlist != NULL) OPENSSL_free(s->tlsext_ecpointformatlist);
++-		if ((s->tlsext_ecpointformatlist = OPENSSL_malloc(3)) == NULL)
+++		/* To save an additional 2 bytes in the ClientHello, we only advertise support
+++		 * for the only EC Point Format that NSS supports (instead of all 3).
+++		 */
+++		if ((s->tlsext_ecpointformatlist = OPENSSL_malloc(1)) == NULL)
++ 			{
++ 			SSLerr(SSL_F_SSL_PREPARE_CLIENTHELLO_TLSEXT,ERR_R_MALLOC_FAILURE);
++ 			return -1;
++ 			}
++-		s->tlsext_ecpointformatlist_length = 3;
+++		s->tlsext_ecpointformatlist_length = 1;
++ 		s->tlsext_ecpointformatlist[0] = TLSEXT_ECPOINTFORMAT_uncompressed;
++-		s->tlsext_ecpointformatlist[1] = TLSEXT_ECPOINTFORMAT_ansiX962_compressed_prime;
++-		s->tlsext_ecpointformatlist[2] = TLSEXT_ECPOINTFORMAT_ansiX962_compressed_char2;
++ 
++-		/* we support all named elliptic curves in draft-ietf-tls-ecc-12 */
+++		/* we only advertise support for elliptic curves in NSA Suite B */
++ 		if (s->tlsext_ellipticcurvelist != NULL) OPENSSL_free(s->tlsext_ellipticcurvelist);
++ 		s->tlsext_ellipticcurvelist_length = sizeof(pref_list)/sizeof(pref_list[0]) * 2;
++ 		if ((s->tlsext_ellipticcurvelist = OPENSSL_malloc(s->tlsext_ellipticcurvelist_length)) == NULL)

@@ -1,0 +1,166 @@
+<html>
+  <head>
+  <title>Chromium Perf Tracker</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <script src="scripts/util.js"></script>
+  <script src="jst/util.js" type="text/javascript"></script>
+  <script src="jst/jsevalcontext.js" type="text/javascript"></script>
+  <script src="jst/jstemplate.js" type="text/javascript"></script>
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+  </head>
+
+  <body onLoad="loadData()">
+    <h1><div id="header">Chromium Page Tracker View Test Set</div></h1>
+
+    <script>
+    function getArray(data, key) {
+      var arr = [];
+      for (var i = 0; i < data.summaries.length; i++) {
+        arr.push(data.summaries[i][key]);
+      }
+      return arr;
+    }
+
+    function loadData() {
+      var url = "/json?type=set";
+      var set_id = location.queryString()["id"];
+      if (set_id == undefined) {
+        alert("missing set_id");
+        return;
+      }
+      url += "&id=" + set_id;
+
+      new XHRGet(url, function(result) {
+        data = JSON.parse(result);
+        var context = new JsEvalContext(data);
+        context.setVariable('iterations_mode',
+                            getArray(data, 'iterations').mode());
+        var template = document.getElementById("template");
+        jstProcess(context, template);
+        drawChart(data.summaries);
+      });
+    }
+    // http://code.google.com/apis/visualization/documentation/gallery/columnchart.html
+    google.load('visualization', '1', {'packages':['corechart']});
+
+    function drawChart(results) {
+      var graph_data = new google.visualization.DataTable();
+      graph_data.addColumn('string', 'URL');
+      graph_data.addColumn('number', 'Paint');
+      graph_data.addColumn('number', 'Load');
+      for (var i = 0; i < results.length; ++i) {
+        graph_data.addRow([results[i].url,
+                           results[i].paint_time,
+                           results[i].total_time,
+                          ]);
+      }
+
+      var chart_div = document.getElementById('chart_div');
+      if (graph_data.getNumberOfRows()) {
+        var chart = new google.visualization.ColumnChart(chart_div);
+        chart.draw(graph_data, {displayAnnotations: true,
+                                legend: 'bottom',
+                                hAxis: {
+                                  title: "URL"
+                                },
+                                vAxis: {
+                                  title: "ms"
+                                },
+                               });
+        google.visualization.events.addListener(chart, 'onmouseover', function(e) {
+          var tr = document.getElementById('data').rows[e.row+1];
+          var col = e.column == 1 ? 8 : 11;
+          var td = tr.cells[col];
+          tr.style.backgroundColor = "#ffe87c";
+          td.style.backgroundColor = "#fbb117";
+        });
+        google.visualization.events.addListener(chart, 'onmouseout', function(e) {
+          var tr = document.getElementById('data').rows[e.row+1];
+          var col = e.column == 1 ? 8 : 11;
+          var td = tr.cells[col];
+          tr.style.backgroundColor = "";
+          td.style.backgroundColor = "";
+        });
+
+      } else {
+        chart_div.innerHTML = "No data";
+      }
+    }
+    </script>
+
+    <div id="template">
+      <div jsselect="obj">
+      <div class="scorebox">
+        <span jsdisplay="total_time != undefined" jscontent="total_time + 'ms'"></span>
+        <span jsdisplay="total_time == undefined">Test not complete</span>
+      </div>
+      <table class="sortable">
+      <tr><td>Id</td> <td jscontent="key"></td></tr>
+      <tr><td>Client</td> <td jscontent="client_hostname"></td></tr>
+      <tr><td>CPU</td> <td jscontent="data.cpu.cpu"></td></tr>
+      <tr><td>User</td> <td jscontent="user.email"></td></tr>
+      <tr><td>Date</td> <td jscontent="date"></td></tr>
+      <tr><td>Notes</td> <td jscontent="notes"></td></tr>
+      <tr><td>Version</td> <td jscontent="data.version.version"></td></tr>
+      <tr><td>Harness Version</td> <td jscontent="harness_version"></td></tr>
+      <tr><td>Platform</td> <td jscontent="platform"></td></tr>
+      <tr><td>Command Line</td> <td jscontent="cmdline"></td></tr>
+      <tr><td>Network</td> <td jscontent="data.network.network_type"></td></tr>
+      <tr><td># of URLS</td> <td jscontent="url_count"></td></tr>
+      <tr><td># of Iterations</td> <td jscontent="iterations"></td></tr>
+      <tr><td>Fetch Start</td><td jscontent="start_load_time"></td></tr>
+      <tr><td>Root DNS Complete</td><td jscontent="dns_time"></td></tr>
+      <tr><td>Root Connection Established</td><td jscontent="connect_time"></td></tr>
+      <tr><td>Root Doc First Byte Received</td><td jscontent="first_byte_time"></td></tr>
+      <tr><td>Root Doc Last Byte Received</td><td jscontent="last_byte_time"></td></tr>
+      <tr><td>First paint</td><td jscontent="paint_time"></td></tr>
+      <tr><td>DOM readyState Interactive</td><td jscontent="doc_load_time"></td></tr>
+      <tr><td>DOMContentLoaded Event</td><td jscontent="dcl_time"></td></tr>
+      <tr><td>Load Event</td><td jscontent="total_time"></td></tr>
+      </table>
+      </div>
+
+      <div id="chart_div" style="width:1024px;height:240px"></div>
+
+      <table class="sortable" id="data">
+      <tr>
+        <th>Date</th>
+        <th>URL</th>
+        <th>Iterations</th>
+        <th>Start</th>
+        <th>DNS</th>
+        <th>Connect</th>
+        <th>First Byte</th>
+        <th>Last Byte</th>
+        <th>Paint</th>
+        <th>Interactive</th>
+        <th>DCL</th>
+        <th>Load</th>
+        <th>stddev</th>
+        <th>stderr</th>
+        <th>95% ci</th>
+      </tr>
+      <tr jsselect="summaries">
+        <td><span jseval="$val = '/do_view_summary?id=' + key"></span><a jsvalues="href:$val" jscontent="date"></a></td>
+        <td><span jscontent="url"></span></td>
+        <td class="righttext" jscontent="iterations" jsvalues=".style.color:iterations == iterations_mode ? 'black' : 'red'"></td>
+        <td class="righttext" jscontent="start_load_time"></td>
+        <td class="righttext" jscontent="dns_time"></td>
+        <td class="righttext" jscontent="connect_time"></td>
+        <td class="righttext" jscontent="first_byte_time"></td>
+        <td class="righttext" jscontent="last_byte_time"></td>
+        <td class="righttext" jscontent="paint_time"></td>
+        <td class="righttext" jscontent="doc_load_time"></td>
+        <td class="righttext" jscontent="dcl_time"></td>
+        <td class="righttext" jscontent="total_time"></td>
+        <td class="righttext" jseval="val = total_time_stddev.toFixed(1)" jscontent="val"></td>
+        <td class="righttext" jseval="$stderr = stderr(total_time_stddev, iterations).toFixed(1)" jscontent="$stderr"></td>
+        <td class="righttext" jseval="$ci = ci($stderr); $lo=total_time - $ci; $hi=total_time + $ci; val=$lo.toFixed(1) + ' - ' + $hi.toFixed(1)" jscontent="val"></td>
+      </table>
+    </div>
+    <div id="footer">
+      &copy;2011 Google - <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmarkMetrics">Metric definitions</a> | <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmark">Running the benchmark</a><br>
+      Powered by <a href="http://code.google.com/p/web-page-replay/">Web Page Replay</a>
+    </div>
+  </body>
+</html>

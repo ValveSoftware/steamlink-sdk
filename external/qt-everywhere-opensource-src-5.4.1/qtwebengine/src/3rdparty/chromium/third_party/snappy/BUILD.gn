@@ -1,0 +1,46 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+config("snappy_config") {
+  include_dirs = [
+    "src",
+  ]
+
+  # These OS-specific generated headers were made by running the configure
+  # script offline.
+  if (is_win) {
+    include_dirs += [ "win32" ]
+  } else if (is_mac) {
+    include_dirs += [ "mac" ]
+  } else {
+    include_dirs += [ "linux" ]
+  }
+}
+
+static_library("snappy") {
+  sources = [
+    "src/snappy-internal.h",
+    "src/snappy-sinksource.cc",
+    "src/snappy-sinksource.h",
+    "src/snappy-stubs-internal.cc",
+    "src/snappy-stubs-internal.h",
+    "src/snappy.cc",
+    "src/snappy.h",
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+  direct_dependent_configs = [ ":snappy_config" ]
+
+  if (is_clang) {
+    # snappy-stubs-internal.h unapologetically has: using namespace std
+    # https://code.google.com/p/snappy/issues/detail?id=70
+    configs -= [ "//build/config/clang:extra_warnings" ]
+  }
+
+  if (is_win) {
+    # https://code.google.com/p/snappy/issues/detail?id=75
+    cflags = [ "/wd4267" ]  # Conversion from size_t to 'type'.
+  }
+}

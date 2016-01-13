@@ -1,0 +1,38 @@
+#!/bin/bash
+# Copyright 2015 The Chromium OS Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This script wraps gccgo. It ensures that:
+# 1) "--sysroot" is passed to gccgo when available.
+# 2) "-g" is passed to gccgo for compiling Go programs.
+# 3) "-marm" is passed to gccgo for arm targets.
+# NOTE: DO NOT ADD hardening related flags here.
+#       Instead, when the time comes, add gccgo support in
+#       sysroot_wrapper.hardened and delete this wrapper.
+
+SYSROOT_WRAPPER_LOG="/tmp/sysroot_wrapper.error"
+
+main() {
+  local gccgo_flags=()
+
+  if [[ -n "${SYSROOT}" ]] ; then
+    gccgo_flags+=( "--sysroot=${SYSROOT}" )
+  else
+    if [[ ! -f "${SYSROOT_WRAPPER_LOG}" ]]; then
+      touch "${SYSROOT_WRAPPER_LOG}"
+      chmod a+w "${SYSROOT_WRAPPER_LOG}"
+    fi
+    echo "Invocation with missing SYSROOT: $0 $*" >> "${SYSROOT_WRAPPER_LOG}"
+  fi
+
+  gccgo_flags+=( "-g" )
+
+  if [[ "${0##*/}" == arm* ]]; then
+    gccgo_flags+=( "-marm" )
+  fi
+
+  exec "$0.real" "${gccgo_flags[@]}" "$@"
+}
+
+main "$@"

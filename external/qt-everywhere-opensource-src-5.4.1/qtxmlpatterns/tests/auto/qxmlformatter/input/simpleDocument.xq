@@ -1,0 +1,1 @@
+doc("simpleDocument.xml")

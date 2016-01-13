@@ -1,0 +1,66 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/grit/grit_rule.gni")
+
+# generate_about_tracing puts its files in this directory
+tracing_gen_dir = "$root_gen_dir/content/browser/tracing"
+
+# The script just writes filename with no dirs to the .grd, so we always need
+# this file to be in the same directory as the inputs.
+tracing_grd = "$tracing_gen_dir/tracing_resources.grd"
+
+action("generate_tracing_grd") {
+  visibility = ":resources"
+  script = "generate_trace_viewer_grd.py"
+
+  input_pages = [
+    "$tracing_gen_dir/about_tracing.html",
+    "$tracing_gen_dir/about_tracing.js",
+  ]
+  source_prereqs = input_pages
+  outputs = [ tracing_grd ]
+
+  args = rebase_path(input_pages, target_gen_dir) + [
+    "--output", rebase_path(tracing_grd, root_build_dir),
+  ]
+
+  deps = [
+    "//third_party/trace-viewer:generate_about_tracing",
+  ]
+}
+
+# This can't use the grit template because the grd file is generated at build
+# time, so the trick of using grit_info to get the real inputs/outputs at GYP
+# time isn't possible.
+action("resources") {
+  script = "//tools/grit/grit.py"
+
+  # Get the list of grit script sources.
+  grit_inputs_build_rel =
+    exec_script("//tools/grit/grit_info.py", [ "--inputs" ], "list lines")
+
+  source_prereqs = rebase_path(grit_inputs_build_rel, ".", root_build_dir) + [
+    grit_resource_id_file,
+  ]
+  outputs = [
+    "$target_gen_dir/grit/tracing_resources.h",
+    "$target_gen_dir/tracing_resources.pak",
+  ]
+
+  args = [
+    "-i", rebase_path(tracing_grd, root_build_dir), "build",
+    "-f", rebase_path(grit_resource_id_file, root_build_dir),
+    "-o", rebase_path(target_gen_dir, root_build_dir),
+    # resource_ids has an entry for our .grd file that looks like:
+    # "<(SHARED_INTERMEDIATE_DIR)/content/browser/tracing/tracing_resources.grd"
+    # and what we pass here should make that resolve to our .grd file.
+    "-DSHARED_INTERMEDIATE_DIR=" +
+          rebase_path(root_gen_dir, root_build_dir),
+  ] + grit_defines
+
+  deps = [
+    ":generate_tracing_grd",
+  ]
+}

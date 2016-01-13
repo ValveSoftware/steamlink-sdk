@@ -1,0 +1,164 @@
+Plugin programming interface
+****************************
+
+
+Plugin basics
+=============
+
+The Connection Manager supports plugins for various actions. The basic plugin
+contains of plugin description via CONNMAN_PLUGIN_DEFINE and also init/exit
+callbacks defined through that description.
+
+#include <connman/plugin.h>
+
+static int example_init(void)
+{
+	return 0;
+}
+
+static void example_exit(void)
+{
+}
+
+CONNMAN_PLUGIN_DEFINE(example, "Example plugin", CONNMAN_VERSION,
+						example_init, example_exit)
+
+
+Infrastructure for plugins
+==========================
+
+The Connection Manager provides a very good infrastructure for plugins to
+interface with the core functionalities of ConnMan. The infrastructure is
+well divided into the concepts of Technology, Device and Network, among
+others.
+
+Technology infrastructure
+=========================
+
+A Technology in ConnMan is an abstract representation of the different
+kinds of technologies it supports such as WiFi, Ethernet, Bluetooth and
+Celullar. The technologies support are added to ConnMan through plugins, such
+as plugins/bluetooth.c for the Bluetooth Technology or plugins/wifi.c for the
+WiFi Technology. Each new technology plugin needs to register itself as a
+Technology with ConnMan. As an example we will take a look at the Bluetooth
+plugin registration. As a first step 'struct connman_technology_driver' needs
+to be defined:
+
+	static struct connman_technology_driver tech_driver = {
+		.name           = "bluetooth",
+		.type           = CONNMAN_SERVICE_TYPE_BLUETOOTH,
+		.probe          = bluetooth_tech_probe,
+		.remove         = bluetooth_tech_remove,
+		.set_tethering  = bluetooth_tech_set_tethering,
+	};
+
+More functions can be defined depending on the purpose of the plugin. All
+vtable's supported functions can be seen in include/technology.h. If a
+completely new technology type is added 'enum connman_service_type' in
+include/service.h needs to be extended accordingly. This inclusion comes in
+the form of Service because ultimately a new technology introduces a new
+Service. New technologies can also reuse existing Services types.
+
+To make the Connection Manager aware of the new Technology plugin we need to
+register its driver by calling 'connman_technology_driver_register()' in the
+plugin initialization function, bluetooth_init() in this example:
+
+	connman_technology_driver_register(&tech_driver);
+
+In this document the error check is supressed for the sake of simplicity.
+All plugins should check return values in driver registration functions.
+
+After this call ConnMan becomes aware of the new Technology plugin and will
+call the probe() method when the new technology is recognized by the system. For
+the Bluetooth plugin for example probe() would be called when a Bluetooth
+adapter is recognized. A Technology is only probed if there exists at least
+one device of such technology plugged into the system.
+
+Complementary, the technology must be unregistered on the plugin exit function
+through 'connman_technology_driver_unregister()'.
+
+Device infrastructure
+=====================
+
+A Device represents a real device of a given Technology, there could be many
+devices per technology. To enable ConnMan to handle Devices a device driver
+needs to be registered. Using the Bluetooth plugin as example it would have to
+define a 'struct connman_device_driver':
+
+	static struct connman_device_driver device_driver = {
+		.name           = "bluetooth",
+		.type           = CONNMAN_DEVICE_TYPE_BLUETOOTH,
+		.probe          = bluetooth_device_probe,
+		.remove         = bluetooth_device_remove,
+		.enable         = bluetooth_device_enable,
+		.disable        = bluetooth_device_disable,
+	};
+
+And to register the driver:
+
+	connman_device_driver_register(&device_driver);
+
+'connman_device_driver_register()' is called during the plugin initialization
+process, not necessarily at the plugin init function.
+
+In this document the error check is supressed for the sake of simplicity.
+All plugins should check return values in driver registration functions.
+
+Additionally code to handle the detection of new devices needs to be written
+for each plugin, the bluetooth plugin does so by registering watchers for the
+BlueZ D-Bus interface. Once a new Bluetooth Device appears the plugin needs to
+notify ConnMan core by calling connman_device_create(), for the bluetooth
+plugin the call would be:
+
+	struct connman_device *device;
+
+        device = connman_device_create("bluetooth",
+				        CONNMAN_DEVICE_TYPE_BLUETOOTH)
+
+ConnMan core will then register the bluetooth device as a Device entity and
+call the probe() function from the bluetooth plugin device driver. If a
+Technology entity for the Device type doesn't exist it will be created and
+Technology probe() function in the bluetooth technology driver is called.
+
+For the Bluetooth plugin a Device represents the local Bluetooth Adapter
+plugged in the system.
+
+To learn how to use the connman_device_*() functions such as
+connman_device_set_powered() and connman_device_ref() see src/device.c for
+its API documentation.
+
+Network infrastructure
+======================
+
+The Connection Manager provides a mean to plugins handle the specifics of
+establishing/handling a connection for each type of Technology. For the
+bluetooth plugin a connman_network_driver needs to be registered:
+
+	static struct connman_network_driver network_driver = {
+		.name           = "bluetooth",
+		.type           = CONNMAN_NETWORK_TYPE_BLUETOOTH_PAN,
+		.probe          = bluetooth_pan_probe,
+		.remove         = bluetooth_pan_remove,
+		.connect        = bluetooth_pan_connect,
+		.disconnect     = bluetooth_pan_disconnect,
+	};
+
+And then call the register function:
+
+	connman_network_driver_register(&network_driver);
+
+In this document the error check is supressed for the sake of simplicity.
+All plugins should check return values in driver registration functions.
+
+The next step would be the probe of a Network entity, for the bluetooth
+plugin this would happen when a new device that supports the PAN NAP role is
+paired with the system. ConnMan then call connman_device_add_network() to
+associate the new Network with the existing Device entity (the local Bluetooth
+Adapter).
+
+Then in the vtable's connect method all the needed pieces to perform a
+connection shall be perfomed.
+
+To learn how to use the connman_network_*() functions such as
+connman_network_set_index() and connman_network_set_connected() see
+src/network.c for its API documentation.

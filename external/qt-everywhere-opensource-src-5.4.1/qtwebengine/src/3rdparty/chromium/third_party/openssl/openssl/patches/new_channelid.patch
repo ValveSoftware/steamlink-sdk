@@ -1,0 +1,273 @@
+diff --git a/include/openssl/ssl.h b/include/openssl/ssl.h
+index a3944f1..fe92ccf 100644
+--- a/include/openssl/ssl.h
++++ b/include/openssl/ssl.h
+@@ -547,6 +547,13 @@ struct ssl_session_st
+ #ifndef OPENSSL_NO_SRP
+ 	char *srp_username;
+ #endif
++
++	/* original_handshake_hash contains the handshake hash (either
++	 * SHA-1+MD5 or SHA-2, depending on TLS version) for the original, full
++	 * handshake that created a session. This is used by Channel IDs during
++	 * resumption. */
++	unsigned char original_handshake_hash[EVP_MAX_MD_SIZE];
++	unsigned int original_handshake_hash_len;
+ 	};
+ 
+ #endif
+diff --git a/include/openssl/tls1.h b/include/openssl/tls1.h
+index c4f69aa..5559486 100644
+--- a/include/openssl/tls1.h
++++ b/include/openssl/tls1.h
+@@ -255,7 +255,7 @@ extern "C" {
+ #endif
+ 
+ /* This is not an IANA defined extension number */
+-#define TLSEXT_TYPE_channel_id			30031
++#define TLSEXT_TYPE_channel_id			30032
+ 
+ /* NameType value from RFC 3546 */
+ #define TLSEXT_NAMETYPE_host_name 0
+diff --git a/ssl/s3_clnt.c b/ssl/s3_clnt.c
+index 640df80..d6154c5 100644
+--- a/ssl/s3_clnt.c
++++ b/ssl/s3_clnt.c
+@@ -583,6 +583,18 @@ int ssl3_connect(SSL *s)
+ #endif
+ 						s->s3->tmp.next_state=SSL3_ST_CR_FINISHED_A;
+ 					}
++					if (s->s3->tlsext_channel_id_valid)
++					{
++					/* This is a non-resumption handshake. If it
++					 * involves ChannelID, then record the
++					 * handshake hashes at this point in the
++					 * session so that any resumption of this
++					 * session with ChannelID can sign those
++					 * hashes. */
++					ret = tls1_record_handshake_hashes_for_channel_id(s);
++					if (ret <= 0)
++						goto end;
++					}
+ 				}
+ 			s->init_num=0;
+ 			break;
+diff --git a/ssl/ssl.h b/ssl/ssl.h
+index a3944f1..fe92ccf 100644
+--- a/ssl/ssl.h
++++ b/ssl/ssl.h
+@@ -547,6 +547,13 @@ struct ssl_session_st
+ #ifndef OPENSSL_NO_SRP
+ 	char *srp_username;
+ #endif
++
++	/* original_handshake_hash contains the handshake hash (either
++	 * SHA-1+MD5 or SHA-2, depending on TLS version) for the original, full
++	 * handshake that created a session. This is used by Channel IDs during
++	 * resumption. */
++	unsigned char original_handshake_hash[EVP_MAX_MD_SIZE];
++	unsigned int original_handshake_hash_len;
+ 	};
+ 
+ #endif
+diff --git a/ssl/ssl_locl.h b/ssl/ssl_locl.h
+index 531a291..c975d31 100644
+--- a/ssl/ssl_locl.h
++++ b/ssl/ssl_locl.h
+@@ -1102,6 +1102,7 @@ void ssl_free_wbio_buffer(SSL *s);
+ int tls1_change_cipher_state(SSL *s, int which);
+ int tls1_setup_key_block(SSL *s);
+ int tls1_enc(SSL *s, int snd);
++int tls1_handshake_digest(SSL *s, unsigned char *out, size_t out_len);
+ int tls1_final_finish_mac(SSL *s,
+ 	const char *str, int slen, unsigned char *p);
+ int tls1_cert_verify_mac(SSL *s, int md_nid, unsigned char *p);
+@@ -1158,6 +1159,7 @@ int tls12_get_sigid(const EVP_PKEY *pk);
+ const EVP_MD *tls12_get_hash(unsigned char hash_alg);
+ 
+ int tls1_channel_id_hash(EVP_MD_CTX *ctx, SSL *s);
++int tls1_record_handshake_hashes_for_channel_id(SSL *s);
+ #endif
+ 
+ int ssl3_can_cutthrough(const SSL *s);
+diff --git a/ssl/t1_enc.c b/ssl/t1_enc.c
+index 87b7021..d30ce61 100644
+--- a/ssl/t1_enc.c
++++ b/ssl/t1_enc.c
+@@ -1147,53 +1147,79 @@ int tls1_cert_verify_mac(SSL *s, int md_nid, unsigned char *out)
+ 	return((int)ret);
+ 	}
+ 
++/* tls1_handshake_digest calculates the current handshake hash and writes it to
++ * |out|, which has space for |out_len| bytes. It returns the number of bytes
++ * written or -1 in the event of an error. This function works on a copy of the
++ * underlying digests so can be called multiple times and prior to the final
++ * update etc. */
++int tls1_handshake_digest(SSL *s, unsigned char *out, size_t out_len)
++	{
++	const EVP_MD *md;
++	EVP_MD_CTX ctx;
++	int i, err = 0, len = 0;
++	long mask;
++
++	EVP_MD_CTX_init(&ctx);
++
++	for (i = 0; ssl_get_handshake_digest(i, &mask, &md); i++)
++		{
++		int hash_size;
++		unsigned int digest_len;
++		EVP_MD_CTX *hdgst = s->s3->handshake_dgst[i];
++
++		if ((mask & ssl_get_algorithm2(s)) == 0)
++			continue;
++
++		hash_size = EVP_MD_size(md);
++		if (!hdgst || hash_size < 0 || (size_t)hash_size > out_len)
++			{
++			err = 1;
++			break;
++			}
++
++		if (!EVP_MD_CTX_copy_ex(&ctx, hdgst) ||
++		    !EVP_DigestFinal_ex(&ctx, out, &digest_len) ||
++		    digest_len != (unsigned int)hash_size) /* internal error */
++			{
++			err = 1;
++			break;
++			}
++		out += digest_len;
++		out_len -= digest_len;
++		len += digest_len;
++		}
++
++	EVP_MD_CTX_cleanup(&ctx);
++
++	if (err != 0)
++		return -1;
++	return len;
++	}
++
+ int tls1_final_finish_mac(SSL *s,
+ 	     const char *str, int slen, unsigned char *out)
+ 	{
+-	unsigned int i;
+-	EVP_MD_CTX ctx;
+ 	unsigned char buf[2*EVP_MAX_MD_SIZE];
+-	unsigned char *q,buf2[12];
+-	int idx;
+-	long mask;
++	unsigned char buf2[12];
+ 	int err=0;
+-	const EVP_MD *md; 
++	int digests_len;
+ 
+-	q=buf;
+-
+-	if (s->s3->handshake_buffer) 
++	if (s->s3->handshake_buffer)
+ 		if (!ssl3_digest_cached_records(s))
+ 			return 0;
+ 
+-	EVP_MD_CTX_init(&ctx);
+-
+-	for (idx=0;ssl_get_handshake_digest(idx,&mask,&md);idx++)
++	digests_len = tls1_handshake_digest(s, buf, sizeof(buf));
++	if (digests_len < 0)
+ 		{
+-		if (mask & ssl_get_algorithm2(s))
+-			{
+-			int hashsize = EVP_MD_size(md);
+-			if (hashsize < 0 || hashsize > (int)(sizeof buf - (size_t)(q-buf)))
+-				{
+-				/* internal error: 'buf' is too small for this cipersuite! */
+-				err = 1;
+-				}
+-			else
+-				{
+-				EVP_MD_CTX_copy_ex(&ctx,s->s3->handshake_dgst[idx]);
+-				EVP_DigestFinal_ex(&ctx,q,&i);
+-				if (i != (unsigned int)hashsize) /* can't really happen */
+-					err = 1;
+-				q+=i;
+-				}
+-			}
++		err = 1;
++		digests_len = 0;
+ 		}
+-		
++
+ 	if (!tls1_PRF(ssl_get_algorithm2(s),
+-			str,slen, buf,(int)(q-buf), NULL,0, NULL,0, NULL,0,
++			str,slen, buf, digests_len, NULL,0, NULL,0, NULL,0,
+ 			s->session->master_key,s->session->master_key_length,
+ 			out,buf2,sizeof buf2))
+ 		err = 1;
+-	EVP_MD_CTX_cleanup(&ctx);
+ 
+ 	if (err)
+ 		return 0;
+diff --git a/ssl/t1_lib.c b/ssl/t1_lib.c
+index ea7fefa..d7ea9a5 100644
+--- a/ssl/t1_lib.c
++++ b/ssl/t1_lib.c
+@@ -2684,6 +2684,17 @@ tls1_channel_id_hash(EVP_MD_CTX *md, SSL *s)
+ 
+ 	EVP_DigestUpdate(md, kClientIDMagic, sizeof(kClientIDMagic));
+ 
++	if (s->hit)
++		{
++		static const char kResumptionMagic[] = "Resumption";
++		EVP_DigestUpdate(md, kResumptionMagic,
++				 sizeof(kResumptionMagic));
++		if (s->session->original_handshake_hash_len == 0)
++			return 0;
++		EVP_DigestUpdate(md, s->session->original_handshake_hash,
++				 s->session->original_handshake_hash_len);
++		}
++
+ 	EVP_MD_CTX_init(&ctx);
+ 	for (i = 0; i < SSL_MAX_DIGEST; i++)
+ 		{
+@@ -2698,3 +2709,29 @@ tls1_channel_id_hash(EVP_MD_CTX *md, SSL *s)
+ 	return 1;
+ 	}
+ #endif
++
++/* tls1_record_handshake_hashes_for_channel_id records the current handshake
++ * hashes in |s->session| so that Channel ID resumptions can sign that data. */
++int tls1_record_handshake_hashes_for_channel_id(SSL *s)
++	{
++	int digest_len;
++	/* This function should never be called for a resumed session because
++	 * the handshake hashes that we wish to record are for the original,
++	 * full handshake. */
++	if (s->hit)
++		return -1;
++	/* It only makes sense to call this function if Channel IDs have been
++	 * negotiated. */
++	if (!s->s3->tlsext_channel_id_valid)
++		return -1;
++
++	digest_len = tls1_handshake_digest(
++		s, s->session->original_handshake_hash,
++		sizeof(s->session->original_handshake_hash));
++	if (digest_len < 0)
++		return -1;
++
++	s->session->original_handshake_hash_len = digest_len;
++
++	return 1;
++	}
+diff --git a/ssl/tls1.h b/ssl/tls1.h
+index c4f69aa..5559486 100644
+--- a/ssl/tls1.h
++++ b/ssl/tls1.h
+@@ -255,7 +255,7 @@ extern "C" {
+ #endif
+ 
+ /* This is not an IANA defined extension number */
+-#define TLSEXT_TYPE_channel_id			30031
++#define TLSEXT_TYPE_channel_id			30032
+ 
+ /* NameType value from RFC 3546 */
+ #define TLSEXT_NAMETYPE_host_name 0

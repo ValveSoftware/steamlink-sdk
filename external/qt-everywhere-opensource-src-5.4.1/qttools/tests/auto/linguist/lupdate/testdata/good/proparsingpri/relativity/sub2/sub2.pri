@@ -1,0 +1,2 @@
+SOURCES += $$PWD/../relativity.cpp
+

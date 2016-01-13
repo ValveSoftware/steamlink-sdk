@@ -1,0 +1,87 @@
+http://crbug.com/178677 refers to potential buffer overruns in ASAN
+due to memcmp() being used instead of strcmp() in SQLite.  Reported to
+SQLite team, resulting in http://www.sqlite.org/src/info/d73435587b .
+This was backported into Chromium's version of SQLite, then this file
+was generated using:
+  git diff --relative=third_party/sqlite/src --src-prefix='' --dst-prefix='' > third_party/sqlite/memcmp.patch
+
+
+diff --git src/analyze.c src/analyze.c
+index 17c1de8..2444e74 100644
+--- src/analyze.c
++++ src/analyze.c
+@@ -142,7 +142,7 @@ static void analyzeOneTable(
+     /* Do not gather statistics on views or virtual tables */
+     return;
+   }
+-  if( memcmp(pTab->zName, "sqlite_", 7)==0 ){
++  if( sqlite3_strnicmp(pTab->zName, "sqlite_", 7)==0 ){
+     /* Do not gather statistics on system tables */
+     return;
+   }
+@@ -548,7 +548,7 @@ static int analysisLoader(void *pData, int argc, char **argv, char **NotUsed){
+     if( pIndex==0 ) break;
+     pIndex->aiRowEst[i] = v;
+     if( *z==' ' ) z++;
+-    if( memcmp(z, "unordered", 10)==0 ){
++    if( strcmp(z, "unordered")==0 ){
+       pIndex->bUnordered = 1;
+       break;
+     }
+diff --git src/build.c src/build.c
+index 323a616..4f4f8ed 100644
+--- src/build.c
++++ src/build.c
+@@ -2480,7 +2480,7 @@ Index *sqlite3CreateIndex(
+   assert( pTab!=0 );
+   assert( pParse->nErr==0 );
+   if( sqlite3StrNICmp(pTab->zName, "sqlite_", 7)==0 
+-       && memcmp(&pTab->zName[7],"altertab_",9)!=0 ){
++       && sqlite3StrNICmp(&pTab->zName[7],"altertab_",9)!=0 ){
+     sqlite3ErrorMsg(pParse, "table %s may not be indexed", pTab->zName);
+     goto exit_create_index;
+   }
+diff --git src/expr.c src/expr.c
+index 2699ae1..9d1193b 100644
+--- src/expr.c
++++ src/expr.c
+@@ -578,12 +578,10 @@ void sqlite3ExprAssignVarNumber(Parse *pParse, Expr *pExpr){
+     ** has never appeared before, reuse the same variable number
+     */
+     int i;
+-    u32 n;
+-    n = sqlite3Strlen30(z);
+     for(i=0; i<pParse->nVarExpr; i++){
+       Expr *pE = pParse->apVarExpr[i];
+       assert( pE!=0 );
+-      if( memcmp(pE->u.zToken, z, n)==0 && pE->u.zToken[n]==0 ){
++      if( strcmp(pE->u.zToken, z)==0 ){
+         pExpr->iColumn = pE->iColumn;
+         break;
+       }
+diff --git src/os_unix.c src/os_unix.c
+index 804c588..77ffd8a 100644
+--- src/os_unix.c
++++ src/os_unix.c
+@@ -4506,7 +4506,7 @@ int fillInUnixFile(
+   OSTRACE(("OPEN    %-3d %s\n", h, zFilename));
+   pNew->h = h;
+   pNew->zPath = zFilename;
+-  if( memcmp(pVfs->zName,"unix-excl",10)==0 ){
++  if( strcmp(pVfs->zName,"unix-excl")==0 ){
+     pNew->ctrlFlags = UNIXFILE_EXCL;
+   }else{
+     pNew->ctrlFlags = 0;
+diff --git src/vdbeapi.c src/vdbeapi.c
+index 90baacc..80ceb9f 100644
+--- src/vdbeapi.c
++++ src/vdbeapi.c
+@@ -1222,7 +1222,7 @@ int sqlite3VdbeParameterIndex(Vdbe *p, const char *zName, int nName){
+   if( zName ){
+     for(i=0; i<p->nVar; i++){
+       const char *z = p->azVar[i];
+-      if( z && memcmp(z,zName,nName)==0 && z[nName]==0 ){
++      if( z && strncmp(z,zName,nName)==0 && z[nName]==0 ){
+         return i+1;
+       }
+     }

@@ -1,0 +1,117 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+config("sqlite_config") {
+  include_dirs = [ "." ]
+}
+
+source_set("sqlite") {
+  sources = [
+    "amalgamation/sqlite3.h",
+    "amalgamation/sqlite3.c",
+    # fts2.c currently has a lot of conflicts when added to
+    # the amalgamation.  It is probably not worth fixing that.
+    "src/ext/fts2/fts2.c",
+    "src/ext/fts2/fts2.h",
+    "src/ext/fts2/fts2_hash.c",
+    "src/ext/fts2/fts2_hash.h",
+    "src/ext/fts2/fts2_icu.c",
+    "src/ext/fts2/fts2_porter.c",
+    "src/ext/fts2/fts2_tokenizer.c",
+    "src/ext/fts2/fts2_tokenizer.h",
+    "src/ext/fts2/fts2_tokenizer1.c",
+  ]
+
+  cflags = []
+  defines = [
+    "SQLITE_CORE",
+    "SQLITE_ENABLE_BROKEN_FTS2",
+    "SQLITE_ENABLE_FTS2",
+    "SQLITE_ENABLE_FTS3",
+    "SQLITE_ENABLE_ICU",
+    "SQLITE_ENABLE_MEMORY_MANAGEMENT",
+    "SQLITE_SECURE_DELETE",
+    "SQLITE_SEPARATE_CACHE_POOLS",
+    "THREADSAFE",
+    "_HAS_EXCEPTIONS=0",
+  ]
+  if (is_chromeos) {
+    defines += [
+      # Despite obvious warnings about not using this flag in deployment, we
+      # are turning off sync in ChromeOS and relying on the underlying
+      # journaling filesystem to do error recovery properly. It's much faster.
+      "SQLITE_NO_SYNC",
+    ]
+  }
+
+  include_dirs = [
+    "amalgamation",
+    "src/src",  # Needed for fts2 to build.
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+
+  if (is_win) {
+    cflags += [ "/wd4267" ]  # Conversion from size_t to "type".
+  } else if (is_linux) {
+    cflags += [
+      # SQLite doesn"t believe in compiler warnings,
+      # preferring testing.
+      #   http://www.sqlite.org/faq.html#q17
+      "-Wno-int-to-pointer-cast",
+      "-Wno-pointer-to-int-cast",
+    ]
+    libs = [ "dl" ]
+  } else if (is_mac || is_ios) {
+    libs = [ "CoreFoundation.framework" ]
+  } else if (is_android) {
+    defines += [
+      "HAVE_USLEEP=1",
+      "SQLITE_DEFAULT_JOURNAL_SIZE_LIMIT=1048576",
+      "SQLITE_DEFAULT_AUTOVACUUM=1",
+      "SQLITE_TEMP_STORE=3",
+      "SQLITE_ENABLE_FTS3_BACKWARDS",
+      "DSQLITE_DEFAULT_FILE_FORMAT=4",
+    ]
+  }
+
+  if (is_clang) {
+    cflags += [
+      # sqlite does `if (*a++ && *b++);` in a non-buggy way.
+      "-Wno-empty-body",
+      # sqlite has some `unsigned < 0` checks.
+      "-Wno-tautological-compare",
+    ]
+  }
+
+  direct_dependent_configs = [ ":sqlite_config" ]
+
+  deps = [
+    "//third_party/icu",
+  ]
+}
+
+if (is_linux) {
+  executable("sqlite_shell") {
+    sources = [
+      "src/src/shell.c",
+      "src/src/shell_icu_linux.c",
+      # Include a dummy c++ file to force linking of libstdc++.
+      "build_as_cpp.cc",
+    ]
+
+    deps = [
+      ":sqlite",
+      "//third_party/icu",
+    ]
+  }
+}
+
+if (is_ios) {
+  source_set("sqlite_regexp") {
+    sources = [ "src/ext/icu/icu.c" ]
+    deps = [ "//third_party/icu" ]
+  }
+}

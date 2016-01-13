@@ -1,0 +1,136 @@
+diff --git android-openssl.orig/ssl/t1_lib.c android-openssl/ssl/t1_lib.c
+index 3fe6612..ea7fefa 100644
+--- android-openssl.orig/ssl/t1_lib.c
++++ android-openssl/ssl/t1_lib.c
+@@ -444,55 +444,6 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *buf, unsigned c
+ 		}
+ #endif
+ 
+-#ifndef OPENSSL_NO_EC
+-	if (s->tlsext_ecpointformatlist != NULL &&
+-	    s->version != DTLS1_VERSION)
+-		{
+-		/* Add TLS extension ECPointFormats to the ClientHello message */
+-		long lenmax; 
+-
+-		if ((lenmax = limit - ret - 5) < 0) return NULL; 
+-		if (s->tlsext_ecpointformatlist_length > (unsigned long)lenmax) return NULL;
+-		if (s->tlsext_ecpointformatlist_length > 255)
+-			{
+-			SSLerr(SSL_F_SSL_ADD_CLIENTHELLO_TLSEXT, ERR_R_INTERNAL_ERROR);
+-			return NULL;
+-			}
+-		
+-		s2n(TLSEXT_TYPE_ec_point_formats,ret);
+-		s2n(s->tlsext_ecpointformatlist_length + 1,ret);
+-		*(ret++) = (unsigned char) s->tlsext_ecpointformatlist_length;
+-		memcpy(ret, s->tlsext_ecpointformatlist, s->tlsext_ecpointformatlist_length);
+-		ret+=s->tlsext_ecpointformatlist_length;
+-		}
+-	if (s->tlsext_ellipticcurvelist != NULL &&
+-	    s->version != DTLS1_VERSION)
+-		{
+-		/* Add TLS extension EllipticCurves to the ClientHello message */
+-		long lenmax; 
+-
+-		if ((lenmax = limit - ret - 6) < 0) return NULL; 
+-		if (s->tlsext_ellipticcurvelist_length > (unsigned long)lenmax) return NULL;
+-		if (s->tlsext_ellipticcurvelist_length > 65532)
+-			{
+-			SSLerr(SSL_F_SSL_ADD_CLIENTHELLO_TLSEXT, ERR_R_INTERNAL_ERROR);
+-			return NULL;
+-			}
+-		
+-		s2n(TLSEXT_TYPE_elliptic_curves,ret);
+-		s2n(s->tlsext_ellipticcurvelist_length + 2, ret);
+-
+-		/* NB: draft-ietf-tls-ecc-12.txt uses a one-byte prefix for
+-		 * elliptic_curve_list, but the examples use two bytes.
+-		 * http://www1.ietf.org/mail-archive/web/tls/current/msg00538.html
+-		 * resolves this to two bytes.
+-		 */
+-		s2n(s->tlsext_ellipticcurvelist_length, ret);
+-		memcpy(ret, s->tlsext_ellipticcurvelist, s->tlsext_ellipticcurvelist_length);
+-		ret+=s->tlsext_ellipticcurvelist_length;
+-		}
+-#endif /* OPENSSL_NO_EC */
+-
+ 	if (!(SSL_get_options(s) & SSL_OP_NO_TICKET))
+ 		{
+ 		int ticklen;
+@@ -665,6 +616,58 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *buf, unsigned c
+                 }
+ #endif
+ 
++#ifndef OPENSSL_NO_EC
++	/* WebSphere Application Server 7.0 is intolerant to the last extension
++	 * being zero-length. ECC extensions are non-empty and not dropped until
++	 * fallback to SSL3, at which point all extensions are gone. */
++	if (s->tlsext_ecpointformatlist != NULL &&
++	    s->version != DTLS1_VERSION)
++		{
++		/* Add TLS extension ECPointFormats to the ClientHello message */
++		long lenmax; 
++
++		if ((lenmax = limit - ret - 5) < 0) return NULL; 
++		if (s->tlsext_ecpointformatlist_length > (unsigned long)lenmax) return NULL;
++		if (s->tlsext_ecpointformatlist_length > 255)
++			{
++			SSLerr(SSL_F_SSL_ADD_CLIENTHELLO_TLSEXT, ERR_R_INTERNAL_ERROR);
++			return NULL;
++			}
++		
++		s2n(TLSEXT_TYPE_ec_point_formats,ret);
++		s2n(s->tlsext_ecpointformatlist_length + 1,ret);
++		*(ret++) = (unsigned char) s->tlsext_ecpointformatlist_length;
++		memcpy(ret, s->tlsext_ecpointformatlist, s->tlsext_ecpointformatlist_length);
++		ret+=s->tlsext_ecpointformatlist_length;
++		}
++	if (s->tlsext_ellipticcurvelist != NULL &&
++	    s->version != DTLS1_VERSION)
++		{
++		/* Add TLS extension EllipticCurves to the ClientHello message */
++		long lenmax; 
++
++		if ((lenmax = limit - ret - 6) < 0) return NULL; 
++		if (s->tlsext_ellipticcurvelist_length > (unsigned long)lenmax) return NULL;
++		if (s->tlsext_ellipticcurvelist_length > 65532)
++			{
++			SSLerr(SSL_F_SSL_ADD_CLIENTHELLO_TLSEXT, ERR_R_INTERNAL_ERROR);
++			return NULL;
++			}
++		
++		s2n(TLSEXT_TYPE_elliptic_curves,ret);
++		s2n(s->tlsext_ellipticcurvelist_length + 2, ret);
++
++		/* NB: draft-ietf-tls-ecc-12.txt uses a one-byte prefix for
++		 * elliptic_curve_list, but the examples use two bytes.
++		 * http://www1.ietf.org/mail-archive/web/tls/current/msg00538.html
++		 * resolves this to two bytes.
++		 */
++		s2n(s->tlsext_ellipticcurvelist_length, ret);
++		memcpy(ret, s->tlsext_ellipticcurvelist, s->tlsext_ellipticcurvelist_length);
++		ret+=s->tlsext_ellipticcurvelist_length;
++		}
++#endif /* OPENSSL_NO_EC */
++
+ 	/* Add padding to workaround bugs in F5 terminators.
+ 	 * See https://tools.ietf.org/html/draft-agl-tls-padding-02 */
+ 	if (header_len > 0)
+@@ -673,10 +676,14 @@ unsigned char *ssl_add_clienthello_tlsext(SSL *s, unsigned char *buf, unsigned c
+ 		if (header_len > 0xff && header_len < 0x200)
+ 			{
+ 			size_t padding_len = 0x200 - header_len;
+-			if (padding_len >= 4)
++			/* Extensions take at least four bytes to encode. Always
++			 * include least one byte of data if including the
++			 * extension. WebSphere Application Server 7.0 is
++			 * intolerant to the last extension being zero-length. */
++			if (padding_len >= 4 + 1)
+ 				padding_len -= 4;
+ 			else
+-				padding_len = 0;
++				padding_len = 1;
+ 			if (limit - ret - 4 - (long)padding_len < 0)
+ 				return NULL;
+ 

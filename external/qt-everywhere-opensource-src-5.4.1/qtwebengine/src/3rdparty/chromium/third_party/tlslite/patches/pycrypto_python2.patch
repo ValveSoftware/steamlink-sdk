@@ -1,0 +1,51 @@
+diff --git a/third_party/tlslite/tlslite/utils/compat.py b/third_party/tlslite/tlslite/utils/compat.py
+index 2bcaede..db95ac1 100755
+--- a/third_party/tlslite/tlslite/utils/compat.py
++++ b/third_party/tlslite/tlslite/utils/compat.py
+@@ -51,6 +51,9 @@ if sys.version_info >= (3,0):
+     def readStdinBinary():
+         return sys.stdin.buffer.read()        
+ 
++    def long(n):
++        return n
++
+ else:
+     # Python 2.6 requires strings instead of bytearrays in a couple places,
+     # so we define this function so it does the conversion if needed.
+diff --git a/third_party/tlslite/tlslite/utils/cryptomath.py b/third_party/tlslite/tlslite/utils/cryptomath.py
+index ce56b4b..30354b2 100755
+--- a/third_party/tlslite/tlslite/utils/cryptomath.py
++++ b/third_party/tlslite/tlslite/utils/cryptomath.py
+@@ -94,7 +94,9 @@ def bytesToNumber(b):
+         byte = b[count]
+         total += multiplier * byte
+         multiplier *= 256
+-    return total
++    # Force-cast to long to appease PyCrypto.
++    # https://github.com/trevp/tlslite/issues/15
++    return long(total)
+ 
+ def numberToByteArray(n, howManyBytes=None):
+     """Convert an integer into a bytearray, zero-pad to howManyBytes.
+diff --git a/third_party/tlslite/tlslite/utils/pycrypto_rsakey.py b/third_party/tlslite/tlslite/utils/pycrypto_rsakey.py
+index 3d56228..4de5436 100755
+--- a/third_party/tlslite/tlslite/utils/pycrypto_rsakey.py
++++ b/third_party/tlslite/tlslite/utils/pycrypto_rsakey.py
+@@ -26,13 +26,13 @@ if pycryptoLoaded:
+             return self.rsa.has_private()
+ 
+         def _rawPrivateKeyOp(self, m):
+-            s = numberToString(m, numBytes(self.n))
+-            c = stringToNumber(self.rsa.decrypt((s,)))
++            s = bytes(numberToByteArray(m, numBytes(self.n)))
++            c = bytesToNumber(bytearray(self.rsa.decrypt((s,))))
+             return c
+ 
+         def _rawPublicKeyOp(self, c):
+-            s = numberToString(c, numBytes(self.n))
+-            m = stringToNumber(self.rsa.encrypt(s, None)[0])
++            s = bytes(numberToByteArray(c, numBytes(self.n)))
++            m = bytesToNumber(bytearray(self.rsa.encrypt(s, None)[0]))
+             return m
+ 
+         def generate(bits):

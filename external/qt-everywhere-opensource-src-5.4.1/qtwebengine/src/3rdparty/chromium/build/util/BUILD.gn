@@ -1,0 +1,50 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# This target generates a "last_change.h" header file in the generated files
+# directory that contains a define of the last revision of the source tree
+# of the form:
+#  #define LAST_CHANGE "123456"
+#
+# The version is a string rather than an integer for extra flexibility (for
+# example, we may require git hashes in the future).
+#
+# All you need to do is depend on this target, and then from your source code:
+#  #include "build/util/last_change.h"
+action("last_change") {
+  script = "lastchange.py"
+
+  # Rerun the script any time this file changes.
+  source_prereqs = [ "//build/util/LASTCHANGE" ]
+
+  output_header = "$target_gen_dir/last_change.h"
+  outputs = [ output_header ]
+
+  build_relative_src = rebase_path("//", root_build_dir)
+  build_relative_outputs = rebase_path(output_header, root_build_dir)
+
+  args = [
+    "--source-dir=$build_relative_src",
+    "--header=$build_relative_outputs",
+    "--version-macro=LAST_CHANGE",
+  ]
+}
+
+action("webkit_version") {
+  script = "version.py"
+
+  lastchange_file = "LASTCHANGE.blink"
+  # TODO(brettw) move from content to this directory.
+  template_file = "//content/webkit_version.h.in"
+  source_prereqs = [ lastchange_file, template_file ]
+
+  output_file = "$root_gen_dir/webkit_version.h"
+  outputs = [ output_file ]
+
+  args = [
+    "-f", rebase_path(lastchange_file, root_build_dir),
+    rebase_path(template_file, root_build_dir),
+    rebase_path(output_file, root_build_dir),
+  ]
+}

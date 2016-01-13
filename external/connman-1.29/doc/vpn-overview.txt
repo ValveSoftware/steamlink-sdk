@@ -1,0 +1,60 @@
+VPN daemon overview
+*******************
+
+
+Manager interface
+=================
+
+Manager interface described in vpn-manager-api.txt is to be used
+by both the connectivity UI and by ConnMan. The Create(),
+Remove(), RegisterAgent() and UnregisterAgent() functions are for
+UI usage. The GetConnections() method and ConnectionAdded() and
+ConnectionRemoved() signals are for ConnMan VPN plugin to use.
+
+The UI should use the methods like this:
+- Ask VPN properties (like certs, usernames etc) from the user.
+- Call Manager.Create() to create a VPN connection (note that
+  the system does not yet try to connect to VPN at this point)
+- Register an agent to vpnd so that vpnd can ask any extra
+  parameters etc from the user if needed.
+- If the user wants to connect to VPN gateway, then the
+  connection attempt should be done in ConnMan side as
+  there will be a service created there.
+- If the user wishes to remove the VPN configuration, the UI
+  can call the Manager.Remove() which removes the VPN connection.
+  If the VPN was in use, the VPN connection is also disconnected.
+- When UI is terminated, the UI should call the UnregisterAgent()
+
+The ConnMan calls VPN daemon like this:
+- There is a VPN plugin which at startup starts to listen the
+  ConnectionAdded() and ConnectionRemoved() signals.
+- The VPN plugin will call GetConnections() in order to get
+  available VPN connections. It will then create a provider service
+  for each VPN connection that is returned.
+- User can then connect to the VPN by calling the service Connect()
+  method
+- The existing ConnMan Manager.ConnectProvider() interface can still
+  work by calling vpn.Manager.Create() and then call vpn.Connection.Connect()
+  but this ConnectProvider() interface will be deprecated at some
+  point.
+
+
+
+Connection interface
+====================
+
+The Manager.Create() will return the object path of the created
+vpn.Connection object and place it in idle state. Note that
+vpn.Connection.PropertyChanged signal is not called when Connection
+object is created because the same parameters are returned via
+vpn.Manager.ConnectionAdded() signal.
+The vpn.Connection object can be connected using the Connect() method
+and disconnected by calling Disconnect() method. When the connection
+is established (meaning VPN client has managed to create a connection
+to VPN server), then State property is set to "ready" and PropertyChanged
+signal is sent. If the connection cannot be established, then
+State property is set to "failure".
+After successfull connection, the relevant connection properties are sent
+by PropertyChanged signal; like IPv[4|6] information, the index of the
+VPN tunneling interface (if there is any), nameserver information,
+server specified routes etc.

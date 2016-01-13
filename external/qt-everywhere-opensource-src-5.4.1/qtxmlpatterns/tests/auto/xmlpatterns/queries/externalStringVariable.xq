@@ -1,0 +1,1 @@
+concat("START ", $externalString, " END")

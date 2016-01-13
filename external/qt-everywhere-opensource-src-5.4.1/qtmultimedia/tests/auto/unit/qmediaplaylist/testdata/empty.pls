@@ -1,0 +1,2 @@
+[playlist]
+NumberOfEntries=100

@@ -1,0 +1,100 @@
+diff -pu a/nss/lib/ssl/ssl3con.c b/nss/lib/ssl/ssl3con.c
+--- a/nss/lib/ssl/ssl3con.c	2014-01-17 18:00:11.213237373 -0800
++++ b/nss/lib/ssl/ssl3con.c	2014-01-17 18:04:22.497405273 -0800
+@@ -31,6 +31,15 @@
+ #include "blapi.h"
+ #endif
+ 
++/* This is a bodge to allow this code to be compiled against older NSS headers
++ * that don't contain the TLS 1.2 changes. */
++#ifndef CKM_NSS_TLS_PRF_GENERAL_SHA256
++#define CKM_NSS_TLS_PRF_GENERAL_SHA256          (CKM_NSS + 21)
++#define CKM_NSS_TLS_MASTER_KEY_DERIVE_SHA256    (CKM_NSS + 22)
++#define CKM_NSS_TLS_KEY_AND_MAC_DERIVE_SHA256   (CKM_NSS + 23)
++#define CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256 (CKM_NSS + 24)
++#endif
++
+ #include <stdio.h>
+ #ifdef NSS_ENABLE_ZLIB
+ #include "zlib.h"
+diff -pu a/nss/lib/ssl/ssl3ecc.c b/nss/lib/ssl/ssl3ecc.c
+--- a/nss/lib/ssl/ssl3ecc.c	2014-01-17 18:01:31.474568608 -0800
++++ b/nss/lib/ssl/ssl3ecc.c	2014-01-17 18:04:22.497405273 -0800
+@@ -30,6 +30,12 @@
+ 
+ #include <stdio.h>
+ 
++/* This is a bodge to allow this code to be compiled against older NSS headers
++ * that don't contain the TLS 1.2 changes. */
++#ifndef CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256
++#define CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256 (CKM_NSS + 24)
++#endif
++
+ #ifdef NSS_ENABLE_ECC
+ 
+ #ifndef PK11_SETATTRS
+diff -pu a/nss/lib/ssl/sslsock.c b/nss/lib/ssl/sslsock.c
+--- a/nss/lib/ssl/sslsock.c	2014-01-17 18:00:11.213237373 -0800
++++ b/nss/lib/ssl/sslsock.c	2014-01-17 18:04:22.497405273 -0800
+@@ -17,8 +17,15 @@
+ #ifndef NO_PKCS11_BYPASS
+ #include "blapi.h"
+ #endif
++#include "pk11pub.h"
+ #include "nss.h"
+ 
++/* This is a bodge to allow this code to be compiled against older NSS headers
++ * that don't contain the TLS 1.2 changes. */
++#ifndef CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256
++#define CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256 (CKM_NSS + 24)
++#endif
++
+ #define SET_ERROR_CODE   /* reminder */
+ 
+ static const sslSocketOps ssl_default_ops = {	/* No SSL. */
+@@ -1836,6 +1843,24 @@ SSL_VersionRangeGet(PRFileDesc *fd, SSLV
+     return SECSuccess;
+ }
+ 
++static PRCallOnceType checkTLS12TokenOnce;
++static PRBool tls12TokenExists;
++
++static PRStatus  
++ssl_CheckTLS12Token(void)
++{
++    tls12TokenExists =
++	PK11_TokenExists(CKM_NSS_TLS_MASTER_KEY_DERIVE_DH_SHA256);
++    return PR_SUCCESS;
++}
++
++static PRBool
++ssl_TLS12TokenExists(void)
++{
++    (void) PR_CallOnce(&checkTLS12TokenOnce, ssl_CheckTLS12Token);
++    return tls12TokenExists;
++}
++
+ SECStatus
+ SSL_VersionRangeSet(PRFileDesc *fd, const SSLVersionRange *vrange)
+ {
+@@ -1856,6 +1881,20 @@ SSL_VersionRangeSet(PRFileDesc *fd, cons
+     ssl_GetSSL3HandshakeLock(ss);
+ 
+     ss->vrange = *vrange;
++    /* If we don't have a sufficiently up-to-date softoken then we cannot do
++     * TLS 1.2. */
++    if (ss->vrange.max >= SSL_LIBRARY_VERSION_TLS_1_2 &&
++        !ssl_TLS12TokenExists()) {
++	/* If the user requested a minimum version of 1.2, then we don't
++	 * silently downgrade. */
++	if (ss->vrange.min >= SSL_LIBRARY_VERSION_TLS_1_2) {
++	    ssl_ReleaseSSL3HandshakeLock(ss);
++	    ssl_Release1stHandshakeLock(ss);
++	    PORT_SetError(SSL_ERROR_INVALID_VERSION_RANGE);
++	    return SECFailure;
++	}
++	ss->vrange.max = SSL_LIBRARY_VERSION_TLS_1_1;
++    }
+ 
+     ssl_ReleaseSSL3HandshakeLock(ss);
+     ssl_Release1stHandshakeLock(ss);

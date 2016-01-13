@@ -1,0 +1,377 @@
+﻿/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtqml-cppintegration-data.html
+\title Data Type Conversion Between QML and C++
+\brief Description of how data types are exchanged between QML and C++
+
+When data values are exchanged between QML and C++, they are converted by the
+QML engine to have the correct data types as appropriate for use in QML or
+C++. This requires the exchanged data to be of a type that is recognizable by
+the engine.
+
+The QML engine provides built-in support for a large number of Qt C++ data
+types. Additionally, custom C++ types may be registered with the QML type
+system to make them available to the engine.
+
+This page discusses the data types supported by the QML engine and how
+they are converted between QML and C++.
+
+
+\section1 Data Ownership
+
+When data is transferred from C++ to QML, the ownership of the data always
+remains with C++. The exception to this rule is when a QObject is returned from
+an explicit C++ method call: in this case, the QML engine assumes ownership of
+the object, unless the ownership of the object has explicitly been set to
+remain with C++ by invoking QQmlEngine::setObjectOwnership() with
+QQmlEngine::CppOwnership specified.
+
+Additionally, the QML engine respects the normal QObject parent ownership
+semantics of Qt C++ objects, and will not ever take ownership of a QObject
+instance which already has a parent.
+
+
+\section1 Basic Qt Data Types
+
+By default, QML recognizes the following Qt data types, which are
+automatically converted to a corresponding \l {QML Basic Types}{QML basic type}
+when passed from C++ to QML and vice-versa:
+
+\table
+    \row
+        \li Qt Type
+        \li QML Basic Type
+    \row
+        \li bool
+        \li \l bool
+    \row
+        \li unsigned int, int
+        \li \l int
+    \row
+        \li double
+        \li \l double
+    \row
+        \li float, qreal
+        \li \l real
+    \row
+        \li QString
+        \li \l string
+    \row
+        \li QUrl
+        \li \l url
+    \row
+        \li QColor
+        \li \l color
+    \row
+        \li QFont
+        \li \l font
+    \row
+        \li QDate
+        \li \l date
+    \row
+        \li QPoint, QPointF
+        \li \l point
+    \row
+        \li QSize, QSizeF
+        \li \l size
+    \row
+        \li QRect, QRectF
+        \li \l rect
+    \row
+        \li QMatrix4x4
+        \li \l matrix4x4
+    \row
+        \li QQuaternion
+        \li \l quaternion
+    \row
+        \li QVector2D, QVector3D, QVector4D
+        \li \l vector2d, \l vector3d, \l vector4d
+    \row
+        \li Enums declared with Q_ENUMS()
+        \li \l enumeration
+\endtable
+
+\note Classes provided by the \l {Qt GUI} module, such as QColor, QFont,
+QQuaternion and QMatrix4x4, are only available from QML when the \l {Qt Quick}
+module is included.
+
+As a convenience, many of these types can be specified in QML by string values,
+or by a related method provided by the \l {QtQml::Qt} object. For example, the \l
+{Image::sourceSize} property is of type \l size (which automatically translates
+to the QSize type) and can be specified by a string value formatted as
+"width\c{x}height", or by the Qt.size() function:
+
+\qml
+Item {
+    Image { sourceSize: "100x200" }
+    Image { sourceSize: Qt.size(100, 200) }
+}
+\endqml
+
+See documentation for each individual type under \l {QML Basic Types} for more
+information.
+
+
+\section1 QObject-derived Types
+
+Any QObject-derived class may be used as a type for the exchange of data between
+QML and C++, providing the class has been registered with the QML type system.
+
+The engine allows the registration of both instantiable and non-instantiable
+types. Once a class is registered as a QML type, it can be used as a data type
+for exchanging data between QML and C++. See
+\l{qtqml-cppintegration-definetypes.html#registering-c++-types-with-the-qml-type-system}{Registering C++ types with the QML type system} for further details on type registration.
+
+
+\section1 Conversion Between Qt and JavaScript Types
+
+The QML engine has built-in support for converting a number of Qt types to
+related JavaScript types, and vice-versa, when transferring data between QML
+and C++. This makes it possible to use these types and receive them in C++ or
+JavaScript without needing to implement custom types that provide access to
+the data values and their attributes.
+
+(Note that the JavaScript environment in QML modifies native JavaScript object
+prototypes, including those of \c String, \c Date and \c Number, to provide
+additional features. See the \l {qtqml-javascript-hostenvironment.html}
+{JavaScript Host Environment} for further details.)
+
+
+\section2 QVariantList and QVariantMap to JavaScript Array and Object
+
+The QML engine provides automatic type conversion between QVariantList and
+JavaScript arrays, and between QVariantMap and JavaScript objects.
+
+For example, the function defined in QML below left expects two arguments, an
+array and an object, and prints their contents using the standard JavaScript
+syntax for array and object item access. The C++ code below right calls this
+function, passing a QVariantList and a QVariantMap, which are automatically
+converted to JavaScript array and object values, repectively:
+
+\table
+\header
+\row
+\li \snippet qml/qtbinding/variantlistmap/MyItem.qml 0
+\li \snippet qml/qtbinding/variantlistmap/main.cpp 0
+\endtable
+
+This produces output like:
+
+\code
+Array item: 10
+Array item: #00ff00
+Array item: bottles
+Object item: language = QML
+Object item: released = Tue Sep 21 2010 00:00:00 GMT+1000 (EST)
+\endcode
+
+Similarly, if a C++ type uses a QVariantList or QVariantMap type for a property
+type or method parameter, the value can be created as a JavaScript array or
+object in QML, and is automatically converted to a QVariantList or QVariantMap
+when it is passed to C++.
+
+
+\section2 QDateTime to JavaScript Date
+
+The QML engine provides automatic type conversion between QDateTime values and
+JavaScript \c Date objects.
+
+For example, the function defined in QML below left expects a JavaScript
+\c Date object, and also returns a new \c Date object with the current date and
+time. The C++ code below right calls this function, passing a QDateTime value
+that is automatically converted by the engine into a \c Date object when it is
+passed to the \c readDate() function. In turn, the readDate() function returns
+a \c Date object that is automatically converted into a QDateTime value when it
+is received in C++:
+
+\table
+\header
+\row
+
+\li
+\qml
+// MyItem.qml
+Item {
+    function readDate(dt) {
+        console.log("The given date is:", dt.toUTCString());
+        return new Date();
+    }
+}
+\endqml
+
+\li
+\code
+// C++
+QQuickView view(QUrl::fromLocalFile("MyItem.qml"));
+
+QDateTime dateTime = QDateTime::currentDateTime();
+QDateTime retValue;
+
+QMetaObject::invokeMethod(view.rootObject(), "readDate",
+        Q_RETURN_ARG(QVariant, retValue),
+        Q_ARG(QVariant, QVariant::fromValue(dateTime)));
+
+qDebug() << "Value returned from readDate():" << retValue;
+\endcode
+
+\endtable
+
+Similarly, if a C++ type uses a QDateTime for a property type or method
+parameter, the value can be created as a JavaScript \c Date object in QML, and
+is automatically converted to a QDateTime value when it is passed to C++.
+
+
+\section2 Sequence Type to JavaScript Array
+
+Certain C++ sequence types are supported transparently in QML as JavaScript
+\c Array types.
+
+In particular, QML currently supports:
+\list
+  \li \c {QList<int>}
+  \li \c {QList<qreal>}
+  \li \c {QList<bool>}
+  \li \c {QList<QString>} and \c{QStringList}
+  \li \c {QList<QUrl>}
+\endlist
+
+These sequence types are implemented directly in terms of the underlying C++
+sequence. There are two ways in which such sequences can be exposed to QML:
+as a Q_PROPERTY of the given sequence type; or as the return type of a
+Q_INVOKABLE method. There are some differences in the way these are
+implemented, which are important to note.
+
+If the sequence is exposed as a Q_PROPERTY, accessing any value in the
+sequence by index will cause the sequence data to be read from the QObject's
+property, then a read to occur. Similarly, modifying any value in the
+sequence will cause the sequence data to be read, and then the modification
+will be performed and the modified sequence will be written back to the
+QObject's property.
+
+If the sequence is returned from a Q_INVOKABLE function, access and mutation
+is much cheaper, as no QObject property read or write occurs; instead, the
+C++ sequence data is accessed and modified directly.
+
+Other sequence types are not supported transparently, and instead an
+instance of any other sequence type will be passed between QML and C++ as an
+opaque QVariantList.
+
+\b {Important Note:} There are some minor differences between the
+semantics of such sequence Array types and default JavaScript Array types
+which result from the use of a C++ storage type in the implementation. In
+particular, deleting an element from an Array will result in a
+default-constructed value replacing that element, rather than an Undefined
+value. Similarly, setting the length property of the Array to a value larger
+than its current value will result in the Array being padded out to the
+specified length with default-constructed elements rather than Undefined
+elements.  Finally, the Qt container classes support signed (rather than
+unsigned) integer indexes; thus, attempting to access any index greater
+than INT_MAX will fail.
+
+The default-constructed values for each sequence type are as follows:
+\table
+\row \li QList<int> \li integer value 0
+\row \li QList<qreal> \li real value 0.0
+\row \li QList<bool> \li boolean value \c {false}
+\row \li QList<QString> and QStringList \li empty QString
+\row \li QList<QUrl> \li empty QUrl
+\endtable
+
+If you wish to remove elements from a sequence rather than simply replace
+them with default constructed values, do not use the indexed delete operator
+("delete sequence[i]") but instead use the \c {splice} function
+("sequence.splice(startIndex, deleteCount)").
+
+
+\section1 Enumeration Types
+
+To use a custom enumeration as a data type, its class must be registered and
+the enumeration must also be declared with Q_ENUMS() to register it with Qt's
+meta object system. For example, the \c Message class below has a \c Status
+enum:
+
+\code
+ class Message : public QObject
+ {
+     Q_OBJECT
+     Q_ENUMS(Status)
+     Q_PROPERTY(Status status READ status NOTIFY statusChanged)
+ public:
+     enum Status {
+         Ready,
+         Loading,
+         Error
+     };
+     Status status() const;
+ signals:
+     void statusChanged();
+ };
+\endcode
+
+Providing the \c Message class has been
+\l{qtqml-cppintegration-definetypes.html#registering-c++-types-with-the-qml-type-system}{registered} with the QML type system, its \c Status enum can be used from QML:
+
+\qml
+Message {
+     onStatusChanged: {
+         if (status == Message.Ready)
+             console.log("Message is loaded!")
+     }
+ }
+\endqml
+
+\note The names of enum values must begin with a capital letter in order to
+be accessible from QML.
+
+
+\section2 Enumeration Types as Signal and Method Parameters
+
+C++ signals and methods with enumeration-type parameters can be used from QML
+provided that the enumeration and the signal or method are both declared
+within the same class, or that the enumeration value is one of those declared
+in the \l {Qt}{Qt Namespace}.
+
+Additionally, if a C++ signal with an enum parameter should be connectable to a
+QML function using the \l{qtqml-syntax-signals.html#connecting-signals-to-methods-and-signals}
+{connect()} function, the enum type must be registered
+using qRegisterMetaType().
+
+For QML signals, enum values may be passed as signal parameters using the \c int
+type:
+
+\qml
+ Message {
+     signal someOtherSignal(int statusValue)
+
+     Component.onCompleted: {
+         someOtherSignal(Message.Loading)
+     }
+ }
+\endqml
+
+*/

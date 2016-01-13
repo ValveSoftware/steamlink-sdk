@@ -1,0 +1,55 @@
+diff -burN android-openssl.1/openssl.config android-openssl/openssl.config
+--- android-openssl.1/openssl.config	2013-03-25 11:20:39.208813510 +0100
++++ android-openssl/openssl.config	2013-03-25 11:34:02.687462212 +0100
+@@ -992,6 +992,7 @@
+ channelid.patch \
+ eng_dyn_dirs.patch \
+ fix_clang_build.patch \
++x509_hash_name_algorithm_change.patch \
+ "
+ 
+ OPENSSL_PATCHES_progs_SOURCES="\
+@@ -1048,3 +1049,6 @@
+ crypto/x509v3/v3_utl.c \
+ "
+ 
++OPENSSL_PATCHES_x509_hash_name_algorithm_change_SOURCES="\
++crypto/x509/by_dir.c \
++"
+diff -burN android-openssl.1/patches/x509_hash_name_algorithm_change.patch android-openssl/patches/x509_hash_name_algorithm_change.patch
+--- android-openssl.1/patches/x509_hash_name_algorithm_change.patch	1970-01-01 01:00:00.000000000 +0100
++++ android-openssl/patches/x509_hash_name_algorithm_change.patch	2013-03-25 11:32:21.366375000 +0100
+@@ -0,0 +1,33 @@
++diff -burN android-openssl.orig/crypto/x509/by_dir.c android-openssl/crypto/x509/by_dir.c
++--- android-openssl.orig/crypto/x509/by_dir.c	2013-03-25 11:30:17.775049611 +0100
+++++ android-openssl/crypto/x509/by_dir.c	2013-03-25 11:31:52.936070192 +0100
++@@ -287,6 +287,8 @@
++ 	int ok=0;
++ 	int i,j,k;
++ 	unsigned long h;
+++	unsigned long hash_array[2];
+++	int hash_index;
++ 	BUF_MEM *b=NULL;
++ 	X509_OBJECT stmp,*tmp;
++ 	const char *postfix="";
++@@ -322,7 +324,11 @@
++ 	
++ 	ctx=(BY_DIR *)xl->method_data;
++ 
++-	h=X509_NAME_hash(name);
+++	hash_array[0]=X509_NAME_hash(name);
+++	hash_array[1]=X509_NAME_hash_old(name);
+++	for (hash_index=0; hash_index < 2; ++hash_index)
+++		{
+++		h=hash_array[hash_index];
++ 	for (i=0; i < sk_BY_DIR_ENTRY_num(ctx->dirs); i++)
++ 		{
++ 		BY_DIR_ENTRY *ent;
++@@ -476,6 +482,7 @@
++ 			goto finish;
++ 			}
++ 		}
+++		}
++ finish:
++ 	if (b != NULL) BUF_MEM_free(b);
++ 	return(ok);

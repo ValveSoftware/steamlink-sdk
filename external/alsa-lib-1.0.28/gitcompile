@@ -1,0 +1,48 @@
+#!/bin/bash
+
+set -e
+
+bit32=
+if [ $# -ne 0 -a "$1" == "32" ]; then
+  bit32=yes
+  echo "Forced 32-bit library build..."
+fi
+if [ $# -ne 0 -a -z "$bit32" ]; then
+  args="$@"
+elif [ -r /etc/asound/library_args ]; then
+  args="`cat /etc/asound/library_args`"
+  if [ -z "$bit32" ]; then
+    test -r /etc/asound/library64_args && \
+      args="`cat /etc/asound/library64_args`"
+  fi
+else
+  prefix="/usr"
+  libdir="/usr/lib"
+  libdir2="/usr/lib"
+  if [ -z "$bit32" ]; then
+    test -d /usr/lib64 && libdir="/usr/lib64"
+    test -f /lib64/libasound.so.2 && libdir="/lib64"
+    test -d /usr/lib64 && libdir2="/usr/lib64"
+  else
+    test -f /lib/libasound.so.2 && libdir="/lib"
+  fi
+  args="--disable-aload --prefix=$prefix --libdir=$libdir"
+  args="$args --with-plugindir=$libdir2/alsa-lib"
+  args="$args --with-pkgconfdir=$libdir2/pkgconfig"
+fi
+      
+touch ltconfig
+libtoolize --force --copy --automake
+aclocal $ACLOCAL_FLAGS
+autoheader
+automake --foreign --copy --add-missing
+touch depcomp		# seems to be missing for old automake
+autoconf
+export CFLAGS='-O2 -Wall -W -pipe -g'
+echo "CFLAGS=$CFLAGS"
+echo "./configure $args"
+./configure $args || exit 1
+unset CFLAGS
+if [ -z "$GITCOMPILE_NO_MAKE" ]; then
+  make
+fi

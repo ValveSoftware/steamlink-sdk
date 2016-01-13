@@ -1,0 +1,138 @@
+# old-ltdl-iface.at -- exercise old libtoolize interface to libltdl
+#
+#   Copyright (C) 2011-2015 Free Software Foundation, Inc.
+#   Written by Gary V. Vaughan, 2011
+#
+#   This file is part of GNU Libtool.
+#
+# GNU Libtool is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# GNU Libtool is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GNU Libtool; see the file COPYING.  If not, a copy
+# can be downloaded from  http://www.gnu.org/licenses/gpl.html,
+# or obtained by writing to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+####
+
+# FIXME: Remove this test in 2013, along with support for Makefile.inc
+
+
+AT_BANNER([Support for older libltdl interfaces.])
+
+
+## ------------------------- ##
+## Support for Makefile.inc. ##
+## ------------------------- ##
+
+AT_SETUP([Makefile.inc])
+
+AT_DATA([configure.in],
+[[AC_INIT([old-ltdl-iface-demo], ]AT_PACKAGE_VERSION[, ]AT_PACKAGE_BUGREPORT[)
+AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_LIBOBJ_DIR([ltdl])
+LT_CONFIG_LTDL_DIR([ltdl])
+AC_CONFIG_HEADERS([config.h])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
+LT_INIT
+LTDL_INIT([nonrecursive])
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
+]])
+
+AT_DATA([Makefile.am],
+[[ACLOCAL_AMFLAGS = -I m4
+BUILT_SOURCES =
+AM_CPPFLAGS =
+AM_LDFLAGS =
+include_HEADERS =
+noinst_LTLIBRARIES =
+lib_LTLIBRARIES =
+EXTRA_LTLIBRARIES =
+EXTRA_DIST =
+CLEANFILES =
+MOSTLYCLEANFILES =
+include ltdl/Makefile.inc
+bin_PROGRAMS = old
+old_LDADD = -Lltdl $(LIBLTDL)
+]])
+
+AT_DATA([old.c],
+[[#include <stdio.h>
+#include "ltdl.h"
+int main () {
+  putchar ('.');
+  putchar (lt_dlinit () ? 'E' : '.');
+  putchar (lt_dlexit () ? 'E' : '.');
+  return 0;
+}
+]])
+
+AT_DATA([expout],
+[[libtoolize: putting auxiliary files in '.'.
+libtoolize: linking file './config.guess'
+libtoolize: linking file './config.sub'
+libtoolize: linking file './install-sh'
+libtoolize: linking file './ltmain.sh'
+libtoolize: putting macros in AC_CONFIG_MACRO_DIRS, 'm4'.
+libtoolize: linking file 'm4/libtool.m4'
+libtoolize: linking file 'm4/ltargz.m4'
+libtoolize: linking file 'm4/ltdl.m4'
+libtoolize: linking file 'm4/ltoptions.m4'
+libtoolize: linking file 'm4/ltsugar.m4'
+libtoolize: linking file 'm4/ltversion.m4'
+libtoolize: linking file 'm4/lt~obsolete.m4'
+libtoolize: putting libltdl files in LT_CONFIG_LTDL_DIR, 'ltdl'.
+libtoolize: linking file 'ltdl/COPYING.LIB'
+libtoolize: linking file 'ltdl/README'
+libtoolize: linking file 'ltdl/libltdl/lt__alloc.h'
+libtoolize: linking file 'ltdl/libltdl/lt__argz_.h'
+libtoolize: linking file 'ltdl/libltdl/lt__dirent.h'
+libtoolize: linking file 'ltdl/libltdl/lt__glibc.h'
+libtoolize: linking file 'ltdl/libltdl/lt__private.h'
+libtoolize: linking file 'ltdl/libltdl/lt__strl.h'
+libtoolize: linking file 'ltdl/libltdl/lt_dlloader.h'
+libtoolize: linking file 'ltdl/libltdl/lt_error.h'
+libtoolize: linking file 'ltdl/libltdl/lt_system.h'
+libtoolize: linking file 'ltdl/libltdl/slist.h'
+libtoolize: linking file 'ltdl/loaders/dld_link.c'
+libtoolize: linking file 'ltdl/loaders/dlopen.c'
+libtoolize: linking file 'ltdl/loaders/dyld.c'
+libtoolize: linking file 'ltdl/loaders/load_add_on.c'
+libtoolize: linking file 'ltdl/loaders/loadlibrary.c'
+libtoolize: linking file 'ltdl/loaders/preopen.c'
+libtoolize: linking file 'ltdl/loaders/shl_load.c'
+libtoolize: linking file 'ltdl/lt__alloc.c'
+libtoolize: linking file 'ltdl/lt__argz.c'
+libtoolize: linking file 'ltdl/lt__dirent.c'
+libtoolize: linking file 'ltdl/lt__strl.c'
+libtoolize: linking file 'ltdl/lt_dlloader.c'
+libtoolize: linking file 'ltdl/lt_error.c'
+libtoolize: linking file 'ltdl/ltdl.c'
+libtoolize: linking file 'ltdl/ltdl.h'
+libtoolize: creating file 'ltdl/ltdl.mk'
+libtoolize: renaming file 'ltdl/Makefile.inc'
+libtoolize: linking file 'ltdl/slist.c'
+libtoolize: Consider updating to use of 'include ltdl/ltdl.mk' in Makefile.am.
+]])
+
+AT_DATA([experr],
+[[libtoolize:   error: Use of 'include ltdl/Makefile.inc' is deprecated!
+]])
+
+LT_AT_CHECK_LIBTOOLIZE([--ltdl=ltdl --nonrecursive --install], 0, [expout], [experr])
+
+AT_CHECK([test -f ltdl/Makefile.inc])
+
+LT_AT_BOOTSTRAP([ignore], [-I m4], [], [--add-missing], [--force])
+
+LT_AT_EXEC_CHECK([./old], 0, [[...]])
+
+AT_CLEANUP

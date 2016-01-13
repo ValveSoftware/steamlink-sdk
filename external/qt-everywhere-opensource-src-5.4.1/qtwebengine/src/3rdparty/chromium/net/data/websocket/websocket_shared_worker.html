@@ -1,0 +1,31 @@
+<html>
+<body>
+<div id=result></div>
+<script>
+function log(message)
+{
+  document.getElementById("result").innerHTML += message + "<br>";
+}
+var worker = new SharedWorker("websocket_worker_simple.js");
+var href = window.location.href;
+var hostBegin = href.indexOf("/") + 2;
+var hostEnd = href.lastIndexOf(":");
+var host = href.slice(hostBegin, hostEnd);
+var portBegin = hostEnd + 1;
+var portEnd = href.lastIndexOf("/");
+var port = href.slice(portBegin, portEnd);
+var url = "ws://" + host + ":" + port + "/echo-with-no-extension";
+worker.port.onmessage = function (evt) {
+  log(evt.data);
+  if (evt.data == "DONE") {
+    document.title = "OK";
+  } else {
+    document.title = "FAIL";
+  }
+};
+worker.port.postMessage(url);
+
+</script>
+</body>
+</html>
+

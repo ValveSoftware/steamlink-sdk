@@ -1,0 +1,312 @@
+<html>
+  <head>
+  <title>Chromium Perf Tracker</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <script src="scripts/util.js"></script>
+  <script src="jst/util.js" type="text/javascript"></script>
+  <script src="jst/jsevalcontext.js" type="text/javascript"></script>
+  <script src="jst/jstemplate.js" type="text/javascript"></script>
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+  </head>
+
+  <body onLoad="main()">
+    <h1><div id="header">Chromium Page Tracker</div></h1>
+
+    <script>
+    data = {};
+    networks_map = {};   // maps from db.Key to pretty name.
+    cpus_map = {};   // maps from db.Key to pretty name.
+
+    // Colors to use for the chart.
+    var colors = [
+      '#0066FF',
+      '#CC0000',
+      '#009900',
+      '#FFCC00',
+      '#006666',
+      '#0000CC',
+      '#663399',
+      '#CC0099'
+    ];
+
+    var lines = [
+    ];
+
+    function addLine() {
+      var params = getParams();
+      var networks = params["networks_filter"].split(",");
+      var cpus = params["cpus_filter"].split(",");
+      networks.push(data.filters.networks[0][1]);
+      cpus.push(data.filters.cpus[0][1]);
+      params["networks_filter"] = networks.join(",");
+      params["cpus_filter"] = cpus.join(",");
+      setParams(params);
+      loadFilters();
+    }
+
+    function removeLine(index) {
+      var params = getParams();
+      var networks = params["networks_filter"].split(",");
+      var cpus = params["cpus_filter"].split(",");
+      networks.splice(index, 1);
+      cpus.splice(index, 1);
+      params["networks_filter"] = networks.join(",");
+      params["cpus_filter"] = cpus.join(",");
+      setParams(params);
+      loadFilters();
+    }
+
+    function loadFilters() {
+      // Fetch data for the filters.
+      var filter_data_url = "/json?type=filters";
+      new XHRGet(filter_data_url, function(result) {
+        lines = [];
+        data.filters = JSON.parse(result);
+
+        // Populate the networks list
+        for (index in data.filters.networks) {
+          networks_map[data.filters.networks[index][1]] =
+              data.filters.networks[index][0];
+        }
+        for (index in data.filters.cpus) {
+          cpus_map[data.filters.cpus[index][1]] =
+              data.filters.cpus[index][0];
+        }
+
+        var params = getParams();   // Load parameters from URL.
+        if (!params["networks_filter"] || !params["cpus_filter"]) {
+          params["networks_filter"] = data.filters.networks[0][1];
+          params["cpus_filter"] = data.filters.cpus[0][1];
+        }
+        setParams(params);
+        var networks = params["networks_filter"].split(",");
+        var cpus = params["cpus_filter"].split(",");
+        for (var i = 0; i < networks.length; i++) {
+          lines.push({
+            network_name: networks_map[networks[i]],
+            network_id: networks[i],
+            networks: data.filters.networks,
+            cpu_name: cpus_map[cpus[i]],
+            cpu_id: cpus[i],
+            cpus: data.filters.cpus
+          });
+        }
+
+        var context = JsEvalContext.create({
+            lines: lines,
+            colors: colors
+        });
+        var template = document.getElementById("filters_template");
+        jstProcess(context, template);
+        JsEvalContext.recycle(context);
+
+        for (var i = 0; i < networks.length; i++) {
+          setSelectValue("networks_filter" + i, networks[i]);
+          setSelectValue("cpus_filter" + i, cpus[i]);
+        }
+
+        loadData();
+      });
+    }
+
+    function loadData() {
+      var params = getParams();
+      var url = ("/json?type=set_search" +
+                 "&networks_filter=" + params["networks_filter"] +
+                 "&cpus_filter=" + params["cpus_filter"]);
+      new XHRGet(url, function(result) {
+        data.results = JSON.parse(result);
+        drawChart(data.results);
+      });
+    }
+
+    // See: http://code.google.com/apis/visualization/documentation/gallery/linechart.html
+    google.load('visualization', '1', {'packages':['corechart']});
+
+    function getModeUrlCount(results) {
+      var urlCounts = [];
+      for (var i = 0; i < results.length; ++i) {
+        urlCounts.push(results[i].url_count);
+      }
+      return urlCounts.mode();
+    }
+
+    function filterResults(results, network, cpu) {
+      var filteredResults = [];
+      for (var i = 0; i < results.length; ++i) {
+        if (results[i].network != network) continue;
+        if (results[i].cpu != cpu) continue;
+        filteredResults.push(results[i]);
+      }
+      return filteredResults;      
+    }
+
+    // Average all points for a given version into a single value.
+    function getVersionMap(results) {
+      var modeUrlCount = getModeUrlCount(results);
+      var versionMap = {};
+      for (var i = 0; i < results.length; ++i) {
+        if (typeof results[i].total_time != 'number') continue;
+        // It doesn't make sense to compare average time for different sets of
+        // URLs. So as a poor man's hack, consider sets of the same number of
+        // URLs as the same.
+        if (results[i].url_count != modeUrlCount) continue;
+        var point = versionMap[results[i].version] || { avg: 0, count: 0};
+        point.avg =
+            (point.avg * point.count + results[i].total_time) / ++point.count;
+        versionMap[results[i].version] = point;
+      }
+      return versionMap;
+    }
+
+    function getId(type, name) {
+      var items = data.filters[type];
+      for (var i = items.length - 1; i >= 0; i--) {
+        if (items[i][0] == name) return items[i][1];
+      }
+      return -1;
+    }
+
+    function drawChart(results) {
+      var graph_data = new google.visualization.DataTable();
+
+      graph_data.addColumn('string', 'Version');
+
+      var params = getParams();
+
+      // Add a column for each network.
+      for (var i = 0; i < lines.length; i++) {
+        graph_data.addColumn('number',
+                             lines[i].network_name + " " + lines[i].cpu_name);
+      }
+
+      var versions = data.filters.versions;
+
+      // Trim out any custom versions.
+      for (var i = versions.length - 1; i >= 0; i--) {
+	if (versions[i][0].indexOf('custom') >= 0) {
+	  versions.splice(i, 1);
+        }
+      }
+
+      // Sort the versions logically.
+      versions = versions.sort(function(a, b) {
+        if (a == b) return 0;
+        a = a[0].split(" ")[1];  // Trim leading "Chrome "
+        b = b[0].split(" ")[1];  // Trim leading "Chrome "
+        a = a.split(".");
+        b = b.split(".");
+        for (var i = 0; i < a.length && i < b.length; i++) {
+          if (a[i] == b[i]) continue;
+          return parseInt(a[i]) - parseInt(b[i]);
+        }
+        return 0;
+      });
+
+      // Populate the graph data.
+      for (var i = 0; i < versions.length; ++i) {
+        var row = [versions[i][0].split(" ")[1]];  // Trim leading "Chrome ".
+        for (var j = 0; j < lines.length; ++j) {
+          var versionMap = getVersionMap(filterResults(
+              results, lines[j].network_id, lines[j].cpu_id));
+          var point = versionMap[versions[i][1]];
+          if (!point || typeof point.avg != 'number') {
+            row.push(undefined);
+          } else {
+            row.push(Math.round(point.avg));
+          }
+        }
+        graph_data.addRow(row);
+      }
+
+      var chart_div = document.getElementById('chart_div');
+      if (graph_data.getNumberOfRows()) {
+        var chart = new google.visualization.LineChart(chart_div);
+        chart.draw(graph_data, {
+          width: 800,
+          height: 400,
+          title: 'Click point for details',
+          legend: 'none',
+          colors: colors,
+          pointSize: 7,
+          vAxis: {
+            minValue: 0,
+            title: "Page Load Time (ms)",
+          },
+          hAxis: {
+            title: "Version",
+          },
+        });
+        google.visualization.events.addListener(chart, 'select', function() {
+          var row = chart.getSelection()[0].row;
+          var col = chart.getSelection()[0].column;
+          var versionString = "Chrome " + graph_data.getValue(row, 0);
+          var networkCpuString = graph_data.getColumnLabel(col);
+          var networkCpuParts = networkCpuString.split(' ');
+          var networkString = networkCpuParts[0];
+          networkCpuParts.shift();
+          var cpuString = networkCpuParts.join(' ');
+          var url = ("/search.html" +
+                     "#version=" + getId("versions", versionString) +
+                     "&network=" + getId("networks", networkString) +
+                     "&cpu=" + getId("cpus", cpuString));
+          window.location.href = url;
+        });
+      } else {
+        chart_div.innerHTML = "No data";
+      }
+    }
+
+    function filterChanged() {
+      var networks = [];
+      for (var i = 0; i < 10; i++) {
+        var sel = getSelectValue("networks_filter" + i);
+        if (!sel) break;
+        networks.push(sel);
+      }
+      var cpus = [];
+      for (var i = 0; i < 10; i++) {
+        var sel = getSelectValue("cpus_filter" + i);
+        if (!sel) break;
+        cpus.push(sel);
+      }
+      var params = {};
+      params["networks_filter"] = networks.join(",");
+      params["cpus_filter"] = cpus.join(",");
+      setParams(params);
+      loadFilters();
+    }
+
+    function main() {
+      loadFilters();
+    }
+    </script>
+
+    <div id='chart_div' style='width: 800px; height: 400px;'></div>
+
+    <div id="filters_template">
+    <table class="sortable">
+      <tr jsselect="lines">
+        <td jsvalues=".style.backgroundColor:colors[$index % colors.length]">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        </td>
+        <td>
+          <select onchange="filterChanged()" jsvalues=".id:'networks_filter' + $index">
+            <option jsselect="networks" jscontent="$this[0]"
+                    jsvalues=".value:$this[1]"></option>
+          </select>
+          <select onchange="filterChanged()" jsvalues=".id:'cpus_filter' + $index">>
+            <option jsselect="cpus" jscontent="$this[0]"
+                    jsvalues=".value:$this[1]"></option>
+          </select>
+          <a href="#" jsvalues=".id:$index" onclick="removeLine(this.id);return false;">Remove</a>
+        </td>
+      </tr>
+    </table>
+    </div>
+    <a href="#" onclick="addLine();return false;">Add line</a>
+    <div id="footer">
+      &copy;2011 Google - <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmarkMetrics">Metric definitions</a> | <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmark">Running the benchmark</a><br>
+      Powered by <a href="http://code.google.com/p/web-page-replay/">Web Page Replay</a>
+    </div>
+  </body>
+</html>

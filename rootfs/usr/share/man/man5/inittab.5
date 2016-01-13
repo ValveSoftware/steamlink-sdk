@@ -1,0 +1,265 @@
+'\" -*- coding: UTF-8 -*-
+.\" Copyright (C) 1998-2001 Miquel van Smoorenburg.
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+.\"
+.\"{{{}}}
+.\"{{{  Title
+.TH INITTAB 5 "Dec 4, 2001" "" "Linux System Administrator's Manual"
+.\"}}}
+.\"{{{  Name
+.SH NAME
+inittab \- format of the inittab file used by the sysv-compatible init
+process
+.\"}}}
+.\"{{{  Description
+.SH DESCRIPTION
+The \fBinittab\fP file describes which processes are started at bootup and
+during normal operation (e.g.\& /etc/init.d/boot, /etc/init.d/rc, gettys...).
+.BR Init (8)
+distinguishes multiple \fIrunlevels\fP, each of which can have its own set of
+processes that are started.  Valid runlevels are \fB0\fP\-\fB6\fP plus
+\fBA\fP, \fBB\fP, and \fBC\fP for \fBondemand\fP entries.  An entry in the
+\fBinittab\fP file has the following format:
+.RS
+.sp
+\fIid\fP:\fIrunlevels\fP:\fIaction\fP:\fIprocess\fP
+.sp
+.RE
+Lines beginning with `#' are ignored.
+.\"{{{  id
+.IP \fIid\fP
+is a unique sequence of 1-4 characters which identifies an entry in
+.B inittab 
+(for versions of sysvinit compiled with the \fIold\fP libc5 (< 5.2.18) or
+a.out libraries the limit is 2 characters).
+.sp
+Note: traditionally, for getty and other login processes, the value of the
+\fIid\fP field is kept the same as the suffix of the corresponding tty, e.g.\&
+\fB1\fP for \fBtty1\fP. Some ancient login accounting programs might
+expect this, though I can't think of any.
+.\"}}}
+.\"{{{  runlevels
+.IP \fIrunlevels\fP
+lists the runlevels for which the specified action should be taken.
+.\"}}}
+.\"{{{  action
+.IP \fIaction\fP
+describes which action should be taken.
+.\"}}}
+.\"{{{  process
+.IP \fIprocess\fP
+specifies the process to be executed.  If the process field starts with
+a `+' character, 
+.B init 
+will not do utmp and wtmp accounting for that process.  This is needed for 
+gettys that insist on doing their own utmp/wtmp housekeeping.  This is also 
+a historic bug.
+.\"}}}
+.PP
+The \fIrunlevels\fP field may contain multiple characters for different
+runlevels.  For example, \fB123\fP specifies that the process should be 
+started in runlevels 1, 2, and 3.
+The \fIrunlevels\fP for \fBondemand\fP entries may contain an \fBA\fP,
+\fBB\fP, or \fBC\fP.  The \fIrunlevels\fP field of \fBsysinit\fP,
+\fBboot\fP, and \fBbootwait\fP entries are ignored.
+.PP
+When the system runlevel is changed, any running processes that are not
+specified for the new runlevel are killed, first with \s-2SIGTERM\s0,
+then with \s-2SIGKILL\s0.
+.PP
+Valid actions for the \fIaction\fP field are:
+.\"{{{  respawn
+.IP \fBrespawn\fP
+The process will be restarted whenever it terminates (e.g.\& getty).
+.\"}}}
+.\"{{{  wait
+.IP \fBwait\fP
+The process will be started once when the specified runlevel is entered and 
+.B init 
+will wait for its termination.
+.\"}}}
+.\"{{{  once
+.IP \fBonce\fP
+The process will be executed once when the specified runlevel is
+entered.
+.\"}}}
+.\"{{{  boot
+.IP \fBboot\fP
+The process will be executed during system boot.  The \fIrunlevels\fP
+field is ignored.
+.\"}}}
+.\"{{{  bootwait
+.IP \fBbootwait\fP
+The process will be executed during system boot, while 
+.B init 
+waits for its termination (e.g.\& /etc/rc).  
+The \fIrunlevels\fP field is ignored.
+.\"}}}
+.\"{{{  off
+.IP \fBoff\fP
+This does nothing.
+.\"}}}
+.\"{{{  ondemand
+.IP \fBondemand\fP
+A process marked with an \fBondemand\fP runlevel will be executed
+whenever the specified \fBondemand\fP runlevel is called.  However, no
+runlevel change will occur (\fBondemand\fP runlevels are `a', `b',
+and `c').
+.\"}}}
+.\"{{{  initdefault
+.IP \fBinitdefault\fP
+An \fBinitdefault\fP entry specifies the runlevel which should be
+entered after system boot.  If none exists, 
+.B init
+will ask for a runlevel on the console. The \fIprocess\fP field is ignored.
+.\"}}}
+.\"{{{  sysinit
+.IP \fBsysinit\fP
+The process will be executed during system boot. It will be
+executed before any \fBboot\fP or \fB bootwait\fP entries.
+The \fIrunlevels\fP field is ignored.
+.\"}}}
+.\"{{{  powerwait
+.IP \fBpowerwait\fP
+The process will be executed when the power goes down. Init is usually
+informed about this by a process talking to a UPS connected to the computer.
+\fBInit\fP will wait for the process to finish before continuing.
+.\"}}}
+.\"{{{  powerfail
+.IP \fBpowerfail\fP
+As for \fBpowerwait\fP, except that \fBinit\fP does not wait for the process's
+completion.
+.\"}}}
+.\"{{{  powerokwait
+.IP \fBpowerokwait\fP
+This process will be executed as soon as \fBinit\fP is informed that the
+power has been restored.
+.\"}}}
+.\"{{{  powerfailnow
+.IP \fBpowerfailnow\fP
+This process will be executed when \fBinit\fP is told that the battery of
+the external UPS is almost empty and the power is failing (provided that the
+external UPS and the monitoring process are able to detect this condition).
+.\"}}}
+.\"{{{  ctrlaltdel
+.IP \fBctrlaltdel\fP
+The process will be executed when \fBinit\fP receives the SIGINT signal.
+This means that someone on the system console has pressed the
+\fBCTRL\-ALT\-DEL\fP key combination. Typically one wants to execute some
+sort of \fBshutdown\fP either to get into single\-user level or to
+reboot the machine.
+.\"}}}
+.\"{{{  kbrequest
+.IP \fBkbrequest\fP
+The process will be executed when \fBinit\fP receives a signal from the
+keyboard handler that a special key combination was pressed on the
+console keyboard.
+.sp
+The documentation for this function is not complete yet; more documentation
+can be found in the kbd-x.xx packages (most recent was kbd-0.94 at
+the time of this writing). Basically you want to map some keyboard
+combination to the "KeyboardSignal" action. For example, to map Alt-Uparrow
+for this purpose use the following in your keymaps file:
+.RS
+.sp
+alt keycode 103 = KeyboardSignal
+.sp
+.RE
+.\"}}}
+.\"}}}
+.\"{{{  Examples
+.SH EXAMPLES
+This is an example of a inittab which resembles the old Linux inittab:
+.RS
+.sp
+.nf
+.ne 7
+# inittab for linux
+id:1:initdefault:
+rc::bootwait:/etc/rc
+1:1:respawn:/etc/getty 9600 tty1
+2:1:respawn:/etc/getty 9600 tty2
+3:1:respawn:/etc/getty 9600 tty3
+4:1:respawn:/etc/getty 9600 tty4
+.fi
+.sp
+.RE
+This inittab file executes \fB/etc/rc\fP during boot and starts gettys
+on tty1\-tty4.
+.PP
+A more elaborate \fBinittab\fP with different runlevels (see the comments
+inside):
+.RS
+.sp
+.nf
+.ne 19
+# Level to run in
+id:2:initdefault:
+
+# Boot-time system configuration/initialization script.
+si::sysinit:/etc/init.d/rcS
+
+# What to do in single-user mode.
+~:S:wait:/sbin/sulogin
+
+# /etc/init.d executes the S and K scripts upon change
+# of runlevel.
+#
+# Runlevel 0 is halt.
+# Runlevel 1 is single-user.
+# Runlevels 2-5 are multi-user.
+# Runlevel 6 is reboot.
+
+l0:0:wait:/etc/init.d/rc 0
+l1:1:wait:/etc/init.d/rc 1
+l2:2:wait:/etc/init.d/rc 2
+l3:3:wait:/etc/init.d/rc 3
+l4:4:wait:/etc/init.d/rc 4
+l5:5:wait:/etc/init.d/rc 5
+l6:6:wait:/etc/init.d/rc 6
+
+# What to do at the "3 finger salute".
+ca::ctrlaltdel:/sbin/shutdown -t1 -h now
+
+# Runlevel 2,3: getty on virtual consoles
+# Runlevel   3: getty on terminal (ttyS0) and modem (ttyS1)
+1:23:respawn:/sbin/getty tty1 VC linux
+2:23:respawn:/sbin/getty tty2 VC linux
+3:23:respawn:/sbin/getty tty3 VC linux
+4:23:respawn:/sbin/getty tty4 VC linux
+S0:3:respawn:/sbin/getty -L 9600 ttyS0 vt320
+S1:3:respawn:/sbin/mgetty -x0 -D ttyS1
+
+.fi
+.sp
+.RE
+.\"}}}
+.\"{{{  Files
+.SH FILES
+/etc/inittab
+.\"}}}
+.\"{{{  Author
+.SH AUTHOR
+\fBInit\fP was written by Miquel van Smoorenburg 
+(miquels@cistron.nl).  This manual page was written by 
+Sebastian Lederer (lederer@francium.informatik.uni-bonn.de) and modified
+by Michael Haardt (u31b3hs@pool.informatik.rwth-aachen.de).
+.\"}}}
+.\"{{{  See also
+.SH "SEE ALSO"
+.BR init (8),
+.BR telinit (8)
+.\"}}}

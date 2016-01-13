@@ -1,0 +1,45 @@
+;;
+;; Copyright (c) 2012 The Chromium Authors. All rights reserved.
+;; Use of this source code is governed by a BSD-style license that can be
+;; found in the LICENSE file.
+;;
+; This configuration file isn't used on it's own, but instead implicitly
+; included at the start of all other sandbox configuration files in Chrome.
+(version 1)
+
+; DISABLE_SANDBOX_DENIAL_LOGGING expands to syntax that turns off log message
+; printing on sandbox exceptions; this functionality only exists on 10.6. The
+; --enable-sandbox-logging flag or system versions <10.6 cause this flag to
+; expand to an empty string. http://crbug.com/26621
+(deny default @DISABLE_SANDBOX_DENIAL_LOGGING@)
+
+; Support for programmatically enabling verbose debugging.
+;ENABLE_LOGGING (debug deny)
+
+; Allow sending signals to self - http://crbug.com/20370
+(allow signal (target self))
+
+; Needed for full-page-zoomed controls - http://crbug.com/11325
+(allow sysctl-read)
+
+; Each line is marked with the System version that needs it.
+; This profile is tested with the following system versions:
+;     10.5.6, 10.6
+
+; Loading System Libraries.
+(allow file-read*
+    (regex #"^/System/Library/Frameworks($|/)")
+    (regex #"^/System/Library/PrivateFrameworks($|/)")
+    (regex #"^/System/Library/CoreServices($|/)"))  ; 10.5.6
+
+; Needed for IPC on 10.6
+(allow ipc-posix-shm)
+
+; Allow direct access to /dev/urandom, similar to Linux/POSIX, to allow
+; third party code (eg: bits of Adobe Flash and NSS) to function properly.
+(allow file-read-data file-read-metadata (literal "/dev/urandom"))
+
+; Component build workaround for a dyld bug, used on OS X <= 10.6.
+; Enables reading file metadata for the Chrome bundle and its parent paths.
+; http://crbug.com/127465
+@COMPONENT_BUILD_WORKAROUND@

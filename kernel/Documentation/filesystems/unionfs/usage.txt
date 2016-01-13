@@ -1,0 +1,134 @@
+Unionfs is a stackable unification file system, which can appear to merge
+the contents of several directories (branches), while keeping their physical
+content separate.  Unionfs is useful for unified source tree management,
+merged contents of split CD-ROM, merged separate software package
+directories, data grids, and more.  Unionfs allows any mix of read-only and
+read-write branches, as well as insertion and deletion of branches anywhere
+in the fan-out.  To maintain Unix semantics, Unionfs handles elimination of
+duplicates, partial-error conditions, and more.
+
+GENERAL SYNTAX
+==============
+
+# mount -t unionfs -o <OPTIONS>,<BRANCH-OPTIONS> none MOUNTPOINT
+
+OPTIONS can be any legal combination of:
+
+- ro		# mount file system read-only
+- rw		# mount file system read-write
+- remount	# remount the file system (see Branch Management below)
+- incgen	# increment generation no. (see Cache Consistency below)
+
+BRANCH-OPTIONS can be either (1) a list of branches given to the "dirs="
+option, or (2) a list of individual branch manipulation commands, combined
+with the "remount" option, and is further described in the "Branch
+Management" section below.
+
+The syntax for the "dirs=" mount option is:
+
+	dirs=branch[=ro|=rw][:...]
+
+The "dirs=" option takes a colon-delimited list of directories to compose
+the union, with an optional branch mode for each of those directories.
+Directories that come earlier (specified first, on the left) in the list
+have a higher precedence than those which come later.  Additionally,
+read-only or read-write permissions of the branch can be specified by
+appending =ro or =rw (default) to each directory.  See the Copyup section in
+concepts.txt, for a description of Unionfs's behavior when mixing read-only
+and read-write branches and mounts.
+
+Syntax:
+
+	dirs=/branch1[=ro|=rw]:/branch2[=ro|=rw]:...:/branchN[=ro|=rw]
+
+Example:
+
+	dirs=/writable_branch=rw:/read-only_branch=ro
+
+
+BRANCH MANAGEMENT
+=================
+
+Once you mount your union for the first time, using the "dirs=" option, you
+can then change the union's overall mode or reconfigure the branches, using
+the remount option, as follows.
+
+To downgrade a union from read-write to read-only:
+
+# mount -t unionfs -o remount,ro none MOUNTPOINT
+
+To upgrade a union from read-only to read-write:
+
+# mount -t unionfs -o remount,rw none MOUNTPOINT
+
+To delete a branch /foo, regardless where it is in the current union:
+
+# mount -t unionfs -o remount,del=/foo none MOUNTPOINT
+
+To insert (add) a branch /foo before /bar:
+
+# mount -t unionfs -o remount,add=/bar:/foo none MOUNTPOINT
+
+To insert (add) a branch /foo (with the "rw" mode flag) before /bar:
+
+# mount -t unionfs -o remount,add=/bar:/foo=rw none MOUNTPOINT
+
+To insert (add) a branch /foo (in "rw" mode) at the very beginning (i.e., a
+new highest-priority branch), you can use the above syntax, or use a short
+hand version as follows:
+
+# mount -t unionfs -o remount,add=/foo none MOUNTPOINT
+
+To append a branch to the very end (new lowest-priority branch):
+
+# mount -t unionfs -o remount,add=:/foo none MOUNTPOINT
+
+To append a branch to the very end (new lowest-priority branch), in
+read-only mode:
+
+# mount -t unionfs -o remount,add=:/foo=ro none MOUNTPOINT
+
+Finally, to change the mode of one existing branch, say /foo, from read-only
+to read-write, and change /bar from read-write to read-only:
+
+# mount -t unionfs -o remount,mode=/foo=rw,mode=/bar=ro none MOUNTPOINT
+
+Note: in Unionfs 2.x, you cannot set the leftmost branch to readonly because
+then Unionfs won't have any writable place for copyups to take place.
+Moreover, the VFS can get confused when it tries to modify something in a
+file system mounted read-write, but isn't permitted to write to it.
+Instead, you should set the whole union as readonly, as described above.
+If, however, you must set the leftmost branch as readonly, perhaps so you
+can get a snapshot of it at a point in time, then you should insert a new
+writable top-level branch, and mark the one you want as readonly.  This can
+be accomplished as follows, assuming that /foo is your current leftmost
+branch:
+
+# mount -t tmpfs -o size=NNN /new
+# mount -t unionfs -o remount,add=/new,mode=/foo=ro none MOUNTPOINT
+<do what you want safely in /foo>
+# mount -t unionfs -o remount,del=/new,mode=/foo=rw none MOUNTPOINT
+<check if there's anything in /new you want to preserve>
+# umount /new
+
+CACHE CONSISTENCY
+=================
+
+If you modify any file on any of the lower branches directly, while there is
+a Unionfs 2.x mounted above any of those branches, you should tell Unionfs
+to purge its caches and re-get the objects.  To do that, you have to
+increment the generation number of the superblock using the following
+command:
+
+# mount -t unionfs -o remount,incgen none MOUNTPOINT
+
+Note that the older way of incrementing the generation number using an
+ioctl, is no longer supported in Unionfs 2.0 and newer.  Ioctls in general
+are not encouraged.  Plus, an ioctl is per-file concept, whereas the
+generation number is a per-file-system concept.  Worse, such an ioctl
+requires an open file, which then has to be invalidated by the very nature
+of the generation number increase (read: the old generation increase ioctl
+was pretty racy).
+
+
+For more information, see <http://unionfs.filesystems.org/>.

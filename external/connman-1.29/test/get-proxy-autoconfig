@@ -1,0 +1,37 @@
+#!/usr/bin/python
+
+import dbus
+import urllib
+
+def get_pac(url):
+	conn = urllib.urlopen(url, proxies={})
+	data = conn.read()
+	print data
+	conn.close()
+
+bus = dbus.SystemBus()
+
+manager = dbus.Interface(bus.get_object('net.connman', '/'),
+					'net.connman.Manager')
+
+services = manager.GetServices()
+
+for entry in services:
+	path = entry[0]
+	properties = entry[1]
+
+	proxy = properties["Proxy"]
+
+	if "Method" in proxy:
+		print "[ %s ]" % (path)
+
+		method = proxy["Method"]
+		print "Method = %s" % (method)
+
+		if method in ["auto"]:
+			url = proxy["URL"]
+			print "URL = %s" % (url)
+			print
+			get_pac(url)
+		else:
+			print

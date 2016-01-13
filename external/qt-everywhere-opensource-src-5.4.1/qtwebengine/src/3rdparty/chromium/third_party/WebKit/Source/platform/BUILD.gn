@@ -1,0 +1,496 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//third_party/WebKit/Source/build/scripts/scripts.gni")
+import("//third_party/WebKit/Source/config.gni")
+import("//third_party/WebKit/Source/platform/platform_generated.gni")
+
+# Most targets in this file are private actions so use that as the default.
+visibility = ":*"
+
+# TODO(GYP) Remove when test targets link (depends on ffmpeg)
+enable_blink_platform_test_targets = false
+
+
+import("//third_party/yasm/yasm_assemble.gni")
+
+platform_gypi = exec_script(
+    "//build/gypi_to_gn.py",
+    [ rebase_path("blink_platform.gypi") ],
+    "scope",
+    [ "blink_platform.gypi" ])
+if (enable_blink_platform_test_targets) {
+heap_gypi = exec_script(
+    "//build/gypi_to_gn.py",
+    [ rebase_path("heap/blink_heap.gypi") ],
+    "scope",
+    [ "heap/blink_heap.gypi" ])
+}
+
+blink_platform_neon_files = [
+  "graphics/cpu/arm/WebGLImageConversionNEON.h",
+  "graphics/cpu/arm/filters/FEBlendNEON.h",
+  "graphics/cpu/arm/filters/FECompositeArithmeticNEON.h",
+  "graphics/cpu/arm/filters/FEGaussianBlurNEON.h",
+  "graphics/cpu/arm/filters/NEONHelpers.h",
+]
+
+# blink_common in blink_platform.gyp
+component("blink_common") {
+  visibility = "//third_party/WebKit/*"
+  sources = [
+    "exported/WebCString.cpp",
+    "exported/WebString.cpp",
+    "exported/WebCommon.cpp",
+  ]
+
+  defines = [
+    "BLINK_COMMON_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//third_party/WebKit/Source:config",
+    "//third_party/WebKit/Source:non_test_config",
+  ]
+
+  deps = [
+    "//third_party/WebKit/Source/wtf",
+  ]
+}
+
+# Chromium's version of WebCore includes the following Objective-C classes. The
+# system-provided WebCore framework may also provide these classes. Because of
+# the nature of Objective-C binding (dynamically at runtime), it's possible for
+# the Chromium-provided versions to interfere with the system-provided
+# versions. This may happen when a system framework attempts to use
+# core.framework, such as when converting an HTML-flavored string to an
+# NSAttributedString. The solution is to force Objective-C class names that
+# would conflict to use alternate names.
+#
+# This list will hopefully shrink but may also grow. Its performance is
+# monitored by the "Check Objective-C Rename" postbuild step, and any
+# suspicious-looking symbols not handled here or whitelisted in that step will
+# cause a build failure.
+#
+# If this is unhandled, the console will receive log messages
+# such as:
+# com.google.Chrome[] objc[]: Class ScrollbarPrefsObserver is implemented in both .../Google Chrome.app/Contents/Versions/.../Google Chrome Helper.app/Contents/MacOS/../../../Google Chrome Framework.framework/Google Chrome Framework and /System/Library/Frameworks/WebKit.framework/Versions/A/Frameworks/WebCore.framework/Versions/A/WebCore. One of the two will be used. Which one is undefined.
+if (is_mac) {
+  config("mac_objc_renaming") {
+    defines = [
+      "WebCascadeList=ChromiumWebCoreObjCWebCascadeList",
+      "WebFontCache=ChromiumWebCoreObjCWebFontCache",
+      "WebScrollAnimationHelperDelegate=ChromiumWebCoreObjCWebScrollAnimationHelperDelegate",
+      "WebScrollbarPainterControllerDelegate=ChromiumWebCoreObjCWebScrollbarPainterControllerDelegate",
+      "WebScrollbarPainterDelegate=ChromiumWebCoreObjCWebScrollbarPainterDelegate",
+      "WebScrollbarPartAnimation=ChromiumWebCoreObjCWebScrollbarPartAnimation",
+      "WebCoreFlippedView=ChromiumWebCoreObjCWebCoreFlippedView",
+      "WebCoreTextFieldCell=ChromiumWebCoreObjCWebCoreTextFieldCell",
+      "WebCoreRenderThemeNotificationObserver=ChromiumWebCoreObjCWebCoreRenderThemeNotificationObserver",
+    ]
+  }
+}
+
+# FontFamilyNames action in make_platform_generated in
+# platform_generated.gyp
+action("font_family_names") {
+  script = "../build/scripts/make_names.py"
+
+  font_family_names_in = "fonts/FontFamilyNames.in"
+  source_prereqs = make_names_files + [ font_family_names_in ]
+
+  outputs = [
+    "$blink_platform_output_dir/FontFamilyNames.cpp",
+    "$blink_platform_output_dir/FontFamilyNames.h",
+  ]
+
+  args = [
+    rebase_path(font_family_names_in, root_build_dir),
+    "--output_dir",
+    rebase_path(blink_platform_output_dir, root_build_dir),
+  ]
+}
+
+# RuntimeEnabledFeatures action in make_platform_generated in
+# platform_generated.gyp
+action("runtime_enabled_features") {
+  script = "../build/scripts/make_runtime_features.py"
+
+  runtime_enabled_features_in = "RuntimeEnabledFeatures.in"
+  source_prereqs = scripts_for_in_files + [
+    runtime_enabled_features_in,
+    "../build/scripts/templates/RuntimeEnabledFeatures.cpp.tmpl",
+    "../build/scripts/templates/RuntimeEnabledFeatures.h.tmpl",
+  ]
+
+  outputs = [
+    "$blink_platform_output_dir/RuntimeEnabledFeatures.cpp",
+    "$blink_platform_output_dir/RuntimeEnabledFeatures.h",
+  ]
+
+  args = [
+    rebase_path(runtime_enabled_features_in, root_build_dir),
+    "--output_dir",
+    rebase_path(blink_platform_output_dir, root_build_dir),
+  ]
+}
+
+# ColorData action in make_platform_generated in platform_generated.gyp
+action("color_data") {
+  script = "../build/scripts/gperf.py"
+
+  color_data_gperf = "ColorData.gperf"
+  source_prereqs = [ color_data_gperf ]
+
+  output_file = "$blink_platform_output_dir/ColorData.cpp"
+  outputs = [ output_file ]
+
+  args = [
+    gperf_exe,
+    "--key-positions=*",
+    "-D", "-s", "2",
+    rebase_path(color_data_gperf, root_build_dir),
+    "--output-file=" + rebase_path(output_file, root_build_dir),
+  ]
+}
+
+# This isn't strictly necessary since we can just add the deps to "platform",
+# but it helps to have the targets match the GYP build.
+group("make_platform_generated") {
+  visibility = "//third_party/WebKit/Source/*"
+  deps = [
+    ":blink_common",
+    ":color_data",
+    ":font_family_names",
+    ":runtime_enabled_features",
+  ]
+}
+
+# TODO(brettw) Objective C Renaming postbuild steps on Mac.
+# blink_platform target in blink_platform.gyp
+component("platform") {
+  visibility = "//third_party/WebKit/*"
+  output_name = "blink_platform"
+
+  sources = platform_gypi.platform_files
+  sources -= blink_platform_neon_files
+
+  # Add in the generated files.
+  sources +=
+    get_target_outputs(":font_family_names") +
+    get_target_outputs(":runtime_enabled_features") +
+    get_target_outputs(":color_data")
+
+  configs += [
+    "//third_party/WebKit/Source:config",
+    "//third_party/WebKit/Source:non_test_config",
+  ]
+
+  defines = [
+    "BLINK_PLATFORM_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+
+  include_dirs = [
+    #"$angle_path/include",
+    "$root_gen_dir/blink",
+  ]
+
+  deps = [
+    ":heap_asm_stubs",
+    ":make_platform_generated",
+    "//gpu/command_buffer/client:gles2_c_lib",
+    "//skia",
+    "//third_party:jpeg",
+    "//third_party/harfbuzz-ng",
+    "//third_party/iccjpeg",
+    "//third_party/icu",
+    "//third_party/libpng",
+    "//third_party/libwebp",
+    "//third_party/ots",
+    "//third_party/qcms",
+    "//third_party/WebKit/Source/wtf",
+    "//third_party/WebKit/Source/platform/heap",
+    "//url",
+    "//v8",
+  ]
+
+  forward_dependent_configs_from = [
+    "//gpu/command_buffer/client:gles2_c_lib",
+    "//skia",
+    "//third_party:jpeg",
+    "//third_party/iccjpeg",
+    "//third_party/libpng",
+    "//third_party/libwebp",
+    "//third_party/ots",
+    "//third_party/qcms",
+    "//url",
+    "//v8",
+  ]
+
+  if (is_mac) {
+    sources -= [
+      "fonts/harfbuzz/FontHarfBuzz.cpp",
+      "fonts/harfbuzz/FontPlatformDataHarfBuzz.cpp",
+      "fonts/harfbuzz/HarfBuzzFaceSkia.cpp",
+      "fonts/opentype/OpenTypeTypes.h",
+      "fonts/opentype/OpenTypeVerticalData.cpp",
+      "fonts/opentype/OpenTypeVerticalData.h",
+      # The Mac currently uses FontCustomPlatformDataMac.cpp instead.
+      "fonts/skia/FontCustomPlatformDataSkia.cpp",
+      "fonts/skia/FontCacheSkia.cpp",
+      "fonts/skia/SimpleFontDataSkia.cpp",
+      # Uses LocaleMac instead.
+      "text/LocaleICU.cpp",
+      "text/LocaleICU.h",
+      # Uses KillRingMac.mm instead.
+      "KillRingNone.cpp",
+      # Mac uses only ScrollAnimatorMac.
+      "scroll/ScrollbarThemeNonMacCommon.cpp",
+      "scroll/ScrollbarThemeNonMacCommon.h",
+      "scroll/ScrollAnimatorNone.cpp",
+      "scroll/ScrollAnimatorNone.h",
+    ]
+
+    # Some Mac-specific parts of WebKit won't compile without having this
+    # prefix header injected.
+    cflags = [
+      "-include",
+      rebase_path("../core/WebCorePrefixMac.h", root_build_dir),
+    ]
+
+    defines += [ "WebFontCache=ChromiumWebCoreObjCWebFontCache" ]
+    configs += [ ":mac_objc_renaming" ]
+    libs = [
+      "Accelerate.framework",
+      "Carbon.framework",
+      "Foundation.framework",
+    ]
+  } else {
+    sources -= [
+      # FIXME: We will eventually compile this too, but for now it's
+      # only used on mac.
+      "fonts/FontPlatformData.cpp",
+      "fonts/harfbuzz/HarfBuzzFaceCoreText.cpp",
+      "geometry/cg/FloatPointCG.cpp",
+      "geometry/cg/FloatRectCG.cpp",
+      "geometry/cg/FloatSizeCG.cpp",
+      "geometry/cg/IntPointCG.cpp",
+      "geometry/cg/IntRectCG.cpp",
+      "geometry/cg/IntSizeCG.cpp",
+    ]
+  }
+
+  if (is_win) {
+    sources -= [
+      # Uses LocaleWin instead.
+      "text/LocaleICU.cpp",
+      "text/LocaleICU.h",
+    ]
+    cflags = [
+      "/wd4267",  # Conversion from 'size_t' to 'type', possible loss of data.
+      "/wd4334",  # Result of 32-bit shift implicitly converted to 64 bits.
+      "/wd4724",  # Modulo by 0.
+    ]
+  } else {
+    sources -= [
+      "clipboard/ClipboardUtilitiesWin.cpp",
+      "fonts/opentype/OpenTypeUtilities.cpp",
+      "fonts/opentype/OpenTypeUtilities.h",
+      "text/LocaleWin.cpp",
+    ]
+  }
+
+  if (is_android) {
+    # Add in some Linux files also shared with Android.
+    set_sources_assignment_filter([])
+    sources += [
+      "exported/linux/WebFontRenderStyle.cpp",
+      "fonts/linux/FontPlatformDataLinuxHarfBuzz.cpp",
+    ]
+    set_sources_assignment_filter(sources_assignment_filter)
+  } else {
+    sources -= [
+      "scroll/ScrollbarThemeAndroid.cpp",
+    ]
+  }
+
+  if (is_linux) {
+    direct_dependent_configs = [ "//build/config/linux:fontconfig" ]
+  }
+
+  if (!use_default_render_theme) {
+    sources -= [
+      "scroll/ScrollbarThemeAura.cpp",
+      "scroll/ScrollbarThemeAura.h",
+    ]
+  }
+
+  if (cpu_arch == "arm") {
+    deps += [ ":blink_arm_neon" ]
+  }
+
+  if (use_webaudio_ffmpeg) {
+    include_dirs += [ "//third_party/ffmpeg" ]
+    # TODO(GYP)
+    #deps += [ "//third_party/ffmpeg" ]
+  }
+  if (use_openmax_dl_fft) {
+    include_dirs += [ "//third_party/openmax_dl" ]
+    # TODO(GYP)
+    # deps += [ "//third_party/openmax_dl/dl" ]
+  }
+}
+
+yasm_assemble("heap_asm_stubs") {
+  if (cpu_arch == "x86" || cpu_arch == "x64") {
+    sources = [ "heap/asm/SaveRegisters_x86.asm" ]
+  } else if (cpu_arch == "arm") {
+    sources = [ "heap/asm/SaveRegisters_arm.S" ]
+  } else if (cpu_arch == "arm64") {
+    sources = [ "heap/asm/SaveRegisters_arm64.S" ]
+  } else if (cpu_arch == "mipsel") {
+    sources = [ "heap/asm/SaveRegisters_mips.S" ]
+  }
+
+  yasm_flags = []
+  if (is_mac) {
+    # Necessary to ensure symbols end up with a _ prefix; added by
+    # yasm_compile.gypi for Windows, but not Mac.
+    yasm_flags += [ "-DPREFIX" ]
+  }
+  if (cpu_arch == "x64") {
+    if (is_win) {
+      yasm_flags += [ "-DX64WIN=1" ]
+    } else {
+      yasm_flags += [ "-DX64POSIX=1" ]
+    }
+  } else if (cpu_arch == "x86") {
+    yasm_flags += [ "-DIA32=1" ]
+  } else if (cpu_arch == "arm") {
+    yasm_flags += [ "-DARM=1" ]
+  }
+}
+
+source_set("heap_run_all_tests") {
+  sources = [
+    "heap/RunAllTests.cpp"
+  ]
+
+  configs += [
+    "//third_party/WebKit/Source/wtf:wtf_config",
+    "//third_party/WebKit/Source:config",
+    "//third_party/WebKit/Source:non_test_config",
+  ]
+
+  deps = [
+    "//base/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/WebKit/Source/wtf",
+  ]
+}
+
+if (enable_blink_platform_test_targets) {
+
+test("heap_unittests") {
+  output_name = "blink_heap_unittests"
+
+  sources = rebase_path(heap_gypi.platform_heap_test_files, ".", "heap")
+
+  configs += [
+    "//third_party/WebKit/Source:config",
+  ]
+
+  deps = [
+    ":heap_run_all_tests",
+    ":platform",
+    "//base",
+    "//base/allocator",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/WebKit/Source/wtf",
+    "//third_party/WebKit/Source/wtf:unittest_helpers",
+  ]
+}
+
+}
+
+source_set("platform_run_all_tests") {
+  sources = [
+    "testing/RunAllTests.cpp"
+  ]
+
+  configs += [
+    "//third_party/WebKit/Source/wtf:wtf_config",
+    "//third_party/WebKit/Source:config",
+    "//third_party/WebKit/Source:non_test_config",
+  ]
+
+  deps = [
+    "//base/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/WebKit/Source/wtf",
+  ]
+}
+
+if (enable_blink_platform_test_targets) {
+
+test("platform_unittests") {
+  output_name = "blink_platform_unittests"
+
+  sources = platform_gypi.platform_test_files
+
+  configs += [
+    "//third_party/WebKit/Source:config",
+  ]
+
+  deps = [
+    ":blink_common",
+    ":platform_run_all_tests",
+    ":platform",
+    "//base",
+    "//base/allocator",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/WebKit/Source/wtf",
+    "//third_party/WebKit/Source/wtf:unittest_helpers",
+    "//url",
+  ]
+
+  defines = [
+    "INSIDE_BLINK",
+  ]
+
+  include_dirs = [
+    "$root_gen_dir/blink",
+  ]
+}
+
+}
+
+
+if (cpu_arch == "arm") {
+  source_set("blink_arm_neon") {
+    sources = blink_platform_neon_files
+
+    # The *NEON.cpp files fail to compile when -mthumb is passed. Force
+    # them to build in ARM mode.
+    # See https://bugs.webkit.org/show_bug.cgi?id=62916.
+    # TODO(GYP)
+    #'cflags': ['-marm'],
+    #    'conditions': [
+    #      ['OS=="android"', {
+    #        'cflags!': ['-mthumb'],
+    #      }],
+    #    ],
+
+    deps = [ ":blink_common" ]
+  }
+}

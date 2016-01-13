@@ -1,0 +1,28 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# To use this:
+#  convert_file_to_header_with_character_array("mytarget") {
+#    input_file_path = "myfile.js"
+#    output_file_path = "$root_gen_dir/blink/myfile.h"
+#    character_array_name = "myfile_js"
+#  }
+template("convert_file_to_header_with_character_array") {
+  assert(defined(invoker.input_file_path), "Need input_file_path.")
+  assert(defined(invoker.output_file_path), "Need output_file_path.")
+  assert(defined(invoker.character_array_name), "Need character_array_name.")
+
+  action(target_name) {
+    script = "//third_party/WebKit/Source/build/scripts/xxd.py"
+
+    source_prereqs = [ invoker.input_file_path ]
+    outputs = [ invoker.output_file_path ]
+
+    args = [
+      invoker.character_array_name,
+      rebase_path(invoker.input_file_path, root_build_dir),
+      rebase_path(invoker.output_file_path, root_build_dir),
+    ]
+  }
+}

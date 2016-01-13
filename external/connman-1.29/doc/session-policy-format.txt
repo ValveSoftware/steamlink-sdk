@@ -1,0 +1,83 @@
+ConnMan policy file format
+**************************
+
+The session policy plugin allows to configure/provision a session.
+ConnMan will be looking for policy files in STORAGEDIR/session_policy_local
+which by default points to /var/lib/connman. Policy file names must
+not include other characters than letters or numbers and must have
+a .policy suffix. Policy files are text files.
+
+It is possible to add, remove or update a policy file during run-time.
+The corresponding sessions will be updated accordingly.
+
+Policy group [policy_*]
+=======================
+
+Each policy group must start with as [policy_*] tag. '*' has no
+semantic meaning but should consist just out of characters.
+
+Required fields:
+
+Exactly one and only one of the required fields need to be present
+per policy group.
+
+- uid: This policy group will be applied to any session
+  with given user ID.
+
+- gid: This policy group will be applied to any session
+  with given group ID.
+
+- selinux: This policy group will be applied to any session
+  with given SELinux context.
+
+Allowed fields:
+
+- AllowedBearers: see session-api.txt
+  The policy AllowedBearers overrules the settings done via
+  D-Bus. For example the policy AllowedBearers is 'ethernet' then
+  the D-Bus API will only accept an empty string or 'ethernet'.
+
+- ConnectionType: see session-api.txt
+  The policy ConnectionType overrules the settings done via
+  D-Bus.
+
+- Priority: A boolean which tells ConnMan to prefer the session
+  over other Sessions. This priority value is more for applications
+  that want to push themselves up in the asychronization notification
+  queue once a bearer becomes online.
+
+  This actual priority order also depends on the allowed bearers and
+  other factors. This setting is just a little indicator for one
+  application being notified before another one.
+
+- RoamingPolicy: The allowed roaming behavior.
+
+  Valid policies are "national", "international", "default", "always"
+  and "forbidden".
+
+  "national" allows roaming within a country.  "international" allows
+  roaming in a country and between countries.
+
+  "default" is used to tell the session to use the global roaming
+  setting.
+
+  "always" will overwrite the default "forbidden" value which is
+  useful for emergency application.
+
+  Default value is "forbidden".
+
+- EmergencyCall: A boolean which tells ConnMan whenever the
+  Connect() method is called for this session, all other
+  session are disconnected.
+
+  Note only services matching the AllowedBearers rule will be
+  considered.
+
+Example
+=======
+
+example@example:[~]$ cat /var/lib/connman/session_policy_local/auser.policy
+[policy_auser]
+uid = auser
+AllowedBearers = wifi cellular
+RoamingPolicy = forbidden

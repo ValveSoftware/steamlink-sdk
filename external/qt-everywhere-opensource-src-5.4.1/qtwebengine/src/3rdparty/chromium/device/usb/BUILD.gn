@@ -1,0 +1,31 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_ids = "//third_party/usb_ids/usb.ids"
+generated_ids = "$target_gen_dir/usb_ids_gen.cc"
+
+source_set("usb") {
+  sources = [
+    "usb_ids.cc",
+    "usb_ids.h",
+    generated_ids,
+  ]
+  deps = [
+    ":usb_device_ids",
+    "//base",
+  ]
+}
+
+action("usb_device_ids") {
+  script = "//device/usb/tools/usb_ids.py"
+  source_prereqs = [ source_ids ]
+  outputs = [ generated_ids ]
+  args = [
+    "-i", rebase_path(source_ids,  root_build_dir),
+    "-o", rebase_path(generated_ids, root_build_dir),
+  ]
+
+  # Only the device_usb target can depend on us.
+  visibility = [ ":usb" ]
+}

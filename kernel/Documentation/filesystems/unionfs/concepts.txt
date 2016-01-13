@@ -1,0 +1,287 @@
+Unionfs 2.x CONCEPTS:
+=====================
+
+This file describes the concepts needed by a namespace unification file
+system.
+
+
+Branch Priority:
+================
+
+Each branch is assigned a unique priority - starting from 0 (highest
+priority).  No two branches can have the same priority.
+
+
+Branch Mode:
+============
+
+Each branch is assigned a mode - read-write or read-only. This allows
+directories on media mounted read-write to be used in a read-only manner.
+
+
+Whiteouts:
+==========
+
+A whiteout removes a file name from the namespace. Whiteouts are needed when
+one attempts to remove a file on a read-only branch.
+
+Suppose we have a two-branch union, where branch 0 is read-write and branch
+1 is read-only. And a file 'foo' on branch 1:
+
+./b0/
+./b1/
+./b1/foo
+
+The unified view would simply be:
+
+./union/
+./union/foo
+
+Since 'foo' is stored on a read-only branch, it cannot be removed. A
+whiteout is used to remove the name 'foo' from the unified namespace. Again,
+since branch 1 is read-only, the whiteout cannot be created there. So, we
+try on a higher priority (lower numerically) branch and create the whiteout
+there.
+
+./b0/
+./b0/.wh.foo
+./b1/
+./b1/foo
+
+Later, when Unionfs traverses branches (due to lookup or readdir), it
+eliminate 'foo' from the namespace (as well as the whiteout itself.)
+
+
+Opaque Directories:
+===================
+
+Assume we have a unionfs mount comprising of two branches.  Branch 0 is
+empty; branch 1 has the directory /a and file /a/f.  Let's say we mount a
+union of branch 0 as read-write and branch 1 as read-only.  Now, let's say
+we try to perform the following operation in the union:
+
+	rm -fr a
+
+Because branch 1 is not writable, we cannot physically remove the file /a/f
+or the directory /a.  So instead, we will create a whiteout in branch 0
+named /.wh.a, masking out the name "a" from branch 1.  Next, let's say we
+try to create a directory named "a" as follows:
+
+	mkdir a
+
+Because we have a whiteout for "a" already, Unionfs behaves as if "a"
+doesn't exist, and thus will delete the whiteout and replace it with an
+actual directory named "a".
+
+The problem now is that if you try to "ls" in the union, Unionfs will
+perform is normal directory name unification, for *all* directories named
+"a" in all branches.  This will cause the file /a/f from branch 1 to
+re-appear in the union's namespace, which violates Unix semantics.
+
+To avoid this problem, we have a different form of whiteouts for
+directories, called "opaque directories" (same as BSD Union Mount does).
+Whenever we replace a whiteout with a directory, that directory is marked as
+opaque.  In Unionfs 2.x, it means that we create a file named
+/a/.wh.__dir_opaque in branch 0, after having created directory /a there.
+When unionfs notices that a directory is opaque, it stops all namespace
+operations (including merging readdir contents) at that opaque directory.
+This prevents re-exposing names from masked out directories.
+
+
+Duplicate Elimination:
+======================
+
+It is possible for files on different branches to have the same name.
+Unionfs then has to select which instance of the file to show to the user.
+Given the fact that each branch has a priority associated with it, the
+simplest solution is to take the instance from the highest priority
+(numerically lowest value) and "hide" the others.
+
+
+Unlinking:
+=========
+
+Unlink operation on non-directory instances is optimized to remove the
+maximum possible objects in case multiple underlying branches have the same
+file name.  The unlink operation will first try to delete file instances
+from highest priority branch and then move further to delete from remaining
+branches in order of their decreasing priority.  Consider a case (F..D..F),
+where F is a file and D is a directory of the same name; here, some
+intermediate branch could have an empty directory instance with the same
+name, so this operation also tries to delete this directory instance and
+proceed further to delete from next possible lower priority branch.  The
+unionfs unlink operation will smoothly delete the files with same name from
+all possible underlying branches.  In case if some error occurs, it creates
+whiteout in highest priority branch that will hide file instance in rest of
+the branches.  An error could occur either if an unlink operations in any of
+the underlying branch failed or if a branch has no write permission.
+
+This unlinking policy is known as "delete all" and it has the benefit of
+overall reducing the number of inodes used by duplicate files, and further
+reducing the total number of inodes consumed by whiteouts.  The cost is of
+extra processing, but testing shows this extra processing is well worth the
+savings.
+
+
+Copyup:
+=======
+
+When a change is made to the contents of a file's data or meta-data, they
+have to be stored somewhere.  The best way is to create a copy of the
+original file on a branch that is writable, and then redirect the write
+though to this copy.  The copy must be made on a higher priority branch so
+that lookup and readdir return this newer "version" of the file rather than
+the original (see duplicate elimination).
+
+An entire unionfs mount can be read-only or read-write.  If it's read-only,
+then none of the branches will be written to, even if some of the branches
+are physically writeable.  If the unionfs mount is read-write, then the
+leftmost (highest priority) branch must be writeable (for copyup to take
+place); the remaining branches can be any mix of read-write and read-only.
+
+In a writeable mount, unionfs will create new files/dir in the leftmost
+branch.  If one tries to modify a file in a read-only branch/media, unionfs
+will copyup the file to the leftmost branch and modify it there.  If you try
+to modify a file from a writeable branch which is not the leftmost branch,
+then unionfs will modify it in that branch; this is useful if you, say,
+unify differnet packages (e.g., apache, sendmail, ftpd, etc.) and you want
+changes to specific package files to remain logically in the directory where
+they came from.
+
+Cache Coherency:
+================
+
+Unionfs users often want to be able to modify files and directories directly
+on the lower branches, and have those changes be visible at the Unionfs
+level.  This means that data (e.g., pages) and meta-data (dentries, inodes,
+open files, etc.) have to be synchronized between the upper and lower
+layers.  In other words, the newest changes from a layer below have to be
+propagated to the Unionfs layer above.  If the two layers are not in sync, a
+cache incoherency ensues, which could lead to application failures and even
+oopses.  The Linux kernel, however, has a rather limited set of mechanisms
+to ensure this inter-layer cache coherency---so Unionfs has to do most of
+the hard work on its own.
+
+Maintaining Invariants:
+
+The way Unionfs ensures cache coherency is as follows.  At each entry point
+to a Unionfs file system method, we call a utility function to validate the
+primary objects of this method.  Generally, we call unionfs_file_revalidate
+on open files, and __unionfs_d_revalidate_chain on dentries (which also
+validates inodes).  These utility functions check to see whether the upper
+Unionfs object is in sync with any of the lower objects that it represents.
+The checks we perform include whether the Unionfs superblock has a newer
+generation number, or if any of the lower objects mtime's or ctime's are
+newer.  (Note: generation numbers change when branch-management commands are
+issued, so in a way, maintaining cache coherency is also very important for
+branch-management.)  If indeed we determine that any Unionfs object is no
+longer in sync with its lower counterparts, then we rebuild that object
+similarly to how we do so for branch-management.
+
+While rebuilding Unionfs's objects, we also purge any page mappings and
+truncate inode pages (see fs/unionfs/dentry.c:purge_inode_data).  This is to
+ensure that Unionfs will re-get the newer data from the lower branches.  We
+perform this purging only if the Unionfs operation in question is a reading
+operation; if Unionfs is performing a data writing operation (e.g., ->write,
+->commit_write, etc.) then we do NOT flush the lower mappings/pages: this is
+because (1) a self-deadlock could occur and (2) the upper Unionfs pages are
+considered more authoritative anyway, as they are newer and will overwrite
+any lower pages.
+
+Unionfs maintains the following important invariant regarding mtime's,
+ctime's, and atime's: the upper inode object's times are the max() of all of
+the lower ones.  For non-directory objects, there's only one object below,
+so the mapping is simple; for directory objects, there could me multiple
+lower objects and we have to sync up with the newest one of all the lower
+ones.  This invariant is important to maintain, especially for directories
+(besides, we need this to be POSIX compliant).  A union could comprise
+multiple writable branches, each of which could change.  If we don't reflect
+the newest possible mtime/ctime, some applications could fail.  For example,
+NFSv2/v3 exports check for newer directory mtimes on the server to determine
+if the client-side attribute cache should be purged.
+
+To maintain these important invariants, of course, Unionfs carefully
+synchronizes upper and lower times in various places.  For example, if we
+copy-up a file to a top-level branch, the parent directory where the file
+was copied up to will now have a new mtime: so after a successful copy-up,
+we sync up with the new top-level branch's parent directory mtime.
+
+Implementation:
+
+This cache-coherency implementation is efficient because it defers any
+synchronizing between the upper and lower layers until absolutely needed.
+Consider the example a common situation where users perform a lot of lower
+changes, such as untarring a whole package.  While these take place,
+typically the user doesn't access the files via Unionfs; only after the
+lower changes are done, does the user try to access the lower files.  With
+our cache-coherency implementation, the entirety of the changes to the lower
+branches will not result in a single CPU cycle spent at the Unionfs level
+until the user invokes a system call that goes through Unionfs.
+
+We have considered two alternate cache-coherency designs.  (1) Using the
+dentry/inode notify functionality to register interest in finding out about
+any lower changes.  This is a somewhat limited and also a heavy-handed
+approach which could result in many notifications to the Unionfs layer upon
+each small change at the lower layer (imagine a file being modified multiple
+times in rapid succession).  (2) Rewriting the VFS to support explicit
+callbacks from lower objects to upper objects.  We began exploring such an
+implementation, but found it to be very complicated--it would have resulted
+in massive VFS/MM changes which are unlikely to be accepted by the LKML
+community.  We therefore believe that our current cache-coherency design and
+implementation represent the best approach at this time.
+
+Limitations:
+
+Our implementation works in that as long as a user process will have caused
+Unionfs to be called, directly or indirectly, even to just do
+->d_revalidate; then we will have purged the current Unionfs data and the
+process will see the new data.  For example, a process that continually
+re-reads the same file's data will see the NEW data as soon as the lower
+file had changed, upon the next read(2) syscall (even if the file is still
+open!)  However, this doesn't work when the process re-reads the open file's
+data via mmap(2) (unless the user unmaps/closes the file and remaps/reopens
+it).  Once we respond to ->readpage(s), then the kernel maps the page into
+the process's address space and there doesn't appear to be a way to force
+the kernel to invalidate those pages/mappings, and force the process to
+re-issue ->readpage.  If there's a way to invalidate active mappings and
+force a ->readpage, let us know please (invalidate_inode_pages2 doesn't do
+the trick).
+
+Our current Unionfs code has to perform many file-revalidation calls.  It
+would be really nice if the VFS would export an optional file system hook
+->file_revalidate (similarly to dentry->d_revalidate) that will be called
+before each VFS op that has a "struct file" in it.
+
+Certain file systems have micro-second granularity (or better) for inode
+times, and asynchronous actions could cause those times to change with some
+small delay.  In such cases, Unionfs may see a changed inode time that only
+differs by a tiny fraction of a second: such a change may be a false
+positive indication that the lower object has changed, whereas if unionfs
+waits a little longer, that false indication will not be seen.  (These false
+positives are harmless, because they would at most cause unionfs to
+re-validate an object that may need no revalidation, and print a debugging
+message that clutters the console/logs.)  Therefore, to minimize the chances
+of these situations, we delay the detection of changed times by a small
+factor of a few seconds, called UNIONFS_MIN_CC_TIME (which defaults to 3
+seconds, as does NFS).  This means that we will detect the change, only a
+couple of seconds later, if indeed the time change persists in the lower
+file object.  This delayed detection has an added performance benefit: we
+reduce the number of times that unionfs has to revalidate objects, in case
+there's a lot of concurrent activity on both the upper and lower objects,
+for the same file(s).  Lastly, this delayed time attribute detection is
+similar to how NFS clients operate (e.g., acregmin).
+
+Finally, there is no way currently in Linux to prevent lower directories
+from being moved around (i.e., topology changes); there's no way to prevent
+modifications to directory sub-trees of whole file systems which are mounted
+read-write.  It is therefore possible for in-flight operations in unionfs to
+take place, while a lower directory is being moved around.  Therefore, if
+you try to, say, create a new file in a directory through unionfs, while the
+directory is being moved around directly, then the new file may get created
+in the new location where that directory was moved to.  This is a somewhat
+similar behaviour in NFS: an NFS client could be creating a new file while
+th NFS server is moving th directory around; the file will get successfully
+created in the new location.  (The one exception in unionfs is that if the
+branch is marked read-only by unionfs, then a copyup will take place.)
+
+For more information, see <http://unionfs.filesystems.org/>.

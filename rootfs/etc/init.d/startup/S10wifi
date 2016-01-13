@@ -1,0 +1,22 @@
+#!/bin/ash
+
+WIFI_INTF=mlan0
+
+# First start wifi normally
+/etc/init.d/start_wifi.sh
+
+# Check if WiFi interface came up
+ifconfig $WIFI_INTF
+if [ $? -ne 0 ]; then
+	# Wifi interface not available, unload modules, reset the IC and try again
+	# This is expected after a watchdog reset
+	# Unload WiFi modules
+	rmmod sd8897
+	rmmod 8897mlan
+	# Force a WiFi reset
+	/bin/wifi_reset
+	# Tell kernel to rescan SDIO bus
+	echo "1" > /sys/devices/soc.0/f7ab0000.sdhci/mmc_host/mmc0/rescan
+	# Try again
+	/etc/init.d/start_wifi.sh
+fi

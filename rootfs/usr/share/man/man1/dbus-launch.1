@@ -1,0 +1,200 @@
+'\" t
+.\"     Title: dbus-launch
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 11/06/2014
+.\"    Manual: User Commands
+.\"    Source: D-Bus 1.8.8
+.\"  Language: English
+.\"
+.TH "DBUS\-LAUNCH" "1" "11/06/2014" "D\-Bus 1\&.8\&.8" "User Commands"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+dbus-launch \- Utility to start a message bus from a shell script
+.SH "SYNOPSIS"
+.HP \w'\fBdbus\-launch\fR\ 'u
+\fBdbus\-launch\fR [\-\-version] [\-\-help] [\-\-sh\-syntax] [\-\-csh\-syntax] [\-\-auto\-syntax] [\-\-binary\-syntax] [\-\-close\-stderr] [\-\-exit\-with\-session] [\-\-autolaunch=\fIMACHINEID\fR] [\-\-config\-file=\fIFILENAME\fR] [\fIPROGRAM\fR] [\fIARGS\fR...]
+.br
+
+.SH "DESCRIPTION"
+.PP
+The
+\fBdbus\-launch\fR
+command is used to start a session bus instance of
+\fIdbus\-daemon\fR
+from a shell script\&. It would normally be called from a user\*(Aqs login scripts\&. Unlike the daemon itself,
+\fBdbus\-launch\fR
+exits, so backticks or the $() construct can be used to read information from
+\fBdbus\-launch\fR\&.
+.PP
+With no arguments,
+\fBdbus\-launch\fR
+will launch a session bus instance and print the address and PID of that instance to standard output\&.
+.PP
+You may specify a program to be run; in this case,
+\fBdbus\-launch\fR
+will launch a session bus instance, set the appropriate environment variables so the specified program can find the bus, and then execute the specified program, with the specified arguments\&. See below for examples\&.
+.PP
+If you launch a program,
+\fBdbus\-launch\fR
+will not print the information about the new bus to standard output\&.
+.PP
+When
+\fBdbus\-launch\fR
+prints bus information to standard output, by default it is in a simple key\-value pairs format\&. However, you may request several alternate syntaxes using the \-\-sh\-syntax, \-\-csh\-syntax, \-\-binary\-syntax, or \-\-auto\-syntax options\&. Several of these cause
+\fBdbus\-launch\fR
+to emit shell code to set up the environment\&.
+.PP
+With the \-\-auto\-syntax option,
+\fBdbus\-launch\fR
+looks at the value of the SHELL environment variable to determine which shell syntax should be used\&. If SHELL ends in "csh", then csh\-compatible code is emitted; otherwise Bourne shell code is emitted\&. Instead of passing \-\-auto\-syntax, you may explicitly specify a particular one by using \-\-sh\-syntax for Bourne syntax, or \-\-csh\-syntax for csh syntax\&. In scripts, it\*(Aqs more robust to avoid \-\-auto\-syntax and you hopefully know which shell your script is written in\&.
+.PP
+See
+\m[blue]\fBhttp://www\&.freedesktop\&.org/software/dbus/\fR\m[]
+for more information about D\-Bus\&. See also the man page for
+\fIdbus\-daemon\fR\&.
+.SH "EXAMPLES"
+.PP
+Distributions running
+\fBdbus\-launch\fR
+as part of a standard X session should run
+\fBdbus\-launch \-\-exit\-with\-session\fR
+after the X server has started and become available, as a wrapper around the "main" X client (typically a session manager or window manager), as in these examples:
+.PP
+\fBdbus\-launch \-\-exit\-with\-session gnome\-session\fR
+.PP
+\fBdbus\-launch \-\-exit\-with\-session openbox\fR
+.PP
+\fBdbus\-launch \-\-exit\-with\-session ~/\&.xsession\fR
+.PP
+If your distribution does not do this, you can achieve similar results by running your session or window manager in the same way in a script run by your X session, such as
+~/\&.xsession,
+~/\&.xinitrc
+or
+~/\&.Xclients\&.
+.PP
+To start a D\-Bus session within a text\e(hymode session, do not use
+\fBdbus\-launch\fR\&. Instead, see
+\fBdbus-run-session\fR(1)\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+  ## test for an existing bus daemon, just to be safe
+  if test \-z "$DBUS_SESSION_BUS_ADDRESS" ; then
+      ## if not found, launch a new one
+      eval `dbus\-launch \-\-sh\-syntax`
+      echo "D\-Bus per\-session daemon address is: $DBUS_SESSION_BUS_ADDRESS"
+  fi
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Note that in this case, dbus\-launch will exit, and dbus\-daemon will not be terminated automatically on logout\&.
+.SH "AUTOMATIC LAUNCHING"
+.PP
+If DBUS_SESSION_BUS_ADDRESS is not set for a process that tries to use D\-Bus, by default the process will attempt to invoke dbus\-launch with the \-\-autolaunch option to start up a new session bus or find the existing bus address on the X display or in a file in ~/\&.dbus/session\-bus/
+.PP
+Whenever an autolaunch occurs, the application that had to start a new bus will be in its own little world; it can effectively end up starting a whole new session if it tries to use a lot of bus services\&. This can be suboptimal or even totally broken, depending on the app and what it tries to do\&.
+.PP
+There are two common reasons for autolaunch\&. One is ssh to a remote machine\&. The ideal fix for that would be forwarding of DBUS_SESSION_BUS_ADDRESS in the same way that DISPLAY is forwarded\&. In the meantime, you can edit the session\&.conf config file to have your session bus listen on TCP, and manually set DBUS_SESSION_BUS_ADDRESS, if you like\&.
+.PP
+The second common reason for autolaunch is an su to another user, and display of X applications running as the second user on the display belonging to the first user\&. Perhaps the ideal fix in this case would be to allow the second user to connect to the session bus of the first user, just as they can connect to the first user\*(Aqs display\&. However, a mechanism for that has not been coded\&.
+.PP
+You can always avoid autolaunch by manually setting DBUS_SESSION_BUS_ADDRESS\&. Autolaunch happens because the default address if none is set is "autolaunch:", so if any other address is set there will be no autolaunch\&. You can however include autolaunch in an explicit session bus address as a fallback, for example DBUS_SESSION_BUS_ADDRESS="something:,autolaunch:" \- in that case if the first address doesn\*(Aqt work, processes will autolaunch\&. (The bus address variable contains a comma\-separated list of addresses to try\&.)
+.PP
+The \-\-autolaunch option is considered an internal implementation detail of libdbus, and in fact there are plans to change it\&. There\*(Aqs no real reason to use it outside of the libdbus implementation anyhow\&.
+.SH "OPTIONS"
+.PP
+The following options are supported:
+.PP
+\fB\-\-auto\-syntax\fR
+.RS 4
+Choose \-\-csh\-syntax or \-\-sh\-syntax based on the SHELL environment variable\&.
+.RE
+.PP
+\fB\-\-binary\-syntax\fR
+.RS 4
+Write to stdout a nul\-terminated bus address, then the bus PID as a binary integer of size sizeof(pid_t), then the bus X window ID as a binary integer of size sizeof(long)\&. Integers are in the machine\*(Aqs byte order, not network byte order or any other canonical byte order\&.
+.RE
+.PP
+\fB\-\-close\-stderr\fR
+.RS 4
+Close the standard error output stream before starting the D\-Bus daemon\&. This is useful if you want to capture dbus\-launch error messages but you don\*(Aqt want dbus\-daemon to keep the stream open to your application\&.
+.RE
+.PP
+\fB\-\-config\-file=FILENAME\fR
+.RS 4
+Pass \-\-config\-file=FILENAME to the bus daemon, instead of passing it the \-\-session argument\&. See the man page for dbus\-daemon
+.RE
+.PP
+\fB\-\-csh\-syntax\fR
+.RS 4
+Emit csh compatible code to set up environment variables\&.
+.RE
+.PP
+\fB\-\-exit\-with\-session\fR
+.RS 4
+If this option is provided, a persistent "babysitter" process will be created that watches stdin for HUP and tries to connect to the X server\&. If this process gets a HUP on stdin or loses its X connection, it kills the message bus daemon\&.
+.RE
+.PP
+\fB\-\-autolaunch=MACHINEID\fR
+.RS 4
+This option implies that
+\fBdbus\-launch\fR
+should scan for a previously\-started session and reuse the values found there\&. If no session is found, it will start a new session\&. The \-\-exit\-with\-session option is implied if \-\-autolaunch is given\&. This option is for the exclusive use of libdbus, you do not want to use it manually\&. It may change in the future\&.
+.RE
+.PP
+\fB\-\-sh\-syntax\fR
+.RS 4
+Emit Bourne\-shell compatible code to set up environment variables\&.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print the version of dbus\-launch
+.RE
+.PP
+\fB\-\-help\fR
+.RS 4
+Print the help info of dbus\-launch
+.RE
+.SH "NOTES"
+.PP
+If you run
+\fBdbus\-launch myapp\fR
+(with any other options), dbus\-daemon will
+\fInot\fR
+exit when
+\fBmyapp\fR
+terminates: this is because
+\fBmyapp\fR
+is assumed to be part of a larger session, rather than a session in its own right\&.
+.SH "AUTHOR"
+.PP
+See
+\m[blue]\fBhttp://www\&.freedesktop\&.org/software/dbus/doc/AUTHORS\fR\m[]
+.SH "BUGS"
+.PP
+Please send bug reports to the D\-Bus mailing list or bug tracker, see
+\m[blue]\fBhttp://www\&.freedesktop\&.org/software/dbus/\fR\m[]

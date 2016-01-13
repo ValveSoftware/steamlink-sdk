@@ -1,0 +1,94 @@
+#!/bin/sh
+
+# Copyright (C) 2006-2008, 2010, 2012 Free Software Foundation, Inc.
+#
+# Author: Simon Josefsson
+#
+# This file is part of GnuTLS.
+#
+# GnuTLS is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at
+# your option) any later version.
+#
+# GnuTLS is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GnuTLS; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+#set -e
+
+srcdir=${srcdir:-.}
+CERTTOOL=${CERTTOOL:-../../src/certtool$EXEEXT}
+
+echo ca > template-sha2
+echo cn = "SHA 512 CA" >> template-sha2
+
+$CERTTOOL -d 2 --generate-self-signed --template template-sha2 \
+    --load-privkey $srcdir/key-ca.pem \
+    --outfile new-ca.pem \
+    --hash sha512 >out 2>&1
+
+if [ $? != 0 ];then
+	cat out
+	exit 1
+fi
+
+echo ca > template-sha2
+echo cn = "SHA 384 sub-CA" >> template-sha2
+
+$CERTTOOL -d 2 --generate-certificate --template template-sha2 \
+    --load-ca-privkey $srcdir/key-ca.pem \
+    --load-ca-certificate new-ca.pem \
+    --load-privkey $srcdir/key-subca.pem \
+    --outfile new-subca.pem \
+    --hash sha384 >out 2>&1
+
+if [ $? != 0 ];then
+	cat out
+	exit 1
+fi
+
+echo ca > template-sha2
+echo cn = "SHA 256 sub-sub-CA" >> template-sha2
+
+$CERTTOOL -d 2 --generate-certificate --template template-sha2 \
+    --load-ca-privkey $srcdir/key-subca.pem \
+    --load-ca-certificate new-subca.pem \
+    --load-privkey $srcdir/key-subsubca.pem \
+    --outfile new-subsubca.pem \
+    --hash sha256 >out 2>&1
+
+if [ $? != 0 ];then
+	cat out
+	exit 1
+fi
+
+echo cn = "End-user" > template-sha2
+
+$CERTTOOL -d 2 --generate-certificate --template template-sha2 \
+    --load-ca-privkey $srcdir/key-subsubca.pem \
+    --load-ca-certificate new-subsubca.pem \
+    --load-privkey $srcdir/key-user.pem \
+    --outfile new-user.pem >out 2>&1
+
+if [ $? != 0 ];then
+	cat out
+	exit 1
+fi
+
+num=`cat new-user.pem new-subsubca.pem new-subca.pem new-ca.pem | $CERTTOOL --verify-chain | tee verify-sha2 | grep -c Verified`
+#cat verify
+
+if test "$num" != "4"; then
+    echo Verification failure
+    exit 1
+fi
+
+rm -f verify-sha2 new-user.pem new-subsubca.pem new-subca.pem new-ca.pem template-sha2 out
+
+exit 0

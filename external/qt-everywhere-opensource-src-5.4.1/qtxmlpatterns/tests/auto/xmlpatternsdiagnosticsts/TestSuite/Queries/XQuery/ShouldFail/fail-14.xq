@@ -1,0 +1,1 @@
+"This query is fully valid, and consists of one xs:string literal."

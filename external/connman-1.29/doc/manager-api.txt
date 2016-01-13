@@ -1,0 +1,307 @@
+Manager hierarchy
+=================
+
+Service		net.connman
+Interface	net.connman.Manager
+Object path	/
+
+Methods		dict GetProperties()
+
+			Returns all global system properties. See the
+			properties section for available properties.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void SetProperty(string name, variant value)
+
+			Changes the value of the specified property. Only
+			properties that are listed as read-write are
+			changeable. On success a PropertyChanged signal
+			will be emitted.
+
+			Possible Errors: [service].Error.InvalidArguments
+					 [service].Error.InvalidProperty
+
+		array{object,dict} GetTechnologies()
+
+			Returns a list of tuples with technology object
+			path and dictionary of technology properties.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		array{object,dict} GetServices()
+
+			Returns a sorted list of tuples with service
+			object path and dictionary of service properties.
+
+			This list will not contain sensitive information
+			like passphrases etc.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		array{object,dict} GetPeers() [experimental]
+
+			Returns a sorted list of tuples with peer object path
+			and dictionary of peer properties
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		object ConnectProvider(dict provider)	[deprecated]
+
+			Connect to a VPN specified by the given provider
+			properties.
+
+			When successful this method will return the object
+			path of the VPN service object.
+
+			This method can also be used to connect to an
+			already existing VPN.
+
+			This method call will only return in case of an
+			error or when the service is fully connected. So
+			setting a longer D-Bus timeout might be a really
+			good idea.
+
+			When 'SessionMode' property is enabled, this method
+			call is disallowed.
+
+			This API is deprecated and should not be used.
+			The VPN configuration API is provided by ConnMan
+			VPN daemon and user should use that one instead.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void RemoveProvider(object path)	[deprecated]
+
+			Remove a VPN specified by the object path.
+
+		void RegisterAgent(object path)
+
+			Register new agent for handling user requests.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void UnregisterAgent(object path)
+
+			Unregister an existing agent.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void RegisterCounter(object path, uint32 accuracy, uint32 period)  [experimental]
+
+			Register a new counter for user notifications.
+
+			The accuracy is specified in kilo-bytes and defines
+			a threshold for counter updates. Together with the
+			period value it defines how often user space needs
+			to be updated. The period value is in seconds.
+
+			This interface is not meant for time tracking. If
+			the time needs to be tracked down to the second, it
+			is better to have a real timer running inside the
+			application than using this interface.
+
+			Also getting notified for every kilo-byte is a bad
+			choice (even if the interface supports it). Something
+			like 10 kilo-byte units or better 1 mega-byte seems
+			to be a lot more reasonable and better for the user.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void UnregisterCounter(object path)  [experimental]
+
+			Unregister an existing counter.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		object CreateSession(dict settings, object notifier)  [experimental]
+
+			Create a new session for the application. Every
+			application can create multiple session with
+			different settings. The settings are described
+			as part of the session interface.
+
+			The notifier allows asynchronous notification about
+			session specific changes. These changes can be
+			for online/offline state or IP address changes or
+			similar things the application is required to
+			handle.
+
+			Every application should at least create one session
+			to inform about its requirements and it purpose.
+
+		void DestroySession(object session)  [experimental]
+
+			Remove the previously created session.
+
+			If an application exits unexpectatly the session
+			will be automatically destroyed.
+
+		object path, dict, fd RequestPrivateNetwork(dict options)
+								[experimental]
+
+			Request a new Private Network, which includes the
+			creation of a tun/tap interface, and IP
+			configuration, NAT and IP forwarding on that
+			interface.
+			An object path, a dictionnary and a file descriptor
+			with IP settings are returned.
+
+			Possible Errors: [service].Error.InvalidArguments
+					 [service].Error.NotSupported
+
+		void ReleasePrivateNetwork(object path) [experimental]
+
+			Releases a private network.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void RegisterPeerService(dict specification, boolean master)
+			   [experimental]
+
+			Registers a local P2P Peer service
+
+			Even if p2p techonology is not available, it will be
+			possible to register peer services, since a p2p
+			enabled WiFi device might appear at anytime. The
+			registered peer services will automatically be enabled
+			for the p2p WiFi device; the application does not need
+			to do any re-registration.
+
+			A Peer service belongs to the process that registers
+			it, thus if that process dies, its Peer services will
+			be destroyed as well.
+
+			The specification dict follows the format described
+			in the Peer API document.
+
+			ConnMan will be able to determine in most cases
+			whether to be the P2P Group Owner or not. If the
+			service for some reason must belong to a group that
+			this device manages, the "master" property can be
+			set. Do not enable the "master" property unless it
+			is absolutely sure that this is needed for the
+			provided peer service.
+
+			Possible Errors: [service].Error.InvalidArguments
+					 [service].Error.AlreadyExists
+					 [service].Error.NotSupported
+
+		void UnregisterPeerService(dict specification) [experimental]
+
+			Unregisters an existing local P2P Peer service
+
+			Possible Errors: [service].Error.InvalidArguments
+					 [service].Error.NotRegistered
+
+Signals		TechnologyAdded(object path, dict properties)
+
+			Signal that is sent when a new technology is added.
+
+			It contains the object path of the technology and
+			also its properties.
+
+		TechnologyRemoved(object path)
+
+			Signal that is sent when a technology has been removed.
+
+			The object path is no longer accessible after this
+			signal and only emitted for reference.
+
+		ServicesChanged(array{object, dict}, array{object})
+
+			Signals a list of services that have been changed
+			via the first array. And a list of service that
+			have been removed via the second array.
+
+			The list of added services is sorted. The dictionary
+			with the properties might be empty in case none of
+			the properties have changed. Or only contains the
+			properties that have changed.
+
+			For newly added services the whole set of properties
+			will be present.
+
+			The list of removed services can be empty.
+
+			This signal will only be triggered when the sort
+			order of the service list or the number of services
+			changes. It will not be emitted if only a property
+			of the service object changes. For that it is
+			required to watch the PropertyChanged signal of
+			the service object.
+
+		PeersChanged(array{object, dict}, array{object}) [experimental]
+
+			Signals a list of peers that have been changed via the
+			first array. And a list of peer that have been removed
+			via the second array.
+
+			The list of changed peers is sorted. The dictionary
+			with the properties might be empty in case none of the
+			properties have changed. Or only contains the
+			properties that have changed.
+
+			For newly added peers the whole set of properties will
+			be present.
+
+			The list of removed peers can be empty.
+
+			This signal will only be triggered when the sort order
+			of the peer list or the number of peers changes. It
+			will not be emitted if only a property of the peer
+			object changes. For that it is required to watch the
+			PropertyChanged signal of the peer object.
+
+		PropertyChanged(string name, variant value)
+
+			This signal indicates a changed value of the given
+			property.
+
+Properties	string State [readonly]
+
+			The global connection state of a system. Possible
+			values are "offline", "idle", "ready" and "online".
+
+			If the device is in offline mode, the value "offline"
+			indicates this special global state. It can also be
+			retrieved via the OfflineMode property, but is kept
+			here for consistency and to differentiate from "idle".
+
+			However when OfflineMode property is true, the State
+			property can still be "idle", "ready" or "online"
+			since it is possible by the end user to re-enable
+			individual technologies like WiFi and Bluetooth while
+			in offline mode.
+
+			The states "idle", "ready" and "online" match to
+			states from the services. If no service is in
+			either "ready" or "online" state it will indicate
+			the "idle" state.
+
+			If at least one service is in "ready" state and no
+			service is in "online" state, then it will indicate
+			the "ready" state.
+
+			When at least one service is in "online" state,
+			this property will indicate "online" as well.
+
+		boolean OfflineMode [readwrite]
+
+			The offline mode indicates the global setting for
+			switching all radios on or off. Changing offline mode
+			to true results in powering down all devices. When
+			leaving offline mode the individual policy of each
+			device decides to switch the radio back on or not.
+
+			During offline mode, it is still possible to switch
+			certain technologies manually back on. For example
+			the limited usage of WiFi or Bluetooth devices might
+			be allowed in some situations.
+
+		boolean SessionMode [readwrite]  [experminental][deprecated]
+
+			This property exists only for compatibility reasons
+			and does not affect ConnMan in any way.
+
+			The default value is false.

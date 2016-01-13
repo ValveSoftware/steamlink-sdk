@@ -1,0 +1,3 @@
+CONFIG+=systemtest
+SOURCES=sys_samegame.qtt
+DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

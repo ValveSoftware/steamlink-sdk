@@ -1,0 +1,209 @@
+.\" Copyright (c) 1983, 1990, 1993
+.\"	The Regents of the University of California.  All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 3. All advertising materials mentioning features or use of this software
+.\"    must display the following acknowledgement:
+.\"	This product includes software developed by the University of
+.\"	California, Berkeley and its contributors.
+.\" 4. Neither the name of the University nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"	@(#)logger.1	8.1 (Berkeley) 6/6/93
+.\"
+.\" Section on valid facility and level strings added by
+.\" and1000@debian.org, 26 Oct 1997.
+.TH LOGGER "1" "April 2013" "util-linux" "User Commands"
+.SH NAME
+logger \- a shell command interface to the syslog(3) system log module
+.SH SYNOPSIS
+.B logger
+.RI [ options "] [" message ]
+.SH DESCRIPTION
+.B logger
+makes entries in the system log.  It provides a shell command
+interface to the
+.BR syslog (3)
+system log module.
+.SH OPTIONS
+.TP
+\fB\-d\fR, \fB\-\-udp\fR
+Use datagram (UDP) only.  By default the connection is tried to the
+.I syslog
+port defined in /etc/services, which is often
+.IR 514 .
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Display help text and exit.
+.TP
+\fB\-i\fR, \fB\-\-id\fR
+Log the process ID of the logger process with each line.
+.TP
+.TP
+\fB\-n\fR, \fB\-\-server\fR \fIserver\fR
+Write to the specified remote syslog
+.I server
+instead of to the builtin syslog routines.  Unless
+.B \-\-udp
+or
+.B \-\-tcp
+is specified, \fBlogger\fR will first try to use UDP,
+but if thist fails a TCP connection is attempted.
+.TP
+\fB\-P\fR, \fB\-\-port\fR \fIport\fR
+Use the specified
+.IR port .
+.TP
+\fB\-f\fR, \fB\-\-file\fR \fIfile\fR
+Log the contents of the specified
+.IR file .
+This option cannot be combined with a command-line message.
+.TP
+\fB\-p\fR, \fB\-\-priority\fR \fIpriority\fR
+Enter the message into the log with the specified
+.IR priority  .
+The priority may be specified numerically or as a
+.I facility.level
+pair.
+For example,
+.B -p
+.I local3.info
+logs the message as informational in the local3 facility.
+The default is
+.IR user.notice .
+.TP
+\fB\-\-prio\-prefix\fR
+Look for a syslog prefix on every line read from standard input.
+This prefix is a number within angle brackets that contains both the facility
+and the level.  This decimal prefix is constructed by multiplying the
+facility by 8 and then adding the level.  Thus, for example, \fIlocal0.info\fR,
+facility=16 and level=6, becomes \fI<134>\fR.
+
+If the prefix contains no facility, the facility defaults to what is
+specified by the \fB\-p\fR option.  Similarly, if no prefix is provided,
+the line is logged using the \fB\-p\fR \fIpriority\fR.
+
+This option doesn't affect a command-line message.
+.TP
+\fB\-s\fR, \fB\-\-stderr\fR
+Output the message to standard error as well as to the system log.
+.TP
+\fB\-T\fR, \fB\-\-tcp\fR
+Use stream (TCP) only.  By default the connection is tried to the
+.I syslog-conn
+port defined in /etc/services, which is often
+.IR 601 .
+.TP
+\fB\-t\fR, \fB\-\-tag\fR \fItag\fR
+Mark every line to be logged with the specified
+.IR tag .
+.TP
+\fB\-u\fR, \fB\-\-socket\fR \fIsocket\fR
+Write to the specified
+.I socket
+instead of to the builtin syslog routines.
+.TP
+\fB\-\-journald\fR [\fIfile\fR]
+Write systemd journal entry.  The entry is read from
+.I stdin
+or input
+.IR file .
+Each new line must begin with a field that is accepted by journald, see
+.IR systemd.journal-fields (7)
+for details.  Use of MESSAGE_ID field is generally good idea, as they
+make finding entries easy.
+.IP
+.nf
+$ printf "%s\\n%s\\n%s\\n" MESSAGE_ID=86184c3b1aa444f58ebe7b30fec1438b DOGS=bark "CARAVAN=goes on" | logger --journald
+$ logger --journald=entry.txt
+.fi
+.IP
+Notice that
+.B \-\-journald
+will ignore values of other options, such as priority.  If priority is
+needed it must be within input, and use PRIORITY field.  The simple
+execution of
+.B journalctl
+will display MESSAGE field.  Use
+.B journalctl --output json-pretty
+to see rest of the fields.
+.TP
+\fB\-V\fR, \fB\-\-version\fR
+Display version information and exit.
+.TP
+\fB\-\-\fR
+End the argument list.  This is to allow the
+.I message
+to start with a hyphen (\-).
+.TP
+.I message
+Write this \fImessage\fR to the log; if not specified, and the
+.B \-f
+flag is not provided, standard input is logged.
+.PP
+The
+.B logger
+utility exits 0 on success, and >0 if an error occurs.
+.PP
+Valid facility names are:
+.IR auth , \ authpriv
+(for security information of a sensitive nature),
+.IR cron , \ daemon , \ ftp , \ kern
+(can't be generated from user process),
+.IR lpr , \ mail , \ news , \ security
+(deprecated synonym for
+.IR auth ), \ syslog , \ user , \ uucp ,
+and
+.IR local0 \ to \ local7 ,
+inclusive.
+.PP
+Valid level names are:
+.IR alert , \ crit , \ debug , \ emerg , \ err , \ error
+(deprecated synonym for
+.IR err ), \ info , \ notice , \ panic
+(deprecated synonym for
+.IR  emerg ), \ warning , \ warn
+(deprecated synonym for
+.IR warning ).
+For the priority order and intended purposes of these levels, see
+.BR syslog (3).
+.SH EXAMPLES
+logger System rebooted
+.br
+logger \-p local0.notice \-t HOSTIDM \-f /dev/idmc
+.br
+logger \-n loghost.example.com System rebooted
+.SH SEE ALSO
+.BR syslog (3),
+.BR syslogd (8),
+.BR journalctl (1),
+.BR systemd.journal-fields (7)
+.SH STANDARDS
+The
+.B logger
+command is expected to be IEEE Std 1003.2 ("POSIX.2") compatible.
+.SH AVAILABILITY
+The logger command is part of the util-linux package and is available from
+.UR ftp://\:ftp.kernel.org\:/pub\:/linux\:/utils\:/util-linux/
+Linux Kernel Archive
+.UE .

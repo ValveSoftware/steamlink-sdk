@@ -1,0 +1,49 @@
+#!/bin/busybox sh
+
+# udhcpc script edited by Tim Riker <Tim@Rikers.org>
+
+[ -z "$1" ] && echo "Error: should be called from udhcpc" && exit 1
+
+RESOLV_CONF="/etc/resolv.conf"
+HOSTS="/etc/tmpfs/hosts"
+
+[ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
+[ -n "$subnet" ] && NETMASK="netmask $subnet"
+
+case "$1" in
+	deconfig)
+		/bin/busybox ifconfig $interface up
+		hostname=$(cat /proc/sys/kernel/hostname)
+		sed -i -e "/ $hostname"'$/d' $HOSTS
+		;;
+
+	renew|bound)
+		/bin/busybox ifconfig $interface $ip $BROADCAST $NETMASK
+
+		if [ -n "$router" ] ; then
+			echo "deleting routers"
+			while /bin/busybox route del default gw 0.0.0.0 dev $interface ; do
+				:
+			done
+
+			metric=0
+			for i in $router ; do
+				route add default gw $i dev $interface metric $((metric++))
+			done
+		fi
+
+        hostname=$(cat /proc/sys/kernel/hostname)
+        sed -i -e "/ $hostname"'$/d' $HOSTS
+		echo "$ip   $hostname" >> $HOSTS
+		echo "127.0.0.1		localhost" >> $HOSTS
+	
+		echo -n > $RESOLV_CONF
+		[ -n "$domain" ] && echo search $domain >> $RESOLV_CONF
+		for i in $dns ; do
+			echo adding dns $i
+			echo nameserver $i >> $RESOLV_CONF
+		done
+		;;
+esac
+
+exit 0

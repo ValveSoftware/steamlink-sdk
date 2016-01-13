@@ -1,0 +1,84 @@
+#! /bin/sh
+
+# Mount filesystems
+mount -t sysfs sys /sys
+mount -t proc proc /proc
+
+mount -t tmpfs devtmpfs /dev
+mkdir /dev/pts
+mount -t devpts devpts /dev/pts
+
+# Launch 'udeventd' to scan /sys and populate /dev
+( umask 0; /sbin/ueventd -s )
+
+# Set up 'hotplug' command for loading WiFi firmware
+echo /etc/hotplug/wifi-fw.sh > /proc/sys/kernel/hotplug
+
+# FIXME: make symbolic to make compatible with current kinit binary
+/bin/ln -s /dev/mtd/mtd1 /dev/mtd1
+
+# Mount other tmpfs
+mount -t tmpfs tmpfs /tmp
+mount -t tmpfs tmpfs /mnt
+
+# Bring-up 'lo' interface
+ifconfig lo up
+
+# Mount partition 'factory_setting'
+PART_FACTORY=factory_setting
+MOUNT_FACTORY=/mnt/factory_setting
+mkdir -p ${MOUNT_FACTORY}
+/bin/mount_part ${PART_FACTORY} ${MOUNT_FACTORY}
+
+# Make sure we have a machine-id
+if [ ! -f ${MOUNT_FACTORY}/machine-id ]; then
+    busybox mount -orw,remount ${MOUNT_FACTORY}/
+    dbus-uuidgen --ensure=${MOUNT_FACTORY}/machine-id
+    busybox mount -oro,remount ${MOUNT_FACTORY}/
+fi
+
+# Mount scratch partition
+PART_SCRATCH=cache
+MOUNT_SCRATCH=/mnt/scratch
+mkdir -p $MOUNT_SCRATCH
+/bin/mount_part $PART_SCRATCH $MOUNT_SCRATCH
+/bin/mount -o remount,rw $MOUNT_SCRATCH
+
+# Mount configuration partition
+PART_CONFIG=sysconf
+MOUNT_CONFIG=/mnt/config
+mkdir -p $MOUNT_CONFIG
+/bin/mount_part $PART_CONFIG $MOUNT_CONFIG
+/bin/mount -o remount,rw $MOUNT_CONFIG
+
+# Mount filesystem overlays
+OVERLAY=$MOUNT_CONFIG/overlay
+
+mount_overlay() {
+	mkdir -p ${OVERLAY}${1}
+	mount -t unionfs -o dirs=${OVERLAY}${1}=rw:${1}=ro unionfs ${1}
+}
+
+mount_overlay /etc
+mount_overlay /var
+mount_overlay /home
+mount_overlay /usr/local
+
+mkdir -p /var/run
+mount -t tmpfs tmpfs /var/run
+
+# Make sure various directories exist in /var
+mkdir -p /var/empty
+mkdir -p /var/lib
+mkdir -p /var/lib/bluetooth
+mkdir -p /var/lib/connman
+mkdir -p /var/run/dbus
+mkdir -p /var/tmp
+
+# Make pulse audio shared memory folder
+mkdir -p /dev/shm
+
+# Set ethernet mac address
+/etc/init.d/eth0_macaddress
+
+# /etc/init.d/startup.sh is run next by init

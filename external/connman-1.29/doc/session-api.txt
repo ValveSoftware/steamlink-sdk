@@ -1,0 +1,184 @@
+Service		unique name
+Interface	net.connman.Notification
+Object path	freely definable
+
+Methods		void Release()
+
+			This method gets called when the service daemon
+			unregisters the session. A counter can use it to do
+			cleanup tasks. There is no need to unregister the
+			session, because when this method gets called it has
+			already been unregistered.
+
+		void Update(dict settings)
+
+			Sends an update of changed settings. Only settings
+			that are changed will be included.
+
+			Initially on every session creation this method is
+			called once to inform about the current settings.
+
+
+Service		net.connman
+Interface	net.connman.Session
+Object path	variable
+
+Methods		void Destroy()
+
+			Close the current session. This is similar to
+			DestroySession method on the manager interface. It
+			is just provided for convenience depending on how
+			the application wants to track the session.
+
+		void Connect()
+
+			If not connected, then attempt to connect this
+			session.
+
+			The usage of this method depends a little bit on
+			the model of the application. Some application
+			should not try to call Connect on any session at
+			all. They should just monitor if it becomes online
+			or gets back offline.
+
+			Others might require an active connection right now.
+			So for example email notification should only check
+			for new emails when a connection is available. However
+			if the user presses the button for get email or wants
+			to send an email it should request to get online with
+			this method.
+
+			Depending on the bearer settings the current service
+			is used or a new service will be connected.
+
+			This method returns immediately after it has been
+			called. The application is informed through the update
+			notification about the state of the session.
+
+			It is also not guaranteed that a session stays online
+			after this method call. It can be taken offline at any
+			time. This might happen because of idle timeouts or
+			other reasons.
+
+			It is safe to call this method multiple times. The
+			actual usage will be sorted out for the application.
+
+		void Disconnect()
+
+			This method indicates that the current session does
+			not need a connection anymore.
+
+			This method returns immediately. The application is
+			informed through the update notification about the
+			state of the session.
+
+		void Change(string name, variant value)
+
+			Change the value of certain settings. Not all
+			settings can be changed. Normally this should not
+			be needed or an extra session should be created.
+			However in some cases it makes sense to change
+			a value and trigger different behavior.
+
+			A change of a setting will cause an update notification
+			to be sent. Some changes might cause the session to
+			be moved to offline state.
+
+Settings	string State [readonly]
+
+			This indicates if the connection is disconnected,
+			connected or online. It is updated according to the
+			selected ConnectionType. The session will not be
+			in a useful shape (i.e.: providing a network connection
+			to the owner) until its State gets updated to connected
+			and/or online.
+
+			This maps to the useful port of the  service state.
+			And it is only valid for the selected bearer
+			configuration. Otherwise it will be reported as
+			disconnected even if connected services are present.
+
+			In addition the State settings notification might
+			not happen right away. Notifications of this state
+			can be delayed based on the speed of the bearer. It
+			is done to avoid congestion on bearers like cellular
+			etc.
+
+		string Name [readonly]
+
+			The Service name to which the system is connected.
+			It should only be used for displaying it in the UI
+			and not for getting hold on session object.
+
+		string  Bearer [readonly]
+
+			This indicates the current bearer that is used
+			for this session. Or an empty string if no bearer
+			if available.
+
+		string  Interface [readonly]
+
+			Interface name used by the service object to connect.
+			This name can be used for SO_BINDTODEVICE in the
+			application.
+
+		dict IPv4 [readonly]
+
+			Current IPv4 configuration.
+
+		dict IPv6 [readonly]
+
+			Current IPv6 configuration.
+
+		array{string} AllowedBearers [readwrite]
+
+			A list of bearers that can be used for this session.
+			In general this list should be empty to indicate that
+			any bearer is acceptable.
+
+			The order of the entries in AllowedBearers matters.
+			The services are sorted in the order of the bearer
+			entries in this list.
+
+			Also "*" matches any bearer. This is usefull to prefer
+			certain bearers such as 'wifi' with a fallback to any
+			other available bearer.
+
+			Invalid bearer names will be ignored and removed
+			from the list. And empty AllowedBearers will
+			not match to any bearer, therefore the session
+			will never go online.
+
+			When a session is created and the provided settings
+			dictionary does not contain AllowedBearers, a default
+			session with "*" will be created.
+
+		string ConnectionType [readwrite]
+
+			This is used to indicate which connection is requested
+			from the session. The state of the session will be
+			updated accordingly. Values can be 'local',
+			'internet' or 'any'.
+
+			'local' means the session requests to be connected,
+			but does not require specifically to be online.
+			Therefore State property will be set to 'connected' if
+			underlying service gets ready and/or online.
+
+			'online' means the session requests to be connected,
+			and online. State property will never get 'connected'
+			but instead will switch to 'online' if underlying
+			service gets online.
+
+			'any' means either 'local' or 'internet'.
+
+			Invalid values will be ignored and removed. An
+			empty ConnectionType is an invalid configuration.
+
+			When a session is created and the provided settings
+			dictionary does not contain ConnectionType, a default
+			session with 'any' will be created.
+
+			(This setting will be removed when the unique process
+			identification problem is solved.)
+

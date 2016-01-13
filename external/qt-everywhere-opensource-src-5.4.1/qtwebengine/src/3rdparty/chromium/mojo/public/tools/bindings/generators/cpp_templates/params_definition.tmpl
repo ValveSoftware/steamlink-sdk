@@ -1,0 +1,33 @@
+{%- import "struct_macros.tmpl" as struct_macros %}
+{%- set class_name = struct.name ~ "_Data" %}
+class {{class_name}} {
+ public:
+  static {{class_name}}* New(mojo::internal::Buffer* buf) {
+    return new (buf->Allocate(sizeof({{class_name}})))
+        {{class_name}}();
+  }
+
+  static bool Validate(const void* data,
+                       mojo::internal::BoundsChecker* bounds_checker) {
+    {{ struct_macros.validate(struct, class_name)|indent(4) }}
+  }
+
+  mojo::internal::StructHeader header_;
+{{struct_macros.fields(struct)}}
+
+  void EncodePointersAndHandles(std::vector<mojo::Handle>* handles) {
+    {{ struct_macros.encodes(struct)|indent(4) }}
+  }
+
+  void DecodePointersAndHandles(std::vector<mojo::Handle>* handles) {
+    {{ struct_macros.decodes(struct)|indent(4) }}
+  }
+
+ private:
+  {{class_name}}() {
+    header_.num_bytes = sizeof(*this);
+    header_.num_fields = {{struct.packed.packed_fields|length}};
+  }
+};
+MOJO_COMPILE_ASSERT(sizeof({{class_name}}) == {{struct.packed|struct_size}},
+                    bad_sizeof_{{class_name}});

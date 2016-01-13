@@ -1,0 +1,101 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+
+component("events_ozone") {
+  sources = [
+    "device/device_event.cc",
+    "device/device_event.h",
+    "device/device_event_observer.h",
+    "device/device_manager.cc",
+    "device/device_manager.h",
+    "device/device_manager_manual.cc",
+    "device/device_manager_manual.h",
+    "device/udev/device_manager_udev.cc",
+    "device/udev/device_manager_udev.h",
+    "event_factory_ozone.cc",
+    "event_factory_ozone.h",
+    "events_ozone_export.h",
+  ]
+
+  deps = [
+    "//base",
+  ]
+
+  defines = [
+    "EVENTS_OZONE_IMPLEMENTATION",
+  ]
+
+  if (!use_udev) {
+    sources -= [
+      "device/udev/device_manager_udev.cc",
+      "device/udev/device_manager_udev.h",
+    ]
+  }
+
+  if (use_ozone_evdev && use_udev) {
+    deps += [
+      "//device/udev_linux",
+    ]
+  }
+}
+
+component("events_ozone_evdev") {
+  sources = [
+    "evdev/event_converter_evdev.cc",
+    "evdev/event_converter_evdev.h",
+    "evdev/event_device_info.cc",
+    "evdev/event_device_info.h",
+    "evdev/event_factory_evdev.cc",
+    "evdev/event_factory_evdev.h",
+    "evdev/event_modifiers_evdev.cc",
+    "evdev/event_modifiers_evdev.h",
+    "evdev/events_ozone_evdev_export.h",
+    "evdev/key_event_converter_evdev.cc",
+    "evdev/key_event_converter_evdev.h",
+    "evdev/touch_event_converter_evdev.cc",
+    "evdev/touch_event_converter_evdev.h",
+  ]
+
+  defines = [
+    "EVENTS_OZONE_EVDEV_IMPLEMENTATION",
+  ]
+
+  deps = [
+    ":events_ozone",
+    "//base",
+    "//ui/events/platform",
+    "//ui/gfx",
+  ]
+
+  if (use_ozone_evdev) {
+    defines += [
+      "USE_OZONE_EVDEV=1"
+    ]
+  }
+
+  if (use_ozone_evdev && use_evdev_gestures) {
+    sources += [
+      "evdev/libgestures_glue/event_reader_libevdev_cros.cc",
+      "evdev/libgestures_glue/event_reader_libevdev_cros.h",
+      "evdev/libgestures_glue/gesture_interpreter_libevdev_cros.cc",
+      "evdev/libgestures_glue/gesture_interpreter_libevdev_cros.h",
+      "evdev/libgestures_glue/gesture_logging.cc",
+      "evdev/libgestures_glue/gesture_logging.h",
+      "evdev/libgestures_glue/gesture_timer_provider.cc",
+      "evdev/libgestures_glue/gesture_timer_provider.h",
+    ]
+
+    defines += [
+      "USE_EVDEV_GESTURES",
+    ]
+
+    configs += [
+      "//build/config/linux:libevdev-cros",
+      "//build/config/linux:libgestures",
+    ]
+  }
+}

@@ -1,0 +1,120 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/WebKit/Source/modules/modules.gni")
+import("//third_party/WebKit/Source/bindings/core/core.gni")
+import("//third_party/WebKit/Source/bindings/modules/modules.gni")
+import("//third_party/WebKit/Source/bindings/scripts/scripts.gni")
+import("//third_party/WebKit/Source/build/scripts/scripts.gni")
+
+visibility = "//third_party/WebKit/*"
+
+# GYP version: Source/bindings/modules/generated.gyp:bindings_modules_generated
+group("bindings_modules_generated") {
+  deps = [
+    ":modules_bindings_generated_event_interfaces",
+    ":bindings_modules_generated_event_modules_factory",
+    ":bindings_modules_generated_event_modules_names",
+    ":bindings_modules_generated_event_target_modules_factory",
+    ":bindings_modules_generated_event_target_modules_names",
+  ]
+}
+
+# GYP version: event_interfaces action in bindings_modules_generated
+generate_event_interfaces("modules_bindings_generated_event_interfaces") {
+  sources = modules_event_idl_files
+  output_file = "EventModulesInterfaces.in"
+  suffix = "Modules"
+}
+
+# GYP version: EventModulesFactory action in bindings_modules_generated
+make_event_factory("bindings_modules_generated_event_modules_factory") {
+  in_files = [
+    "$root_gen_dir/blink/EventModulesInterfaces.in",
+  ]
+  outputs = [
+    "$blink_modules_output_dir/EventModules.cpp",
+    "$blink_modules_output_dir/EventModulesHeaders.h",
+    "$blink_modules_output_dir/EventModulesInterfaces.h",
+  ]
+}
+
+# GYP version: EventModulesNames action in bindings_modules_generated
+make_names("bindings_modules_generated_event_modules_names") {
+  in_files = [
+    "$root_gen_dir/blink/EventModulesInterfaces.in",
+  ]
+  outputs = [
+    "$blink_modules_output_dir/EventModulesNames.cpp",
+    "$blink_modules_output_dir/EventModulesNames.h",
+  ]
+}
+
+# GYP version: EventTargetModulesFactory action in bindings_modules_generated
+make_event_factory("bindings_modules_generated_event_target_modules_factory") {
+  in_files = [
+    "../../modules/EventTargetModulesFactory.in",
+  ]
+  outputs = [
+    "$blink_modules_output_dir/EventTargetModulesHeaders.h",
+    "$blink_modules_output_dir/EventTargetModulesInterfaces.h",
+  ]
+}
+
+# GYP version: EventTargetModulesNames action in bindings_modules_generated
+make_names("bindings_modules_generated_event_target_modules_names") {
+  in_files = [
+    "../../modules/EventTargetModulesFactory.in",
+  ]
+  outputs = [
+    "$blink_modules_output_dir/EventTargetModulesNames.cpp",
+    "$blink_modules_output_dir/EventTargetModulesNames.h",
+  ]
+}
+
+# ------------------------------------------------------------------------------
+
+# GYP version: Source/bindings/modules/generated.gyp:interfaces_info_individual_modules
+compute_interfaces_info_individual("interfaces_info_individual_modules") {
+  sources_static = modules_static_idl_files
+  # No generated files currently, will add with constructors
+  sources_generated = []
+  component_dir = "modules"
+  output_file =
+    "$bindings_modules_output_dir/InterfacesInfoModulesIndividual.pickle"
+}
+
+# GYP version: Source/bindings/modules/generated.gyp:interfaces_info
+action("interfaces_info") {
+  script = "$bindings_scripts_dir/compute_interfaces_info_overall.py"
+
+  source_prereqs = [
+    "$bindings_core_output_dir/InterfacesInfoCoreIndividual.pickle",
+    "$bindings_modules_output_dir/InterfacesInfoModulesIndividual.pickle",
+  ]
+  outputs = [
+    "$bindings_modules_output_dir/InterfacesInfoModules.pickle",
+  ]
+
+  args = [
+    "--write-file-only-if-changed=1",
+    "--",
+    rebase_path(
+        "$bindings_core_output_dir/InterfacesInfoCoreIndividual.pickle",
+        root_build_dir),
+    rebase_path(
+        "$bindings_modules_output_dir/InterfacesInfoModulesIndividual.pickle",
+        root_build_dir),
+    rebase_path(
+        "$bindings_modules_output_dir/InterfacesInfoModules.pickle",
+        root_build_dir),
+  ]
+
+  deps = [
+    ":interfaces_info_individual_modules",
+    "//third_party/WebKit/Source/bindings/core:interfaces_info_individual_core",
+  ]
+}
+
+

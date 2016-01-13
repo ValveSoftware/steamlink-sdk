@@ -1,0 +1,3 @@
+#! [link]
+QT += winextras
+#! [link]

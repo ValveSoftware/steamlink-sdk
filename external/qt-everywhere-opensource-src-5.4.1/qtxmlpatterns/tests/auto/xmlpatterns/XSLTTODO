@@ -1,0 +1,1450 @@
+This is a TODO file for XSL-T 2.0 support.
+
+- LHF:
+    * Warning bug, last parameter is always whined about.
+    * Box in comment/PI/text/ws(?) handling -- pending Matthias
+    * type036 -- namespace on top element isn't copied
+    * XTDE0865
+    * Attend XSLTTokenizer::isXSLT()
+    * Remove redundant set() calls in setFocusHelper().
+
+- Missing features:
+    General                                     Priority
+    ---------------------
+    * 1.0 QXmlQuery::evaluateTo(QIODevice *)    P1 DONE
+    * 1.0 Test suite integration                P1 DONE
+    * 1.0 xsl:key                               P1
+    * 1.0 fn:key()                              P1
+    * 1.0 2.0 Compatibility mode                P1
+    * 1.0 Regular parameters in templates       P1
+    * 1.0 xsl:include                           P1
+    * 1.0 xsl:copy-of                           P1
+    * 1.0 xsl:copy                              P1
+    * 1.0 xsl:import                            P1
+    * 1.0 fn:format-number                      P1
+    * 1.0 xsl:message                           P2
+    * 1.0 fn:current()                          P1 DONE
+    * 2.0 fn:type-available()                   P3 DONE
+    * 2.0 xsl:use-when                          P3
+    * 2.0 fn:unparsed-entity-uri()              P3
+    * 2.0 fn:unparsed-entity-public-id()        P3
+    * 2.0 Tunnel Parameters                     P3
+    * 2.0 xsl:attribute-set                     P3
+    * 1.0 xsl:decimal-format                    P2
+    * 1.0 xmlpatterns: initial template         P1 DONE
+    * 1.0 xsl:number                            P1
+    * 1.0 Complete handling of xsl:sort         P2
+    * 2.0 Grouping
+        - fn:current-group()
+        - fn:grouping-key()
+        - xsl:for-each-group()
+    * 2.0 Regexp
+        - xsl:analyze-string
+        - xsl:matching-substring
+        - xsl:non-matching-substring
+        - fn:regex-group()
+    * 2.0 Date & Time formatting
+        - fn:format-dateTime()
+        - fn:format-date()
+        - fn:format-time()
+
+    Serialization & Output:
+    ----------------------
+    * 1.0 xsl:output
+    --- Tie together serialization. Should we add
+        QXmlQuery::evaluateTo(QIODevice 1.0 const) ?
+    * 2.0 xsl:character-maps
+    * 2.0 xsl:character-map
+    * 2.0 xsl:result-document
+    --- Should the "default output" be handle with xsl:result-document? Would
+        depend on compilation.
+
+Optimizations:
+    * Remove adjacent text node constructors
+    * Remove string-join when first arg's static cardinality is not more than one
+    * Remove string-join when the second arg is statically known to be the empty string.
+    * Remove string-join when the second arg is a single space and the parent is a text node ctor.
+    * Rewrite to operand if operands are one. What about type conversions?
+    * Replace lookups with xml:id with calls on id().
+    * Recognize that a/(b, c) is equal to a/(b | c). The later does selection and node sorting in one step.
+    * Remove LetClause which has empty sequence as return clause, or no variable dependencies at all.
+    * Do a mega test for rewriting /patterns/:
+                    "node() | element()" => element()
+                    "comment() | node()" => comment()
+
+      and so forth. This sometimes happens in poorly written patterns. How does
+      this rewrite affect priority calculation?
+
+Tests:
+    * xml:id
+        - Come on, the stuff needs to be reorganized xml:id.
+        - Read in xml:id document with whitespace in attrs, write the doc out. Attrs should be normalized.
+        - Do lookups of IDs with xml:id attrs containing whitespace.
+
+    * current()
+        - Use current() inside each instruction
+        - In a template pattern
+        - Several invocations: current()/current()/current()
+
+
+    * Diagnosticsts:
+        - See http://www.w3.org/Bugs/Public/show_bug.cgi?id=5643 . Comments
+          should be taken into account when comparing. This suggests that we
+          don't have any test which produces a document with XML comments.
+
+    * element-available()
+        - Review the tests.
+        - Try using declarations in XSL-T, should return false
+        - Use xsl:variable(both instr and decl)
+        - invoke with all the XSL-T instructions.
+        - Should return false for when, otherwise, matching-substring, non-matching-substring, etc?
+        - Supply the namespace in the name via the default namespace, no prefix.
+
+    * unparsed-text()
+        - Load an empty file
+        - Use a fragment in the URI
+        - Use an invalid URI
+        - Use device bindings and a QRC to ensure that we're not using a generic
+          network manager.
+        - Duplicate all the network tests. Same as for doc()
+
+    * unparsed-text-available()
+        - Same as for unparsed-text()
+
+    * Sequence constructor that contains only:
+        - XML comment
+        - whitespace text node
+        - processing instruction
+        - a mix of the three
+
+    * xsl:function
+        - Ensure that it's not it's not in scope for use-when.
+        - xsl:function/xsl:param: use processing instructions, whitespace and comments as child: should be stripped
+        - Use <xsl:function/> : @name missing.
+        - Don't strip ws, and have ws between two xsl:param, and between xsl:function and xsl:param.
+        - Use xsl:function with no body.
+        - use xsl:param/@tunnel = no
+        - use xsl:param/@tunnel = yes
+        - use an invalid value for xsl:param/@tunnel = yes
+        - Have a non-WS text node in xsl:function/xsl:param/
+        - Have a WS text node in xsl:function/xsl:param/
+        - Have a WS text node in xsl:function/xsl:param/ while preserving WS.
+        - use a comment as child of xsl:param
+        - use a PI as child of xsl:param
+        - XTSE0770 with import precedence and all that.
+        - have two identical function in the stylesheet. The last has override=no. Should still report XTSE0770.
+        - have @override with invalid value.
+        - have whitespace inside xsl:param with different strip modes.
+        - Have @select => error
+        - Have body => error
+        - call current() inside body. XPDY0002?
+
+    * Does xml:base/StaticBaseURI and StaticCompatiblityStore prevent proper
+          type checking due to expectedOperandTypes() returns item()*?
+
+    * xsl:template/xsl:param
+        - Have @required=yes, and have @select => error
+        - Have @required=yes, and have body => error
+        - Have a variable reference in a template after another, which has
+          param, to ensure they aren't in scope.
+
+    * xsl:template/@match
+        - Have a pattern with unions, and have a body which relies on its
+          static type.
+
+    * @version:
+        Have @version on *all* attributes.
+
+    * xsl:call-template
+        - Have a variable reference just after a xsl:call-template which has
+          with-param, to ensure they aren't in scope.
+        - Have an xsl:with-param which isn't used in the template. Error?
+        - Have an xsl:with-param that has a type error.
+        - an xsl:with-param is not in scope for the next one. Test this => error.
+        - Have a call:template, whose with-param computes its value by calling
+          another template, while using an with-param too.
+
+    * XQuery:
+        - DONE Ensure namespace {expr} {expr} is flagged as invalid
+        - Use all XSL-T functions: error. Or we do that already?
+        - Ensure order by collation 1 + 1 is an error
+        - Ensure order by collation {1 + 1} is an error
+
+    * document()
+        - Basic node deduplication, no test exists for that.
+
+    * xsl:perform-sort
+        - Have no xsl:sort. Error. Must be at least one.
+        - have xsl:sort with invalid value.
+        - sort atomic values.
+        - Trigger "The stable attribute is permitted only on the first xsl:sort  element within a sort key specification"
+        - have xsl:sort with no select and no seq ctor.
+        - trigger the delegated queueing. All instructions inside.. xsl:sort?
+        - have multiple sort statements, with the last being <xsl:sort/> only.
+        - have WS between xsl:sort that is not ignorable.
+        - Use a variable reference whose name is equal to our synthetic name. This should be XPST0008, but probably isn't.
+        - Have an invalid value in xsl:sort/order. Use space
+        - have xsl:sort return numbers, but data-type specify string.
+        - have an AVT in xsl:sort/@lang
+        - have an AVT in xsl:sort/@case-order
+        - have an AVT in xsl:sort/@data-type
+        - have an AVT in xsl:sort/@stable
+        - Have mixed result, and hence incorrectly trigger  XPTY0018 which the code currently raise.
+        - Depend on the context position inside xsl:sort, when being child of
+          perform-sort. Currently we create singleton focuses(I think), while
+          we want the focus to be over the whole input sequence, not on indivual items.
+        - Have <xsl:perform-sort select="valid-expr"/>: xsl:sort is missing
+        - Use current() in the xsl:sort and the body, to ensure the right scope is picked up
+
+    * xsl:copy-of
+        - Have a text node. It's not allowed.
+        - Have PIs, comments, and ignorable whitespace as children. Sigh.
+
+    * xsl:namespace
+        - Use xsl:fallback.
+        - Use xsl:namespace inside xsl:variable and introspec the result in various
+          ways. This is a big area, we don't have namespace nodes in XQuery. Yes, calling evaluateSingleton() will probably crash.
+        - Use no select and no body, error: XTSE0910
+        - Have name expression evaluate to the empty sequence.
+
+    * Sequence ctor that:
+        - Has invalid element in XSL namespace. E.g, xsl:foo
+
+    * xsl:import
+        - Have element as child as xsl:import: disallowed.
+        - Have text as child as xsl:import: disallowed.
+        - Have PIs and comments as child as xsl:import: allowed.
+
+    * xsl:include
+        - Have element as child as xsl:include: disallowed.
+        - Have text as child as xsl:include: disallowed.
+        - Have PIs and comments as child as xsl:include: allowed.
+
+    * xsl:strip-space
+        - Have PIs, comments, whitespace as child.
+
+    * xsl:element
+        - Extract EBV from result.
+        - Use space in validation element.
+
+    * xsl:perform-sort
+        - Have PIs and comments in between xsl:sort elements.
+
+    * xml:space
+        - We never pop our stack. Fix the bug, and ensure we have tests for it.
+
+    * fn:unparsed-entity-uri
+        - Check type of return value
+        - Do basic unparsed-entity-uri("does-not-exist")
+
+    * fn:unparsed-entity-public-id
+        - Do basic unparsed-entity-uri("does-not-exist"), two permutations, check the spec
+
+    * xsl:element
+        - Use disallowed attribute: select
+        - use unknown type in @type
+        - Use @namespace, but be not in the lexical space of xs:anyURI
+        - use disallowed enumeration in @validation
+        - have a name expression that evaluates to a xs:QName value as opposed to a string.
+        - have a name expression that evaluates to a xs:QName value as opposed to a string. but
+          also have the namespace attribute
+
+    * xsl:attribute
+        - Use disallowed attribute: match
+        - use unknown type in @type
+        - Use @namespace, but be not in the lexical space of xs:anyURI
+        - use disallowed enumeration in @validation
+        - have a name expression that evaluates to a xs:QName value as opposed to a string.
+        - have a name expression that evaluates to a xs:QName value as opposed to a string. but
+          also have the namespace attribute
+
+    * xsl:template
+        - Use the union keyword, it's forbidden, only "|" is allowed
+        - Use an expression other than Literal and VarRef in KeyValue[8]
+        - use a function other than key().
+        - have a declaration that only can apperar as a child of xsl:stylesheet.
+        - Have an element in the XSL-T namespace, but which is invalid, e.g "bar"
+        - Use an axis other than child or attribute in pattern.
+        - Have a template that no no match and no name attribute.,  XTSE0500
+        - use child::document-node() in pattern
+        - use @foo/child in pattern
+        - apply templates to parentless attributes.
+        - Have 3e3 in @priority
+        - Have a @match with more than two alternatives, e.g "a | b | c", and have them all actually matching.
+        - Use an XML name in the mode so we trigger
+          NCNameConstructor::validateTargetName()
+        - A template which only has a non-WS text node.
+        - A template with param, followed by text node.
+
+    * Simplified stylesheet
+        - Use @version attribute only on doc element. Should fail, since @{XSL-T]version must be present
+
+    * fn:current()
+        - Have <xsl:value-of select="current()"/>
+
+    * xsl:variable have a variable reference appearing before its global declaration, and then somehow trigger recursion.
+    * xsl:choose
+        - elements/nodes intermixed with xsl:choose/xsl:when
+        - invalid attribute on xsl:choose
+        - invalid attribute on xsl:when
+        - invalid attribute on xsl:otherwise
+        - invalid attribute on xsl:if
+        - invalid attribute on xsl:template
+        - invalid attribute on xsl:stylesheet
+        - invalid attribute on xsl:transform
+        - xsl:otherwise in the middle between xsl:when elements.
+        - use namespace declarations on xsl:when
+        - use namespace declarations on xsl:otherwise
+        - use namespace declarations on xsl:choose
+
+    * Namespaces:
+        - Have:
+            <xsl:sequence xmlns:bar="http://example.com/" select="1"/>
+            <xsl:sequence select="bar:foo()"/>
+
+    * XPath
+        - For each XQuery-specific expression, add a test using that expression:
+            - typeswitch
+            - let
+            - validate
+            - extension expression
+            - unordered
+            - ordered
+            - for
+            - computed text node constructor
+            - computed attribute constructor
+            - computed comment constructor
+            - computed PI constructor
+            - computed element constructor
+            - computed document constructor
+            - direct element constructor
+            - direct comment constructor
+            - direct PI constructor
+            - all declarations
+
+        - Use all the predefined prefixes in XQuery; non are in XSL-T.
+
+    * xsl:when
+        - Use xml:space on it
+
+    * xsl:otherwise
+        - Use xml:space on it
+
+    * xsl:version
+        - Use letters, XTSE0110
+        - Use a float: 2e3, XTSE0110
+        - Use a weird number, 2.00000001
+
+    * xsl:document
+        - use disallowed attribute: select.
+        - use unknown type in @type
+        - use disallowed enumeration in @validation
+        - What happens if the type in @type is unknown?
+        - Use xml:base attr and check URI.
+
+    * xsl:sequence
+        - use match attribute
+
+    * xsl:stylesheet
+        - Use @xsl:default-collation on xsl:stylesheet. Shouldn't have any effect. Or?
+        - Use an XSL-T instruction as child -- invalid.
+        - Have an element in the XSL-T namespace, but which is invalid, e.g "foo"
+        - Have xsl:default-collation="http://example.com/" on xsl:stylesheet
+        - Use prefix local: in say a function name. Not allowed.
+        - Use comments after document element.
+        - XTSE0010: <xsl:invalid version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"/>
+        - Change the version with @xsl:version on all elements that we have.
+
+    * Patterns.
+        - Basic */* test:
+            <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"><xsl:template match="*/*"><xsl:sequence select="'MATCH'"/></xsl:template>
+
+
+</xsl:stylesheet>
+
+        - Basic a/b test:
+            <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform"><xsl:template match="a/b"><xsl:sequence select="'MATCH'"/></xsl:template>
+
+
+</xsl:stylesheet>
+    * xsl:strip-whitespace
+        - Use a namespace prefix which is not unboudn
+        - have a syntax error in one of the node tests
+
+    * xsl:preserve-whitespace
+        - Use a namespace prefix which is not unboudn
+        - have a syntax error in one of the node tests
+
+    * xsl:value-of
+        - select attribute, and comment in body(error, XTSE0870)
+        - select attribute, and processing instruction in body(error, XTSE0870)
+        - select attribute, and CCDATA in body(error, XTSE0870)
+        - select attribute, and element in body(error, XTSE0870)
+        - use xsl:sequence in body. Default separator should be none.
+        - use match attribute
+        - use double apostrophes/quotes. How are they dealt with?
+
+    * xsl:apply-templates
+        - use match attribute
+        - apply in a mode for which no templates are declared
+        - apply in a mode which is mispelled for another.
+        - Have: <xsl:apply-templates select="id('id2')/a | id('id5')"/>
+          We CRASH
+
+    * xsl:for-each
+        - No body: <xsl:for-each select="abc"/>
+        - No select attribute: <xsl:for-each>text</xsl:for-each>
+        - Have mixed result, and hence incorrectly trigger  XPTY0018 which the code currently raise.
+        - Have:
+            <xsl:for-each select="1, 'asd'">
+                <xsl:sequence select="."/>
+            </xsl:for-each>
+
+    * xsl:variable
+        - Test that function conversion rules are invoked
+        - For what is an xsl:variable in scope? Where does the spec state it? Test
+          that it is not in scope where applicable.
+        - Have: <variable name="a" select=""/>
+
+    * xsl:text
+        - count the result of a template that has text node(non-ws),
+          xsl:text(content), xsl:content(zero content), text node(non-ws
+        - Have an element inside xsl:text: XTSE0010.
+        - Use comments and PIs intermixed with text inside.
+
+    * xsl:for-each
+        - use match attribute
+        - What should this produce? Saxon produces "123" but with xsl:text removed, "1 2 3".
+                <xsl:template match="/">
+                    <xsl:for-each select="1 to 3">
+                        <xsl:sequence select="."/>
+                        <xsl:text></xsl:text>
+                    </xsl:for-each>
+                </xsl:template>
+
+    * xsl:if
+        - Have <xsl:if test="">body</xsl:if>. Error
+        - Have <xsl:if test="valid-test"/>. That is, empty body.
+
+    * xsl:sequence
+        - select attribute missing: <xsl:sequence/>
+        - content other than xsl:fallback, e.g text node.
+        - How do we sort?
+
+    * for every state for XSL-T parsing:
+        - Use invalid element that is in the XSL-T namespace.
+
+    * In all cases expressions are queued/generated:
+        - Trigger expression precedence bugs, due to lack of paranteses.
+
+    * Use xml:space in stylsheeet that doesn't have value preserve nor default.
+    * For each case we have while(!reader.atEnd()):
+        - test that triggers parser error and that we detect it properly.
+
+    * for every element that allows text:
+        * Use CDATA. QXmlStreamReader distinguishes between the two. text before and after.:wa
+        * Use XML Comments and split up text nodes.
+
+    * Patterns:
+        * Ensure node() doesn't match document nodes().
+        * "//" is an invalid pattern
+        * Is there some expression which has no children? findAxisStep()
+        * Use @*/asdo
+        * XPST0003: key(concat("abc", "def"), "abc")
+        * XPST0003: id(concat("abc", "def"))
+        * XPST0003: concat('abc', 'def') // WILL CRASH
+        * XPST0003: unknownFunction()
+        * Use double: key("abc", 3e3)
+        * Use three argument key() in pattern.
+
+    * Simplified stylsheet modules:
+        * Omit the xsl:version attribute. XTSE0010
+
+    * type-available()
+        * We have no tests at all?
+
+    * have xml:base on the following elements and check them with
+      static-base-uri():
+        - all instructions
+        - all declarations, eg:
+        - xsl:choose, xsl:choice, xsl:otherwise
+        - xsl:template
+        - xsl:function
+        - etc
+
+    Embedded stylesheet modules
+        - Verify that we don't choke on xsl attrs with invalid attributes outside;
+          "In an embedded stylesheet module, standard attributes appearing on
+          ancestors of the outermost element of the stylesheet module have no effect."
+
+    Parsing:
+        - Error message for:
+                <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+                    <xsl:template match="/">
+                        <e/>
+                </xsl:stylesheet>
+        - Use the document "<do/" as focus.
+        - Write a test for each call to checkForParseError();
+
+
+    function-available:
+        - Generally low coverage it seems.
+
+
+<xsl:template match="/"/>                   <!-- t0 -->
+<xsl:template match="*"/>                   <!-- t1 -->
+<xsl:template match="asd"/>                 <!-- t2 -->
+<xsl:template match="comment()"/>           <!-- t3 -->
+<xsl:template match="a/b"/>                 <!-- t4 -->
+
+<xsl:apply-templates select="*"/>
+
+
+*(
+((/)/call-template(t0))
+(*/call-template(t1))
+(element(asd)/call-template(t2))
+(comment()/call-template(t3))
+(a/b/call-template(t3))
+)
+
+==>
+
+*/typeswitch(.)
+  case $g0 as document-root()   return call-template(t0)
+  case $g0 as element()         return call-template(t1)
+  case $g0 as element(asd)      return call-template(t2)
+  case $g0 as comment()         return (call-template(t3)
+  case $g0 as a/b               return (call-template(t4)
+
+
+Patterns are used in:
+    - xsl:for-each-group/@group-starting-with
+    - xsl:key/@match
+    - xsl:number/(@count, @from)
+    - xsl:template/@match
+
+
+
+c/b
+=>
+child-or-self::element(b)[parent::element(c)]
+
+c/b/a
+=>
+child-or-self::element(a)[parent::element(b)[parent::element(c)]]
+
+d/c/b/a
+=>
+child-or-self::element(a)[parent::element(b)[parent::element(c)[parent::element(d)]]]
+
+
+
+-----------------------------------
+    <xsl:apply-templates select="foo"/>
+                   =>
+
+    child::element(foo) map apply-template(#default)
+-----------------------------------
+
+-----------------------------------
+    <xsl:apply-templates mode="yo" select="foo">
+        <xsl:sort select="@bar"/>
+    </xsl:apply-templates>
+                   =>
+
+    let $g0 := for $g1 in child::element(foo)
+               order by @bar
+               return $g1
+    return apply-template(yo)
+-----------------------------------
+
+-----------------------------------
+<xsl:perform-sort select="$in">
+    <xsl:sort select="@sortKey"/>
+</xsl:perform-sort>
+
+        =>
+
+sort $in/order by @sortKey
+-----------------------------------
+
+
+-----------
+
+John Snelson of Oracle Berkeley DB XML & XQilla writes in private mail:
+
+        I'd had the same thought myself, too - you must be reading my mind ;-)
+
+What is he referring to?
+
+If one spends some time on fancy diagrams, Qt XML Patterns[LINK]'s, the XQuery
+engine that shipped in Qt 4.4, architecture looks like this:
+
+
+Recently I've started implementing XSL-T 2.0(hopefully to be done for Qt 4.5)
+and the whole approach to this is modifying the existing codebase as follows:
+
+
+
+
+
+
+Put differently, when Qt XML Patterns is dealing with XSL-T stylesheets, it
+replaces the XQuery tokenizer with a tokenizer which translates the
+stylesheet into XQuery tokens, that is consumed by the existing XQuery
+parser, extended with both grammar non-terminals and tokens to accomodate the
+XSL-T features that XQuery doesn't have. In compiler terms, it can be seen as
+an "extreme" frontend. Not only is the same intermediate representation used,
+the grammar is too.
+
+What is the point of this?
+
+The functional overlaps XQuery, XSL-T and others as well have is of course
+widely established. Even the specifications are at times generated from the
+same source documents, and that implementations subsequently modularize code
+is of course second nature to any engineer, and seen to some degree or
+another in contemporary implementations. Typically this happens in a
+traditional fashion, classes are re-used, their functionality widened to
+cover both/more languages. However, I believe doing it directly on the
+grammar level introduce several advantages.
+
+The parser is based on Bison and since it's not running in the experimental
+pull mode, it uninterruptedly calls the tokenizer. The tokenizer, class
+XSLTTokenizer, in turns calls an pull-based XML parser: QXmlStreamReader.
+What often complicate in ocassions like this is who that gets the right to
+call who, and who gets the convenience of tracking state in a natural way
+through a call stack.
+
+XSLTTokenizer is conveniently implemented: as it encounters declarations and
+instructions in the stylsheet, it recursively descends in the XSL-T grammar
+through its own functions, adding tokens to a queue, which is delivered to
+the parser when asked -- and when the queue is empty it resumes queuing
+tokens. The tokenizer is fairly crude, it queues up tokens for instructions
+uninterrupted, and only have states between declarations. Hence,
+XSLTTokenizer queues up tokens for each template and function body, but
+enters "delivery mode" inbetween. This of course periodically breaks
+streaming since it's buffering up tokens, but considering that the memory
+usage for tokens is low and that a finer granularity for states(say, being
+able to pop the stacks when being inbetween two xsl:when elements) requires a
+significant effort, this is fine until proven otherwise.
+
+
+Advantages
+---------------
+discuss analysis.
+
+
+XSLTTokenizer rewrite XSL-T to XQuery as follows:'
+
+Instructions
+-------------
+xsl:if An if/then/else expression whose else branch is the empty sequence
+
+xsl:choose: again, a nesting of if/then/else expressions
+
+xsl:value-of: a computed text node constructor. Its body contains a call to
+string-join() involving the separator attribute
+
+xsl:variable: a let/return binding. Since XSL-T is statement-like in its
+sequence constructors, parantheses are used to ensure the variable binding is
+in-scope for all subsequent statements.
+
+for-each: it is the iteration/mapping mechanism XQuery fails to supply,
+despite path steps and the FLWOR machinery. for-each iterates using a
+focus(which for doesn't, but paths do), but can do so over atomic values and
+unconditionally without sorting the result by document order(which paths
+can't/doesn't, but for do). For implementations that normalize paths into for
+loops as the formal semantics do, the approach is straight forward. In
+Qt XML Patterns' case, a synthetic token is queued which signals to create
+a "relaxed" path expression which skips halting on atomic values in its
+operands(XPTY0019) and also skips node sorting.
+
+All "direct" node constructors, like <myElement/>, and "computed" node
+constructors, like xsl:element, are all rewritten into the corresponding
+XQuery computed node constructors. In some cases direct node constructors
+could have been used, but in anycase the IR yielded is the same, and that
+computed constructors happen to use less tokens.
+
+A particular case is xsl:namespace, an instruction which doesn't have any
+corresponding expression in XQuery. In the case of Qt XML Patterns, the code
+obvious already have a notion of "create this namespace on this element", and
+an AST node was trivially added for fetching the namespace components
+computationally. However, the introduction of xsl:namespace in an XQuery
+implementation is not to be taken lightly wrt. to for instance testing, since
+it introduces a new node type.
+
+perform-sort: surprisingly this expression of all complicate matters, for the
+simple reason that its operands occur in the opposite order compared to
+XQuery when the input sequence is supplied through a sequence constructor,
+hence breaking the streamed approach. XSLTokenizer solves this by
+buffer: the attributes of the xsl:perform-sort elements are stored,
+the xsl:sort elements queued onto a temporary queue, and subsequently is
+either the select attribute or the sequence constructor queued, and the
+tokens for xsl:sort appended afterwards. This complicated code greatly, since
+XSLTokenizer had to be able to "move around" sequences of tokens.
+
+In addition perform-sort has the same problem as for-each, the iteration
+mechanism falls inbetween paths and the for loop. The focus for perform-sort
+is also the focus for the sequence constructor and the select attribute, but
+the focus for the xsl:sort elements is the initial sequence. This is
+approached by having a for loop, and where the expression in each order by
+clause has a relaxed path expression whose left operand is a variable
+reference to what the for loop bound.
+TODO Doesn't work. Focus size wrong.
+
+This is an approach that implementations of the "second generation" of the
+technologies can take. The bif difference is that XSL-T 2.0 doesn't have the
+restrictions of 1.0, more evident in XQuery's syntax.
+
+xsl:sort XSL-T is much more dynamic than XQuery through the use of templates,
+but also
+because more decisions can be taken at runtime through all attribute value
+templates. xsl:sort is surely a good example of this with its AVTs for
+language, order, collation, stability and what not. XQuery's order by stands
+in strong contrast, which has these coded in the grammar. In Qt XML Patterns'
+case, the AST node corresponding to order by was generalized to take things
+such as stability and order from operands. This is paid by the code paths in
+XQuery since for them are constants generated and inserted as operands even
+though its known at compile time what is needed. However, considering that
+these evaluations are not inside the actual sort loop, but instead only
+computed on each sort invocation, it shouldn't be too bad.
+
+xsl:message
+
+Templates
+-------------------------
+
+A big bucket of questions for an XQuery implementation is of course the
+introduction of templates. In this case it is too of large interest to
+rewrite relevant code into primitive XQuery expressions.
+
+Templates' drawback is often mentioned to be their dynamic nature which makes
+static inferences hard or impossible. However, by again rewriting in clever
+ways and making the code visible in a standard way, existing analysis code
+can operate upon it.
+
+For the purposes of this discussion, templates can be broken down into three
+distinct problems:
+
+A Finding what nodes to invoke upon. This is the expression found on
+xsl:apply-templates/@select, in the case of template rules
+
+B Concluding what template to invoke. This is the analyzis and evaluation of
+patterns, as found on xsl:template/@match, in the case of templates rules.
+This is seen as a critical, as for instance Michael Kay emphasizes in Saxon:
+Anatomy of an XSLT processor [LINK
+http://www.ibm.com/developerworks/library/x-xslt2/]
+
+C Invoking the template for the given context node
+
+For these three steps, the two first are specific to template rules, while the
+latter, invoking templates, can be seen to be treated identically regardless
+of kind: template rules as well as named templates.
+
+With this perspective as background, lets try to write it into XQuery
+primitives.
+
+First, all templates regardless of kind are instanciated by name. In the case
+of templates rules, a synthetic name is given. They are invoked by an XPath
+function named call-template() that as first argument takes the name of the
+template, and also handles template parameters. This "template callsite"
+which is separated from what it is invoked with and whether it is invoked,
+knows its target template statically, and hence can be subject to inlining,
+and usual functional analysis.
+
+Focus and concatenation of output handled.
+One should consider whether templates couldn't be considered as functions,
+with specialized arguments in the case of tunnel parameters.
+Knowing what templates will be invoked could be used to conclude
+node sorting is not necessary.
+Mention how we do builtin templates
+
+Attribute Value Templates
+-------------------------
+XSL-T make extensive use of Attribute Value Templates(AVTs), which are handled
+by turning the grammar piece in XQuery that is closest, into an expression.
+Simply, ExprSingle[32] is extended with the branch:
+
+AVT LPAREN AttrValueContent RPAREN
+
+where AVT is a synthetic token XSLTokenizer generates. This means that the
+code handling AVTs in XQuery's direct attribute constructors handles AVTs as
+generic expressions. AttrValueContent creates a call to the concat()
+function, over the operands.
+
+Deal with fn:current by using let $current := . return instruction.
+
+Another thing related to order and parsing is that XSL-T has more freedom wrt.
+to where variables are in scope. For instance, a variable declaration appearing
+after a user function declaration is in scope for the function in XSL-T, but
+that's not the case in XQuery. This means that delayed variable resolution must
+be added, something which wasn't, and cannot be active, for the XQuery code.
+See 9.7 Scope of Variables.
+
+The parser generates for the builtin template rules:
+
+    declare template matches (text() | @*) mode #all
+    {
+        text{.}
+    };
+
+    *
+By having templates invocations essentially expressed as a callsite, or
+branching, allows control flow analysis in a traditional manner, and hence the
+possiblity to conclude what templates that are possibly invoked in various
+contexts (or not invoked). One good example where this could improve template
+matching is patterns containg predicates: let's say a template matches text
+nodes with a predicate, but , doh I'm wrong.
+
+The problem with expressing template invocation with if expressions, is finding
+ambiguous matches.
+
+Although normalizing down to a small set of primitives has its advantages, one
+problem is with doing it too early. When doing it directly when tokenization,
+the higher-level perspective is lost and therefore must be restored
+again(example?). For instance, if an error is reported in a primitive, it must
+not appear as originating from that primitive. It's not contstrained to error
+reporting(example?). However, this is a general problem when compilers shift
+between different representations.
+
+One effect this parsing approach has, is that the stylesheet cannot be used as
+an input document(e.g, what document("") would evaluate to); in that case it
+has to be parsed again. I think this is for the better; in the case that the
+stylsheet has this dual role, it means representations are used which are
+designed specifically for these respective roles. Although doing a dual parsing
+step is costly, it's somewhat relieved by that the input is typically cached at
+the byte level(file system and higher layers such as web/application caches) in
+the case of traditional file loading.
+
+Another problem is that the grammar is used to solve implementation details,
+and this might show as part of when the parser do error reporting.
+
+If one decide to not send XSL-T through the XQuery parser, it can be an
+advantage to have as little business logic as possible in the XQuery parser
+such that it can be reused.
+
+Some parts of XSL-T's syntax doesn't translate well to XQUery syntax. Some
+parts doesn't follow structure very strongly, surely not the structures that
+map well to XQuery's syntax. These are xml:base, @version and other attributes
+that can appear on any element. Their information needs to be preserved and
+need to affect the output code, but these cannot be done in a way which fits
+naturally with the XQuery syntax, and hence leads to workarounds. Have whole
+section on how we do @version and @xml:base. Another problem is namespace
+declarations on the top document element.
+
+What largely makes me believe this technique fails is that the large and most
+important parts, templates, instructions, maps well to XQuery, but the small
+but yet not ignorable details like @version and @xml:base does not, to the
+degree that the approach at large fails.
+
+fn:document()
+------------------------
+See class documentation for DocumentFN. Document what optimizations one typically
+wants to implement(const-fold on card 1, constant propagate).
+
+
+In other words, it's reasonable to believe that it's possible to extend the
+XQuery grammar such that it functionality wise is able to do the same as XSL-T,
+but this doesn't equal that it is a good way to reach every gritty corner of
+the XSL-T specification.
+
+Patterns
+--------------------
+The up-side-down turning, discuss id/key().
+
+Declarations
+---------------------
+xsl:function: the 'declare function' declaration. TODO override
+
+XSL-T's error codes goes against good refactoring. Its codes are
+specific on each usage, compared to for instance XPTY0004.
+
+Optimizations: string-join()/value-of
+
+    <xsl:template match="document-node">
+        <xsl:apply-templates select="child::element(doc)"/>
+    </xsl:template>
+
+    <xsl:template match="child-or-top::element(doc)"/>
+
+        =>
+
+    document-node()/child::element(doc) map apply-template
+
+    matches child-or-top::element(doc)
+
+        =>
+
+    N/root(.)//(EE)
+
+    N == document-node()
+    EE == child::element(doc)
+
+        =>
+
+    document-node()/root(.)/descendant-or-self::node()/child::element(doc)
+
+    Optimize out already in createCopyOf()
+
+Bugs:
+    - DynamicContextStore and CurrentItemStore needs to implement
+      evaluateToReceiver().
+    - Don't we have a parsing bug in each place where we call insideSequenceConstructor(), and don't
+      wrap the result in parantheses? E.g, a whitespace node followed by an instruction will lead to parse
+      error if the parent is for instance xsl:when.
+
+In patterns we find:
+    - Function :id()
+    - Function :key()
+    - AxisStep
+    - GenericPredicate. Also used for paths.
+    - (CombineNodes)
+    - empty sequence; attribute::foo()/child::asd
+
+
+Test case, tokenizer asserts(fixed in 2a0e83b):
+        <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"  version="1.0">
+
+
+        <xsl:template match="/">
+        <xsl:call-template name="TestFunction"/>
+        </xsl:template>
+
+
+        <xsl:template name="TestFunction">
+
+
+        <xsl:call-template name="GetElem">
+        <xsl:with-param name="element-set"select="$super/*"/>
+        </xsl:call-template>
+
+        </xsl:template>
+
+        <xsl:template name="GetElem">
+        <xsl:param name="element-set"/>
+        <xsl:copy-of select="$element-set[@name]"/>
+        </xsl:template>
+
+        </xsl:stylesheet>
+
+Typing code:
+
+    <xsl:stylesheet xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/">
+
+            <xsl:call-template name="templateName">
+                <xsl:with-param name="a" select="2" />
+            </xsl:call-template>
+
+        </xsl:template>
+
+        <xsl:template name="templateName">
+                <xsl:param name="a" as="xs:integer"/>
+                <xsl:sequence select="$a"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Compat mode in attribute sets:
+    <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+        <xsl:attribute-set name="attrSet" version="1.0">
+            <xsl:attribute name="attributeName" select="1 + 'type error without compat mode'"/>
+        </xsl:attribute-set>
+
+        <xsl:template match="/">
+            <out xsl:use-attribute-sets="attrSet"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Space in mode:
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/">
+                <xsl:apply-templates mode="         #default"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+Type error in global template:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:variable name="wa" as="item()"/><!-- HERE, incorrect cardinality. -->
+
+        <xsl:template name="templateName"/>
+
+    </xsl:stylesheet>
+
+
+Variables are not in scope before its siblings:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template name="templateName">
+            <xsl:sequence select="$var"/>
+            <xsl:variable name="var" select="1"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Crashes:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+                    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                    xmlns:local="http://example.com/"
+                    version="2.0">
+
+        <xsl:variable name="var" as="xs:boolean">
+            <xsl:value-of select="local:doesNotExist()"/>
+        </xsl:variable>
+
+    </xsl:stylesheet>
+
+
+
+Whitespace handling, the important part is WS after xsl:template:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/" xml:space="preserve"><MATCH/></xsl:template>
+
+    </xsl:stylesheet>
+
+
+
+Whitespace handling, preserve, but not inside xsl:apply-templates:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w2.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/" xml:space="preserve">MATCH<xsl:apply-templates>
+
+            </xsl:apply-templates></xsl:template>
+
+    </xsl:stylesheet>
+
+Have top-level xml:space, ensure whitespace as child of xsl:stylesheet is ignored:
+
+    <xsl:stylesheet xml:space="preserve" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/">MATCH<xsl:apply-templates>
+
+            </xsl:apply-templates>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Compat mode, Saxon & Qt XML Patterns fails:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/">
+            <xsl:sequence version="1.0" select="string-join(current-dateTime(), 'separator')"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Compat mode, this is not in the suite:
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/">
+            <xsl:sequence version="1.0" select="subsequence((1, 2), '2')"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Crashes:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="doc"/>
+
+        <xsl:apply-templates select="item" mode="crazy" />
+
+
+    </xsl:stylesheet>
+
+Incorrectly yields compile error, XPST0003:
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match=""/>
+
+        <xsl:apply-templates select="item" mode="crazy" />
+
+    </xsl:stylesheet>
+
+Have a basic simplified stylesheet module:
+
+    <output xsl:version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+        <xsl:value-of select="/"/>
+    </output>
+
+Have no @version:
+    <output xsl:version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+        <xsl:value-of select="/"/>
+    </output>
+
+
+Is valid:
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0" >
+
+        <xsl:template match="/">
+            <xsl:perform-sort select=".">
+                <xsl:sort select="*"/>
+                <xsl:variable name="abc" select="b"/>
+            </xsl:perform-sort>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+Is valid:
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0" >
+
+        <xsl:template match="/">
+            <xsl:perform-sort select=".">
+                <xsl:sort select="*"/>
+                TEXT
+            </xsl:perform-sort>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+XTSE0020:
+    <literalResultElement xsl:validation="disallowedValue"/>
+
+XTSE0020:
+    <xsl:element name="localName" validation="disallowedValue"/>
+
+XTSE0805:
+    <e xsl:disallowedAttribute=""/>
+
+not XPST0003, not in test suite:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+        <xsl:template match="/">
+            <xsl:variable name="s" as="element()*"/>
+        </xsl:template>
+    </xsl:stylesheet>
+
+Parsing of many exprs in xsl:value-of(with separator):
+
+    <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+        <xsl:template match="/">
+            <xsl:value-of separator="SEP">
+                <xsl:sequence select="1"/>
+                <xsl:sequence select="2"/>
+            </xsl:value-of>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+Parsing of many exprs in xsl:value-of(without separator):
+
+    <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+        <xsl:template match="/">
+            <xsl:value-of>
+                <xsl:sequence select="1"/>
+                <xsl:sequence select="2"/>
+            </xsl:value-of>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+Check type of empty variables:
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        version="2.0">
+
+        <xsl:template match="/">
+            <xsl:variable name="empty"/>
+
+            <xsl:sequence select="'instance of xs:string:', $empty instance of xs:string, '(should be true)',
+                                  'instance of document-node():', $empty instance of document-node(), '(should be false)',
+                                  'value is:', $empty,
+                                  'END'"/>
+
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+Crashes:
+    <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+        <xsl:template match="/">
+            <e xmlns="ABC"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+invalid standard attributes on a simplified stylesheet module.
+
+
+
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+        xmlns:xs="http://www.w3.org/2001/XMLSchema"
+        version="2.0">
+
+        <!-- Type error: applying templates to a variable of type string -->
+        <?spec xslt#applying-templates?>
+        <?error XTTE0520?>
+
+        <xsl:template match="/">
+            <xsl:variable name="empty"/>
+
+            <xsl:sequence select="'instance of xs:string:', $empty instance of xs:string, 'instance of document-node():', $empty instance of document-node()"/>
+
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+        <xsl:template match="/">
+            <output>
+                    <xsl:sequence select="string-length(doesNotMatch)"/>
+                </output>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Asserts(not wellformed):
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+        <xsl:template match="/">
+            <output>
+            </outpu>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+From within a function, use the focus /through/ a variable reference:
+
+    <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:local="http://www.w3.org/2005/xquery-local-functions">
+
+        <xsl:variable name="var" select="node()"/>
+
+        <xsl:function name="local:function">
+            <xsl:sequence select="$var"/>
+        </xsl:function>
+
+        <xsl:template match="/">
+            <xsl:sequence select="local:function()"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+
+
+Loops infinitely:
+
+        <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+            <xsl:template match="/" version="1.0">
+                <xsl:namespace name="{doc/item}" select="'http://www.example.com'" version="1.0"/>
+            </xsl:template>
+
+        </xsl:stylesheet>
+
+
+Gives crash in coloring code:
+    Stylesheet:
+        <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
+
+            <xsl:template match="/">
+            </xsl:template>
+
+        </xsl:stylesheet>
+
+    Focus:
+        <a><b/><</a>
+
+
+Should evaluate to true:
+
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:xs="http://www.w3.org/2001/XMLSchema" version="2.0">
+
+        <xsl:template match="/">
+            <xsl:call-template name="yo">
+                <xsl:with-param name="arg" as="xs:integer">
+                    <xsl:sequence select="xs:untypedAtomic('1')"/>
+                </xsl:with-param>
+            </xsl:call-template>
+        </xsl:template>
+
+        <xsl:template name="yo">
+            <xsl:param name="arg"/>
+            <xsl:sequence select="$arg instance of xs:integer"/>
+        </xsl:template>
+
+    </xsl:stylesheet>
+
+Crashes, should be XTTE0570:
+    <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+                    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+                    exclude-result-prefixes="xs" version="2.0">
+
+    <xsl:template match="/">
+        <xsl:apply-templates>
+            <xsl:with-param name="second_seq" as="xs:string">
+            </xsl:with-param>
+
+        </xsl:apply-templates>
+    </xsl:template>
+
+    <xsl:template match="empty">
+        <xsl:param name="second_seq">def</xsl:param>
+        <xsl:sequence select="$second_seq instance of xs:string"/>
+    </xsl:template>
+
+    </xsl:stylesheet>
+
+* Parse error:
+
+        <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+            <xsl:template match="/">
+                <xsl:copy>
+                    <xsl:sequence select="1"/>
+                    <xsl:sequence select="2"/>
+                </xsl:copy>
+            </xsl:template>
+
+        </xsl:stylesheet>
+
+* Write tests with xsl:with-param whose body is empty. That's effectively an
+  empty sequence(?) which needs to be handled properly, and (dynamically) type
+  checked correctly.
+
+--------------------------------------------------------------------------
+
+
+
+
+
+--------------------------------------------------------------------------
+
+
+
+        -------------------------------------------------------------
+        /a/b
+
+         =>
+
+        b[parent::a[parent::document()]]
+
+        but we currently have:
+
+        (b[parent::a])[parent::document()]
+
+        -------------------------------------------------------------
+        a/b
+
+        =>
+
+        b[parent::a]
+
+        -------------------------------------------------------------
+        a/b/c
+
+        =>
+
+        c[parent::b[parent::a]]
+
+        -------------------------------------------------------------
+        a/b/c/d
+
+        =>
+
+        d[parent::c[parent::b[parent::a]]]
+
+
+        -------------------------------------------------------------
+        /a/b/c/d
+
+        =>
+
+        d[parent::c[parent::b[parent::a[parent::document()]]]]
+
+        This is handled specially; see | SLASH RelativePathPattern
+
+
+        b/c rewrites to:
+            TruthPredicate
+                AxisStep    self::element(c)
+                AxisStep    parent::element(b)
+
+        For a/b/c we get:
+
+            TruthPredicate
+                TruthPredicate
+                    AxisStep    self::element(c)
+                    AxisStep    parent::element(b)
+                AxisStep    parent::element(a)
+
+        But we want:
+
+            TruthPredicate
+                AxisStep    child-or-top::element(c)
+                TruthPredicate
+                    AxisStep    parent::element(b)
+                    AxisStep    parent::element(a)
+
+        For a/b/c/d we get:
+
+            TruthPredicate
+                TruthPredicate
+                    TruthPredicate
+                        AxisStep    self::element(d)
+                        AxisStep    parent::element(c)
+                    AxisStep    parent::element(b)
+                AxisStep    parent::element(a)
+
+        For a/b/c/d we want:
+
+            TruthPredicate
+                AxisStep    self::element(d)
+                TruthPredicate
+                    AxisStep    parent::element(c)
+                    TruthPredicate
+                        AxisStep    parent::element(b)
+                        AxisStep    parent::element(a)
+
+
+        For /a/b we get:
+
+            TruthPredicate
+                TruthPredicate:
+                    AxisStep    self::element(b)
+                    AxisStep    parent::element(a)
+                AxisStep    parent::document()
+
+        but we want:
+
+            TruthPredicate
+                AxisStep    self::element(b)
+                TruthPredicate: // PREDICATE
+                    AxisStep    parent::element(a)
+                    AxisStep    parent::document() // PREDICATE
+
+    --------------------------------------------------------------
+    For a/b/c we get:
+        TruthPredicate
+            AxisStep self::element(c)
+            TruthPredicate
+                parent::element(b)
+                parent::element(a)
+

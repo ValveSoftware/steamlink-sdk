@@ -1,0 +1,239 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN" "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<refentry id="modprobe.d">
+  <refentryinfo>
+    <title>modprobe.d</title>
+    <productname>kmod</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Jon</firstname>
+        <surname>Masters</surname>
+        <email>jcm@jonmasters.org</email>
+      </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Robby</firstname>
+        <surname>Workman</surname>
+        <email>rworkman@slackware.com</email>
+      </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lucas</firstname>
+        <surname>De Marchi</surname>
+        <email>lucas.de.marchi@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+
+  <refmeta>
+    <refentrytitle>modprobe.d</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>modprobe.d</refname>
+    <refpurpose>Configuration directory for modprobe</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/lib/modprobe.d/*.conf</filename></para>
+    <para><filename>/etc/modprobe.d/*.conf</filename></para>
+    <para><filename>/run/modprobe.d/*.conf</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1><title>DESCRIPTION</title>
+    <para>Because the <command>modprobe</command> command can add or
+      remove more than one module, due to modules having dependencies,
+      we need a method of specifying what options are to be used with
+      those modules.  All files underneath the
+      <filename>/etc/modprobe.d</filename> directory which end with the
+      <filename>.conf</filename> extension specify those options as
+      required.  They can also be used to create convenient aliases:
+      alternate names for a module, or they can override the normal
+      <command>modprobe</command> behavior altogether for those with
+      special requirements (such as inserting more than one module).
+    </para>
+    <para>
+      Note that module and alias names (like other module names) can
+      have - or _ in them: both are interchangeable throughout all the
+      module commands as underscore conversion happens automatically.
+    </para>
+    <para>
+      The format of and files under <filename>modprobe.d</filename> is
+      simple: one command per line, with blank lines and lines starting
+      with '#' ignored (useful for adding comments).  A '\' at the end
+      of a line causes it to continue on the next line, which makes the
+      file a bit neater.
+    </para>
+  </refsect1>
+
+  <refsect1><title>COMMANDS</title>
+    <variablelist>
+      <varlistentry>
+        <term>alias <replaceable>wildcard</replaceable> <replaceable>modulename</replaceable>
+        </term>
+        <listitem>
+          <para>
+            This allows you to give alternate names for a module.  For example:
+            "alias my-mod really_long_modulename" means you can use "modprobe
+            my-mod" instead of "modprobe really_long_modulename".  You can also
+            use shell-style wildcards, so "alias my-mod*
+            really_long_modulename" means that "modprobe my-mod-something" has
+            the same effect.  You can't have aliases to other aliases (that way
+            lies madness), but aliases can have options, which will be added to
+            any other options.
+          </para>
+          <para>
+            Note that modules can also contain their own aliases, which you can
+            see using <command>modinfo</command>.  These aliases are used as a
+            last resort (ie. if there is no real module,
+            <command>install</command>, <command>remove</command>, or
+            <command>alias</command> command in the configuration).
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>blacklist <replaceable>modulename</replaceable>
+        </term>
+        <listitem>
+          <para>
+            Modules can contain their own aliases: usually these are aliases
+            describing the devices they support, such as "pci:123...".  These
+            "internal" aliases can be overridden by normal "alias" keywords,
+            but there are cases where two or more modules both support the same
+            devices, or a module invalidly claims to support a device that it
+            does not: the <command>blacklist</command> keyword indicates that
+            all of that particular module's internal aliases are to be ignored.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>install <replaceable>modulename</replaceable> <replaceable>command...</replaceable>
+        </term>
+        <listitem>
+          <para>
+            This command instructs <command>modprobe</command> to run your
+            command instead of inserting the module in the kernel as normal.
+            The command can be any shell command: this allows you to do any
+            kind of complex processing you might wish.  For example, if the
+            module "fred" works better with the module "barney" already
+            installed (but it doesn't depend on it, so
+            <command>modprobe</command> won't automatically load it), you could
+            say "install fred /sbin/modprobe barney; /sbin/modprobe
+            --ignore-install fred", which would do what you wanted.  Note the
+            <option>--ignore-install</option>, which stops the second
+            <command>modprobe</command> from running the same
+            <command>install</command> command again.  See also
+            <command>remove</command> below.  </para> <para>The long term
+            future of this command as a solution to the problem of providing
+            additional module dependencies is not assured and it is intended to
+            replace this command with a warning about its eventual removal or
+            deprecation at some point in a future release. Its use complicates
+            the automated determination of module dependencies by distribution
+            utilities, such as mkinitrd (because these now need to somehow
+            interpret what the <command>install</command> commands might be
+            doing.  In a perfect world, modules would provide all dependency
+            information without the use of this command and work is underway to
+            implement soft dependency support within the Linux kernel.  </para>
+          <para> If you use the string "$CMDLINE_OPTS" in the command, it will
+            be replaced by any options specified on the modprobe command line.
+            This can be useful because users expect "modprobe fred opt=1" to
+            pass the "opt=1" arg to the module, even if there's an install
+            command in the configuration file.  So our above example becomes
+            "install fred /sbin/modprobe barney; /sbin/modprobe
+            --ignore-install fred $CMDLINE_OPTS"
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>options <replaceable>modulename</replaceable> <replaceable>option...</replaceable>
+        </term>
+        <listitem>
+          <para>
+            This command allows you to add options to the module
+            <replaceable>modulename</replaceable> (which might be an
+            alias) every time it is inserted into the kernel: whether
+            directly (using <command>modprobe </command>
+            <replaceable>modulename</replaceable>) or because the
+            module being inserted depends on this module.
+          </para>
+          <para>
+            All options are added together: they can come from an
+            <command>option</command> for the module itself, for an
+            alias, and on the command line.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>remove <replaceable>modulename</replaceable> <replaceable>command...</replaceable>
+        </term>
+        <listitem>
+          <para>
+            This is similar to the <command>install</command> command
+            above, except it is invoked when "modprobe -r" is run.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>softdep <replaceable>modulename</replaceable> pre: <replaceable>modules...</replaceable> post: <replaceable>modules...</replaceable>
+        </term>
+        <listitem>
+          <para>
+            The <command>softdep</command> command allows you to specify soft,
+            or optional, module dependencies. <replaceable>modulename</replaceable>
+            can be used without these optional modules installed, but usually with
+            some features missing. For example, a driver for a storage HBA might
+            require another module be loaded in order to use management features.
+          </para>
+          <para>
+            pre-deps and post-deps modules are lists of names and/or aliases of other
+            modules that modprobe will attempt to install (or remove) in order
+            before and after the main module given in the
+            <replaceable>modulename</replaceable> argument.
+          </para>
+          <para>
+            Example: Assume "softdep c pre: a b post: d e" is provided in the
+            configuration. Running "modprobe c" is now equivalent to
+            "modprobe a b c d e" without the softdep.
+            Flags such as --use-blacklist are applied to all the specified
+            modules, while module parameters only apply to module c.
+          </para>
+          <para>
+            Note: if there are <command>install</command> or
+            <command>remove</command> commands with the same
+            <replaceable>modulename</replaceable> argument,
+            <command>softdep</command> takes precedence.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+  <refsect1><title>COMPATIBILITY</title>
+    <para>
+      A future version of kmod will come with a strong warning to avoid use of
+      the <command>install</command> as explained above.  This will happen once
+      support for soft dependencies in the kernel is complete.  That support
+      will complement the existing softdep support within this utility by
+      providing such dependencies directly within the modules.
+    </para>
+  </refsect1>
+  <refsect1><title>COPYRIGHT</title>
+    <para>
+      This manual page originally Copyright 2004, Rusty Russell, IBM
+      Corporation. Maintained by Jon Masters and others.
+    </para>
+  </refsect1>
+  <refsect1><title>SEE ALSO</title>
+    <para><citerefentry>
+        <refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>,
+      <citerefentry>
+        <refentrytitle>modules.dep</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry>
+    </para>
+  </refsect1>
+</refentry>

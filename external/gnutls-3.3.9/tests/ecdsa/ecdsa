@@ -1,0 +1,91 @@
+#!/bin/sh
+
+# Copyright (C) 2011-2012 Free Software Foundation, Inc.
+#
+# Author: Nikos Mavrogiannopoulos
+#
+# This file is part of GnuTLS.
+#
+# GnuTLS is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at
+# your option) any later version.
+#
+# GnuTLS is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GnuTLS; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+#set -e
+
+srcdir=${srcdir:-.}
+CERTTOOL=${CERTTOOL:-../../src/certtool$EXEEXT}
+
+echo ca > template
+echo cn = "ECDSA SHA 256 CA" >> template
+
+$CERTTOOL --generate-privkey --ecc > key-ca-ecdsa.pem 2>/dev/null 
+
+$CERTTOOL -d 2 --generate-self-signed --template template \
+    --load-privkey key-ca-ecdsa.pem \
+    --outfile new-ca-ecdsa.pem \
+    --hash sha256 >out 2>&1
+
+if [ $? != 0 ];then
+	cat out
+	exit 1
+fi
+
+echo ca > template
+$CERTTOOL --generate-privkey --ecc > key-subca-ecdsa.pem 2>/dev/null 
+echo cn = "ECDSA SHA 224 Mid CA" >> template
+
+$CERTTOOL -d 2 --generate-certificate --template template \
+    --load-ca-privkey key-ca-ecdsa.pem \
+    --load-ca-certificate new-ca-ecdsa.pem \
+    --load-privkey key-subca-ecdsa.pem \
+    --outfile new-subca-ecdsa.pem \
+    --hash sha224 >out 2>&1
+
+if [ $? != 0 ];then
+	cat out
+	exit 1
+fi
+
+echo cn = "End-user" > template
+
+$CERTTOOL --generate-privkey --ecc > key-ecdsa.pem 2>/dev/null 
+
+$CERTTOOL -d 2 --generate-certificate --template template \
+    --load-ca-privkey key-subca-ecdsa.pem \
+    --load-ca-certificate new-subca-ecdsa.pem \
+    --load-privkey key-ecdsa.pem \
+    --outfile new-user.pem >out 2>&1
+
+if [ $? != 0 ];then
+	cat out
+	exit 1
+fi
+
+cat new-user.pem new-subca-ecdsa.pem new-ca-ecdsa.pem > out
+$CERTTOOL --verify-chain <out > verify
+
+if [ $? != 0 ];then
+	cat verify
+	exit 1
+fi
+
+rm -f verify new-user.pem new-ca-ecdsa.pem new-subca-ecdsa.pem template out
+rm -f key-subca-ecdsa.pem key-ca-ecdsa.pem key-ecdsa.pem
+
+$CERTTOOL -k < ${srcdir}/bad-key.pem | grep "validation failed" >/dev/null 2>&1
+if [ $? != 0 ];then
+	echo "certtool didn't detect a bad ECDSA key."
+	exit 1
+fi
+
+exit 0

@@ -1,0 +1,1 @@
+var myStr = "base file"

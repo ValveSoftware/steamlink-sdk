@@ -1,0 +1,130 @@
+#!/bin/sh
+
+# Copyright (C) 2004-2006, 2008, 2010, 2012 Free Software Foundation,
+# Inc.
+#
+# Author: Simon Josefsson
+#
+# This file is part of GnuTLS.
+#
+# GnuTLS is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at
+# your option) any later version.
+#
+# GnuTLS is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with GnuTLS; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+
+srcdir=${srcdir:-.}
+top_builddir=${top_builddir:-../..}
+CERTTOOL=${CERTTOOL:-${top_builddir}/src/certtool$EXEEXT}
+DIFF=${DIFF:-diff}
+DEBUG=""
+
+if test "x$1" != "x";then
+  DEBUG="1"
+fi
+
+ret=0
+for p12 in 'client.p12 foobar' noclient.p12 unclient.p12 pkcs12_2certs.p12; do
+    set -- $p12
+    file=$1
+    passwd=$2
+    if test "x$DEBUG" != "x";then
+      $CERTTOOL -d 99 --p12-info --inder --password "$passwd" \
+		--infile $srcdir/$file
+    else
+      $CERTTOOL --p12-info --inder --password "$passwd" \
+		--infile $srcdir/$file >/dev/null 2>&1
+    fi
+    rc=$?
+    if test $rc != 0; then
+	echo "NEON PKCS12 FATAL $p12"
+	ret=1
+    fi
+done
+
+file=test-null.p12
+$CERTTOOL --p12-info --inder --null-password --infile $srcdir/$file >/dev/null 2>&1
+rc=$?
+if test $rc != 0; then
+	echo "PKCS12 FATAL $file"
+	ret=1
+fi
+
+file=sha256.p12
+$CERTTOOL --p12-info --inder --password 1234 --infile $srcdir/$file >/dev/null 2>&1
+rc=$?
+if test $rc != 0; then
+	echo "PKCS12 FATAL $file"
+	ret=1
+fi
+
+# test whether we can encode a certificate and a key
+$CERTTOOL --to-p12 --password 1234 --p12-name "my-key" --load-certificate $srcdir/../certs/cert-ecc256.pem --load-privkey $srcdir/../certs/ecc256.pem --outder --outfile out.p12 >/dev/null 2>&1
+rc=$?
+if test $rc != 0; then
+	echo "PKCS12 FATAL encoding"
+	ret=1
+fi
+
+$CERTTOOL --p12-info --inder --password 1234 --infile out.p12 >out.pem 2>/dev/null
+rc=$?
+if test $rc != 0; then
+	echo "PKCS12 FATAL decrypting/decoding"
+	ret=1
+fi
+
+grep "BEGIN ENCRYPTED PRIVATE KEY" out.pem >/dev/null 2>&1
+rc=$?
+
+if test "$rc" != "0"; then
+  exit $rc
+fi
+
+grep "BEGIN CERTIFICATE" out.pem >/dev/null 2>&1
+rc=$?
+
+if test "$rc" != "0"; then
+  exit $rc
+fi
+
+# test whether we can encode a certificate, a key and a CA
+$CERTTOOL --to-p12 --password 123456 --p12-name "my-key" --load-certificate $srcdir/../certs/cert-ecc256.pem --load-privkey $srcdir/../certs/ecc256.pem --load-ca-certificate $srcdir/../certs/ca-cert-ecc.pem --outder --outfile out.p12 >/dev/null 2>&1
+rc=$?
+if test $rc != 0; then
+	echo "PKCS12 FATAL encoding 2"
+	exit 1
+fi
+
+$CERTTOOL --p12-info --inder --password 123456 --infile out.p12 >out.pem 2>/dev/null
+rc=$?
+if test $rc != 0; then
+	echo "PKCS12 FATAL decrypting/decoding 2"
+	exit 1
+fi
+
+grep "BEGIN ENCRYPTED PRIVATE KEY" out.pem >/dev/null 2>&1
+rc=$?
+
+if test "$rc" != "0"; then
+  exit $rc
+fi
+
+count=`grep -c "BEGIN CERTIFICATE" out.pem`
+
+if test "$count" != "2"; then
+  echo "Only one certificate was included"
+  exit 1
+fi
+
+rm -f out.pem out.p12
+
+#echo "NEON PKCS12 DONE (rc $ret)"
+exit $ret

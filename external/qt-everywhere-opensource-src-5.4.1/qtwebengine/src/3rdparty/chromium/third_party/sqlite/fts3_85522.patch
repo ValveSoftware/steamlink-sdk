@@ -1,0 +1,21 @@
+Fix http://crbug.com/85522
+
+WebDatabase uses an authorizer to prevent inappropriate access.
+fts3.c uses 'PRAGMA page_size' to tune the query optimizer, but PRAGMA
+is on the disallowed list.  This patch adds a default return value for
+SQLITE_AUTH failures.
+
+diff --git src/ext/fts3/fts3.c src/ext/fts3/fts3.c
+index 8498cfa..dfa3891 100644
+--- src/ext/fts3/fts3.c
++++ src/ext/fts3/fts3.c
+@@ -630,6 +630,9 @@ static void fts3DatabasePageSize(int *pRc, Fts3Table *p){
+         sqlite3_step(pStmt);
+         p->nPgsz = sqlite3_column_int(pStmt, 0);
+         rc = sqlite3_finalize(pStmt);
++      }else if( rc==SQLITE_AUTH ){
++        p->nPgsz = 1024;
++        rc = SQLITE_OK;
+       }
+     }
+     assert( p->nPgsz>0 || rc!=SQLITE_OK );

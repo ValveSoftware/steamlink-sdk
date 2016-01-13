@@ -1,0 +1,41 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>dbus-send</title><meta name="generator" content="DocBook XSL Stylesheets V1.76.1"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><div class="refentry" title="dbus-send"><a name="dbussend1"></a><div class="titlepage"></div><div class="refnamediv"><h2>Name</h2><p>dbus-send &#8212; Send a message to a message bus</p></div><div class="refsynopsisdiv" title="Synopsis"><a name="synopsis"></a><h2>Synopsis</h2><div class="cmdsynopsis"><p><code class="command">dbus-send</code>  [ --system   |   --session   |   --address=<em class="replaceable"><code>ADDRESS</code></em> ] [--dest=<em class="replaceable"><code>NAME</code></em>] [ --print-reply   [<em class="replaceable"><code>=literal</code></em>]] [--reply-timeout=<em class="replaceable"><code>MSEC</code></em>] [--type=<em class="replaceable"><code>TYPE</code></em>]  <em class="replaceable"><code>OBJECT_PATH</code></em>   <em class="replaceable"><code>INTERFACE.MEMBER</code></em>  [<em class="replaceable"><code>CONTENTS</code></em>...]<br></p></div></div><div class="refsect1" title="DESCRIPTION"><a name="description"></a><h2>DESCRIPTION</h2><p>The <span class="command"><strong>dbus-send</strong></span> command is used to send a message to a D-Bus message
+bus. See <a class="ulink" href="http://www.freedesktop.org/software/dbus/" target="_top">http://www.freedesktop.org/software/dbus/</a> for more
+information about the big picture.</p><p>There are two well-known message buses: the systemwide message bus
+(installed on many systems as the "messagebus" service) and the
+per-user-login-session message bus (started each time a user logs in).
+The <code class="option">--system</code> and <code class="option">--session</code> options direct
+<span class="command"><strong>dbus-send</strong></span> to send messages to the system or session buses respectively.
+If neither is specified, <span class="command"><strong>dbus-send</strong></span> sends to the session bus.</p><p>Nearly all uses of <span class="command"><strong>dbus-send</strong></span> must provide the <code class="option">--dest</code> argument
+which is the name of a connection on the bus to send the message to. If
+<code class="option">--dest</code> is omitted, no destination is set.</p><p>The object path and the name of the message to send must always be
+specified. Following arguments, if any, are the message contents
+(message arguments).  These are given as type-specified values and
+may include containers (arrays, dicts, and variants) as described below.</p><div class="literallayout"><p><br>
+&lt;contents&gt;   ::= &lt;item&gt; | &lt;container&gt; [ &lt;item&gt; | &lt;container&gt;...]<br>
+&lt;item&gt;       ::= &lt;type&gt;:&lt;value&gt;<br>
+&lt;container&gt;  ::= &lt;array&gt; | &lt;dict&gt; | &lt;variant&gt;<br>
+&lt;array&gt;      ::= array:&lt;type&gt;:&lt;value&gt;[,&lt;value&gt;...]<br>
+&lt;dict&gt;       ::= dict:&lt;type&gt;:&lt;type&gt;:&lt;key&gt;,&lt;value&gt;[,&lt;key&gt;,&lt;value&gt;...]<br>
+&lt;variant&gt;    ::= variant:&lt;type&gt;:&lt;value&gt;<br>
+&lt;type&gt;       ::= string | int16 | uint 16 | int32 | uint32 | int64 | uint64 | double | byte | boolean | objpath<br>
+</p></div><p>D-Bus supports more types than these, but <span class="command"><strong>dbus-send</strong></span> currently
+does not.  Also, <span class="command"><strong>dbus-send</strong></span> does not permit empty containers
+or nested containers (e.g. arrays of variants).</p><p>Here is an example invocation:</p><div class="literallayout"><p><br>
+<br>
+  dbus-send --dest=org.freedesktop.ExampleName               \<br>
+            /org/freedesktop/sample/object/name              \<br>
+            org.freedesktop.ExampleInterface.ExampleMethod   \<br>
+            int32:47 string:'hello world' double:65.32       \<br>
+            array:string:"1st item","next item","last item"  \<br>
+            dict:string:int32:"one",1,"two",2,"three",3      \<br>
+            variant:int32:-8                                 \<br>
+            objpath:/org/freedesktop/sample/object/name<br>
+<br>
+</p></div><p>Note that the interface is separated from a method or signal
+name by a dot, though in the actual protocol the interface
+and the interface member are separate fields.</p></div><div class="refsect1" title="OPTIONS"><a name="options"></a><h2>OPTIONS</h2><p>The following options are supported:</p><div class="variablelist"><dl><dt><span class="term"><code class="option">--dest=</code><em class="replaceable"><code>NAME</code></em></span></dt><dd><p>Specify the name of the connection to receive the message.</p></dd><dt><span class="term"><code class="option">--print-reply</code></span></dt><dd><p>Block for a reply to the message sent, and print any reply received
+in a human-readable form. It also means the message type (<code class="option">--type=</code>) is <span class="emphasis"><em>method_call</em></span>.</p></dd><dt><span class="term"><code class="option">--print-reply=literal</code></span></dt><dd><p>Block for a reply to the message sent, and print the body of the
+reply. If the reply is an object path or a string, it is printed
+literally, with no punctuation, escape characters etc.</p></dd><dt><span class="term"><code class="option">--reply-timeout=</code><em class="replaceable"><code>MSEC</code></em></span></dt><dd><p>Wait for a reply for up to <span class="emphasis"><em>MSEC</em></span> milliseconds.
+The default is implementation-defined, typically 25 seconds.</p></dd><dt><span class="term"><code class="option">--system</code></span></dt><dd><p>Send to the system message bus.</p></dd><dt><span class="term"><code class="option">--session</code></span></dt><dd><p>Send to the session message bus.  (This is the default.)</p></dd><dt><span class="term"><code class="option">--address=</code><em class="replaceable"><code>ADDRESS</code></em></span></dt><dd><p>Send to <em class="replaceable"><code>ADDRESS</code></em>.</p></dd><dt><span class="term"><code class="option">--type=</code><em class="replaceable"><code>TYPE</code></em></span></dt><dd><p>Specify <span class="emphasis"><em>method_call</em></span> or <span class="emphasis"><em>signal</em></span> (defaults to "<span class="emphasis"><em>signal</em></span>").</p></dd></dl></div></div><div class="refsect1" title="AUTHOR"><a name="author"></a><h2>AUTHOR</h2><p>dbus-send was written by Philip Blundell.</p></div><div class="refsect1" title="BUGS"><a name="bugs"></a><h2>BUGS</h2><p>Please send bug reports to the D-Bus mailing list or bug tracker,
+see <a class="ulink" href="http://www.freedesktop.org/software/dbus/" target="_top">http://www.freedesktop.org/software/dbus/</a></p></div></div></body></html>

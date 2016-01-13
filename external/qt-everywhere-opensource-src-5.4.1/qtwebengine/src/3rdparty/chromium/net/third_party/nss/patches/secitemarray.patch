@@ -1,0 +1,42 @@
+diff -pu a/nss/lib/ssl/sslimpl.h b/nss/lib/ssl/sslimpl.h
+--- a/nss/lib/ssl/sslimpl.h	2014-01-17 18:00:11.213237373 -0800
++++ b/nss/lib/ssl/sslimpl.h	2014-01-17 18:03:29.176520864 -0800
+@@ -1364,6 +1364,15 @@ extern sslSessionIDUncacheFunc ssl_sid_u
+ 
+ SEC_BEGIN_PROTOS
+ 
++/* Functions for handling SECItemArrays, added in NSS 3.15 */
++extern SECItemArray *SECITEM_AllocArray(PLArenaPool *arena,
++                                        SECItemArray *array,
++                                        unsigned int len);
++extern SECItemArray *SECITEM_DupArray(PLArenaPool *arena,
++                                      const SECItemArray *from);
++extern void SECITEM_FreeArray(SECItemArray *array, PRBool freeit);
++extern void SECITEM_ZfreeArray(SECItemArray *array, PRBool freeit);
++
+ /* Internal initialization and installation of the SSL error tables */
+ extern SECStatus ssl_Init(void);
+ extern SECStatus ssl_InitializePRErrorTable(void);
+diff -pu a/nss/lib/ssl/sslt.h b/nss/lib/ssl/sslt.h
+--- a/nss/lib/ssl/sslt.h	2014-01-17 17:59:03.252110162 -0800
++++ b/nss/lib/ssl/sslt.h	2014-01-17 18:03:29.186521030 -0800
+@@ -10,6 +10,19 @@
+ 
+ #include "prtypes.h"
+ 
++/* SECItemArray is added in NSS 3.15.  Define the type if compiling
++** against an older version of NSS.
++*/
++#include "nssutil.h"
++#if NSSUTIL_VMAJOR == 3 && NSSUTIL_VMINOR < 15
++typedef struct SECItemArrayStr SECItemArray;
++
++struct SECItemArrayStr {
++    SECItem *items;
++    unsigned int len;
++};
++#endif  /* NSSUTIL_VMAJOR == 3 && NSSUTIL_VMINOR < 15 */
++
+ typedef struct SSL3StatisticsStr {
+     /* statistics from ssl3_SendClientHello (sch) */
+     long sch_sid_cache_hits;

@@ -1,0 +1,28 @@
+KNOWN Unionfs 2.x ISSUES:
+=========================
+
+1. Unionfs should not use lookup_one_len() on the underlying f/s as it
+   confuses NFSv4.  Currently, unionfs_lookup() passes lookup intents to the
+   lower file-system, this eliminates part of the problem.  The remaining
+   calls to lookup_one_len may need to be changed to pass an intent.  We are
+   currently introducing VFS changes to fs/namei.c's do_path_lookup() to
+   allow proper file lookup and opening in stackable file systems.
+
+2. Lockdep (a debugging feature) isn't aware of stacking, and so it
+   incorrectly complains about locking problems.  The problem boils down to
+   this: Lockdep considers all objects of a certain type to be in the same
+   class, for example, all inodes.  Lockdep doesn't like to see a lock held
+   on two inodes within the same task, and warns that it could lead to a
+   deadlock.  However, stackable file systems do precisely that: they lock
+   an upper object, and then a lower object, in a strict order to avoid
+   locking problems; in addition, Unionfs, as a fan-out file system, may
+   have to lock several lower inodes.  We are currently looking into Lockdep
+   to see how to make it aware of stackable file systems.  For now, we
+   temporarily disable lockdep when calling vfs methods on lower objects,
+   but only for those places where lockdep complained.  While this solution
+   may seem unclean, it is not without precedent: other places in the kernel
+   also do similar temporary disabling, of course after carefully having
+   checked that it is the right thing to do.  Anyway, you get any warnings
+   from Lockdep, please report them to the Unionfs maintainers.
+
+For more information, see <http://unionfs.filesystems.org/>.

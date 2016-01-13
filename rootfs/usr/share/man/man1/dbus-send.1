@@ -1,0 +1,166 @@
+'\" t
+.\"     Title: dbus-send
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
+.\"      Date: 11/06/2014
+.\"    Manual: User Commands
+.\"    Source: D-Bus 1.8.8
+.\"  Language: English
+.\"
+.TH "DBUS\-SEND" "1" "11/06/2014" "D\-Bus 1\&.8\&.8" "User Commands"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+dbus-send \- Send a message to a message bus
+.SH "SYNOPSIS"
+.HP \w'\fBdbus\-send\fR\ 'u
+\fBdbus\-send\fR [\-\-system | \-\-session | \-\-address=\fIADDRESS\fR] [\-\-dest=\fINAME\fR] [\-\-print\-reply\ [\fI=literal\fR]] [\-\-reply\-timeout=\fIMSEC\fR] [\-\-type=\fITYPE\fR] \fIOBJECT_PATH\fR \fIINTERFACE\&.MEMBER\fR [\fICONTENTS\fR...]
+.br
+
+.SH "DESCRIPTION"
+.PP
+The
+\fBdbus\-send\fR
+command is used to send a message to a D\-Bus message bus\&. See
+\m[blue]\fBhttp://www\&.freedesktop\&.org/software/dbus/\fR\m[]
+for more information about the big picture\&.
+.PP
+There are two well\-known message buses: the systemwide message bus (installed on many systems as the "messagebus" service) and the per\-user\-login\-session message bus (started each time a user logs in)\&. The
+\fB\-\-system\fR
+and
+\fB\-\-session\fR
+options direct
+\fBdbus\-send\fR
+to send messages to the system or session buses respectively\&. If neither is specified,
+\fBdbus\-send\fR
+sends to the session bus\&.
+.PP
+Nearly all uses of
+\fBdbus\-send\fR
+must provide the
+\fB\-\-dest\fR
+argument which is the name of a connection on the bus to send the message to\&. If
+\fB\-\-dest\fR
+is omitted, no destination is set\&.
+.PP
+The object path and the name of the message to send must always be specified\&. Following arguments, if any, are the message contents (message arguments)\&. These are given as type\-specified values and may include containers (arrays, dicts, and variants) as described below\&.
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+<contents>   ::= <item> | <container> [ <item> | <container>\&.\&.\&.]
+<item>       ::= <type>:<value>
+<container>  ::= <array> | <dict> | <variant>
+<array>      ::= array:<type>:<value>[,<value>\&.\&.\&.]
+<dict>       ::= dict:<type>:<type>:<key>,<value>[,<key>,<value>\&.\&.\&.]
+<variant>    ::= variant:<type>:<value>
+<type>       ::= string | int16 | uint 16 | int32 | uint32 | int64 | uint64 | double | byte | boolean | objpath
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+D\-Bus supports more types than these, but
+\fBdbus\-send\fR
+currently does not\&. Also,
+\fBdbus\-send\fR
+does not permit empty containers or nested containers (e\&.g\&. arrays of variants)\&.
+.PP
+Here is an example invocation:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+
+  dbus\-send \-\-dest=org\&.freedesktop\&.ExampleName               \e
+            /org/freedesktop/sample/object/name              \e
+            org\&.freedesktop\&.ExampleInterface\&.ExampleMethod   \e
+            int32:47 string:\*(Aqhello world\*(Aq double:65\&.32       \e
+            array:string:"1st item","next item","last item"  \e
+            dict:string:int32:"one",1,"two",2,"three",3      \e
+            variant:int32:\-8                                 \e
+            objpath:/org/freedesktop/sample/object/name
+
+.fi
+.if n \{\
+.RE
+.\}
+.PP
+Note that the interface is separated from a method or signal name by a dot, though in the actual protocol the interface and the interface member are separate fields\&.
+.SH "OPTIONS"
+.PP
+The following options are supported:
+.PP
+\fB\-\-dest=\fR\fINAME\fR
+.RS 4
+Specify the name of the connection to receive the message\&.
+.RE
+.PP
+\fB\-\-print\-reply\fR
+.RS 4
+Block for a reply to the message sent, and print any reply received in a human\-readable form\&. It also means the message type (\fB\-\-type=\fR) is
+\fBmethod_call\fR\&.
+.RE
+.PP
+\fB\-\-print\-reply=literal\fR
+.RS 4
+Block for a reply to the message sent, and print the body of the reply\&. If the reply is an object path or a string, it is printed literally, with no punctuation, escape characters etc\&.
+.RE
+.PP
+\fB\-\-reply\-timeout=\fR\fIMSEC\fR
+.RS 4
+Wait for a reply for up to
+\fIMSEC\fR
+milliseconds\&. The default is implementation\-defined, typically 25 seconds\&.
+.RE
+.PP
+\fB\-\-system\fR
+.RS 4
+Send to the system message bus\&.
+.RE
+.PP
+\fB\-\-session\fR
+.RS 4
+Send to the session message bus\&. (This is the default\&.)
+.RE
+.PP
+\fB\-\-address=\fR\fIADDRESS\fR
+.RS 4
+Send to
+\fIADDRESS\fR\&.
+.RE
+.PP
+\fB\-\-type=\fR\fITYPE\fR
+.RS 4
+Specify
+\fBmethod_call\fR
+or
+\fBsignal\fR
+(defaults to "\fBsignal\fR")\&.
+.RE
+.SH "AUTHOR"
+.PP
+dbus\-send was written by Philip Blundell\&.
+.SH "BUGS"
+.PP
+Please send bug reports to the D\-Bus mailing list or bug tracker, see
+\m[blue]\fBhttp://www\&.freedesktop\&.org/software/dbus/\fR\m[]

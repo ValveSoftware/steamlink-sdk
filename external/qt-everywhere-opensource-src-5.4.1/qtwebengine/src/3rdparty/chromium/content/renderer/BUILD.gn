@@ -1,0 +1,178 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//content/renderer/renderer.gni")
+
+source_set("renderer") {
+  # Only targets in the content tree can depend directly on this target.
+  visibility = [ "//content/*" ]
+
+  sources = rebase_path(content_renderer_gypi_values.private_renderer_sources,
+                        ".", "//content")
+
+  configs += [
+    "//content:content_implementation",
+    "//content:libjingle_stub_config",
+  ]
+
+  deps = [
+    # TODO(GYP) bug 376846 remove this. This should be inherited from //net but
+    # those don't cross component boundaries.
+    "//crypto:platform",
+
+    "//base/allocator",
+    "//content:resources",
+    "//content/common:mojo_bindings",
+    "//gin",
+    "//mojo/environment:chromium",
+    "//mojo/public/js/bindings",
+    "//mojo/public/interfaces/service_provider",
+    "//net",
+    "//skia",
+    "//third_party/icu",
+    "//third_party/npapi",
+    "//third_party/WebKit/public:blink_headers",
+    "//third_party/widevine/cdm:version_h",
+    "//ui/accessibility",
+    "//ui/events:dom4_keycode_converter",
+    "//ui/native_theme",
+    "//ui/surface",
+    "//v8",
+    "//webkit/child",
+    "//webkit/common",
+    "//webkit/common:storage",
+    "//webkit/common/gpu",
+    # TODO(GYP)
+    #'../jingle/jingle.gyp:jingle_glue',
+    #'../media/media.gyp:media',
+    #'../third_party/WebKit/public/blink.gyp:blink',
+    #'../third_party/libjingle/libjingle.gyp:libjingle',
+  ]
+
+  if (!enable_notifications) {
+    sources -= [
+      "notification_provider.cc",
+      "active_notification_tracker.cc",
+    ]
+  }
+
+  if (is_mac) {
+    sources -= [
+      "webscrollbarbehavior_impl_gtkoraura.cc",
+      "webscrollbarbehavior_impl_gtkoraura.h",
+    ]
+    sources += [
+      "external_popup_menu.cc",
+      "external_popup_menu.h",
+    ]
+  }
+
+  if (is_android) {
+    sources -= [
+      "accessibility/renderer_accessibility_focus_only.cc",
+      "media/audio_decoder.cc",
+      "media/filter_helpers.cc",
+      "media/webmediaplayer_impl.cc",
+    ]
+    sources += [
+      "external_popup_menu.cc",
+      "external_popup_menu.h",
+    ]
+
+    # Add back the Linux file which Android shares.
+    set_sources_assignment_filter([])
+    sources += [
+      "render_view_linux.cc",
+    ]
+
+    deps += [
+      "//third_party/android_tools:cpu_features",
+      # TODO(GYP)
+      #"//third_party/libphonenumber",
+    ]
+  } else {
+    sources -= [
+      "java/java_bridge_channel.cc",
+      "java/java_bridge_channel.h",
+      "java/java_bridge_dispatcher.cc",
+      "java/java_bridge_dispatcher.h",
+    ]
+  }
+
+  # TODO(jrg): remove the OS=="android" section?
+  # http://crbug.com/113172
+  # Understand better how media_stream_ is tied into Chromium.
+  if (!enable_webrtc && is_android) {
+    sources -= [
+      "media/media_stream_audio_level_calculator.cc",
+      "media/media_stream_audio_level_calculator.h",
+      "media/media_stream_audio_renderer.cc",
+      "media/media_stream_audio_renderer.h",
+      "media/media_stream_center.h",
+      "media/media_stream_client.h",
+      "media/media_stream_constraints_util.cc",
+      "media/media_stream_constraints_util.h",
+      "media/media_stream_dispatcher.h",
+      "media/media_stream_dispatcher_eventhandler.h",
+      "media/media_stream_impl.h",
+      "media/media_stream_track.cc",
+      "media/media_stream_track.h",
+    ]
+  }
+
+  if (enable_webrtc) {
+    sources += rebase_path(
+        content_renderer_gypi_values.private_renderer_webrtc_sources,
+        ".", "//content")
+    deps += [
+      "//crypto",
+      # TODO(GYP)
+      #"../third_party/libjingle/libjingle.gyp:libjingle_webrtc",
+      #"../third_party/libjingle/libjingle.gyp:libpeerconnection",
+      #"../third_party/webrtc/modules/modules.gyp:audio_device",
+      #"../third_party/webrtc/modules/modules.gyp:audio_processing",
+      #"//third_party/libyuv",
+    ]
+  } else {
+    sources += [
+      "media/webrtc_logging_noop.cc",
+      "media/webrtc_logging.h",
+    ]
+  }
+
+  if (enable_plugins) {
+    sources += rebase_path(
+        content_renderer_gypi_values.private_renderer_plugin_sources,
+        ".", "//content")
+    deps += [
+      # TODO(GYP)
+      #"//ppapi/ppapi_internal.gyp:ppapi_host",
+      #"//ppapi/ppapi_internal.gyp:ppapi_proxy",
+      #"//ppapi/ppapi_internal.gyp:ppapi_shared",
+    ]
+  } else {
+    # These files are in the WebRTC list, but also require plugins.
+    if (enable_webrtc) {
+      sources -= [
+        "media/webrtc/video_destination_handler.cc",
+        "media/webrtc/video_destination_handler.h",
+      ]
+    }
+  }
+
+  if (enable_plugins && enable_webrtc) {
+    sources += rebase_path(
+        content_renderer_gypi_values.private_renderer_plugin_webrtc_sources,
+        ".", "//content")
+  }
+
+  if (!enable_pepper_cdms) {
+    sources -= [
+      "renderer/media/crypto/ppapi_decryptor.cc",
+      "renderer/media/crypto/ppapi_decryptor.h",
+    ]
+  }
+}

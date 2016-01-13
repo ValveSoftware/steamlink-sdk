@@ -1,0 +1,44 @@
+#!/usr/bin/python
+
+import sys
+import dbus
+
+if (len(sys.argv) < 2):
+	print "Usage:"
+	print "%s <service> direct" % (sys.argv[0])
+	print "%s <service> manual [servers=uri1,uri2,...] [excludes=host1,host2,...]" % (sys.argv[0])
+	print "%s <service> auto url=[pac-url]" % (sys.argv[0])
+	print "Example: %s service0 manual servers=proxy.example.com:8080" % sys.argv[0]
+	print "         This would set the proxy uri and the method to manual"
+	sys.exit(1)
+
+bus = dbus.SystemBus()
+path = "/net/connman/service/" + sys.argv[1]
+service = dbus.Interface(bus.get_object('net.connman', path),
+					'net.connman.Service')
+
+values = { "Method" : sys.argv[2] }
+
+properties = service.GetProperties()
+
+for arg in sys.argv[3:]:
+	if arg.startswith("url="):
+		url = arg.replace("url=", "", 1)
+		values["URL"] = url
+	if arg.startswith("servers="):
+		try:
+			servers_uris = arg.replace("servers=","",1).split(",")
+		except:
+			servers_uris = []
+		values["Servers"] = servers_uris
+	if arg.startswith("excludes="):
+		try:
+			excludes_uris = arg.replace("excludes=","",1).split(",")
+		except:
+			excludes_uris = []
+		values["Excludes"] = excludes_uris
+
+try:
+	service.SetProperty("Proxy.Configuration", dbus.Dictionary(values, signature='sv'))
+except dbus.exceptions.DBusException, e_msg:
+	print e_msg

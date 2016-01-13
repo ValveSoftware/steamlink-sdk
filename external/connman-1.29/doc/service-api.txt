@@ -1,0 +1,496 @@
+Service hierarchy
+=================
+
+Service		net.connman
+Interface	net.connman.Service
+Object path	[variable prefix]/{service0,service1,...}
+
+Methods		dict GetProperties()  [deprecated]
+
+			Returns properties for the service object. See
+			the properties section for available properties.
+
+			Usage of this method is highly discouraged. Use
+			the Manager.GetServices() method instead.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void SetProperty(string name, variant value)
+
+			Changes the value of the specified property. Only
+			properties that are listed as read-write are
+			changeable. On success a PropertyChanged signal
+			will be emitted.
+
+			Properties cannot be set for hidden WiFi service
+			entries or provisioned services.
+
+			Possible Errors: [service].Error.InvalidArguments
+					 [service].Error.InvalidProperty
+
+		void ClearProperty(string name)
+
+			Clears the value of the specified property.
+
+			Properties cannot be cleared for hidden WiFi service
+			entries or provisioned services.
+
+			Possible Errors: [service].Error.InvalidArguments
+					 [service].Error.InvalidProperty
+
+		void Connect()
+
+			Connect this service. It will attempt to connect
+			WiFi or Bluetooth services.
+
+			For Ethernet devices this method can only be used
+			if it has previously been disconnected. Otherwise
+			the plugging of a cable will trigger connecting
+			automatically. If no cable is plugged in this method
+			will fail.
+
+			This method call will only return in case of an
+			error or when the service is fully connected. So
+			setting a longer D-Bus timeout might be a really
+			good idea.
+
+			Calling Connect() on a hidden WiFi service entry will
+			query the missing SSID via the Agent API causing a
+			WiFi service with the given SSID to be scanned,
+			created and connected.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void Disconnect()
+
+			Disconnect this service. If the service is not
+			connected an error message will be generated.
+
+			On Ethernet devices this will disconnect the IP
+			details from the service. It will not magically
+			unplug the cable. When no cable is plugged in this
+			method will fail.
+
+			This method can also be used to abort a previous
+			connection attempt via the Connect method.
+
+			Hidden WiFi service entries cannot be disconnected
+			as they always stay in idle state.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void Remove()
+
+			A successfully connected service with Favorite=true
+			can be removed this way. If it is connected, it will
+			be automatically disconnected first.
+
+			If the service requires a passphrase it will be
+			cleared and forgotten when removing.
+
+			This is similar to setting the Favorite property
+			to false, but that is currently not supported.
+
+			In the case a connection attempt failed and the
+			service is in the State=failure, this method can
+			also be used to reset the service.
+
+			Calling this method on Ethernet devices, hidden WiFi
+			services or provisioned services will cause an error
+			message. It is not possible to remove these kind of
+			services.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void MoveBefore(object service)
+
+			If a service has been used before, this allows a
+			reorder of the favorite services.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void MoveAfter(object service)
+
+			If a service has been used before, this allows a
+			reorder of the favorite services.
+
+			Possible Errors: [service].Error.InvalidArguments
+
+		void ResetCounters()  [experimental]
+
+			Reset the counter statistics.
+
+			Possible Errors: None
+
+Signals		PropertyChanged(string name, variant value)
+
+			This signal indicates a changed value of the given
+			property.
+
+Properties	string State [readonly]
+
+			The service state information.
+
+			Valid states are "idle", "failure", "association",
+			"configuration", "ready", "disconnect" and "online".
+
+			The "ready" state signals a successfully
+			connected device. "online" signals that an
+			Internet connection is available and has been
+			verified.
+
+			See doc/overview-api.txt for more information about
+			state transitions.
+
+		string Error [readonly]
+
+			The service error status details.
+
+			When error occur during connection or disconnection
+			the detailed information is represented in this
+			property to help the user interface to present the
+			user with alternate options.
+
+			This property is only valid when the service is in
+			the "failure" state. Otherwise it might be empty or
+			not present at all.
+
+			Currently defined error codes are: "out-of-range",
+			"pin-missing", "dhcp-failed", "connect-failed",
+			"login-failed", "auth-failed" and "invalid-key".
+
+		string Name [readonly]
+
+			The service name (for example "Wireless" etc.)
+
+			This name can be used for directly displaying it in
+			the application. It has pure informational purpose
+			and no attempt should be made to translate it.
+
+			For Ethernet devices and hidden WiFi networks this
+			property is not present.
+
+		string Type [readonly]
+
+			The service type (for example "ethernet", "wifi" etc.)
+
+			This information should only be used to determine
+			advanced properties or showing the correct icon
+			to the user.
+
+			Together with a missing Name property, this can
+			be used to identify hidden WiFi networks.
+
+		array{string} Security [readonly]
+
+			If the service type is WiFi, then this property is
+			present and contains the list of security methods
+			or key management settings.
+
+			Possible values are "none", "wep", "psk", "ieee8021x"
+			and also "wps".
+
+			This property might be only present for WiFi
+			services.
+
+		uint8 Strength [readonly]
+
+			Indicates the signal strength of the service. This
+			is a normalized value between 0 and 100.
+
+			This property will not be present for Ethernet
+			devices.
+
+		boolean Favorite [readonly]
+
+			Will be true if a cable is plugged in or the user
+			selected and successfully connected to this service.
+
+			This value is automatically changed and to revert
+			it back to false the Remove() method needs to be
+			used.
+
+		boolean Immutable [readonly]
+
+			This value will be set to true if the service is
+			configured externally via a configuration file.
+
+			The only valid operation are Connect() and of
+			course Disconnect(). The Remove() method will
+			result in an error.
+
+		boolean AutoConnect [readwrite]
+
+			If set to true, this service will auto-connect
+			when no other connection is available.
+
+			The service won't auto-connect while roaming.
+
+			For favorite services it is possible to change
+			this value to prevent or permit automatic
+			connection attempts.
+
+		boolean Roaming [readonly]
+
+			This property indicates if this service is roaming.
+
+			In the case of Cellular services this normally
+			indicates connections to a foreign provider when
+			traveling abroad.
+
+		array{string} Nameservers [readonly]
+
+			The list of currently active nameservers for this
+			service. If the server is not in READY or ONLINE
+			state than this list will be empty.
+
+			Global nameservers are automatically added to this
+			list. The array represents a sorted list of the
+			current nameservers. The first one has the highest
+			priority and is used by default.
+
+			When using DHCP this array represents the nameservers
+			provided by the network. In case of manual settings,
+			the ones from Nameservers.Configuration are used.
+
+		array{string} Nameservers.Configuration [readwrite]
+
+			The list of manually configured domain name
+			servers. Some cellular networks don't provide
+			correct name servers and this allows for an
+			override.
+
+			This array is sorted by priority and the first
+			entry in the list represents the nameserver with
+			the highest priority.
+
+			When using manual configuration and no global
+			nameservers are configured, then it is useful
+			to configure this setting.
+
+			Changes to the domain name servers can be done
+			at any time. It will not cause a disconnect of
+			the service. However there might be small window
+			where name resolution might fail.
+
+		array{string} Timeservers [readonly]
+
+			The list of currently active timeservers for this
+			service. If the server is not in READY or ONLINE
+			state than this list will be empty.
+
+		array{string} Timeservers.Configuration [readwrite]
+
+			The list of manually configured time servers.
+
+			The first entry in the list represents the
+			timeserver with the highest priority.
+
+			When using manual configuration this setting
+			is useful to override all the other timeserver
+			settings. This is service specific, hence only
+			the values for the default service are used.
+
+			Changes to this property will result in restart
+			of NTP query.
+
+		array{string} Domains [readonly]
+
+			The list of currently used search domains taken
+			from Domains.Configurations if set, otherwise a
+			domain name if provided by DHCP or VPNs.
+
+		array{string} Domains.Configuration [readwrite]
+
+			The list of manually configured search domains.
+
+		dict IPv4 [readonly]
+
+			string Method [readonly]
+
+				Possible values are "dhcp", "manual"
+				and "off".
+
+				The value "fixed" indicates an IP address
+				that can not be modified. For example
+				cellular networks return fixed information.
+
+			string Address [readonly]
+
+				The current configured IPv4 address.
+
+			string Netmask [readonly]
+
+				The current configured IPv4 netmask.
+
+			string Gateway [readonly]
+
+				The current configured IPv4 gateway.
+
+		dict IPv4.Configuration [readwrite]
+
+			Same values as IPv4 property. The IPv4 represents
+			the actual system configuration while this allows
+			user configuration.
+
+			Changing these settings will cause a state change
+			of the service. The service will become unavailable
+			until the new configuration has been successfully
+			installed.
+
+		dict IPv6 [readonly]
+
+			string Method [readonly]
+
+				Possible values are "auto", "manual", "6to4"
+				and "off".
+
+				The value "fixed" indicates an IP address
+				that can not be modified. For example
+				cellular networks return fixed information.
+				The value "6to4" is returned if 6to4 tunnel
+				is created by connman. The tunnel can only be
+				created if method was set to "auto" by the
+				user. User cannot set the method to "6to4".
+
+			string Address [readonly]
+
+				The current configured IPv6 address.
+
+			uint8 PrefixLength [readonly]
+
+				The prefix length of the IPv6 address.
+
+			string Gateway [readonly]
+
+				The current configured IPv6 gateway.
+
+			string Privacy [readonly]
+
+				Enable or disable IPv6 privacy extension
+				that is described in RFC 4941. The value
+				has only meaning if Method is set to "auto".
+
+				Value "disabled" means that privacy extension
+				is disabled and normal autoconf addresses are
+				used.
+
+				Value "enabled" means that privacy extension is
+				enabled and system prefers to use public
+				addresses over temporary addresses.
+
+				Value "prefered" means that privacy extension is
+				enabled and system prefers temporary addresses
+				over public addresses.
+
+				Default value is "disabled".
+
+		dict IPv6.Configuration [readwrite]
+
+			Same values as IPv6 property. The IPv6 represents
+			the actual system configuration while this allows
+			user configuration.
+
+			Changing these settings will cause a state change
+			of the service. The service will become unavailable
+			until the new configuration has been successfully
+			installed.
+
+		dict Proxy [readonly]
+
+			string Method [readonly]
+
+				Possible values are "direct", "auto" and
+				"manual".
+
+				In case of "auto" method, the URL file can be
+				provided unless you want to let DHCP/WPAD
+				auto-discover to be tried. In such case if DHCP
+				and WPAD auto-discover methods fails then
+				method will be "direct".
+
+				In case of "direct" no additional information
+				are provided. For the "manual" method the
+				Servers have to be set, Excludes is optional.
+
+			string URL [readonly]
+
+				Automatic proxy configuration URL. Used by
+				"auto" method.
+
+			array{string} Servers [readonly]
+
+				Used when "manual" method is set.
+
+				List of proxy URIs. The URI without a protocol
+				will be interpreted as the generic proxy URI.
+				All others will target a specific protocol and
+				only once.
+
+				Example for generic proxy server entry would
+				be like this: "server.example.com:911".
+
+			array{string} Excludes [readonly]
+
+				Used when "manual" method is set.
+
+				List of hosts which can be accessed directly.
+
+		dict Proxy.Configuration [readwrite]
+
+			Same values as Proxy property. The Proxy represents
+			the actual system configuration while this allows
+			user configuration.
+
+			If "auto" method is set with an empty URL, then
+			DHCP/WPAD auto-discover will be tried. Otherwise the
+			specified URL will be used.
+
+		dict Provider [readonly]
+
+			string Host [readonly]
+
+				VPN host IP.
+
+			string Domain [readonly]
+
+				VPN Domain.
+
+			string Name [readonly]
+
+				VPN provider Name.
+
+			string Type [readonly]
+
+				VPN provider type.
+
+		dict Ethernet [readonly]
+
+			string Method [readonly]
+
+				Possible values are "auto" and "manual".
+
+			string Interface [readonly]
+
+				Interface name (for example eth0).
+
+			string Address [readonly]
+
+				Ethernet device address (MAC address).
+
+			uint16 MTU [readonly]
+
+				The Ethernet MTU (default is 1500).
+
+			uint16 Speed [readonly] [deprecated]
+
+				Selected speed of the line.
+
+				This information is not available.
+
+			string Duplex [readonly] [deprecated]
+
+				Selected duplex settings of the line.
+				Possible values are "half" and "full".
+
+				This information is not available.

@@ -1,0 +1,57 @@
+#!/usr/bin/python
+
+import os
+import re
+import sys
+import subprocess
+
+if (len(sys.argv) < 3):
+	print "Usage: %s [binary] [log]" % (sys.argv[0])
+	sys.exit(1)
+
+binary = sys.argv[1]
+count = 0
+frames = []
+addrs = []
+
+log_file = open(sys.argv[2], 'r')
+
+# Extract addresses
+for line in log_file:
+	matchobj = re.compile(r'\[(0x[0-9a-f]+)\]$').search(line)
+	if matchobj:
+		addrs.append(matchobj.group(1))
+
+log_file.close()
+
+# Feed into addr2line
+command = ['addr2line', '--demangle', '--functions', '--basename',
+							'-e', binary]
+command.extend(addrs)
+
+p = subprocess.Popen(command, shell=False, bufsize=0,
+		stdin=subprocess.PIPE, stdout=subprocess.PIPE, close_fds=True)
+(child_stdin, child_stdout) = (p.stdin, p.stdout)
+
+child_stdin.close()
+
+# Backtrace display
+for line in child_stdout:
+
+	if line.startswith("??"):
+		continue
+
+	line = line.strip()
+
+	frames.append(line)
+
+child_stdout.close()
+
+frame_count = len(frames);
+
+count = 0
+print "-------- backtrace --------"
+while count < frame_count:
+	print "[%d]: %s() [%s]" % (count/2, frames[count], frames[count + 1])
+	count = count + 2
+print "---------------------------"

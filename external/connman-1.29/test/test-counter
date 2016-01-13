@@ -1,0 +1,79 @@
+#!/usr/bin/python
+
+import sys
+import gobject
+
+import dbus
+import dbus.service
+import dbus.mainloop.glib
+
+def make_bytes_readable(bytes):
+	SUFFIXES = [ 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB' ]
+	size = 1024
+
+	if bytes < size:
+		return ''
+
+	for suffix in SUFFIXES:
+		if bytes > size * 1024:
+			size = size * 1024
+			continue
+
+		return '%.1f %s' % (bytes / float(size), suffix)
+
+	return ''
+
+def print_stats(stats):
+	keys = stats.keys()
+	keys.sort()
+
+	for key in keys:
+		val = int(stats[key])
+		str = "    %s = %s" % (key, val)
+
+		if key in ["RX.Bytes", "TX.Bytes"]:
+			hstr = make_bytes_readable(val)
+			if hstr:
+				str = "%s (%s)" % (str, hstr)
+
+		print str
+
+class Counter(dbus.service.Object):
+	@dbus.service.method("net.connman.Counter",
+				in_signature='', out_signature='')
+	def Release(self):
+		print("Release")
+		mainloop.quit()
+
+	@dbus.service.method("net.connman.Counter",
+				in_signature='oa{sv}a{sv}', out_signature='')
+	def Usage(self, path, home, roaming):
+		print "%s" % (path)
+
+		if len(home) > 0:
+			print "  Home"
+			print_stats(home)
+		if len(roaming) > 0:
+			print "  Roaming"
+			print_stats(roaming)
+
+if __name__ == '__main__':
+	dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+
+	bus = dbus.SystemBus()
+	manager = dbus.Interface(bus.get_object('net.connman', "/"),
+					'net.connman.Manager')
+
+	period = 2
+	if len(sys.argv) > 1:
+		period = sys.argv[1]
+
+	path = "/test/counter%s" % period
+	object = Counter(bus, path)
+
+	manager.RegisterCounter(path, dbus.UInt32(10), dbus.UInt32(period))
+
+	mainloop = gobject.MainLoop()
+	mainloop.run()
+
+	#manager.UnregisterCounter(path)

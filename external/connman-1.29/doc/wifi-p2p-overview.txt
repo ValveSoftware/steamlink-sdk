@@ -1,0 +1,54 @@
+WiFi P2P Functionality [experimental]
+*************************************
+
+Note: Nothing about WiFi P2P Services is exposed, this is yet to be specified.
+
+Summary
+=======
+
+WiFi P2P is supported as follows:
+- if hardware and wpa_supplicant supports it, a "p2p" technology will appear
+  in the technology list
+- "p2p" technology, as for "wifi" technology, supports a Scan() method. Such
+  method will trigger a P2P find process. The results will be available
+  through the Manager interface, comparable to services being available
+  through this same interface after a Scan() on "wifi" technology.
+- the result of a "p2p" Scan() consists into a list of "peer" objects
+- it is then possible to access peer information, connecting and disconnecting
+  it via the Peer API.
+
+
+API Usage
+=========
+
+The UI willing to access to WiFi P2P technology should proceed this way:
+- Request Manager.GetTechnologies() and figure out from the result if "p2p"
+  technology is provided. What comes next implies this successful case.
+- Add a listener to signal Manager.PeersChanged(): this signal will provide
+  the results of a "p2p" technology Scan().
+- From the "p2p" technology object, request a Technology.Scan() method. This
+  will run for a while a P2P find process.
+- If P2P peers are found, it will be signaled through Manager.PeersChanged().
+  Objects are "Peer" objects. UI might use Manager.GetPeers() instead, if
+  listening to a signal is not the preferred way.
+- Once selected the proper Peer object, request a Peer.Connect() method on it
+  so it will connect to it. Peer.Disconnect() will disconnect.
+
+Internals
+=========
+
+Through such API, everything is made to hide irrelevant informations for the
+applications, which are:
+
+- Everything related to the P2P group and the Group Owner (GO)
+- All low level peer settings
+- All Service Request Discovery mechanism
+
+Hiding this mean ConnMan will handle it properly behind.
+
+For instance, if you connect to a Peer which happens to be a persistent GO
+ConnMan will notice it and store the Group information for a later connection
+to speed up such connection.
+
+For Service Discovery (SD), this will be handled the same way: silently
+behind, by ConnMan.

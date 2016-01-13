@@ -1,0 +1,53 @@
+#!/bin/bash
+
+
+
+
+# Determine project name based on current directory
+#PROJECT=$(basename $PWD)
+PROJECT=connman-qt
+
+# NOTE: Don't like this?  Then uncomment one of the following as appropriate
+#
+# Just set it explictly to whatever you like:
+# PROJECT=libseaside
+#
+# Parse it from any Qt *.pro or *.pri files in CWD:
+# PROJECT=$(grep -E "TARGET ?= ?" *.pr[io]|cut -d' ' -f3)
+
+while getopts ht: o
+do   case $o in
+   h)   head=1;;
+   t)   TAG="$OPTARG";;
+   ?) printf >&2 "Usage: $0 [-h] [-t TAG]\n"
+      exit 2;;
+   esac
+done
+
+# Grab most recent tag from git unless TAG is set
+if [ -z "$TAG" ] ; then 
+  TAG=$(git describe --tags --abbrev=0)
+fi
+
+# Parse out just the version number
+#PARTS=(${TAG//-/ })
+#VERSION=${PARTS[1]}
+VERSION=${TAG}
+
+# Set name of toplevel directory for the archive
+PREFIX="${PROJECT}-${VERSION}/"
+
+# Set name of resulting release archive file
+ARCHIVE=${PROJECT}-${VERSION}.tar.bz2
+
+[ -e ${ARCHIVE} ] && rm -rf ${ARCHIVE} && echo "Removed: ${ARCHIVE}"
+
+if [ ! -z "$head" ] ; then
+  TAG="HEAD"
+fi
+
+git archive --format=tar --prefix=${PREFIX} $TAG | bzip2 -c -- > ${ARCHIVE} && {
+	echo "Created: ${ARCHIVE}"
+} || {
+	echo "Creation of release archive ${ARCHIVE} failed.  Reason unknown."
+}

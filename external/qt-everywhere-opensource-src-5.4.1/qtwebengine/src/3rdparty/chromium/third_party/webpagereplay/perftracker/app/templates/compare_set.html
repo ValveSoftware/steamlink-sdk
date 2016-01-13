@@ -1,0 +1,261 @@
+<html>
+  <head>
+  <title>Chromium Perf Tracker</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <script src="scripts/util.js"></script>
+  <script src="jst/util.js" type="text/javascript"></script>
+  <script src="jst/jsevalcontext.js" type="text/javascript"></script>
+  <script src="jst/jstemplate.js" type="text/javascript"></script>
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+  </head>
+
+  <body onload="loadData()">
+    <h1><div id="header">Chromium Page Tracker View Test Set</div></h1>
+
+    <script>
+    var datas = [];
+    var metricTitles = {
+      num_connects: "Number of connections",
+      num_requests: "Number of requests",
+      read_bytes_kb: "KB downloaded",
+      write_bytes_kb: "KB uploaded",
+      dns_time: "Root DNS Complete",
+      connect_time: "Root Connection Established",
+      first_byte_time: "Root Document First Byte Received",
+      last_byte_time: "Root Document Last Byte Received",
+      paint_time: "First Paint Time",
+      doc_load_time: "DOM readyState Interactive",
+      dcl_time: "DOMContendLoaded Event",
+      total_time: "Page Load Time",
+    };
+
+    function getName(allObjs, obj) {
+      var date = obj.obj.date;
+      var cpu = obj.cpu.cpu;
+      var network = obj.network.network_type;
+      var notes = obj.obj.notes;
+      var use_date = false;
+      var use_cpu = false;
+      var use_network = false;
+      var use_notes = false;
+      for (var i = 0; i < allObjs.length; i++) {
+        use_date |= date != allObjs[i].obj.date;
+        use_cpu |= cpu != allObjs[i].cpu.cpu;
+        use_network |= network != allObjs[i].network.network_type;
+        use_notes |= notes != allObjs[i].obj.notes;
+      }
+      var parts = [];
+      if (use_date) parts.push(date);
+      if (use_cpu) parts.push(cpu);
+      if (use_network) parts.push(network);
+      if (use_notes) parts.push(notes);
+      return parts.join(' ');
+    }
+
+    function loadData() {
+      var baseUrl = "/json?type=set";
+      var set_ids = location.queryString()["id"];
+      if (set_ids == undefined) {
+        alert("missing id=");
+        return;
+      }
+      set_ids = set_ids.split(",");
+      for (var i = 0; i < set_ids.length; i++) {
+        var url = baseUrl + "&id=" + set_ids[i];
+        new XHRGet(url, function(result) {
+          datas.push(JSON.parse(result));
+          if (datas.length == set_ids.length) {
+            var metric = getParams()["metric"] || "total_time";
+            setSelectValue("metric", metric)
+            compareMetric(datas, metric, metricTitles[metric]);
+          }
+        });
+      }
+    }
+
+    function compareMetric(datas, metric, title) {
+      var cols = [];
+      var sets = [];
+
+      var rows = [];
+      var isSignificants = [];
+      var deltaConfidenceIntervals = [];
+
+      cols.push('URL');
+      var url_map = {};
+      for (var i = 0; i < datas.length; i++) {
+        var result = datas[i];
+        cols.push(getName(datas, result));
+        sets.push(result.summaries[0].set);
+        for (var j = 0; j < result.summaries.length; j++) {
+          var url = result.summaries[j].url;
+          if (!url_map[url])
+            url_map[url] = {
+              avgs: [url],
+              iterations: [url],
+              stddevs: [url],
+            };
+          url_map[url].avgs.push(result.summaries[j][metric]);
+          url_map[url].iterations.push(result.summaries[j].iterations);
+          // TODO(tonyg): The stddev is only stored for total_time. Do this for
+          // others as well.
+          if (metric == "total_time") {
+            url_map[url].stddevs.push(result.summaries[j].total_time_stddev);
+          }
+        }
+      }
+      for (var url in url_map) {
+        var obj = url_map[url];
+        if (obj.avgs.length != cols.length) continue;
+        rows.push(obj.avgs);
+        if (obj.stddevs.length == 3) {
+          var deltaCi = getDeltaConfidenceInterval(
+              obj.avgs[1], obj.stddevs[1], obj.iterations[1],
+              obj.avgs[2], obj.stddevs[2], obj.iterations[2]);
+          deltaConfidenceIntervals.push(deltaCi);
+          isSignificants.push(!!deltaCi);
+        }
+      }
+      drawTable(cols, sets, rows, isSignificants, deltaConfidenceIntervals);
+      drawChart(cols, rows, title);
+    }
+
+    function drawTable(cols, sets, rows, isSignificants,
+                       deltaConfidenceIntervals) {
+      var stats = [];
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        for (var j = 0; j < row.length; j++) {
+          if (!stats[j]) stats[j] = [];
+          stats[j].push(row[j]);
+        }
+      }
+
+      var rowsWithStats = rows.clone();
+      if (rows.length > 1) {
+        var mins = ["Min"];
+        var maxs = ["Max"];
+        var avgs = ["Average"];
+        var meds = ["Median"];
+        for (var i = 1; i < stats.length; i++) {
+          mins.push(stats[i].min());
+          maxs.push(stats[i].max());
+          avgs.push(Math.round(stats[i].average()));
+          meds.push(Math.round(stats[i].median()));
+        }
+        rowsWithStats.push(mins);
+        rowsWithStats.push(maxs);
+        rowsWithStats.push(avgs);
+        rowsWithStats.push(meds);
+      }
+
+      var context = new JsEvalContext({
+        cols: cols,
+        rows: rowsWithStats,
+      });
+      context.setVariable('isSignificants', isSignificants);
+      context.setVariable('deltaConfidenceIntervals', deltaConfidenceIntervals);
+      context.setVariable('sets', sets);
+      var template = document.getElementById("template");
+      jstProcess(context, template);
+    }
+
+    // http://code.google.com/apis/visualization/documentation/gallery/columnchart.html
+    google.load('visualization', '1', {'packages':['corechart']});
+
+    function drawChart(cols, rows, title) {
+      var graph_data = new google.visualization.DataTable();
+      for (var i = 0; i < cols.length; i++) {
+      if (i == 0)
+          graph_data.addColumn('string', cols[i]);
+        else
+          graph_data.addColumn('number', cols[i]);
+      }
+      for (var i = 0; i < rows.length; i++) {
+        graph_data.addRow(rows[i]);
+      }
+
+      var chart_div = document.getElementById('chart_div');
+      if (graph_data.getNumberOfRows()) {
+        var chart = new google.visualization.ColumnChart(chart_div);
+        chart.draw(graph_data, {displayAnnotations: true,
+                                legend: 'bottom',
+                                title: title,
+                                hAxis: {
+                                  title: "URL"
+                                },
+                                vAxis: {
+                                  title: "ms"
+                                },
+                               });
+        google.visualization.events.addListener(chart, 'onmouseover', function(e) {
+          var tr = document.getElementById('data').rows[e.row+1];
+          var td = tr.cells[e.column+1];
+          tr.style.backgroundColor = "#ffe87c";
+          td.style.backgroundColor = "#fbb117";
+        });
+        google.visualization.events.addListener(chart, 'onmouseout', function(e) {
+          var tr = document.getElementById('data').rows[e.row+1];
+          var td = tr.cells[e.column+1];
+          tr.style.backgroundColor = "";
+          td.style.backgroundColor = "";
+        });
+
+      } else {
+        chart_div.innerHTML = "No data";
+      }
+    }
+
+    function metricChanged() {
+      var metric = getSelectValue("metric");
+      var params = {};
+      params["metric"] = metric;
+      setParams(params);
+      compareMetric(datas, metric, metricTitles[metric]);
+    }
+    </script>
+
+    <div id="template">
+      Compare:&nbsp;<select id="metric" onchange="metricChanged()">
+      <option value="num_connects">Number of Connections</option>
+      <option value="num_requests">Number of Requests</option>
+      <option value="read_bytes_kb">KB Downloaded</option>
+      <option value="write_bytes_kb">KB Uploaded</option>
+      <option value="dns_time">Root DNS Complete</option>
+      <option value="connect_time">Root Connection Established</option>
+      <option value="first_byte_time">Root Document First Byte Received</option>
+      <option value="last_byte_time">Root Document Last Byte Received</option>
+      <option value="paint_time">First Paint Time</option>
+      <option value="doc_load_time">DOM readyState Interactive</option>
+      <option value="dcl_time">DOMContendLoaded Event</option>
+      <option value="total_time">Page Load Time</option>
+      </select>&nbsp;<a jsvalues="href:'/do_compare_set?id='+sets.clone().reverse().join(',')">swap sets</a>
+
+      <div id="chart_div" style="width:1024px;height:240px"></div>
+
+      <table class="sortable" id="data">
+      <tr>
+        <th jsselect="cols">
+          <span jscontent="$this" jsdisplay="!$index"></span>
+          <a jscontent="$this" jsdisplay="$index" jsvalues="href:'/do_view_set?id=' + sets[$index-1]"></a>
+        </th>
+        <th>Delta</th>
+        <th>Percent</th>
+        <th>Delta 95% ci</th>
+      </tr>
+      <tr jsselect="rows" jseval="$delta = $this[2] - $this[1]" jsvalues=".style.fontWeight:$this[0].indexOf('http:') ? 'bold' : 'normal'">
+        <td jsselect="summaries"><span jscontent="total_time"></span></td>
+        <!-- TODO(tonyg): Link to details page for each URL. -->
+        <td jsselect="$this" jsvalues="class:$index > 0 ? 'righttext' : ''"><span jscontent="$this"></span></td>
+        <td class="righttext" jscontent="$delta" jsvalues=".style.color:$index > isSignificants.length - 1 || isSignificants[$index] ? ($delta < 0 ? 'red' : 'black') : 'gray'"></td>
+        <td class="righttext" jscontent="Math.round(10000 * $delta / $this[1]) / 100 + '%'" jsvalues=".style.color:$index > isSignificants.length - 1 || isSignificants[$index] ? ($delta < 0 ? 'red' : 'black') : 'gray'"></td>
+        <td class="righttext" jscontent="deltaConfidenceIntervals[$index] || ''"></td>
+      </tr>
+      </table>
+    </div>
+    <div id="footer">
+      &copy;2011 Google - <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmarkMetrics">Metric definitions</a> | <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmark">Running the benchmark</a><br>
+      Powered by <a href="http://code.google.com/p/web-page-replay/">Web Page Replay</a>
+    </div>
+  </body>
+</html>

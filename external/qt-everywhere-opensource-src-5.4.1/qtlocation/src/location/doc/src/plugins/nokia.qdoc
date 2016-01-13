@@ -1,0 +1,317 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page location-plugin-nokia.html
+\title Qt Location Nokia Plugin
+\ingroup QtLocation-plugins
+
+\brief Uses the relevant Nokia services provided by Nokia.
+
+\section1 Overview
+
+Included with Qt Location is a geo services plugin which accesses the relevant Nokia services
+provided by Nokia.  The use of these services is governed by the terms and conditions
+available at \l {Qt Location Nokia Plugin - Nokia Services Terms and Conditions}.
+
+Note that accepting the terms and conditions only applies those terms and conditions to the use of
+the Nokia geo services plugin and does not limit the use of the other geo services plugins that may
+be included with Qt.
+
+The Nokia geo services plugin can be loaded by using the plugin key "nokia".
+
+The online plugin uses the tiled map classes, which caches tile data in heap memory and texture
+memory.
+
+\section1 Parameters
+
+\section2 Mandatory parameters
+The following table lists mandatory parameters that \e must be passed to the Nokia plugin.
+\table
+\header
+    \li Parameter
+    \li Description
+\row
+    \li app_id
+    \li Client \e app_id part of the app_id/token pair used for authentication by all managers.
+\row
+    \li token
+    \li Client \e token part of the app_id/token pair for the service used for authentication by all managers.
+\endtable
+
+The Nokia geo services plugin requires an application id and token pair to authenticate the
+application with the Nokia services.  To obtain an application id and token pair visit
+\l{http://api.developer.nokia.com/}
+
+\section2 Optional parameters
+The following table lists optional parameters that can be passed to the Nokia plugin.
+\table
+\header
+    \li Parameter
+    \li Description
+\row
+    \li proxy
+    \li Proxy server URL used by all managers. For usage of the system proxy just pass "system" as value.
+
+    \note See the notes in \l{QNetworkProxyFactory::systemProxyForQuery()} for further information.
+\row
+    \li mapping.host
+    \li Base map tile service URL used by mapping manager.
+\row
+    \li mapping.host.aerial
+    \li Aerial map tile service URL used by mapping manager. For all satellite, hybrid and terrain schemes.
+\row
+    \li mapping.cache.directory
+    \li Map tile cache directory used as network disk cache.
+
+    Default place for the cache is "QtLocation" directory in \l {QStandardPaths::writableLocation()} {QStandardPaths::writableLocation}(\l{QStandardPaths::GenericCacheLocation}).
+\row
+    \li mapping.cache.disk.size
+    \li Map tile disk cache size in bytes. Default size of the cache is 20MB.
+\row
+    \li mapping.cache.memory.size
+    \li Map tile memory cache size in bytes. Default size of the cache is 3MB.
+\row
+    \li mapping.cache.texture.size
+    \li Map tile texture cache size in bytes. Default size of the cache is 6MB. Note that the texture cache has a hard minimum size which depends on the size of the map viewport (it must contain enough data to display the tiles currently visible on the display). This value is the amount of cache to be used in addition to the bare minimum.
+\row
+    \li geocoding.host
+    \li Geocoding service URL used by geocoding manager.
+\row
+    \li routing.host
+    \li Routing service URL used by routing manager.
+\row
+    \li places.host
+    \li Search service URL used by search manager.
+\row
+    \li places.api_version
+    \li Version of the REST API used by the places manager.  Currently versions 1 and 2 are
+       supported. The version 1 is deprecated and will not be part of the final Qt release.  The default is version 2.
+\row
+    \li places.theme
+    \li Specifies the icon theme to be used for places and categories.  If no theme is
+        explicitly provided then the platform theme is used.  A default non-platform
+        specific theme can be specified using a value of "default".  The supported themes
+        are "wp7_dark" and "default".  On desktop platforms the "default" theme is the
+        platform theme.
+\endtable
+
+\section1 Parameter Usage Example
+
+The following two examples show how to create a Nokia plugin instance with
+parameters supplied for an application id and token, which is required for
+authentication.
+
+\section2 QML
+
+\code
+Plugin {
+    name: "nokia"
+    PluginParameter { name: "app_id"; value: "myapp" }
+    PluginParameter { name: "token"; value: "abcdefg12345" }
+}
+\endcode
+
+\section2 C++
+
+\code
+QMap<QString,QVariant> params;
+params["app_id"] = "myapp";
+params["token"] = "abcdefg12345";
+
+QGeoServiceProvider *gsp = new QGeoServiceProvider("nokia", params);
+\endcode
+
+\section1 Places
+The Nokia provider remotely accesses places (read-only) from a REST based server.  The specific capabilities
+and behaviours are outlined below:
+
+\section2 Capabilities
+\table
+    \row
+        \li Storage
+        \li remote
+    \row
+        \li Read/Write
+        \li read-only
+    \row
+        \li Icons
+        \li yes
+    \row
+        \li Search term suggestions
+        \li yes
+    \row
+        \li Recommendations
+        \li yes
+    \row
+        \li Category structure
+        \li Hierarchical
+    \row
+        \li (Rich) Content images
+        \li yes
+    \row
+        \li (Rich) Content reviews
+        \li yes
+    \row
+        \li (Rich) Content editorials
+        \li yes
+    \row
+        \li All details fetched during search
+        \li no
+    \row
+        \li Paging offset index
+        \li no
+    \row
+        \li Paging limit
+        \li yes
+    \row
+        \li Distance relevance hint
+        \li no
+    \row
+        \li Lexical name relevance hint
+        \li no
+    \row
+        \li Extended Attributes
+        \li yes
+    \row
+        \li Notifications for added/removed places/categories
+        \li no
+    \row
+        \li visibility scopes
+        \li public
+    \row
+        \li favorites matching/(usable as favoritesPlugin)
+        \li no
+\endtable
+
+\section2 Plugin Specific Behaviors and Limitations.
+\section3 Search
+The following list shows what core place data is returned during a place search:
+\list
+\li name
+\li location
+\li contact information
+\li attribution
+\li categories
+\li rating
+\li visibility
+\endlist
+
+The following list shows further details that may be retrieved
+via QPlaceManager::getDetails()
+\list
+\li supplier
+\li extended attributes
+\endlist
+
+\section3 Searching for Places
+\section4 Search Term and Categories
+The \c nokia plugin supports searching with a \e {search term} and \e {category or categories}, however
+both are not supported simultaneously.
+
+\list
+    \li Valid usage: \e {search term} + \e {search center}
+    \li Valid usage: \e {category} + \e {search center}
+    \li Invalid usage: \e {search term} + \e {category} + \e {search center}
+\endlist
+
+This limitation applies when using the \c nokia plugin with \l PlaceSearchModel and QPlaceManager::search().
+
+\section4 Search Area
+The \c nokia plugin only supports provision of a \e {search center} when searching for places via \l PlaceSearchModel
+and QPlaceManager::search().  A search center can be provided via a bounding circle, however the
+radius should be kept at the default value of -1.  Typically a developer should not have to set the radius at all.
+If a developer sets a radius, it is ignored by the plugin and the boundaries are not honored.
+
+In a similar manner only the center of a bounding box is taken into consideration when searching.  The boundaries
+of the box are not honored.
+
+A search center \e {must} be provided for all searches.
+
+\section4 Relevancy Hints
+The \c nokia plugin does not support relevancy hints.  Any relevancy hints supplied to
+a search request are consequently ignored.
+
+\section3 Search Term suggestions
+Only a partial \e {search term} and \e {search center} is supported when retrieving suggestions.
+This limitation applies when using the \c nokia plugin with the \l PlaceSearchSuggestionModel and QPlaceManager::searchSuggestions().
+
+Both search term and search center \e {must} be provided when retrieving search term suggestions.
+
+\section3 Recommendations
+Only a given \e {place identifier} is supported as a parameter for a recommendations.  No other parameters
+such as limit, offset, and  search area are supported.  This limitation applies when using the
+\c nokia plugin with \l PlaceSearchModel and QPlaceManager::search().
+
+\section3 Icons themes, base urls and variants
+Icons are provided in the form of "base urls" which reference valid icon images.
+For example, if the "wp7_dark" theme was specified, then an icon url might look something like
+http://<server>/01.icon.wp7_dark and this references an actual icon image.
+
+However these urls are "base urls" in the sense that they can be appended onto, to provide variants.
+For example, one could add ".list.png" to the above url to get the list variant of the icon,
+http://<server>/01.icon.wp7_dark.list.png.
+
+The following table shows the themes provided by the \c nokia plugin, along with any
+variants supported for those themes:
+
+\table
+    \header
+        \li Theme
+        \li Supported type variants and appendage strings
+    \row
+        \li "default"
+        \li no variants supported
+    \row
+        \li "wp7_dark"
+        \li
+        \list
+        \li list : ".list.png"
+        \li map: ".map.png"
+        \endlist
+        (Note: the default base urls reference a map type icons)
+\endtable
+
+\section3 Extended Attributes
+The supported set of attributes provided by \c nokia plugin are not fixed and
+may grow over time.  Also the attributes provided may vary according to a place
+by place basis, e.g one place may provide opening hours while another does not.
+At the time of writing, it is known that some places provide \c openingHours
+(QPlaceAttribute::OpeningHours) and \c payment (QPlaceAttribute::Payment)
+methods but other attributes may be made available by the backend server.  All
+places provided by the plugin will have the \c x_provider
+(QPlaceAttribute::Provider)  attribute set to \c nokia.
+
+\section3 Restrictions of Usage - ExtendedAttributes and Content
+The extended attributes  and rich content of places are not permitted
+to be saved.  For QML this is related to \l Place::extendedAttributes, \l ImageModel,
+\l ReviewModel, and \l EditorialModel.  For C++ this relates to QPlace::extendedAttribute(),
+QPlace::content() and QPlaceManager::getPlaceContent().
+
+(Note that the \c nokia plugin is a read-only source of places and
+does not support saving functionality at all.)
+*/

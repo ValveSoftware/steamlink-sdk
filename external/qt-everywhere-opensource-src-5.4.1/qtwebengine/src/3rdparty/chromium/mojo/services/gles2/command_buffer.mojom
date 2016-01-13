@@ -1,0 +1,49 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module mojo {
+
+struct CommandBufferState {
+  int32 num_entries;
+  int32 get_offset;
+  int32 put_offset;
+  int32 token;
+  int32 error;  // TODO(piman): enum
+  int32 context_lost_reason;  // TODO(piman): enum
+  uint32 generation;
+};
+
+interface CommandBufferSyncClient {
+  DidInitialize(bool success);
+  DidMakeProgress(CommandBufferState state);
+};
+
+[Client=CommandBufferClient]
+interface CommandBuffer {
+  Initialize(CommandBufferSyncClient sync_client,
+             handle<shared_buffer> shared_state);
+  SetGetBuffer(int32 buffer);
+  Flush(int32 put_offset);
+  MakeProgress(int32 last_get_offset);
+  RegisterTransferBuffer(
+      int32 id, handle<shared_buffer> transfer_buffer, uint32 size);
+  DestroyTransferBuffer(int32 id);
+  Echo() => ();
+
+  // TODO(piman): move to somewhere else (native_viewport?).
+  RequestAnimationFrames();
+  CancelAnimationFrames();
+
+  // TODO(piman): sync points
+};
+
+interface CommandBufferClient {
+  DidDestroy();
+  LostContext(int32 lost_reason);  // TODO(piman): enum
+
+  // TODO(piman): move to somewhere else (native_viewport?).
+  DrawAnimationFrame();
+};
+
+}

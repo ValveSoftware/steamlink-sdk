@@ -1,0 +1,87 @@
+diff -pu a/nss/lib/ssl/ssl3con.c b/nss/lib/ssl/ssl3con.c
+--- a/nss/lib/ssl/ssl3con.c	2014-01-17 17:52:46.705854118 -0800
++++ b/nss/lib/ssl/ssl3con.c	2014-01-17 17:54:27.087523439 -0800
+@@ -6985,6 +6985,9 @@ ssl3_HandleCertificateRequest(sslSocket
+     if (rv != SECSuccess)
+     	goto loser;		/* malformed, alert has been sent */
+ 
++    PORT_Assert(!ss->requestedCertTypes);
++    ss->requestedCertTypes = &cert_types;
++
+     if (isTLS12) {
+ 	rv = ssl3_ConsumeHandshakeVariable(ss, &algorithms, 2, &b, &length);
+ 	if (rv != SECSuccess)
+@@ -7186,6 +7189,7 @@ loser:
+     PORT_SetError(errCode);
+     rv = SECFailure;
+ done:
++    ss->requestedCertTypes = NULL;
+     if (arena != NULL)
+     	PORT_FreeArena(arena, PR_FALSE);
+ #ifdef NSS_PLATFORM_CLIENT_AUTH
+diff -pu a/nss/lib/ssl/ssl.h b/nss/lib/ssl/ssl.h
+--- a/nss/lib/ssl/ssl.h	2014-01-17 17:53:39.726735852 -0800
++++ b/nss/lib/ssl/ssl.h	2014-01-17 17:54:27.087523439 -0800
+@@ -793,6 +793,16 @@ SSL_IMPORT SECStatus SSL_ReHandshakeWith
+                                                 PRBool flushCache,
+                                                 PRIntervalTime timeout);
+ 
++/* Returns a SECItem containing the certificate_types field of the
++** CertificateRequest message.  Each byte of the data is a TLS
++** ClientCertificateType value, and they are ordered from most preferred to
++** least.  This function should only be called from the
++** SSL_GetClientAuthDataHook callback, and will return NULL if called at any
++** other time.  The returned value is valid only until the callback returns, and
++** should not be freed.
++*/
++SSL_IMPORT const SECItem *
++SSL_GetRequestedClientCertificateTypes(PRFileDesc *fd);
+ 
+ #ifdef SSL_DEPRECATED_FUNCTION 
+ /* deprecated!
+diff -pu a/nss/lib/ssl/sslimpl.h b/nss/lib/ssl/sslimpl.h
+--- a/nss/lib/ssl/sslimpl.h	2014-01-17 17:52:46.715854283 -0800
++++ b/nss/lib/ssl/sslimpl.h	2014-01-17 17:54:27.087523439 -0800
+@@ -1229,6 +1229,10 @@ struct sslSocketStr {
+     unsigned int     sizeCipherSpecs;
+ const unsigned char *  preferredCipher;
+ 
++    /* TLS ClientCertificateTypes requested during HandleCertificateRequest. */
++    /* Will be NULL at all other times. */
++    const SECItem      *requestedCertTypes;
++
+     ssl3KeyPair *         stepDownKeyPair;	/* RSA step down keys */
+ 
+     /* Callbacks */
+diff -pu a/nss/lib/ssl/sslsock.c b/nss/lib/ssl/sslsock.c
+--- a/nss/lib/ssl/sslsock.c	2014-01-17 17:53:39.726735852 -0800
++++ b/nss/lib/ssl/sslsock.c	2014-01-17 17:54:27.097523605 -0800
+@@ -1869,6 +1869,20 @@ SSL_HandshakeResumedSession(PRFileDesc *
+     return SECSuccess;
+ }
+ 
++const SECItem *
++SSL_GetRequestedClientCertificateTypes(PRFileDesc *fd)
++{
++  sslSocket *ss = ssl_FindSocket(fd);
++
++  if (!ss) {
++      SSL_DBG(("%d: SSL[%d]: bad socket in "
++               "SSL_GetRequestedClientCertificateTypes", SSL_GETPID(), fd));
++      return NULL;
++  }
++
++  return ss->requestedCertTypes;
++}
++
+ /************************************************************************/
+ /* The following functions are the TOP LEVEL SSL functions.
+ ** They all get called through the NSPRIOMethods table below.
+@@ -2936,6 +2950,7 @@ ssl_NewSocket(PRBool makeLocks, SSLProto
+ 	    sc->serverKeyBits   = 0;
+ 	    ss->certStatusArray[i] = NULL;
+ 	}
++	ss->requestedCertTypes = NULL;
+ 	ss->stepDownKeyPair    = NULL;
+ 	ss->dbHandle           = CERT_GetDefaultCertDB();
+ 

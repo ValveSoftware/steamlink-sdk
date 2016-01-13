@@ -1,0 +1,61 @@
+Advanced configuration interface
+********************************
+
+
+Configuration basics
+====================
+
+The default configuration method for all services is automatic or something
+like DHCP. In almost every case that should be just good enough, but if it
+is not, Connection Manager supports manual configuration for Ethernet and
+IP settings.
+
+
+Configuration interface
+=======================
+
+Every service contains two properties. One represents the current active
+configuration and the other one allows manual configuration via the user.
+
+For IPv4 they are named "IPv4" and IPv4.Configuration".
+
+[ /profile/default/wifi_001122334455_42696720696e204a6170616e_managed_psk ]
+    Type = wifi
+    Name = Big in Japan
+    Mode = managed
+    Strength = 82
+    Security = rsn
+    Favorite = true
+    State = ready
+    IPv4.Configuration = { Method=dhcp }
+    IPv4 = { Netmask=255.255.255.0 Method=dhcp Address=192.168.1.198 }
+
+The above WiFi network shows how the default configuration would look like
+with a connected service. The configuration method is DHCP and the current
+IP address is 192.168.1.198.
+
+The "IPv4" property is read-only and will emit PropertyChanged signals in
+case the IP address of this interface changes. The "IPv4.Configuration"
+property is read-write and allows changes. For example to use a static IP
+configuration this call could be used:
+
+    service.SetProperty("IPv4.Configuration", { "Method": "manual",
+    						"Address": "192.168.1.100",
+    						"Netmask": "255.255.255.0" })
+
+The configuration itself is a dictionary with various fields. Not all of
+them need to be present. A lot of combinations are valid.
+
+For example the "Method" field has valid settings of "off", "fixed", "manual"
+and "dhcp". The "fixed" value however can not be set by any user program. It
+is an internal value that some 3G cards require. Switching to "off" will
+remove any IP configuration from the interface. The "manual" method allows
+for static address configuration. And "dhcp" will use DHCP to retrieve all
+required information automatically.
+
+With a manual configuration, the fields "Address" and "Netmask" should be
+given. In case "Netmask" is left out, the best netmask will be calculated.
+
+The "Gateway" field can be used to indicate the default route/gateway for
+this interface.
+

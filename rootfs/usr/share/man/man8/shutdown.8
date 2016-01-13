@@ -1,0 +1,215 @@
+'\" -*- coding: UTF-8 -*-
+.\" Copyright (C) 1998-2003 Miquel van Smoorenburg.
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+.\"
+.\"{{{}}}
+.\"{{{  Title
+.TH SHUTDOWN 8 "November 12, 2003" "" "Linux System Administrator's Manual"
+.\"}}}
+.\"{{{  Name
+.SH NAME
+shutdown \- bring the system down
+.\"}}}
+.\"{{{  Synopsis
+.SH SYNOPSIS
+.B /sbin/shutdown
+.RB [ \-akrhPHfFnc ]
+.RB [ \-t
+.IR sec ]
+.I time
+.RI [ "warning message" ]
+.\"}}}
+.\"{{{  Description
+.SH DESCRIPTION
+\fBshutdown\fP brings the system down in a secure way.  All logged-in users are
+notified that the system is going down, and \fBlogin\fP(1) is blocked.
+It is possible to shut the system down immediately or after a specified delay.
+All processes are first notified that the system is going down by the
+signal \s-2SIGTERM\s0.  This gives programs like \fBvi\fP(1)
+the time to save the file being edited, 
+mail and news processing programs a chance to exit cleanly, etc. 
+\fBshutdown\fP does its job by signalling the \fBinit\fP process, 
+asking it to change the runlevel.
+Runlevel \fB0\fP is used to halt the system, runlevel \fB6\fP is used
+to reboot the system, and runlevel \fB1\fP is used to put to system into
+a state where administrative tasks can be performed; this is the default
+if neither the \fI-h\fP or \fI-r\fP flag is given to \fBshutdown\fP.
+To see which actions are taken on halt or reboot see the appropriate
+entries for these runlevels in the file \fI/etc/inittab\fP.
+.\"}}}
+.\"{{{  Options
+.SH OPTIONS
+.\"{{{  -a
+.IP "\fB\-a\fP
+Use \fB/etc/shutdown.allow\fP.
+.\"}}}
+.\"{{{  -k
+.IP \fB\-k\fP
+Don't really shutdown; only send the warning messages to everybody.
+.\"}}}
+.\"{{{  -r
+.IP \fB\-r\fP
+Reboot after shutdown.
+.\"}}}
+.\"{{{  -h
+.IP \fB\-h\fP
+Halt or power off after shutdown.
+.\"}}}
+.\"{{{  -P
+.IP \fB\-P\fP
+Halt action is to turn off the power.
+.\"}}}
+.\"{{{  -H
+.IP \fB\-H\fP
+Modifier to the -h flag.  Halt action is to halt or drop into boot
+monitor on systems that support it.  Must be used with the -h flag.
+.\"}}}
+.\"{{{  -f
+.IP \fB\-f\fP
+Skip fsck on reboot.
+.\"}}}
+.\"{{{  -F
+.IP \fB\-F\fP
+Force fsck on reboot.
+.\"}}}
+.\"{{{  -n
+.IP \fB\-n\fP
+[DEPRECATED] Don't call \fBinit\fP(8) to do the shutdown but do it ourself.
+The use of this option is discouraged, and its results are not always what
+you'd expect.
+.\"}}}
+.\"{{{  -c
+.IP \fB\-c\fP
+Cancel a waiting shutdown. ("shutdown now" is no longer waiting.) With
+this option it is of course not possible to give the time argument, but
+you can enter explanatory message arguments on the command line that
+will be sent to all users.
+.\"}}}
+.\"{{{  -t sec
+.IP "\fB\-t\fP \fIsec\fP"
+Tell \fBinit\fP(8) to wait \fIsec\fP seconds between sending processes the
+warning and the kill signal, before changing to another runlevel.
+.\"}}}
+.\"{{{  time
+.IP \fItime\fP
+When to shutdown.
+.\"}}}
+.\"{{{  warning-message
+.IP "\fIwarning message\fP"
+Message to send to all users.
+.\"}}}
+.PP
+The \fItime\fP argument can have different formats.  First, it can be an
+absolute time in the format \fIhh:mm\fP, in which \fIhh\fP is the hour
+(1 or 2 digits) and \fImm\fP is the minute of the hour (in two digits).
+Second, it can be in the format \fB+\fP\fIm\fP, in which \fIm\fP is the
+number of minutes to wait.  The word \fBnow\fP is an alias for \fB+0\fP.
+.PP
+If shutdown is called with a delay, it will create the advisory file
+.I /etc/nologin
+which causes programs such as \fIlogin(1)\fP to not allow new user
+logins. This file is created five minutes before the shutdown sequence
+starts. Shutdown removes this file if it is stopped before it
+can signal init (i.e. it is cancelled or something goes wrong).
+It also removes it before calling init to change the runlevel.
+.PP
+The \fB\-f\fP flag means `reboot fast'.  This only creates an advisory
+file \fI/fastboot\fP which can be tested by the system when it comes
+up again.  The boot rc file can test if this file is present, and decide not 
+to run \fBfsck\fP(1) since the system has been shut down in the proper way.  
+After that, the boot process should remove \fI/fastboot\fP.
+.PP
+The \fB\-F\fP flag means `force fsck'.  This only creates an advisory
+file \fI/forcefsck\fP which can be tested by the system when it comes
+up again.  The boot rc file can test if this file is present, and decide
+to run \fBfsck\fP(1) with a special `force' flag so that even properly
+unmounted file systems get checked.
+After that, the boot process should remove \fI/forcefsck\fP.
+.PP
+The \fB-n\fP flag causes \fBshutdown\fP not to call \fBinit\fP, 
+but to kill all running processes itself. 
+\fBshutdown\fP will then turn off quota, accounting, and swapping
+and unmount all file systems.
+.\"}}}
+.\"{{{  Files
+.SH ACCESS CONTROL
+\fBshutdown\fP can be called from \fBinit\fP(8) when the magic keys
+\fBCTRL-ALT-DEL\fP are pressed, by creating an appropriate entry in
+\fI/etc/inittab\fP. This means that everyone who has physical access
+to the console keyboard can shut the system down. To prevent this,
+\fBshutdown\fP can check to see if an authorized user is logged in on
+one of the virtual consoles. If \fBshutdown\fP is called with the \fB-a\fP
+argument (add this to the invocation of shutdown in /etc/inittab),
+it checks to see if the file \fI/etc/shutdown.allow\fP is present.
+It then compares the login names in that file with the list of people
+that are logged in on a virtual console (from \fI/var/run/utmp\fP). Only
+if one of those authorized users \fBor root\fP is logged in, it will
+proceed. Otherwise it will write the message
+.sp 1
+.nf
+\fBshutdown: no authorized users logged in\fP
+.fi
+.sp 1
+to the (physical) system console. The format of \fI/etc/shutdown.allow\fP
+is one user name per line. Empty lines and comment lines (prefixed by a
+\fB#\fP) are allowed. Currently there is a limit of 32 users in this file.
+.sp 1
+Note that if \fI/etc/shutdown.allow\fP is not present, the \fB-a\fP
+argument is ignored.
+.SH HALT OR POWEROFF
+The \fB-H\fP option just sets the \fIinit\fP environment variable
+\fIINIT_HALT\fP to \fIHALT\fP, and the \fB-P\fP option just sets
+that variable to \fIPOWEROFF\fP. The shutdown script that calls
+\fBhalt\fP(8) as the last thing in the shutdown sequence should
+check these environment variables and call \fBhalt\fP(8) with
+the right options for these options to actually have any effect.
+Debian 3.1 (sarge) supports this.
+.SH FILES
+.nf
+/fastboot
+/etc/inittab
+/etc/init.d/halt
+/etc/init.d/reboot
+/etc/shutdown.allow
+.fi
+.\"}}}
+.SH NOTES
+A lot of users forget to give the \fItime\fP argument
+and are then puzzled by the error message \fBshutdown\fP produces. The
+\fItime\fP argument is mandatory; in 90 percent of all cases this argument
+will be the word \fBnow\fP.
+.PP
+Init can only capture CTRL-ALT-DEL and start shutdown in console mode.
+If the system is running the X window System, the X server processes
+all key strokes. Some X11 environments make it possible to capture
+CTRL-ALT-DEL, but what exactly is done with that event depends on
+that environment.
+.PP
+Shutdown wasn't designed to be run setuid. /etc/shutdown.allow is
+not used to find out who is executing shutdown, it ONLY checks who
+is currently logged in on (one of the) console(s).
+.\"{{{  Author
+.SH AUTHOR
+Miquel van Smoorenburg, miquels@cistron.nl
+.\"}}}
+.\"{{{  See also
+.SH "SEE ALSO"
+.BR fsck (8),
+.BR init (8),
+.BR halt (8),
+.BR poweroff (8),
+.BR reboot (8)
+.\"}}}

@@ -1,0 +1,1 @@
+SOURCES += picture.cpp

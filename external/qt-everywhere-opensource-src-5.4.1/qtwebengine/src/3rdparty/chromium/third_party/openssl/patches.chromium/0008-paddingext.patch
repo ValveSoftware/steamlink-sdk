@@ -1,0 +1,95 @@
+diff -burN android-openssl.orig/openssl.config android-openssl/openssl.config
+--- android-openssl.orig/openssl.config	2014-04-07 17:25:12.555281256 -0700
++++ android-openssl/openssl.config	2014-04-07 17:20:18.040941329 -0700
+@@ -1015,6 +1015,7 @@
+ use_aead_for_aes_gcm.patch \
+ chacha20poly1305.patch \
+ neon_runtime.patch \
++paddingext.patch \
+ "
+ 
+ OPENSSL_PATCHES_progs_SOURCES="\
+diff -burN android-openssl.orig/patches/paddingext.patch android-openssl/patches/paddingext.patch
+--- android-openssl.orig/patches/paddingext.patch	1969-12-31 16:00:00.000000000 -0800
++++ android-openssl/patches/paddingext.patch	2014-04-07 17:20:18.040941329 -0700
+@@ -0,0 +1,80 @@
++diff -burN android-openssl.orig/ssl/s23_clnt.c android-openssl/ssl/s23_clnt.c
++--- android-openssl.orig/ssl/s23_clnt.c	2014-04-07 16:18:43.296502203 -0700
+++++ android-openssl/ssl/s23_clnt.c	2014-04-07 16:20:18.887922518 -0700
++@@ -466,7 +466,10 @@
++ 			{
++ 			/* create Client Hello in SSL 3.0/TLS 1.0 format */
++ 
++-			/* do the record header (5 bytes) and handshake message header (4 bytes) last */
+++			/* do the record header (5 bytes) and handshake message
+++			 * header (4 bytes) last. Note: the code to add the
+++			 * padding extension in t1_lib.c depends on the size of
+++			 * this prefix. */
++ 			d = p = &(buf[9]);
++ 			
++ 			*(p++) = version_major;
++diff -burN android-openssl.orig/ssl/s3_clnt.c android-openssl/ssl/s3_clnt.c
++--- android-openssl.orig/ssl/s3_clnt.c	2014-04-07 16:18:43.346502948 -0700
+++++ android-openssl/ssl/s3_clnt.c	2014-04-07 16:20:18.897922665 -0700
++@@ -758,7 +758,9 @@
++ 		if (RAND_pseudo_bytes(p,SSL3_RANDOM_SIZE-4) <= 0)
++ 			goto err;
++ 
++-		/* Do the message type and length last */
+++		/* Do the message type and length last.
+++		 * Note: the code to add the padding extension in t1_lib.c
+++		 * depends on the size of this prefix. */
++ 		d=p= &(buf[4]);
++ 
++ 		/* version indicates the negotiated version: for example from
++diff -burN android-openssl.orig/ssl/t1_lib.c android-openssl/ssl/t1_lib.c
++--- android-openssl.orig/ssl/t1_lib.c	2014-04-07 16:18:43.306502352 -0700
+++++ android-openssl/ssl/t1_lib.c	2014-04-07 16:20:18.897922665 -0700
++@@ -680,6 +680,31 @@
++                 }
++ #endif
++ 
+++	/* Add padding to workaround bugs in F5 terminators.
+++	 * See https://tools.ietf.org/html/draft-agl-tls-padding-02 */
+++	{
+++	int hlen = ret - (unsigned char *)s->init_buf->data;
+++	/* The code in s23_clnt.c to build ClientHello messages includes the
+++	 * 5-byte record header in the buffer, while the code in s3_clnt.c does
+++	 * not. */
+++	if (s->state == SSL23_ST_CW_CLNT_HELLO_A)
+++		hlen -= 5;
+++	if (hlen > 0xff && hlen < 0x200)
+++		{
+++		hlen = 0x200 - hlen;
+++		if (hlen >= 4)
+++			hlen -= 4;
+++		else
+++			hlen = 0;
+++
+++		s2n(TLSEXT_TYPE_padding, ret);
+++		s2n(hlen, ret);
+++		memset(ret, 0, hlen);
+++		ret += hlen;
+++		}
+++	}
+++
+++
++ 	if ((extdatalen = ret-p-2)== 0) 
++ 		return p;
++ 
++diff -burN android-openssl.orig/ssl/tls1.h android-openssl/ssl/tls1.h
++--- android-openssl.orig/ssl/tls1.h	2014-04-07 16:18:43.306502352 -0700
+++++ android-openssl/ssl/tls1.h	2014-04-07 16:28:54.045542987 -0700
++@@ -230,6 +230,12 @@
++ /* ExtensionType value from RFC5620 */
++ #define TLSEXT_TYPE_heartbeat	15
++ 
+++/* ExtensionType value for TLS padding extension.
+++ * http://www.iana.org/assignments/tls-extensiontype-values/tls-extensiontype-values.xhtml
+++ * http://tools.ietf.org/html/draft-agl-tls-padding-03
+++ */
+++#define TLSEXT_TYPE_padding	21
+++
++ /* ExtensionType value from RFC4507 */
++ #define TLSEXT_TYPE_session_ticket		35
++ 

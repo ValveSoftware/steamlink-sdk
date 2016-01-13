@@ -1,0 +1,196 @@
+<html>
+  <head>
+  <title>Chromium Perf Tracker</title>
+  <link rel="stylesheet" href="styles/style.css">
+  <script src="scripts/util.js"></script>
+  <script src="jst/util.js" type="text/javascript"></script>
+  <script src="jst/jsevalcontext.js" type="text/javascript"></script>
+  <script src="jst/jstemplate.js" type="text/javascript"></script>
+  <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+  </head>
+
+  <body onLoad="main()">
+    <h1><div id="header">Chromium Page Tracker TestSets</div></h1>
+
+    <script>
+    data = {}
+    networks_map = {};   // maps from db.Key to pretty name.
+    cpus_map = {};   // maps from db.Key to pretty name.
+
+    function loadFilters() {
+      // Fetch data for the filters.
+      var filter_data_url = "/json?type=filters";
+      new XHRGet(filter_data_url, function(result) {
+        data.filters = JSON.parse(result);
+        var context = JsEvalContext.create(data.filters);
+        var template = document.getElementById("filters_template");
+        jstProcess(context, template);
+        JsEvalContext.recycle(context);
+
+        var params = getParams();
+        setSelectValue("version_filter", params["version"]);
+        setSelectValue("networks_filter", params["network"]);
+        setSelectValue("cpus_filter", params["cpu"]);
+
+        // Populate the networks list
+        for (index in data.filters.networks) {
+          networks_map[data.filters.networks[index][1]] =
+              data.filters.networks[index][0];
+        }
+        for (index in data.filters.cpus) {
+          cpus_map[data.filters.cpus[index][1]] =
+              data.filters.cpus[index][0];
+        }
+        ProcessResults();
+      });
+    }
+
+    function loadData() {
+      var url = "/json?type=set_search";
+      var params = getParams();
+      if (params["version"]) url += "&version_filter=" + params["version"];
+      if (params["network"]) url += "&networks_filter=" + params["network"];
+      if (params["cpu"]) url += "&cpus_filter=" + params["cpu"];
+
+      new XHRGet(url, function(result) {
+        data.results = JSON.parse(result);
+        ProcessResults();
+      });
+    }
+
+    function ProcessResults() {
+      if (!data.results || !data.filters) {
+        return;  // Still waiting for XHR to finish.
+      } 
+
+      var context = JsEvalContext.create(data);
+      var template = document.getElementById("data_template");
+      jstProcess(context, template);
+      drawChart(data.results);
+      JsEvalContext.recycle(context);
+    }
+
+    google.load('visualization', '1', {'packages':['annotatedtimeline']});
+
+    function drawChart(results) {
+      var graph_data = new google.visualization.DataTable();
+      graph_data.addColumn('date', 'Date');
+      graph_data.addColumn('number', 'PLT');
+      graph_data.addColumn('number', 'First Paint');
+
+      for (var i = 0; i < results.length; ++i) {
+        graph_data.addRow([new Date(results[i].date),
+                          results[i].total_time,
+                          results[i].paint_time, ]);
+      }
+
+      var chart_div = document.getElementById('chart_div');
+      if (graph_data.getNumberOfRows()) {
+        var chart = new google.visualization.AnnotatedTimeLine(chart_div);
+        chart.draw(graph_data, {displayAnnotations: true});
+      } else {
+        chart_div.innerHTML = "No data";
+      }
+    }
+
+    function filterChanged() {
+      var params = {};
+      var versionFilter = getSelectValue("version_filter");
+      if (versionFilter) params["version"] = versionFilter;
+      var networksFilter = getSelectValue("networks_filter");
+      if (networksFilter) params["network"] = networksFilter;
+      var cpusFilter = getSelectValue("cpus_filter");
+      if (cpusFilter) params["cpu"] = cpusFilter;
+      setParams(params);
+      loadData();
+    }
+
+    function main() {
+      loadData();
+      loadFilters();
+    }
+
+    </script>
+
+    <div id="filters_template">
+      <div id="filter" style="border:1px solid black">
+      <table class="sortable">
+        <tr>
+          <td>Version</td>
+          <td>Network</td>
+          <td>CPU</td>
+        </tr>
+        <tr>
+        <td>
+          <select id="version_filter" onchange="filterChanged()">
+            <option></option>
+            <option jsselect="versions" jscontent="$this[0]"
+                    jsvalues=".value:$this[1]"></option>
+          </select>
+        </td>
+        <td><select id="networks_filter" onchange="filterChanged()">
+            <option></option>
+            <option jsselect="networks" jscontent="$this[0]"
+                    jsvalues=".value:$this[1]"></option>
+          </select>
+        </td>
+        <td><select id="cpus_filter" onchange="filterChanged()">
+            <option></option>
+            <option jsselect="cpus" jscontent="$this[0]"
+                    jsvalues=".value:$this[1]"></option>
+          </select>
+        </td>
+        </tr>
+        </table>
+      </div>
+    </div>
+
+    <div id='chart_div' style='width: 700px; height: 240px;'></div>
+
+    <div id="data_template">
+      <form method="GET" action="/do_compare_set">
+      <table class="sortable">
+      <tr>
+        <th>Date</th>
+        <th>Machine</th>
+        <th>CPU</th>
+        <th>Network</th>
+        <th>URLs</th>
+        <th>Iterations</th>
+        <th>Start</th>
+        <th>DNS</th>
+        <th>Connect</th>
+        <th>First Byte</th>
+        <th>Last Byte</th>
+        <th>Paint</th>
+        <th>Interactive</th>
+        <th>DCL</th>
+        <th>Load</th>
+        <th><a href="#" onclick="document.forms[0].submit(); return false;">Compare</a></th>
+      </tr>
+        <tr jsselect="results">
+        <td><span jseval="$val = '/do_view_set?id=' + key"></span><a jsvalues="href:$val" jscontent="date"></a></td>
+        <td jscontent="client_hostname.split('.')[0] + (notes ? ' ' + notes : '')"></td>
+        <td jscontent="cpus_map[cpu]"></td>
+        <td jscontent="networks_map[network]"></td>
+        <td class="righttext" jscontent="url_count"></td>
+        <td class="righttext" jscontent="iterations"></td>
+        <td class="righttext" jscontent="start_load_time"></td>
+        <td class="righttext" jscontent="dns_time"></td>
+        <td class="righttext" jscontent="connect_time"></td>
+        <td class="righttext" jscontent="first_byte_time"></td>
+        <td class="righttext" jscontent="last_byte_time"></td>
+        <td class="righttext" jscontent="paint_time"></td>
+        <td class="righttext" jscontent="doc_load_time"></td>
+        <td class="righttext" jscontent="dcl_time"></td>
+        <td class="righttext" jscontent="total_time"></td>
+        <td class="righttext"><input type="checkbox" name="id" jsvalues="value:key"></td>
+      </table>
+      </form>
+    </div>
+    <div id="footer">
+      &copy;2011 Google - <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmarkMetrics">Metric definitions</a> | <a href="http://code.google.com/p/web-page-replay/wiki/ChromeBenchmark">Running the benchmark</a><br>
+      Powered by <a href="http://code.google.com/p/web-page-replay/">Web Page Replay</a>
+    </div>
+  </body>
+</html>

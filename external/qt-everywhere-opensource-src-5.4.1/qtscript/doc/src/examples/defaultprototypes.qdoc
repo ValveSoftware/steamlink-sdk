@@ -1,0 +1,124 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example script/defaultprototypes
+    \title Default Prototypes Example
+
+    This Qt Script example shows how to use default prototypes
+    to make a non-QObject-based type scriptable.
+
+    \image defaultprototypes-example.png
+
+    With QScriptEngine::setDefaultPrototype() you can specify
+    a Qt Script object that defines a scripting interface for
+    a C++ type; Qt Script operations on values of such types
+    will then be delegated to your prototype object. In this
+    example, a simple scripting interface for QListWidgetItem is
+    defined, so that the text of items can easily be accessed from
+    script code.
+
+    To define a scripting API for QListWidgetItem in terms of
+    Qt properties and slots, we subclass QObject and QScriptable.
+
+    \snippet examples/script/defaultprototypes/prototypes.h 0
+
+    A single property, \c{text}, is defined, along with a slot,
+    \c{toString}.
+
+    \snippet examples/script/defaultprototypes/prototypes.cpp 0
+
+    The implementation of the property accessors use
+    the qscriptvalue_cast() function to cast the script object
+    to a QListWidgetItem pointer. The normal C++ QListWidgetItem
+    API is then used to implement the desired functionality.
+
+    Although not shown here, it is possible to throw a script
+    exception from a prototype function; for example, you could throw
+    a TypeError exception if the qscriptvalue_cast() fails.
+
+    QListWidgetItems are usually added to a QListWidget. While
+    QListWidget is a QObject-based class, not all the functionality
+    needed for this example are present. We can solve this by creating
+    a default prototype for the QListWidget class as well. The
+    prototype will augment the functionality already provided by the
+    Qt Script QObject integration; i.e. if a property or slot is not
+    found in the QListWidget object itself, the prototype will be used
+    as a fallback.
+
+    \snippet examples/script/defaultprototypes/prototypes.h 1
+
+    The additional slots will make it possible to add items to
+    a QListWidget from script code, and to set the background
+    color of the widget from a string.
+
+    \snippet examples/script/defaultprototypes/prototypes.cpp 1
+
+    Again, we use qscriptvalue_cast() to cast the script object
+    to the relevant C++ type, in this case a QListWidget pointer.
+    The addItem() and addItems() functions simply forward their
+    arguments to the corresponding functions in the QListWidget
+    class. setBackgroundColor() gets the widget's palette, creates
+    a QColor from the given string argument and changes the palette
+    accordingly.
+
+    \snippet examples/script/defaultprototypes/main.cpp 0
+
+    The relevant C++ types must be made known to Qt's meta type
+    system.
+
+    \snippet examples/script/defaultprototypes/main.cpp 1
+
+    For each type that we want to associate a prototype object with,
+    we create an instance of the prototype class, pass it to
+    QScriptEngine::newQObject(), and then create the link between
+    the C++ type and the resulting script object by calling
+    QScriptEngine::setDefaultPrototype().
+
+    \snippet examples/script/defaultprototypes/main.cpp 2
+
+    In this example, a single QListWidget object is added as
+    a global script variable, called \c{listWidget}. Script code
+    can add items to this widget by calling addItem() or addItems().
+
+    \snippet examples/script/defaultprototypes/code.js 0
+
+    Script code can connect to signals of the QListWidget object;
+    signal handlers can use the interface defined in
+    the QListWidgetItem prototype to manipulate item arguments.
+
+    \snippet examples/script/defaultprototypes/code.js 1
+
+    Not shown in this example is how to make QListWidgetItem
+    constructible from Qt Script code, i.e. to be able to
+    write "new QListWidgetItem()" in a script. In order to do
+    this, you have to define your own script constructor for
+    the type. The constructor would just be a factory function
+    that constructs a new C++ QListWidgetItem and returns it
+    back to the script. See QScriptEngine::newFunction() for more
+    information.
+*/

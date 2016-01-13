@@ -1,0 +1,158 @@
+Agent hierarchy
+===============
+
+Service		unique name
+Interface	net.connman.vpn.Agent
+Object path	freely definable
+
+Methods		void Release()
+
+			This method gets called when the service daemon
+			unregisters the agent. An agent can use it to do
+			cleanup tasks. There is no need to unregister the
+			agent, because when this method gets called it has
+			already been unregistered.
+
+		void ReportError(object service, string error)
+
+			This method gets called when an error has to be
+			reported to the user.
+
+			A special return value can be used to trigger a
+			retry of the failed transaction.
+
+			Possible Errors: net.connman.vpn.Agent.Error.Retry
+
+		dict RequestInput(object service, dict fields)
+
+			This method gets called when trying to connect to
+			a service and some extra input is required. For
+			example a password or username.
+
+			The return value should be a dictionary where the
+			keys are the field names and the values are the
+			actual fields. Alternatively an error indicating that
+			the request got canceled can be returned.
+
+			Most common return field names are "Username" and of
+			course "Password".
+
+			The dictionary arguments contains field names with
+			their input parameters.
+
+			Possible Errors: net.connman.vpn.Agent.Error.Canceled
+
+		void Cancel()
+
+			This method gets called to indicate that the agent
+			request failed before a reply was returned.
+
+Fields		string Username
+
+			Username for authentication. This field will be
+			requested when connecting to L2TP and PPTP.
+
+		string Password
+
+			Password for authentication.
+
+		boolean SaveCredentials
+
+			Tells if the user wants the user credentials
+			be saved by connman-vpnd.
+
+		string Host
+
+			End point of this VPN link i.e., the VPN gateway
+			we are trying to connect to.
+
+		string Name
+
+			Name of the VPN connection we are trying to connect to.
+
+		string OpenConnect.CACert
+
+			Informational field containing a path name for an
+			additional Certificate Authority file.
+
+		string OpenConnect.ClientCert
+
+			Informational field containing a pkcs11 URL or a path
+                        name for the client certificate.
+
+		string OpenConnect.Cookie
+
+			Return the OpenConnect cookie value that is used for
+			authenticating the VPN session.
+
+		string OpenConnect.ServerCert
+
+			Return the OpenConnect server hash used to identify
+			the final server after possible web authentication
+			logins, selections and redirections.
+
+		string OpenConnect.VPNHost
+
+			Return the final VPN server to use after possible
+			web authentication logins, selections and redirections.
+
+Arguments	string Type
+
+			Contains the type of a field. For example "password",
+			"response", "boolean" or plain "string".
+
+		string Requirement
+
+			Contains the requirement option. Valid values are
+			"mandatory", "optional", "alternate" or
+			"informational".
+
+			The "alternate" value specifies that this field can be
+			returned as an alternative to another one.
+
+			All "mandatory" fields must be returned, while the
+			"optional" can be returned if available.
+
+			Nothing needs to be returned for "informational", as it
+			is here only to provide an information so a value is
+			attached to it.
+
+		array{string} Alternates
+
+			Contains the list of alternate field names this
+			field can be represented by.
+
+		string Value
+
+			Contains data as a string, relatively to an
+			"informational" argument.
+
+Examples	Requesting a username and password for L2TP network
+
+			RequestInput("/vpn1",
+				{ "Username" : { "Type"        : "string",
+						 "Requirement" : "mandatory"
+						} }
+				{ "Password" : { "Type"        : "password",
+						 "Requirement" : "mandatory"
+						} }
+				{ "SaveCredentials" : { "Type" : "boolean",
+						"Requirement" : "optional"
+						}
+				}
+			==> { "Username" : "foo", "Password" : "secret123",
+				"SaveCredentials" : true }
+
+		Requesting a OpenConnect cookie
+
+			RequestInput("/vpn2",
+				{ "OpenConnect.Cookie" : { "Type" : "string",
+						 "Requirement" : "mandatory"
+							} }
+				{ "Host" : { "Type" : "string",
+					 "Requirement" : "informational"
+							} }
+				{ "Name" : { "Type" : "string",
+					 "Requirement" : "informational"
+							} }
+			==> { "OpenConnect.Cookie" : "0123456@adfsf@asasdf" }

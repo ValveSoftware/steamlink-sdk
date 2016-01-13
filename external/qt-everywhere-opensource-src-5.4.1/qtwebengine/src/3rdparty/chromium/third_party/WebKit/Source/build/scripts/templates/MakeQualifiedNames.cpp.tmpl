@@ -1,0 +1,81 @@
+{% from "macros.tmpl" import license %}
+{{ license() }}
+
+#include "config.h"
+
+#ifdef SKIP_STATIC_CONSTRUCTORS_ON_GCC
+#define {{namespace|to_macro_style}}_NAMES_HIDE_GLOBALS 1
+#else
+#define QNAME_DEFAULT_CONSTRUCTOR 1
+#endif
+
+#include "{{namespace}}Names.h"
+
+#include "wtf/StaticConstructors.h"
+
+namespace WebCore {
+namespace {{namespace}}Names {
+
+using namespace WebCore;
+
+DEFINE_GLOBAL(AtomicString, {{namespace_prefix}}NamespaceURI)
+
+{% if tags %}
+// Tags
+{% for tag in tags|sort %}
+DEFINE_GLOBAL(QualifiedName, {{tag|symbol}}Tag)
+{% endfor %}
+
+
+PassOwnPtr<const QualifiedName*[]> get{{namespace}}Tags()
+{
+    OwnPtr<const QualifiedName*[]> tags = adoptArrayPtr(new const QualifiedName*[{{namespace}}TagsCount]);
+    {% for tag in tags|sort %}
+    tags[{{loop.index0}}] = reinterpret_cast<const QualifiedName*>(&{{tag|symbol}}Tag);
+    {% endfor %}
+    return tags.release();
+}
+
+{% endif %}
+// Attributes
+{% for attr in attrs|sort %}
+DEFINE_GLOBAL(QualifiedName, {{attr|symbol}}Attr)
+{% endfor %}
+
+PassOwnPtr<const QualifiedName*[]> get{{namespace}}Attrs()
+{
+    OwnPtr<const QualifiedName*[]> attrs = adoptArrayPtr(new const QualifiedName*[{{namespace}}AttrsCount]);
+    {% for attr in attrs|sort %}
+    attrs[{{loop.index0}}] = reinterpret_cast<const WebCore::QualifiedName*>(&{{attr|symbol}}Attr);
+    {% endfor %}
+    return attrs.release();
+}
+
+void init()
+{
+    // Use placement new to initialize the globals.
+    AtomicString {{namespace_prefix}}NS("{{namespace_uri}}", AtomicString::ConstructFromLiteral);
+
+    // Namespace
+    new ((void*)&{{namespace_prefix}}NamespaceURI) AtomicString({{namespace_prefix}}NS);
+    {% for name, tag_list in (tags + attrs)|groupby('name')|sort %}
+    StringImpl* {{tag_list[0]|symbol}}Impl = StringImpl::createStatic("{{name}}", {{name|length}}, {{name|hash}});
+    {% endfor %}
+
+    // Tags
+    {% for tag in tags|sort %}
+    QualifiedName::createStatic((void*)&{{tag|symbol}}Tag, {{tag|symbol}}Impl, {{namespace_prefix}}NS);
+    {% endfor %}
+
+    // Attrs
+    {% for attr in attrs|sort %}
+    {% if use_namespace_for_attrs %}
+    QualifiedName::createStatic((void*)&{{attr|symbol}}Attr, {{attr|symbol}}Impl, {{namespace_prefix}}NS);
+    {% else %}
+    QualifiedName::createStatic((void*)&{{attr|symbol}}Attr, {{attr|symbol}}Impl);
+    {% endif %}
+    {% endfor %}
+}
+
+} // {{namespace}}
+} // WebCore

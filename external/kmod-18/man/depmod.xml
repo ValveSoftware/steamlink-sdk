@@ -1,0 +1,321 @@
+<?xml version='1.0'?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+        "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<refentry id="depmod">
+  <refentryinfo>
+    <title>depmod</title>
+    <productname>kmod</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Jon</firstname>
+        <surname>Masters</surname>
+        <email>jcm@jonmasters.org</email>
+      </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Robby</firstname>
+        <surname>Workman</surname>
+        <email>rworkman@slackware.com</email>
+      </author>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Lucas</firstname>
+        <surname>De Marchi</surname>
+        <email>lucas.de.marchi@gmail.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>depmod</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>depmod</refname>
+    <refpurpose>
+      Generate <filename>modules.dep</filename> and map files.
+    </refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>depmod</command>
+      <arg><option>-b <replaceable>basedir</replaceable></option></arg>
+      <arg><option>-e</option></arg>
+      <arg><option>-E <replaceable>Module.symvers</replaceable></option></arg>
+      <arg><option>-F <replaceable>System.map</replaceable></option></arg>
+      <arg><option>-n</option></arg>
+      <arg><option>-v</option></arg>
+      <arg><option>-A</option></arg>
+      <arg><option>-P <replaceable>prefix</replaceable></option></arg>
+      <arg><option>-w</option></arg>
+      <arg><option><replaceable>version</replaceable></option></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>depmod</command>
+      <arg><option>-e</option></arg>
+      <arg><option>-E <replaceable>Module.symvers</replaceable></option></arg>
+      <arg><option>-F <replaceable>System.map</replaceable></option></arg>
+      <arg><option>-m</option></arg>
+      <arg><option>-n</option></arg>
+      <arg><option>-v</option></arg>
+      <arg><option>-P <replaceable>prefix</replaceable></option></arg>
+      <arg><option>-w</option></arg>
+      <arg><option><replaceable>version</replaceable></option></arg>
+      <arg rep='repeat'><option><replaceable>filename</replaceable></option></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1><title>DESCRIPTION</title>
+    <para>
+      Linux kernel modules can provide services (called "symbols") for other
+      modules to use (using one of the EXPORT_SYMBOL variants in the code).  If
+      a second module uses this symbol, that second module clearly depends on
+      the first module.  These dependencies can get quite complex.
+    </para>
+    <para> <command>depmod</command> creates a list of module dependencies by
+      reading each module under
+      <filename>/lib/modules/</filename><replaceable>version</replaceable> and
+      determining what symbols it exports and what symbols it needs.  By
+      default, this list is written to <filename>modules.dep</filename>, and a
+      binary hashed version named <filename>modules.dep.bin</filename>, in the
+      same directory.  If filenames are given on the command line, only those
+      modules are examined (which is rarely useful unless all modules are
+      listed).  <command>depmod</command> also creates a list of symbols
+      provided by modules in the file named
+      <filename>modules.symbols</filename> and its binary hashed version,
+      <filename>modules.symbols.bin</filename>.  Finally,
+      <command>depmod</command> will output a file named
+      <filename>modules.devname</filename> if modules supply special device
+      names (devname) that should be populated in /dev on boot (by a utility
+      such as systemd-tmpfiles).
+    </para>
+    <para> If a <replaceable>version</replaceable> is provided, then that kernel
+      version's module directory is used rather than the current kernel version
+      (as returned by <command>uname -r</command>).
+    </para>
+  </refsect1>
+  <refsect1><title>OPTIONS</title>
+    <variablelist>
+      <varlistentry>
+        <term>
+          <option>-a</option>
+        </term>
+        <term>
+          <option>--all</option>
+        </term>
+        <listitem>
+          <para>
+            Probe all modules. This option is enabled by default if no
+            file names are given in the command-line.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-A</option>
+        </term>
+        <term>
+          <option>--quick</option>
+        </term>
+        <listitem>
+          <para>
+            This option scans to see if any modules are newer than the
+            <filename>modules.dep</filename> file before any work is done:
+            if not, it silently exits rather than regenerating the files.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-b <replaceable>basedir</replaceable></option>
+        </term>
+        <term>
+          <option>--basedir <replaceable>basedir</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            If your modules are not currently in the (normal) directory
+            <filename>/lib/modules/</filename><replaceable>version</replaceable>,
+            but in a staging area, you can specify a
+            <replaceable>basedir</replaceable> which is prepended to the
+            directory name.  This <replaceable>basedir</replaceable> is
+            stripped from the resulting <filename>modules.dep</filename> file,
+            so it is ready to be moved into the normal location. Use this
+            option if you are a distribution vendor who needs to pre-generate
+            the meta-data files rather than running depmod again later.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-C</option>
+        </term>
+        <term>
+          <option>--config <replaceable>file or directory</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            This option overrides the default configuration directory at
+            <filename>/etc/depmod.d/</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-e</option>
+        </term>
+        <term>
+          <option>--errsyms</option>
+        </term>
+        <listitem>
+          <para>
+            When combined with the <option>-F</option> option, this reports any
+            symbols which a module needs which are not supplied by other
+            modules or the kernel.  Normally, any symbols not provided by
+            modules are assumed to be provided by the kernel (which should be
+            true in a perfect world), but this assumption can break especially
+            when additionally updated third party drivers are not correctly
+            installed or were built incorrectly.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-E</option>
+        </term>
+        <term>
+          <option>--symvers</option>
+        </term>
+          <listitem>
+            <para>
+              When combined with the <option>-e</option> option, this
+              reports any symbol versions supplied by modules that do
+              not match with the symbol versions provided by the
+              kernel in its <filename>Module.symvers</filename>.
+              This option is mutually incompatible with <option>-F</option>.
+            </para>
+          </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-F</option>
+        </term>
+        <term>
+          <option>--filesyms <replaceable>System.map</replaceable></option>
+        </term>
+        <listitem>
+          <para>
+            Supplied with the <filename>System.map</filename> produced when the
+            kernel was built, this allows the <option>-e</option> option to
+            report unresolved symbols.  This option is mutually incompatible
+            with <option>-E</option>.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-h</option>
+        </term>
+        <term>
+          <option>--help</option>
+        </term>
+        <listitem>
+          <para>
+            Print the help message and exit.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-n</option>
+        </term>
+        <term>
+          <option>--dry-run</option>
+        </term>
+        <listitem>
+          <para>
+            This sends the resulting modules.dep and the various map files to
+            standard output rather than writing them into the module directory.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-P</option>
+        </term>
+        <listitem>
+          <para>
+            Some architectures prefix symbols with an extraneous character.
+            This specifies a prefix character (for example '_') to ignore.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-v</option>
+        </term>
+        <term>
+          <option>--verbose</option>
+        </term>
+        <listitem>
+          <para>
+            In verbose mode, <command>depmod</command> will print (to stdout)
+            all the symbols each module depends on and the module's file name
+            which provides that symbol.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-V</option>
+        </term>
+        <term>
+          <option>--version</option>
+        </term>
+        <listitem>
+          <para>
+            Show version of program and exit. See below for caveats when
+            run on older kernels.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term>
+          <option>-w</option>
+        </term>
+        <listitem>
+          <para>
+            Warn on duplicate dependencies, aliases, symbol versions, etc.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1><title>COPYRIGHT</title>
+    <para>
+      This manual page originally Copyright 2002, Rusty Russell,
+      IBM Corporation. Portions Copyright Jon Masters, and others.
+    </para>
+  </refsect1>
+
+  <refsect1><title>SEE ALSO</title>
+    <para>
+      <citerefentry>
+        <refentrytitle>depmod.d</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry>,
+      <citerefentry>
+        <refentrytitle>modprobe</refentrytitle><manvolnum>8</manvolnum>
+      </citerefentry>,
+      <citerefentry>
+        <refentrytitle>modules.dep</refentrytitle><manvolnum>5</manvolnum>
+      </citerefentry>
+    </para>
+  </refsect1>
+</refentry>

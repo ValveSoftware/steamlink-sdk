@@ -1,0 +1,52 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+define("{{module.path}}", [
+    "mojo/public/js/bindings/codec",
+{%- for import in imports %}
+    "{{import.module.path}}",
+{%- endfor %}
+  ], function(codec
+{%- for import in imports -%}
+    , {{import.unique_name}}
+{%- endfor -%}
+) {
+
+{#--- Constants #}
+{%  for constant in module.constants %}
+  var {{constant.name}} = {{constant.value|expression_to_text}};
+{%- endfor %}
+
+{#--- Enums #}
+{%- from "enum_definition.tmpl" import enum_def %}
+{%- for enum in enums %}
+  var {{ enum_def(enum.name, enum, module) }}
+{%-  endfor %}
+
+{#--- Struct definitions #}
+{%  for struct in structs %}
+{%-   include "struct_definition.tmpl" %}
+{%- endfor %}
+
+{#--- Interface definitions #}
+{%- for interface in interfaces %}
+{%-   include "interface_definition.tmpl" %}
+{%- endfor %}
+
+  var exports = {};
+{%  for constant in module.constants %}
+  exports.{{constant.name}} = {{constant.name}};
+{%- endfor %}
+{%- for enum in enums %}
+  exports.{{enum.name}} = {{enum.name}};
+{%- endfor %}
+{%- for struct in structs if struct.exported %}
+  exports.{{struct.name}} = {{struct.name}};
+{%- endfor %}
+{%- for interface in interfaces %}
+  exports.{{interface.name}}Proxy = {{interface.name}}Proxy;
+  exports.{{interface.name}}Stub = {{interface.name}}Stub;
+{%- endfor %}
+  return exports;
+});

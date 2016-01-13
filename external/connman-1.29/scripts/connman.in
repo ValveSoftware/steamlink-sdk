@@ -1,0 +1,46 @@
+#!/bin/sh
+
+DAEMON=@sbindir@/connmand
+DESC="Connection Manager"
+
+. /lib/lsb/init-functions
+
+if [ -f @sysconfdir@/default/connman ] ; then
+	. @sysconfdir@/default/connman
+fi
+
+set -e
+
+do_start() {
+	start-stop-daemon --start --oknodo --exec $DAEMON -- $DAEMON_OPTS
+}
+
+do_stop() {
+	start-stop-daemon --stop --oknodo --quiet --exec $DAEMON
+}
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC"
+	do_start
+	log_end_msg $?
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC"
+	do_stop
+	log_end_msg $?
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC"
+	do_stop
+	sleep 1
+	do_start
+	log_end_msg $?
+	;;
+  *)
+	log_success_msg "Usage: $0 {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

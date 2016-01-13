@@ -1,0 +1,87 @@
+diff -pu a/nss/lib/ssl/ssl3con.c b/nss/lib/ssl/ssl3con.c
+--- a/nss/lib/ssl/ssl3con.c	2014-01-17 19:00:52.843413560 -0800
++++ b/nss/lib/ssl/ssl3con.c	2014-01-17 19:01:36.374129696 -0800
+@@ -11318,7 +11318,7 @@ ssl3_FinishHandshake(sslSocket * ss)
+         ss->ssl3.hs.receivedNewSessionTicket = PR_FALSE;
+     }
+ 
+-    if (ss->ssl3.hs.cacheSID) {
++    if (ss->ssl3.hs.cacheSID && ss->sec.isServer) {
+ 	PORT_Assert(ss->sec.ci.sid->cached == never_cached);
+ 	(*ss->sec.cache)(ss->sec.ci.sid);
+ 	ss->ssl3.hs.cacheSID = PR_FALSE;
+diff -pu a/nss/lib/ssl/ssl.h b/nss/lib/ssl/ssl.h
+--- a/nss/lib/ssl/ssl.h	2014-01-17 19:00:52.843413560 -0800
++++ b/nss/lib/ssl/ssl.h	2014-01-17 19:01:36.374129696 -0800
+@@ -892,6 +892,18 @@ SSL_IMPORT int SSL_DataPending(PRFileDes
+ SSL_IMPORT SECStatus SSL_InvalidateSession(PRFileDesc *fd);
+ 
+ /*
++** Cache the SSL session associated with fd, if it has not already been cached.
++*/
++SSL_IMPORT SECStatus SSL_CacheSession(PRFileDesc *fd);
++
++/*
++** Cache the SSL session associated with fd, if it has not already been cached.
++** This function may only be called when processing within a callback assigned
++** via SSL_HandshakeCallback
++*/
++SSL_IMPORT SECStatus SSL_CacheSessionUnlocked(PRFileDesc *fd);
++
++/*
+ ** Return a SECItem containing the SSL session ID associated with the fd.
+ */
+ SSL_IMPORT SECItem *SSL_GetSessionID(PRFileDesc *fd);
+diff -pu a/nss/lib/ssl/sslsecur.c b/nss/lib/ssl/sslsecur.c
+--- a/nss/lib/ssl/sslsecur.c	2014-01-17 17:59:03.242109996 -0800
++++ b/nss/lib/ssl/sslsecur.c	2014-01-17 19:01:36.374129696 -0800
+@@ -1469,6 +1469,49 @@ SSL_InvalidateSession(PRFileDesc *fd)
+     return rv;
+ }
+ 
++static void
++ssl3_CacheSessionUnlocked(sslSocket *ss)
++{
++    PORT_Assert(!ss->sec.isServer);
++
++    if (ss->ssl3.hs.cacheSID) {
++	ss->sec.cache(ss->sec.ci.sid);
++	ss->ssl3.hs.cacheSID = PR_FALSE;
++    }
++}
++
++SECStatus
++SSL_CacheSession(PRFileDesc *fd)
++{
++    sslSocket *   ss = ssl_FindSocket(fd);
++    SECStatus     rv = SECFailure;
++
++    if (ss) {
++	ssl_Get1stHandshakeLock(ss);
++	ssl_GetSSL3HandshakeLock(ss);
++
++	ssl3_CacheSessionUnlocked(ss);
++	rv = SECSuccess;
++
++	ssl_ReleaseSSL3HandshakeLock(ss);
++	ssl_Release1stHandshakeLock(ss);
++    }
++    return rv;
++}
++
++SECStatus
++SSL_CacheSessionUnlocked(PRFileDesc *fd)
++{
++    sslSocket *   ss = ssl_FindSocket(fd);
++    SECStatus     rv = SECFailure;
++
++    if (ss) {
++	ssl3_CacheSessionUnlocked(ss);
++	rv = SECSuccess;
++    }
++    return rv;
++}
++
+ SECItem *
+ SSL_GetSessionID(PRFileDesc *fd)
+ {

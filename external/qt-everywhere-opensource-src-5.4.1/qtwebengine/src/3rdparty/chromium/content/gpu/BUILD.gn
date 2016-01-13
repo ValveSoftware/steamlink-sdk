@@ -1,0 +1,73 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//content/content.gni")
+
+# We don't support x64 prior to Win7 and D3DCompiler_43.dll is not needed on
+# Vista+.
+need_d3dcompiler = (is_win && cpu_arch == "x86" && directxsdk_exists)
+
+source_set("gpu") {
+  visibility = "//content/*"
+  sources = [
+    "gpu_main.cc",
+    "gpu_process.cc",
+    "gpu_process.h",
+    "gpu_child_thread.cc",
+    "gpu_child_thread.h",
+    "gpu_watchdog_thread.cc",
+    "gpu_watchdog_thread.h",
+    "in_process_gpu_thread.cc",
+    "in_process_gpu_thread.h",
+  ]
+
+  configs += [ "//content:content_implementation" ]
+
+  deps = [
+    "//base",
+    "//content:export",
+    "//mojo/public/interfaces/service_provider",
+    "//skia",
+    "//ui/gl",
+  ]
+
+  if (is_win) {
+    configs += [
+      "//third_party/khronos:khronos_headers",
+      "//third_party/wtl:wtl_includes",
+    ]
+    libs = [ "setupapi.lib" ]
+    deps += [
+      "//third_party/angle:libEGL",
+      "//third_party/angle:libGLESv2",
+    ]
+  }
+
+  if (need_d3dcompiler) {
+    deps += [ ":extract_d3dcompiler" ]
+  }
+
+  if (is_chromeos && cpu_arch != "arm") {
+    configs += [ "//third_party/libva/libva_config" ]
+  }
+}
+
+if (need_d3dcompiler) {
+  action("extract_d3dcompiler") {
+    visibility = ":*"
+    script = "//build/extract_from_cab.py"
+
+    cabfile = "//third_party/directxsdk/files/Redist/Jun2010_D3DCompiler_43_x86.cab"
+    dllfile = "D3DCompiler_43.dll"
+
+    source_prereqs = [ cabfile ]
+    outputs = [ "$root_out_dir/$dllfile" ]
+
+    args = [
+      rebase_path(cabfile, root_build_dir),
+      dllfile,
+      rebase_path(root_out_dir, root_build_dir),
+    ]
+  }
+}

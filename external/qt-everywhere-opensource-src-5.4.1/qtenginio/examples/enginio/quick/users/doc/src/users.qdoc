@@ -1,0 +1,130 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \title Enginio QML Examples - Users
+    \example users
+    \brief The Users example introduces user registration, authentication, and browsing.
+    \ingroup enginio-qml-examples
+    \inmodule enginio-qml
+
+    \section1 Introduction
+
+    This example will demonstrate how to register and authenticate a user, and what kind of information
+    is attached to an authenticated session. This is a simple example, and data access rights
+    management is not covered here. For such information, please refer to the Social Todo example.
+
+    \image users-example.png
+
+    There is no special need for the backend setup. This example will use only predefined
+    structures, which are the same for every backend.
+
+    The example is an application that shows users registered in the backend, allows registration of
+    new users, and shows how to login in separate tabs.
+
+    Each backend contains the "users" object type, which defines a structure
+    that stores all basic data about an application's users. The collection of "users" is not
+    really different from any other collection. Therefore, we do not need any special
+    methods to manipulate it. Typical data associated with a user is:
+    \list
+      \li \c username - required name used for logging in.
+      \li \c email - unique email address of a user.
+      \li \c firstName, lastName - user's credentials (optional).
+      \li \c password - write-only property, this value is used during authentication.
+    \endlist
+
+    The \c users object can be extended by custom properties too.
+
+    \note \e username and \e password are always required and cannot be empty.
+
+    \section1 General Example Structure
+
+    This example uses QtEnginio library together with Qt Quick Controls, therefore both have
+    to be imported.
+
+    \snippet users/Browse.qml imports
+
+    We will also use a common \l {Enginio::EnginioClient}{EnginioClient} connection as shown here:
+
+    \snippet users/users.qml client
+
+    The example is organized into separate tabs by using \l TabView. Each tab shows a different
+    functionality.
+
+    \section1 Browsing User Data
+
+    The most convenient method to browse users is to use \l{Enginio::EnginioModel}{EnginioModel}. The model can
+    automatically download all data that we need. It is sufficient to set three properties:
+    \l{Enginio::EnginioModel::client}{client}, \l{Enginio::EnginioModel::query}{query}
+    and \l{Enginio::EnginioModel::operation}{operation} as shown below:
+
+    \snippet users/Browse.qml browse
+
+    The model is used directly by TableView, in which we define data that will be shown.
+
+    \snippet users/Browse.qml columns
+
+    \section1 User Authentication
+
+    Authentication is quite easy. The only thing that needs to be done is to assign an identity, for example,
+    \l{EnginioOAuth2Authentication}{EnginioOAuth2Authentication} object to \l{EnginioClient::identity}{EnginioClient::identity}.
+    After a while, \l{EnginioClient::authenticationState}{EnginioClient::authenticationState} will change and
+    \l{EnginioClient::sessionAuthenticated}{sessionAuthenticated} or \l{EnginioClient::sessionAuthenticationError}{sessionAuthenticationError}
+    will be emitted.
+
+    The first thing we need to do is to create an identity object: \l{EnginioOAuth2Authentication}{EnginioOAuth2Authentication}
+
+    \snippet users/Login.qml identity
+
+    Then, depending on the state of the application, we assign the object to
+    our enginioClient instance. There are four possible states, defined by
+    \l{Enginio::AuthenticationState}. After assigning the Identity object,
+    the state changes from the initial \c NotAuthenticated to \c Authenticating.
+
+    \snippet users/Login.qml assignIdentity
+
+    Once the authentication query has finished, the state changes to \c Authenticated or
+    \c AuthenticationFailure depending on the authentication result. Null
+    assignment to the \l{EnginioClient::identity}{identity} causes the session to terminate immediately:
+
+    \snippet users/Login.qml assignNull
+
+    For educational purposes, in the example we also show a log window with data attached to
+    a session that is changing state.
+
+    \snippet users/Login.qml connections
+
+    \section1 Registering a New User
+
+    Registration of a new user is as simple as adding a new object to the \c users collection. It can be achieved
+    by using the \l{EnginioClient::create}{create} function, as shown below:
+
+    \snippet users/Register.qml create
+
+    We could also use the \l{Enginio::EnginioModel::append}{EnginioModel::append} method in the browsing example
+    to accomplish the same task.
+*/

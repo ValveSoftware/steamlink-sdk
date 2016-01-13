@@ -1,0 +1,120 @@
+'\" -*- coding: UTF-8 -*-
+.\" Copyright (C) 1998-2001 Miquel van Smoorenburg.
+.\"
+.\" This program is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License
+.\" along with this program; if not, write to the Free Software
+.\" Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+.\"
+.\"{{{}}}
+.\"{{{  Title
+.TH HALT 8 "Nov 6, 2001" "" "Linux System Administrator's Manual"
+.\"}}}
+.\"{{{  Name
+.SH NAME
+halt, reboot, poweroff \- stop the system.
+.\"}}}
+.\"{{{  Synopsis
+.SH SYNOPSIS
+.B /sbin/halt
+.RB [ \-n ]
+.RB [ \-w ]
+.RB [ \-d ]
+.RB [ \-f ]
+.RB [ \-i ]
+.RB [ \-p ]
+.RB [ \-h ]
+.br
+.B /sbin/reboot
+.RB [ \-n ]
+.RB [ \-w ]
+.RB [ \-d ]
+.RB [ \-f ]
+.RB [ \-i ]
+.br
+.B /sbin/poweroff
+.RB [ \-n ]
+.RB [ \-w ]
+.RB [ \-d ]
+.RB [ \-f ]
+.RB [ \-i ]
+.RB [ \-h ]
+.\"}}}
+.\"{{{  Description
+.SH DESCRIPTION
+\fBHalt\fP notes that the system is being brought down in the file
+\fI/var/log/wtmp\fP, and then either tells the kernel to halt, reboot or
+power-off the system.
+.PP
+If \fBhalt\fP or \fBreboot\fP is called when the system is
+\fInot\fP in runlevel \fB0\fP or \fB6\fP, in other words when it's running
+normally, \fBshutdown\fP will be invoked instead (with the \fB-h\fP
+or \fB-r\fP flag). For more info see the \fBshutdown\fP(8)
+manpage.
+.PP
+The rest of this manpage describes the behaviour in runlevels 0
+and 6, that is when the systems shutdown scripts are being run.
+.\"}}}
+.\"{{{  Options
+.SH OPTIONS
+.IP \fB\-n\fP
+Don't sync before reboot or halt. Note that the kernel and storage
+drivers may still sync.
+.IP \fB\-w\fP
+Don't actually reboot or halt but only write the wtmp record
+(in the \fI/var/log/wtmp\fP file).
+.IP \fB\-d\fP
+Don't write the wtmp record. The \fB\-n\fP flag implies \fB\-d\fP.
+.IP \fB\-f\fP
+Force halt or reboot, don't call \fBshutdown\fP(8).
+.IP \fB\-i\fP
+Shut down all network interfaces just before halt or reboot.
+.IP \fB\-h\fP
+Put all hard drives on the system in stand-by mode just before halt or power-off.
+.IP \fB\-p\fP
+When halting the system, switch off the power. This is the default when halt is
+called as \fBpoweroff\fP.
+.\"}}}
+.\"{{{  Diagnostics
+.SH DIAGNOSTICS
+If you're not the superuser, you will get the message `must be superuser'.
+.\"}}}
+.\"{{{  Notes
+.SH NOTES
+Under older \fBsysvinit\fP releases , \fBreboot\fP and \fBhalt\fP should
+never be called directly. From release 2.74 on \fBhalt\fP and \fBreboot\fP
+invoke \fBshutdown\fP(8) if the system is not in runlevel 0 or 6. This
+means that if \fBhalt\fP or \fBreboot\fP cannot find out the current
+runlevel (for example, when \fI/var/run/utmp\fP hasn't been initialized
+correctly) \fBshutdown\fP will be called, which might not be what you want.
+Use the \fB-f\fP flag if you want to do a hard \fBhalt\fP or \fBreboot\fP.
+.PP
+The \fB-h\fP flag puts all hard disks in standby mode just before halt
+or power-off. Right now this is only implemented for IDE drives. A side
+effect of putting the drive in stand-by mode is that the write cache
+on the disk is flushed. This is important for IDE drives, since the
+kernel doesn't flush the write cache itself before power-off.
+.PP
+The \fBhalt\fP program uses /proc/ide/hd* to find all IDE disk devices,
+which means that \fI/proc\fP needs to be mounted when \fBhalt\fP or
+\fBpoweroff\fP is called or the \fB-h\fP switch will do nothing.
+.PP
+.\"}}}
+.\"{{{  Author
+.SH AUTHOR
+Miquel van Smoorenburg, miquels@cistron.nl
+.\"}}}
+.\"{{{  See also
+.SH "SEE ALSO"
+.BR shutdown (8),
+.BR init (8)
+.\"}}}

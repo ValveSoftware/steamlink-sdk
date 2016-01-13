@@ -1,0 +1,113 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webkitwidgets/scroller/wheel
+    \title Wheel Scroller Example
+    \brief Demonstrates how scrolling is handled in Qt.
+    \ingroup webkit-widgetexamples
+
+    The Wheel Scroller Example shows how to use QScroller, QScrollEvent
+    and QScrollPrepareEvent to implement smooth scrolling for a
+    custom Widget.
+
+    \image wheel-example.png
+
+    \section1 Basics
+
+    The QScroller class is the main part of the smooth scrolling
+    mechanism in Qt. It keeps track of the current scroll position and
+    speed and updates the object through events.
+    QScroller will get touch events via the QFlickGesture.
+    It will query the target object through a QScrollPrepareEvent for
+    the scroll area and other information.
+    QScroller will send QScrollEvents to inform the target object about
+    the current scroll position.
+    The target object (usually a QWidget or a QGraphicsObject) will
+    then need to update it's graphical representation to reflect the
+    new scroll position.
+
+    \section1 The Wheel Widget class
+
+    To demonstrate how to use the QScroller we implement a QWidget that
+    looks and works like the wheel of a slot machine.
+    The wheel can be started via touch events and will continue getting
+    slower.
+    Additionally the wheel should appear as if no border exists (which
+    would seem unnatural) and the scrolling should snap to center one
+    item.
+
+    In the widget we need to grab the QFlickGesture. The gesture itself
+    will setAcceptTouchEvents for us, so we don't need to do that here.
+
+    \snippet webkitwidgets/scroller/wheel/wheelwidget.cpp 0
+
+    The widget will get gesture events but in addition we also will
+    get the events from QScroller.
+    We will need to accept the QScrollPrepareEvent to indicate that
+    a scrolling should really be started from the given position.
+
+    \snippet webkitwidgets/scroller/wheel/wheelwidget.cpp 1
+
+    We should call all three set functions form QScrollPrepareEvent.
+
+    \list
+    \li \c setViewportSize to indicate our viewport size. Actually the
+     given code could be improved by giving our size minus the borders.
+    \li \c setMaxContentPos to indicate the maximum values for the scroll
+     position. The minimum values are implicitely set to 0.
+     In our example we give a very high number here and hope that the user
+     is not patient enough to scroll until the very end.
+    \li \c setContentPos to indicate the current scroll position.
+     We give a position in the middle of the huge scroll area.
+     Actually we give this position every time a new scroll is started so
+     the user will only reach the end if he continuously scrolls in one
+     direction which is not very likely.
+    \endlist
+
+    The handling of the QScrollEvent is a lengthly code not fully shown here.
+    \snippet webkitwidgets/scroller/wheel/wheelwidget.cpp 2
+
+    In principle it does three steps.
+    \list
+    \li It calculates and updates the current scroll position as given by
+     QScroller.
+    \li It repaints the widget so that the new position is shown.
+    \li It centers the item as soon as the scrolling stopps.
+    \endlist
+
+    The following code does the centering.
+    \snippet webkitwidgets/scroller/wheel/wheelwidget.cpp 3
+
+    We check if the scrolling is finished which is indicated in the
+    QScrollEvent by the \c isLast flag.
+    We then check if the item is not already centered and if not start a new
+    scroll by calling QScroller::scrollTo.
+
+    As you can see the QScroller can be used for other things besides simple
+    scroll areas.
+*/

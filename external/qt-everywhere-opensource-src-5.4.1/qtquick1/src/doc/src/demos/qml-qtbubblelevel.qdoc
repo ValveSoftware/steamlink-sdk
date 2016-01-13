@@ -1,0 +1,111 @@
+/****************************************************************************
+**
+** Copyright (C) 2013 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtbubblelevel_example.html
+    \title Qt Bubble Level Demo
+    \example demos/mobile/qtbubblelevel
+
+\brief Qt Bubble Level is a simple application that uses
+Qt Mobility's accelerometer APIs and hardware
+sensor information to calculate the inclination of the device and presents this
+as atraditional bubble level.
+
+The application provides a calibration feature to
+handle any possible errors in accelerometer readings. The example is hosted in
+Projects Forum Nokia: https://projects.forum.nokia.com/qtbubblelevel
+
+\note This demonstration requires QtMobility libraries.
+
+    \image qml-qtbubblelevel-demo.png
+
+    \section1 Initialising the application
+
+    All of the initialisations are done in the main function.
+
+    First, QDeclarativeView is created to intepret the QML files. The QML file given is found in the Qt resource. The root QML element is set to resize to the view whenever the view is resized.
+
+    \snippet demos/mobile/qtbubblelevel/main.cpp 0
+
+    The Settings object will handle the loading or storing of the calibration value. Next, we create instances from QAccelerometer and AccelerometerFilter and attach the filter to the sensor.
+
+    \snippet demos/mobile/qtbubblelevel/main.cpp 1
+
+    The Qt code is then connected to QML code by using Qt Signals and Slots connections. First, the root object is retrieved from QDeclarativeView. The root object now represents the Qt object of the QML root element.
+
+    The saveCorrectionAngle signal of the QML root element is connected to the Qt slot saveCorrectionAngle. The rotationChanged and correctionAngle Qt signals are connected to the handleRotation and setCorrectionAngle slot of the QML root element. Finally, the quit signal of QDeclarativeEngine is connected to QApplication's quit slot.
+
+    \snippet demos/mobile/qtbubblelevel/main.cpp 2
+
+    On the Maemo target, the application needs a minimise button, so we connect one additional QML signal to the Qt slot. The minimise button is made visible by setting the value of the QML root element's taskSwitcherVisible property to true.
+
+    \snippet demos/mobile/qtbubblelevel/main.cpp 3
+
+    The correction factor of the accelerometer is retrieved from persistent storage by using QSettings. The correction factor is signalled to the QML side by using the function setCorrectionAngle. The accelerometer sensor is started and it will eventually begin to signal the changes in accelerometer readings.
+
+    \snippet demos/mobile/qtbubblelevel/main.cpp 4
+
+    Finally, in the end of the function the view is shown in full screen on mobile devices. On other targets, the application is shown as 800 x 480 resolution in the 100, 100 position from the top-left corner of the desktop.
+
+    \snippet demos/mobile/qtbubblelevel/main.cpp 5
+
+    \section1 Accessing the accelerometer information
+
+    The inclination of the device is resolved by using the QAccelerometer sensor of QtMobility. We already created the sensor in the main function and attached our self-derived AccelerometerFilter object to it. Here is the definition of the AccelerometerFilter class:
+
+    \snippet demos/mobile/qtbubblelevel/accelerometerfilter.h 0
+
+    The class is multiderived from QObject and QAccelerometerFilter classes. The QAccelerometerFilter class is derived from QObject because we want to use Qt Signals and Slots to signal changes in accelerometer readings.
+
+    The members x, y, and z store the previous values of the sensor reading in order to implement a low pass filter to the values.
+
+    In the implementation of the AccelerometerFilter class, we first read the value of each axis from the QAccelerometerReading object. The values are then converted from radians to degrees and applied the low pass filter to reduce noise in the sensor readings. Different low pass factors are used depending on the platform (these were determined to be good via experimenting). Finally, the calculated value is emitted.
+
+    Note that the accelerometer sensors are oriented differently in Symbian and Maemo devices, and we must account for this by using platform-specific code.
+
+    \snippet demos/mobile/qtbubblelevel/accelerometerfilter.cpp 0
+
+    \section1 The Qt Quick UI
+
+    BubbleLevel.qml is the main QML element. It represents the wooden board of the bubble level, and it also acts as a connection point between the QML and the Qt side. In the beginning of the element, there are two signals, two functions, and one property. All of these define the interface between Qt and QML.
+
+    On the Maemo platform, when the application is to be minimised, minimizeApplication is signalled. When a new calibration factor is to be stored in the device's memory, saveCorrectionAngle is signalled.
+
+    The handleRotation function acts as a Qt slot to which the AccelerometerFilters signal rotationChanged is connected. Similarly, the setCorrectionAngle function also acts as a Qt slot to which the Settings object's signal, correctionAngle, is connected.
+
+    The property alias taskSwitcherVisible is provided to allow the Qt model to show or hide the task switcher button which minimises the application. This is only meaningful on Maemo platforms, where every application normally has a task switcher button.
+
+    \snippet demos/mobile/qtbubblelevel/qml/BubbleLevel.qml 0
+
+    The Tube element represents the glass tube of the bubble level. It is anchored to the center of the wooden board. The width and height are calculated with specific factors to make the glass tube scale to different resolutions.
+
+    \snippet demos/mobile/qtbubblelevel/qml/BubbleLevel.qml 1
+
+    In the implementation of Tube.qml, the property deg represents the current inclination. The x-position of the bubble is bound to the JavaScript function calX which is called every time the property deg, center, or bubblCenter is changed. The function places the bubble in the corresponding place on its parent.
+
+    \snippet demos/mobile/qtbubblelevel/qml/Tube.qml 0
+*/

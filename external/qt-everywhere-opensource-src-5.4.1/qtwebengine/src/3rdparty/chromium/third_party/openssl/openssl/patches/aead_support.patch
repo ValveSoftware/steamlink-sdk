@@ -1,0 +1,811 @@
+From 98f0c6e114f55b4451bea824b05ab29db3351f12 Mon Sep 17 00:00:00 2001
+From: Adam Langley <agl@chromium.org>
+Date: Thu, 25 Jul 2013 16:52:35 -0400
+Subject: [PATCH 40/50] aead_support
+
+This change adds an AEAD interface to EVP and an AES-GCM implementation
+suitable for use in TLS.
+---
+ crypto/evp/Makefile              |   4 +-
+ crypto/evp/e_aes.c               | 214 +++++++++++++++++++++++++++++++++++----
+ crypto/evp/evp.h                 | 111 ++++++++++++++++++++
+ crypto/evp/evp_aead.c            | 192 +++++++++++++++++++++++++++++++++++
+ crypto/evp/evp_err.c             |   8 ++
+ crypto/evp/evp_locl.h            |  24 +++++
+ doc/crypto/EVP_AEAD_CTX_init.pod |  96 ++++++++++++++++++
+ 7 files changed, 626 insertions(+), 23 deletions(-)
+ create mode 100644 crypto/evp/evp_aead.c
+ create mode 100644 doc/crypto/EVP_AEAD_CTX_init.pod
+
+diff --git a/crypto/evp/Makefile b/crypto/evp/Makefile
+index 1e46ceb..b73038d 100644
+--- a/crypto/evp/Makefile
++++ b/crypto/evp/Makefile
+@@ -29,7 +29,7 @@ LIBSRC= encode.c digest.c evp_enc.c evp_key.c evp_acnf.c evp_cnf.c \
+ 	c_all.c c_allc.c c_alld.c evp_lib.c bio_ok.c \
+ 	evp_pkey.c evp_pbe.c p5_crpt.c p5_crpt2.c \
+ 	e_old.c pmeth_lib.c pmeth_fn.c pmeth_gn.c m_sigver.c evp_fips.c	\
+-	e_aes_cbc_hmac_sha1.c e_rc4_hmac_md5.c
++	e_aes_cbc_hmac_sha1.c e_rc4_hmac_md5.c evp_aead.c
+ 
+ LIBOBJ=	encode.o digest.o evp_enc.o evp_key.o evp_acnf.o evp_cnf.o \
+ 	e_des.o e_bf.o e_idea.o e_des3.o e_camellia.o\
+@@ -42,7 +42,7 @@ LIBOBJ=	encode.o digest.o evp_enc.o evp_key.o evp_acnf.o evp_cnf.o \
+ 	c_all.o c_allc.o c_alld.o evp_lib.o bio_ok.o \
+ 	evp_pkey.o evp_pbe.o p5_crpt.o p5_crpt2.o \
+ 	e_old.o pmeth_lib.o pmeth_fn.o pmeth_gn.o m_sigver.o evp_fips.o \
+-	e_aes_cbc_hmac_sha1.o e_rc4_hmac_md5.o
++	e_aes_cbc_hmac_sha1.o e_rc4_hmac_md5.o evp_aead.o
+ 
+ SRC= $(LIBSRC)
+ 
+diff --git a/crypto/evp/e_aes.c b/crypto/evp/e_aes.c
+index ef44f63..e4485e4 100644
+--- a/crypto/evp/e_aes.c
++++ b/crypto/evp/e_aes.c
+@@ -814,44 +814,45 @@ static int aes_gcm_ctrl(EVP_CIPHER_CTX *c, int type, int arg, void *ptr)
+ 		}
+ 	}
+ 
+-static int aes_gcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+-                        const unsigned char *iv, int enc)
++static ctr128_f aes_gcm_set_key(AES_KEY *aes_key, GCM128_CONTEXT *gcm_ctx,
++				const unsigned char *key, size_t key_len)
+ 	{
+-	EVP_AES_GCM_CTX *gctx = ctx->cipher_data;
+-	if (!iv && !key)
+-		return 1;
+-	if (key)
+-		{ do {
+ #ifdef BSAES_CAPABLE
+ 		if (BSAES_CAPABLE)
+ 			{
+-			AES_set_encrypt_key(key,ctx->key_len*8,&gctx->ks);
+-			CRYPTO_gcm128_init(&gctx->gcm,&gctx->ks,
++			AES_set_encrypt_key(key,key_len*8,aes_key);
++			CRYPTO_gcm128_init(gcm_ctx,aes_key,
+ 					(block128_f)AES_encrypt);
+-			gctx->ctr = (ctr128_f)bsaes_ctr32_encrypt_blocks;
+-			break;
++			return (ctr128_f)bsaes_ctr32_encrypt_blocks;
+ 			}
+-		else
+ #endif
+ #ifdef VPAES_CAPABLE
+ 		if (VPAES_CAPABLE)
+ 			{
+-			vpaes_set_encrypt_key(key,ctx->key_len*8,&gctx->ks);
+-			CRYPTO_gcm128_init(&gctx->gcm,&gctx->ks,
++			vpaes_set_encrypt_key(key,key_len*8,aes_key);
++			CRYPTO_gcm128_init(gcm_ctx,aes_key,
+ 					(block128_f)vpaes_encrypt);
+-			gctx->ctr = NULL;
+-			break;
++			return NULL;
+ 			}
+ #endif
+-		AES_set_encrypt_key(key, ctx->key_len * 8, &gctx->ks);
+-		CRYPTO_gcm128_init(&gctx->gcm, &gctx->ks, (block128_f)AES_encrypt);
++	AES_set_encrypt_key(key, key_len*8, aes_key);
++	CRYPTO_gcm128_init(gcm_ctx, aes_key, (block128_f)AES_encrypt);
+ #ifdef AES_CTR_ASM
+-		gctx->ctr = (ctr128_f)AES_ctr32_encrypt;
++	return (ctr128_f)AES_ctr32_encrypt;
+ #else
+-		gctx->ctr = NULL;
++	return NULL;
+ #endif
+-		} while (0);
++	}
+ 
++static int aes_gcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char *key,
++                        const unsigned char *iv, int enc)
++	{
++	EVP_AES_GCM_CTX *gctx = ctx->cipher_data;
++	if (!iv && !key)
++		return 1;
++	if (key)
++		{
++		gctx->ctr = aes_gcm_set_key(&gctx->ks, &gctx->gcm, key, ctx->key_len);
+ 		/* If we have an iv can set it directly, otherwise use
+ 		 * saved IV.
+ 		 */
+@@ -1310,5 +1311,176 @@ BLOCK_CIPHER_custom(NID_aes,128,1,12,ccm,CCM,EVP_CIPH_FLAG_FIPS|CUSTOM_FLAGS)
+ BLOCK_CIPHER_custom(NID_aes,192,1,12,ccm,CCM,EVP_CIPH_FLAG_FIPS|CUSTOM_FLAGS)
+ BLOCK_CIPHER_custom(NID_aes,256,1,12,ccm,CCM,EVP_CIPH_FLAG_FIPS|CUSTOM_FLAGS)
+ 
++#define EVP_AEAD_AES_128_GCM_TAG_LEN 16
++
++struct aead_aes_128_gcm_ctx {
++	union { double align; AES_KEY ks; } ks;
++	GCM128_CONTEXT gcm;
++	ctr128_f ctr;
++	unsigned char tag_len;
++};
++
++static int aead_aes_128_gcm_init(EVP_AEAD_CTX *ctx,
++	const unsigned char *key, size_t key_len, size_t tag_len)
++	{
++	struct aead_aes_128_gcm_ctx *gcm_ctx;
++
++	if (key_len*8 != 128)
++		{
++		EVPerr(EVP_F_AEAD_AES_128_GCM_INIT, EVP_R_BAD_KEY_LENGTH);
++		return 0;  /* EVP_AEAD_CTX_init should catch this. */
++		}
++
++	if (tag_len == EVP_AEAD_DEFAULT_TAG_LENGTH)
++		tag_len = EVP_AEAD_AES_128_GCM_TAG_LEN;
++
++	if (tag_len > EVP_AEAD_AES_128_GCM_TAG_LEN)
++		{
++		EVPerr(EVP_F_AEAD_AES_128_GCM_INIT, EVP_R_TAG_TOO_LARGE);
++		return 0;
++		}
++
++	gcm_ctx = OPENSSL_malloc(sizeof(struct aead_aes_128_gcm_ctx));
++	if (gcm_ctx == NULL)
++		return 0;
++
++#ifdef AESNI_CAPABLE
++	if (AESNI_CAPABLE)
++		{
++		aesni_set_encrypt_key(key, key_len * 8, &gcm_ctx->ks.ks);
++		CRYPTO_gcm128_init(&gcm_ctx->gcm, &gcm_ctx->ks.ks,
++				   (block128_f)aesni_encrypt);
++		gcm_ctx->ctr = (ctr128_f) aesni_ctr32_encrypt_blocks;
++		}
++	else
++#endif
++		{
++		gcm_ctx->ctr = aes_gcm_set_key(&gcm_ctx->ks.ks, &gcm_ctx->gcm,
++					       key, key_len);
++		}
++	gcm_ctx->tag_len = tag_len;
++	ctx->aead_state = gcm_ctx;
++
++	return 1;
++	}
++
++static void aead_aes_128_gcm_cleanup(EVP_AEAD_CTX *ctx)
++	{
++	struct aead_aes_128_gcm_ctx *gcm_ctx = ctx->aead_state;
++	OPENSSL_free(gcm_ctx);
++	}
++
++static ssize_t aead_aes_128_gcm_seal(const EVP_AEAD_CTX *ctx,
++	unsigned char *out, size_t max_out_len,
++	const unsigned char *nonce, size_t nonce_len,
++	const unsigned char *in, size_t in_len,
++	const unsigned char *ad, size_t ad_len)
++	{
++	size_t bulk = 0;
++	const struct aead_aes_128_gcm_ctx *gcm_ctx = ctx->aead_state;
++	GCM128_CONTEXT gcm;
++
++	if (max_out_len < in_len + gcm_ctx->tag_len)
++		{
++		EVPerr(EVP_F_AEAD_AES_128_GCM_SEAL, EVP_R_BUFFER_TOO_SMALL);
++		return -1;
++		}
++
++	memcpy(&gcm, &gcm_ctx->gcm, sizeof(gcm));
++	CRYPTO_gcm128_setiv(&gcm, nonce, nonce_len);
++
++	if (ad_len > 0 && CRYPTO_gcm128_aad(&gcm, ad, ad_len))
++		return -1;
++
++	if (gcm_ctx->ctr)
++		{
++		if (CRYPTO_gcm128_encrypt_ctr32(&gcm, in + bulk, out + bulk,
++						in_len - bulk, gcm_ctx->ctr))
++			return -1;
++		}
++	else
++		{
++		if (CRYPTO_gcm128_encrypt(&gcm, in + bulk, out + bulk,
++					  in_len - bulk))
++			return -1;
++		}
++
++	CRYPTO_gcm128_tag(&gcm, out + in_len, gcm_ctx->tag_len);
++	return in_len + gcm_ctx->tag_len;
++	}
++
++static ssize_t aead_aes_128_gcm_open(const EVP_AEAD_CTX *ctx,
++	unsigned char *out, size_t max_out_len,
++	const unsigned char *nonce, size_t nonce_len,
++	const unsigned char *in, size_t in_len,
++	const unsigned char *ad, size_t ad_len)
++	{
++	size_t bulk = 0;
++	const struct aead_aes_128_gcm_ctx *gcm_ctx = ctx->aead_state;
++	unsigned char tag[EVP_AEAD_AES_128_GCM_TAG_LEN];
++	size_t out_len;
++	GCM128_CONTEXT gcm;
++
++	if (in_len < gcm_ctx->tag_len)
++		{
++		EVPerr(EVP_F_AEAD_AES_128_GCM_OPEN, EVP_R_BAD_DECRYPT);
++		return -1;
++		}
++
++	out_len = in_len - gcm_ctx->tag_len;
++
++	if (max_out_len < out_len)
++		{
++		EVPerr(EVP_F_AEAD_AES_128_GCM_OPEN, EVP_R_BUFFER_TOO_SMALL);
++		return -1;
++		}
++
++	memcpy(&gcm, &gcm_ctx->gcm, sizeof(gcm));
++	CRYPTO_gcm128_setiv(&gcm, nonce, nonce_len);
++
++	if (CRYPTO_gcm128_aad(&gcm, ad, ad_len))
++		return -1;
++
++	if (gcm_ctx->ctr)
++		{
++		if (CRYPTO_gcm128_decrypt_ctr32(&gcm, in + bulk, out + bulk,
++						in_len-bulk-gcm_ctx->tag_len,
++						gcm_ctx->ctr))
++			return -1;
++		}
++	else
++		{
++		if (CRYPTO_gcm128_decrypt(&gcm, in + bulk, out + bulk,
++					  in_len - bulk - gcm_ctx->tag_len))
++			return -1;
++		}
++
++	CRYPTO_gcm128_tag(&gcm, tag, gcm_ctx->tag_len);
++	if (CRYPTO_memcmp(tag, in + out_len, gcm_ctx->tag_len) != 0)
++		{
++		EVPerr(EVP_F_AEAD_AES_128_GCM_OPEN, EVP_R_BAD_DECRYPT);
++		return -1;
++		}
++
++	return out_len;
++	}
++
++static const EVP_AEAD aead_aes_128_gcm = {
++	16,  /* key len */
++	12,  /* nonce len */
++	EVP_AEAD_AES_128_GCM_TAG_LEN,  /* overhead */
++	EVP_AEAD_AES_128_GCM_TAG_LEN,  /* max tag length */
++
++	aead_aes_128_gcm_init,
++	aead_aes_128_gcm_cleanup,
++	aead_aes_128_gcm_seal,
++	aead_aes_128_gcm_open,
++};
++
++const EVP_AEAD *EVP_aead_aes_128_gcm()
++	{
++	return &aead_aes_128_gcm;
++	}
++
+ #endif
+ #endif
+diff --git a/crypto/evp/evp.h b/crypto/evp/evp.h
+index 5f18d4b..bd10642 100644
+--- a/crypto/evp/evp.h
++++ b/crypto/evp/evp.h
+@@ -1243,6 +1243,109 @@ void EVP_PKEY_meth_set_ctrl(EVP_PKEY_METHOD *pmeth,
+ 	int (*ctrl_str)(EVP_PKEY_CTX *ctx,
+ 					const char *type, const char *value));
+ 
++/* Authenticated Encryption with Additional Data.
++ *
++ * AEAD couples confidentiality and integrity in a single primtive. AEAD
++ * algorithms take a key and then can seal and open individual messages. Each
++ * message has a unique, per-message nonce and, optionally, additional data
++ * which is authenticated but not included in the output. */
++
++struct evp_aead_st;
++typedef struct evp_aead_st EVP_AEAD;
++
++#ifndef OPENSSL_NO_AES
++/* EVP_aes_128_gcm is AES-128 in Galois Counter Mode. */
++const EVP_AEAD *EVP_aead_aes_128_gcm(void);
++#endif
++
++/* EVP_AEAD_key_length returns the length, in bytes, of the keys used by
++ * |aead|. */
++size_t EVP_AEAD_key_length(const EVP_AEAD *aead);
++
++/* EVP_AEAD_nonce_length returns the length, in bytes, of the per-message nonce
++ * for |aead|. */
++size_t EVP_AEAD_nonce_length(const EVP_AEAD *aead);
++
++/* EVP_AEAD_max_overhead returns the maximum number of additional bytes added
++ * by the act of sealing data with |aead|. */
++size_t EVP_AEAD_max_overhead(const EVP_AEAD *aead);
++
++/* EVP_AEAD_max_tag_len returns the maximum tag length when using |aead|. This
++ * is the largest value that can be passed as |tag_len| to
++ * |EVP_AEAD_CTX_init|. */
++size_t EVP_AEAD_max_tag_len(const EVP_AEAD *aead);
++
++/* An EVP_AEAD_CTX represents an AEAD algorithm configured with a specific key
++ * and message-independent IV. */
++typedef struct evp_aead_ctx_st {
++	const EVP_AEAD *aead;
++	/* aead_state is an opaque pointer to whatever state the AEAD needs to
++	 * maintain. */
++	void *aead_state;
++} EVP_AEAD_CTX;
++
++#define EVP_AEAD_DEFAULT_TAG_LENGTH 0
++
++/* EVP_AEAD_init initializes |ctx| for the given AEAD algorithm from |impl|.
++ * The |impl| argument may be NULL to choose the default implementation.
++ * Authentication tags may be truncated by passing a size as |tag_len|. A
++ * |tag_len| of zero indicates the default tag length and this is defined as
++ * EVP_AEAD_DEFAULT_TAG_LENGTH for readability.
++ * Returns 1 on success. Otherwise returns 0 and pushes to the error stack. */
++int EVP_AEAD_CTX_init(EVP_AEAD_CTX *ctx, const EVP_AEAD *aead,
++		      const unsigned char *key, size_t key_len,
++		      size_t tag_len, ENGINE *impl);
++
++/* EVP_AEAD_CTX_cleanup frees any data allocated by |ctx|. */
++void EVP_AEAD_CTX_cleanup(EVP_AEAD_CTX *ctx);
++
++/* EVP_AEAD_CTX_seal encrypts and authenticates |in_len| bytes from |in| and
++ * authenticates |ad_len| bytes from |ad| and writes the result to |out|,
++ * returning the number of bytes written, or -1 on error.
++ *
++ * This function may be called (with the same EVP_AEAD_CTX) concurrently with
++ * itself or EVP_AEAD_CTX_open.
++ *
++ * At most |max_out_len| bytes are written to |out| and, in order to ensure
++ * success, |max_out_len| should be |in_len| plus the result of
++ * EVP_AEAD_overhead.
++ *
++ * The length of |nonce|, |nonce_len|, must be equal to the result of
++ * EVP_AEAD_nonce_length for this AEAD.
++ *
++ * EVP_AEAD_CTX_seal never results in a partial output. If |max_out_len| is
++ * insufficient, -1 will be returned.
++ *
++ * If |in| and |out| alias then |out| must be <= |in|. */
++ssize_t EVP_AEAD_CTX_seal(const EVP_AEAD_CTX *ctx,
++			  unsigned char *out, size_t max_out_len,
++			  const unsigned char *nonce, size_t nonce_len,
++			  const unsigned char *in, size_t in_len,
++			  const unsigned char *ad, size_t ad_len);
++
++/* EVP_AEAD_CTX_open authenticates |in_len| bytes from |in| and |ad_len| bytes
++ * from |ad| and decrypts at most |in_len| bytes into |out|. It returns the
++ * number of bytes written, or -1 on error.
++ *
++ * This function may be called (with the same EVP_AEAD_CTX) concurrently with
++ * itself or EVP_AEAD_CTX_seal.
++ *
++ * At most |in_len| bytes are written to |out|. In order to ensure success,
++ * |max_out_len| should be at least |in_len|.
++ *
++ * The length of |nonce|, |nonce_len|, must be equal to the result of
++ * EVP_AEAD_nonce_length for this AEAD.
++ *
++ * EVP_AEAD_CTX_open never results in a partial output. If |max_out_len| is
++ * insufficient, -1 will be returned.
++ *
++ * If |in| and |out| alias then |out| must be <= |in|. */
++ssize_t EVP_AEAD_CTX_open(const EVP_AEAD_CTX *ctx,
++			  unsigned char *out, size_t max_out_len,
++			  const unsigned char *nonce, size_t nonce_len,
++			  const unsigned char *in, size_t in_len,
++			  const unsigned char *ad, size_t ad_len);
++
+ void EVP_add_alg_module(void);
+ 
+ /* BEGIN ERROR CODES */
+@@ -1254,6 +1357,11 @@ void ERR_load_EVP_strings(void);
+ /* Error codes for the EVP functions. */
+ 
+ /* Function codes. */
++#define EVP_F_AEAD_AES_128_GCM_INIT			 183
++#define EVP_F_AEAD_AES_128_GCM_OPEN			 181
++#define EVP_F_AEAD_AES_128_GCM_SEAL			 182
++#define EVP_F_AEAD_CTX_OPEN				 185
++#define EVP_F_AEAD_CTX_SEAL				 186
+ #define EVP_F_AESNI_INIT_KEY				 165
+ #define EVP_F_AESNI_XTS_CIPHER				 176
+ #define EVP_F_AES_INIT_KEY				 133
+@@ -1268,6 +1376,7 @@ void ERR_load_EVP_strings(void);
+ #define EVP_F_DSA_PKEY2PKCS8				 135
+ #define EVP_F_ECDSA_PKEY2PKCS8				 129
+ #define EVP_F_ECKEY_PKEY2PKCS8				 132
++#define EVP_F_EVP_AEAD_CTX_INIT				 180
+ #define EVP_F_EVP_CIPHERINIT_EX				 123
+ #define EVP_F_EVP_CIPHER_CTX_COPY			 163
+ #define EVP_F_EVP_CIPHER_CTX_CTRL			 124
+@@ -1383,10 +1492,12 @@ void ERR_load_EVP_strings(void);
+ #define EVP_R_NO_VERIFY_FUNCTION_CONFIGURED		 105
+ #define EVP_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE	 150
+ #define EVP_R_OPERATON_NOT_INITIALIZED			 151
++#define EVP_R_OUTPUT_ALIASES_INPUT			 170
+ #define EVP_R_PKCS8_UNKNOWN_BROKEN_TYPE			 117
+ #define EVP_R_PRIVATE_KEY_DECODE_ERROR			 145
+ #define EVP_R_PRIVATE_KEY_ENCODE_ERROR			 146
+ #define EVP_R_PUBLIC_KEY_NOT_RSA			 106
++#define EVP_R_TAG_TOO_LARGE				 171
+ #define EVP_R_TOO_LARGE					 164
+ #define EVP_R_UNKNOWN_CIPHER				 160
+ #define EVP_R_UNKNOWN_DIGEST				 161
+diff --git a/crypto/evp/evp_aead.c b/crypto/evp/evp_aead.c
+new file mode 100644
+index 0000000..91da561
+--- /dev/null
++++ b/crypto/evp/evp_aead.c
+@@ -0,0 +1,192 @@
++/* Copyright (C) 1995-1998 Eric Young (eay@cryptsoft.com)
++ * All rights reserved.
++ *
++ * This package is an SSL implementation written
++ * by Eric Young (eay@cryptsoft.com).
++ * The implementation was written so as to conform with Netscapes SSL.
++ * 
++ * This library is free for commercial and non-commercial use as long as
++ * the following conditions are aheared to.  The following conditions
++ * apply to all code found in this distribution, be it the RC4, RSA,
++ * lhash, DES, etc., code; not just the SSL code.  The SSL documentation
++ * included with this distribution is covered by the same copyright terms
++ * except that the holder is Tim Hudson (tjh@cryptsoft.com).
++ * 
++ * Copyright remains Eric Young's, and as such any Copyright notices in
++ * the code are not to be removed.
++ * If this package is used in a product, Eric Young should be given attribution
++ * as the author of the parts of the library used.
++ * This can be in the form of a textual message at program startup or
++ * in documentation (online or textual) provided with the package.
++ * 
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *    "This product includes cryptographic software written by
++ *     Eric Young (eay@cryptsoft.com)"
++ *    The word 'cryptographic' can be left out if the rouines from the library
++ *    being used are not cryptographic related :-).
++ * 4. If you include any Windows specific code (or a derivative thereof) from 
++ *    the apps directory (application code) you must include an acknowledgement:
++ *    "This product includes software written by Tim Hudson (tjh@cryptsoft.com)"
++ * 
++ * THIS SOFTWARE IS PROVIDED BY ERIC YOUNG ``AS IS'' AND
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
++ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
++ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ * 
++ * The licence and distribution terms for any publically available version or
++ * derivative of this code cannot be changed.  i.e. this code cannot simply be
++ * copied and put under another distribution licence
++ * [including the GNU Public Licence.]
++ */
++
++#include <limits.h>
++#include <string.h>
++
++#include <openssl/evp.h>
++#include <openssl/err.h>
++
++#include "evp_locl.h"
++
++size_t EVP_AEAD_key_length(const EVP_AEAD *aead)
++	{
++	return aead->key_len;
++	}
++
++size_t EVP_AEAD_nonce_length(const EVP_AEAD *aead)
++	{
++	return aead->nonce_len;
++	}
++
++size_t EVP_AEAD_max_overhead(const EVP_AEAD *aead)
++	{
++	return aead->overhead;
++	}
++
++size_t EVP_AEAD_max_tag_len(const EVP_AEAD *aead)
++	{
++	return aead->max_tag_len;
++	}
++
++int EVP_AEAD_CTX_init(EVP_AEAD_CTX *ctx, const EVP_AEAD *aead,
++		      const unsigned char *key, size_t key_len,
++		      size_t tag_len, ENGINE *impl)
++	{
++	ctx->aead = aead;
++	if (key_len != aead->key_len)
++		{
++		EVPerr(EVP_F_EVP_AEAD_CTX_INIT,EVP_R_UNSUPPORTED_KEY_SIZE);
++		return 0;
++		}
++	return aead->init(ctx, key, key_len, tag_len);
++	}
++
++void EVP_AEAD_CTX_cleanup(EVP_AEAD_CTX *ctx)
++	{
++	if (ctx->aead == NULL)
++		return;
++	ctx->aead->cleanup(ctx);
++	ctx->aead = NULL;
++	}
++
++/* check_alias returns 0 if |out| points within the buffer determined by |in|
++ * and |in_len| and 1 otherwise.
++ *
++ * When processing, there's only an issue if |out| points within in[:in_len]
++ * and isn't equal to |in|. If that's the case then writing the output will
++ * stomp input that hasn't been read yet.
++ *
++ * This function checks for that case. */
++static int check_alias(const unsigned char *in, size_t in_len,
++		       const unsigned char *out)
++	{
++	if (out <= in)
++		return 1;
++	if (in + in_len <= out)
++		return 1;
++	return 0;
++	}
++
++ssize_t EVP_AEAD_CTX_seal(const EVP_AEAD_CTX *ctx,
++			  unsigned char *out, size_t max_out_len,
++			  const unsigned char *nonce, size_t nonce_len,
++			  const unsigned char *in, size_t in_len,
++			  const unsigned char *ad, size_t ad_len)
++	{
++	size_t possible_out_len = in_len + ctx->aead->overhead;
++	ssize_t r;
++
++	if (possible_out_len < in_len /* overflow */ ||
++	    possible_out_len > SSIZE_MAX /* return value cannot be
++					    represented */)
++		{
++		EVPerr(EVP_F_AEAD_CTX_SEAL, EVP_R_TOO_LARGE);
++		goto error;
++		}
++
++	if (!check_alias(in, in_len, out))
++		{
++		EVPerr(EVP_F_AEAD_CTX_SEAL, EVP_R_OUTPUT_ALIASES_INPUT);
++		goto error;
++		}
++
++	r = ctx->aead->seal(ctx, out, max_out_len, nonce, nonce_len,
++			    in, in_len, ad, ad_len);
++	if (r >= 0)
++		return r;
++
++error:
++	/* In the event of an error, clear the output buffer so that a caller
++	 * that doesn't check the return value doesn't send raw data. */
++	memset(out, 0, max_out_len);
++	return -1;
++	}
++
++ssize_t EVP_AEAD_CTX_open(const EVP_AEAD_CTX *ctx,
++			 unsigned char *out, size_t max_out_len,
++			 const unsigned char *nonce, size_t nonce_len,
++			 const unsigned char *in, size_t in_len,
++			 const unsigned char *ad, size_t ad_len)
++	{
++	ssize_t r;
++
++	if (in_len > SSIZE_MAX)
++		{
++		EVPerr(EVP_F_AEAD_CTX_OPEN, EVP_R_TOO_LARGE);
++		goto error;  /* may not be able to represent return value. */
++		}
++
++	if (!check_alias(in, in_len, out))
++		{
++		EVPerr(EVP_F_AEAD_CTX_OPEN, EVP_R_OUTPUT_ALIASES_INPUT);
++		goto error;
++		}
++
++	r = ctx->aead->open(ctx, out, max_out_len, nonce, nonce_len,
++			    in, in_len, ad, ad_len);
++
++	if (r >= 0)
++		return r;
++
++error:
++	/* In the event of an error, clear the output buffer so that a caller
++	 * that doesn't check the return value doesn't try and process bad
++	 * data. */
++	memset(out, 0, max_out_len);
++	return -1;
++	}
+diff --git a/crypto/evp/evp_err.c b/crypto/evp/evp_err.c
+index 08eab98..c47969c 100644
+--- a/crypto/evp/evp_err.c
++++ b/crypto/evp/evp_err.c
+@@ -70,6 +70,11 @@
+ 
+ static ERR_STRING_DATA EVP_str_functs[]=
+ 	{
++{ERR_FUNC(EVP_F_AEAD_AES_128_GCM_INIT),	"AEAD_AES_128_GCM_INIT"},
++{ERR_FUNC(EVP_F_AEAD_AES_128_GCM_OPEN),	"AEAD_AES_128_GCM_OPEN"},
++{ERR_FUNC(EVP_F_AEAD_AES_128_GCM_SEAL),	"AEAD_AES_128_GCM_SEAL"},
++{ERR_FUNC(EVP_F_AEAD_CTX_OPEN),	"AEAD_CTX_OPEN"},
++{ERR_FUNC(EVP_F_AEAD_CTX_SEAL),	"AEAD_CTX_SEAL"},
+ {ERR_FUNC(EVP_F_AESNI_INIT_KEY),	"AESNI_INIT_KEY"},
+ {ERR_FUNC(EVP_F_AESNI_XTS_CIPHER),	"AESNI_XTS_CIPHER"},
+ {ERR_FUNC(EVP_F_AES_INIT_KEY),	"AES_INIT_KEY"},
+@@ -84,6 +89,7 @@ static ERR_STRING_DATA EVP_str_functs[]=
+ {ERR_FUNC(EVP_F_DSA_PKEY2PKCS8),	"DSA_PKEY2PKCS8"},
+ {ERR_FUNC(EVP_F_ECDSA_PKEY2PKCS8),	"ECDSA_PKEY2PKCS8"},
+ {ERR_FUNC(EVP_F_ECKEY_PKEY2PKCS8),	"ECKEY_PKEY2PKCS8"},
++{ERR_FUNC(EVP_F_EVP_AEAD_CTX_INIT),	"EVP_AEAD_CTX_init"},
+ {ERR_FUNC(EVP_F_EVP_CIPHERINIT_EX),	"EVP_CipherInit_ex"},
+ {ERR_FUNC(EVP_F_EVP_CIPHER_CTX_COPY),	"EVP_CIPHER_CTX_copy"},
+ {ERR_FUNC(EVP_F_EVP_CIPHER_CTX_CTRL),	"EVP_CIPHER_CTX_ctrl"},
+@@ -202,10 +208,12 @@ static ERR_STRING_DATA EVP_str_reasons[]=
+ {ERR_REASON(EVP_R_NO_VERIFY_FUNCTION_CONFIGURED),"no verify function configured"},
+ {ERR_REASON(EVP_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE),"operation not supported for this keytype"},
+ {ERR_REASON(EVP_R_OPERATON_NOT_INITIALIZED),"operaton not initialized"},
++{ERR_REASON(EVP_R_OUTPUT_ALIASES_INPUT)  ,"output aliases input"},
+ {ERR_REASON(EVP_R_PKCS8_UNKNOWN_BROKEN_TYPE),"pkcs8 unknown broken type"},
+ {ERR_REASON(EVP_R_PRIVATE_KEY_DECODE_ERROR),"private key decode error"},
+ {ERR_REASON(EVP_R_PRIVATE_KEY_ENCODE_ERROR),"private key encode error"},
+ {ERR_REASON(EVP_R_PUBLIC_KEY_NOT_RSA)    ,"public key not rsa"},
++{ERR_REASON(EVP_R_TAG_TOO_LARGE)         ,"tag too large"},
+ {ERR_REASON(EVP_R_TOO_LARGE)             ,"too large"},
+ {ERR_REASON(EVP_R_UNKNOWN_CIPHER)        ,"unknown cipher"},
+ {ERR_REASON(EVP_R_UNKNOWN_DIGEST)        ,"unknown digest"},
+diff --git a/crypto/evp/evp_locl.h b/crypto/evp/evp_locl.h
+index 08c0a66..c0f9fdf 100644
+--- a/crypto/evp/evp_locl.h
++++ b/crypto/evp/evp_locl.h
+@@ -348,6 +348,30 @@ int PKCS5_v2_PBKDF2_keyivgen(EVP_CIPHER_CTX *ctx, const char *pass, int passlen,
+ 			     ASN1_TYPE *param,
+ 			     const EVP_CIPHER *c, const EVP_MD *md, int en_de);
+ 
++/* EVP_AEAD represents a specific AEAD algorithm. */
++struct evp_aead_st {
++	unsigned char key_len;
++	unsigned char nonce_len;
++	unsigned char overhead;
++	unsigned char max_tag_len;
++
++	int (*init) (struct evp_aead_ctx_st*, const unsigned char *key,
++		     size_t key_len, size_t tag_len);
++	void (*cleanup) (struct evp_aead_ctx_st*);
++
++	ssize_t (*seal) (const struct evp_aead_ctx_st *ctx,
++			 unsigned char *out, size_t max_out_len,
++			 const unsigned char *nonce, size_t nonce_len,
++			 const unsigned char *in, size_t in_len,
++			 const unsigned char *ad, size_t ad_len);
++
++	ssize_t (*open) (const struct evp_aead_ctx_st *ctx,
++			 unsigned char *out, size_t max_out_len,
++			 const unsigned char *nonce, size_t nonce_len,
++			 const unsigned char *in, size_t in_len,
++			 const unsigned char *ad, size_t ad_len);
++};
++
+ #ifdef OPENSSL_FIPS
+ 
+ #ifdef OPENSSL_DOING_MAKEDEPEND
+diff --git a/doc/crypto/EVP_AEAD_CTX_init.pod b/doc/crypto/EVP_AEAD_CTX_init.pod
+new file mode 100644
+index 0000000..20e455d
+--- /dev/null
++++ b/doc/crypto/EVP_AEAD_CTX_init.pod
+@@ -0,0 +1,96 @@
++=pod
++
++=head1 NAME
++
++EVP_AEAD_CTX_init, EVP_AEAD_CTX_cleanup, EVP_AEAD_CTX_seal, EVP_AEAD_CTX_open - authenticated encryption functions.
++
++=head1 SYNOPSIS
++
++ #include <openssl/evp.h>
++
++ int EVP_AEAD_CTX_init(EVP_AEAD_CTX *ctx, const EVP_AEAD *aead,
++                       const unsigned char *key, size_t key_len,
++                       size_t tag_len, ENGINE *impl);
++ void EVP_AEAD_CTX_cleanup(EVP_AEAD_CTX *ctx);
++ ssize_t EVP_AEAD_CTX_seal(const EVP_AEAD_CTX *ctx,
++                           unsigned char *out, size_t max_out_len,
++                           const unsigned char *nonce, size_t nonce_len,
++                           const unsigned char *in, size_t in_len,
++                           const unsigned char *ad, size_t ad_len);
++ ssize_t EVP_AEAD_CTX_open(const EVP_AEAD_CTX *ctx,
++                           unsigned char *out, size_t max_out_len,
++                           const unsigned char *nonce, size_t nonce_len,
++                           const unsigned char *in, size_t in_len,
++                           const unsigned char *ad, size_t ad_len);
++
++=head1 DESCRIPTION
++
++The EVP_AEAD_CTX_init() function initialises an B<EVP_AEAD_CTX> structure and
++performs any precomputation needed to use B<aead> with B<key>. The length of
++the key, B<key_len>, is given in bytes.
++
++The B<tag_len> argument contains the length of the tags, in bytes, and allows
++for the processing of truncated authenticators. A zero value indicates that the
++default tag length should be used and this is defined as
++C<EVP_AEAD_DEFAULT_TAG_LENGTH> in order to make the code clear. Using truncated
++tags increases an attacker's chance of creating a valid forgery. Be aware that
++the attacker's chance may increase more than exponentially as would naively be
++expected.
++
++When no longer needed, the initialised B<EVP_AEAD_CTX> structure must be passed
++to EVP_AEAD_CTX_cleanup(), which will deallocate any memory used.
++
++With an B<EVP_AEAD_CTX> in hand, one can seal and open messages. These
++operations are intended to meet the standard notions of privacy and
++authenticity for authenticated encryption. For formal definitions see I<Bellare
++and Namprempre>, "Authenticated encryption: relations among notions and
++analysis of the generic composition paradigm," Lecture Notes in Computer
++Science B<1976> (2000), 531–545,
++L<http://www-cse.ucsd.edu/~mihir/papers/oem.html>.
++
++When sealing messages, a nonce must be given. The length of the nonce is fixed
++by the AEAD in use and is returned by EVP_AEAD_nonce_length(). I<The nonce must
++be unique for all messages with the same key>. This is critically important -
++nonce reuse may completely undermine the security of the AEAD. Nonces may be
++predictable and public, so long as they are unique. Uniqueness may be achieved
++with a simple counter or, if long enough, may be generated randomly. The nonce
++must be passed into the "open" operation by the receiver so must either be
++implicit (e.g. a counter), or must be transmitted along with the sealed message.
++
++The "seal" and "open" operations are atomic - an entire message must be
++encrypted or decrypted in a single call. Large messages may have to be split up
++in order to accomodate this. When doing so, be mindful of the need not to
++repeat nonces and the possibility that an attacker could duplicate, reorder or
++drop message chunks. For example, using a single key for a given (large)
++message and sealing chunks with nonces counting from zero would be secure as
++long as the number of chunks was securely transmitted. (Otherwise an attacker
++could truncate the message by dropping chunks from the end.)
++
++The number of chunks could be transmitted by prefixing it to the plaintext, for
++example. This also assumes that no other message would ever use the same key
++otherwise the rule that nonces must be unique for a given key would be
++violated.
++
++The "seal" and "open" operations also permit additional data to be
++authenticated via the B<ad> parameter. This data is not included in the
++ciphertext and must be identical for both the "seal" and "open" call. This
++permits implicit context to be authenticated but may be C<NULL> if not needed.
++
++The "seal" and "open" operations may work inplace if the B<out> and B<in>
++arguments are equal. They may also be used to shift the data left inside the
++same buffer if B<out> is less than B<in>. However, B<out> may not point inside
++the input data otherwise the input may be overwritten before it has been read.
++This case will cause an error.
++
++=head1 RETURN VALUES
++
++The "seal" and "open" operations return an C<ssize_t> with value -1 on error,
++otherwise they return the number of output bytes written. An error will be
++returned if the input length is large enough that the output size exceeds the
++range of a C<ssize_t>.
++
++=head1 HISTORY
++
++These functions were first added to OpenSSL 1.0.2.
++
++=cut
+-- 
+1.8.4.1
+

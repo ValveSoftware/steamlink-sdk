@@ -1,0 +1,142 @@
+/* Copyright (c) 2012 The Chromium Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+/**
+ * This file contains the <code>PPB_Talk_Private</code> interface.
+ */
+label Chrome {
+  M19 = 1.0,
+  M29 = 2.0
+};
+
+/**
+ * The type of permissions that can be requested from the user.
+ */
+[assert_size(4)]
+enum PP_TalkPermission {
+  /**
+   * Request permission for screencast.
+   */
+  PP_TALKPERMISSION_SCREENCAST,
+  /**
+   * Request permission for Remote Desktop.
+   */
+  PP_TALKPERMISSION_REMOTING,
+  /**
+   * Request permission for continuing Remote Desktop.
+   */
+  PP_TALKPERMISSION_REMOTING_CONTINUE,
+  /**
+   * Number of permissions.
+   */
+  PP_TALKPERMISSION_NUM_PERMISSIONS
+};
+
+/**
+ * Talk event types reported by the browser.
+ */
+[assert_size(4)]
+enum PP_TalkEvent {
+  /**
+   * Indicates that the user took action to terminate the remoting session.
+   */
+  PP_TALKEVENT_TERMINATE,
+  /**
+   * Indicates that an error occurred (e.g. failed to show the UI).
+   */
+  PP_TALKEVENT_ERROR,
+  /**
+   * Number of events
+   */
+  PP_TALKEVENT_NUM_EVENTS
+};
+
+/**
+ * Callback for Talk events.
+ */
+typedef void PP_TalkEventCallback([inout] mem_t user_data,
+                                  [in] PP_TalkEvent event);
+
+/**
+ * Extra interface for Talk.
+ */
+interface PPB_Talk_Private {
+  /**
+   * Creates a Talk_Private resource.
+   */
+  [version=1.0]
+  PP_Resource Create(PP_Instance instance);
+
+  /**
+   * Displays confirmation dialog for screencasting.
+   *
+   * The callback will be issued with 1 as the result if the user gave
+   * permission, or 0 if the user denied.
+   *
+   * You can only have one call pending. It will return PP_OK_COMPLETIONPENDING
+   * if the request is queued, or PP_ERROR_INPROGRESS if there is already a
+   * request in progress.
+   *
+   * (Deprecated in 2.0. Please us RequestPermission instead.)
+   */
+  [version=1.0, deprecate=2.0]
+  int32_t GetPermission(
+      [in] PP_Resource talk_resource,
+      [in] PP_CompletionCallback callback);
+
+  /**
+   * Requests permission from the user using a system modal dialog.
+   *
+   * <code>permission</code> specifies the type of permission to request from
+   * the user.
+   *
+   * <code>callback</code> is the completion callback. It will be issued with 1
+   * as the result if the user gave permission, or 0 if the user denied.
+   *
+   * You can only have one call pending. It will return PP_OK_COMPLETIONPENDING
+   * if the request is queued, or PP_ERROR_INPROGRESS if there is already a
+   * request in progress.
+   */
+  [version=2.0]
+  int32_t RequestPermission(
+      [in] PP_Resource talk_resource,
+      [in] PP_TalkPermission permission,
+      [in] PP_CompletionCallback callback);
+
+  /**
+   * Shows the remoting-in-progress UI and registers a callback for events.
+   *
+   * <code>event_callback</code> is the callback for session releated events.
+   * It will only start receiving events after the completion callback has been
+   * issued. This callback will be called on the pepper main thread.
+   *
+   * <code>user_data</code> is an opaque value used when
+   * <code>event_callback</code> is invoked.
+   *
+   * <code>callback</code> is the completion callback.
+   *
+   * You can only have one call pending. It will return PP_OK_COMPLETIONPENDING
+   * if the request is queued, or PP_ERROR_INPROGRESS if there is already a
+   * request in progress. PP_ERROR_INPROGRESS will also be returned if a
+   * previous call to StartRemoting succeeded without a corresponding
+   * StopRemoting call.
+   */
+  [version=2.0]
+  int32_t StartRemoting(
+      [in] PP_Resource talk_resource,
+      [in] PP_TalkEventCallback event_callback,
+      [inout] mem_t user_data,
+      [in] PP_CompletionCallback callback);
+
+  /**
+   * Hides the remoting-in-progress UI and unregisters the event callback.
+   *
+   * <code>callback</code> is the completion callback.
+   */
+  [version=2.0]
+  int32_t StopRemoting(
+      [in] PP_Resource talk_resource,
+      [in] PP_CompletionCallback callback);
+};

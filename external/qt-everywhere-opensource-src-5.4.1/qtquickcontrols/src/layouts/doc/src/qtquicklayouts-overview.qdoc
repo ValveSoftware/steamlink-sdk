@@ -1,0 +1,176 @@
+/****************************************************************************
+**
+** Copyright (C) 2012 Digia Plc and/or its subsidiary(-ies).
+** Contact: http://www.qt-project.org/legal
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and Digia.  For licensing terms and
+** conditions see http://qt.digia.com/licensing.  For further information
+** use the contact form at http://qt.digia.com/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file.  Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtquicklayouts-overview.html
+    \title Qt Quick Layouts Overview
+    \brief A set of APIs for arranging QML items in a user interface.
+
+    Qt Quick Layouts are items that are used to arrange items in a user interface. Since Qt Quick
+    Layouts also resize their items, they are well suited for resizable user interfaces.
+
+    \section1 Getting started
+
+    The QML types can be imported into your application using the following import statement in your \c {.qml} file.
+
+    \code
+     import QtQuick.Layouts 1.1
+    \endcode
+
+    \section1 Key Features
+
+
+    Some of the key features are:
+
+    \list
+        \li \l{Layout::alignment}{Alignment} of items can be specified with the
+            \l{Layout::alignment}{Layout.alignment} property
+        \li \l{Layout::fillWidth}{Resizable items} can be specified with the
+            \l{Layout::fillWidth}{Layout.fillWidth} and \l{Layout::fillHeight}{Layout.fillHeight}
+            properties.
+        \li \l{Size constraints} can be specified with
+            \l{Layout::minimumWidth}{Layout.minimumWidth},
+            \l{Layout::preferredWidth}{Layout.preferredWidth}, and
+            \l{Layout::maximumWidth}{Layout.maximumWidth}  properties ("Width" can be replaced
+            with "Height" for specifying similar constraints to the height).
+        \li \l{RowLayout::spacing}{Spacings} can be specified with \l{RowLayout::spacing}{spacing},
+            \l{GridLayout::rowSpacing}{rowSpacing} or \l{GridLayout::columnSpacing}{columnSpacing}
+    \endlist
+
+    In addition to the above features, GridLayout adds these features:
+    \list
+        \li \l{Layout::row}{Grid coordinates} can be specified with the \l{Layout::row}{Layout.row} and
+            \l{Layout::column}{Layout.column}.
+        \li \l{GridLayout::flow}{Automatic grid coordinates} used together with the
+            \l{GridLayout::flow}{flow}, \l{GridLayout::rows}{rows}, and
+            \l{GridLayout::columns}{columns} properties.
+        \li \l{Layout::columnSpan}{Spans} across rows or columns can be specified with the
+            \l{Layout::rowSpan}{Layout.rowSpan} and \l{Layout::columnSpan}{Layout.columnSpan}
+            properties.
+    \endlist
+
+
+
+    \section1 Size Constraints
+    Since an item can be resized by its layout, the layout needs to know the
+    \l{Layout::minimumWidth}{minimum}, \l{Layout::preferredWidth}{preferred},
+    and \l{Layout::maximumWidth}{maximum} sizes of all items where \l{Layout::fillWidth}{Layout.fillWidth} or
+    \l{Layout::fillHeight}{Layout.fillHeight} is set to \c true.
+    For instance, the following will produce a layout with two rectangles lying side-by-side that
+    stretches horizontally. The azure rectangle can be resized from 50x150 to 300x150, and the plum
+    rectangle can be resized from 100x100 to ∞x100.
+
+    \snippet windowconstraints.qml rowlayout
+
+    \image rowlayout-minimum.png "RowLayout at its minimum"
+
+    Combining each item's constraints will give these implicit constraints to the layout element:
+
+    \table
+    \header
+        \li
+        \li minimum
+        \li preferred
+        \li maximum
+    \row
+        \li implicit constraints (width)
+        \li 156
+        \li 306
+        \li ∞ (\c Number.POSITIVE_INFINITY)
+    \row
+        \li implicit constraints (heights)
+        \li 150
+        \li 150
+        \li 150
+    \endtable
+
+    Thus, the layout cannot be narrower than 156 or be taller or shorter than 150 without breaking
+    any of the constraints of its child items.
+
+    \section2 Specifying Preferred Size
+    For each item, the effective preferred size may come from one of several candidate properties.
+    For determining the effective preferred size, it will query these candidate properties in the
+    following order, and use the first candidate with a valid width or height.
+
+    \table
+    \header
+        \li Candidate properties
+        \li Description
+    \row
+        \li \l{Layout::preferredWidth}{Layout.preferredWidth} or
+            \l{Layout::preferredHeight}{Layout.preferredHeight}
+        \li These properties are supposed to be modified by the application if the default implicit
+            size does not give the optimal arrangement.
+    \row
+        \li \l{Item::implicitWidth}{implicitWidth} or \l{Item::implicitHeight}{implicitHeight}
+        \li These properties are supposed to be supplied by each item to give a meaningful ideal size,
+            for example the size needed to display all the contents of a \l Text type.
+            An implicit width or height of \c 0 is interpreted as invalid.
+    \row
+        \li \l{Item::width}{width} and \l{Item::height}{height}
+        \li If none of the above properties are valid, the layout will resort to the
+            \l{Item::width}{width} and \l{Item::height}{height} properties.
+    \endtable
+
+    An item can specify \l{Layout::preferredWidth}{Layout.preferredWidth} without having to specify
+    \l{Layout::preferredHeight}{Layout.preferredHeight}. In this case, the effective preferred
+    height will be determined from the \l{Item::implicitHeight}{implicitHeight} (or ultimately
+    \l{Item::height}{height}).
+
+    \note Resorting to \l{Item::width}{width} or \l{Item::height}{height} properties is only
+    provided as a final fallback. If you want to override the preferred size, it is recommended to
+    use \l{Layout::preferredWidth}{Layout.preferredWidth} or
+    \l{Layout::preferredHeight}{Layout.preferredHeight}. Relying on the \l{Item::width}{width} or
+    \l{Item::height}{height} properties for specifying the preferred size might give some
+    unexpected behavior. For instance, changing the \l{Item::width}{width} or
+    \l{Item::height}{height} properties won't trigger a layout rearrangement. Also, when the layout
+    is forced to do a full rebuild it might use the actual width and height, and not the width and
+    height specified in the QML file.
+
+
+    \section1 Connecting windows and layouts
+    You can just use normal anchoring concepts to ensure that the layout will follow the window
+    resizing.
+
+    \snippet windowconstraints.qml anchoring
+
+    The size constraints of layouts can be used to ensure that the window cannot be resized beyond
+    the layout constraints. You can take the size constraints from the layout and set these
+    constraints on the minimumWidth, minimumHeight, maximumWidth, and maximumHeight of the Window
+    element. The following code ensures that the window cannot be resized beyond the constraints of
+    the layout:
+
+    \snippet windowconstraints.qml bindconstraints
+
+    \note Since layout.Layout.maximumWidth is infinite in this case, we cannot bind that to the
+    maximumWidth property of Window, since that is an integer number. We therefore set a fixed
+    maximum width to 1000.
+
+    Finally, you usually want the initial size of the window to be the layout's implicit size:
+
+    \snippet windowconstraints.qml binddefaultsize
+*/

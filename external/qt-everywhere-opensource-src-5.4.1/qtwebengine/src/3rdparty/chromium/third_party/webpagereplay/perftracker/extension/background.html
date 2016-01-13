@@ -1,0 +1,745 @@
+<script type="text/javascript" src="server.js"></script>
+
+<script>
+// TODO(mbelshe): Remove all these console.log statements
+
+var LoadType = { "cold": 0, "hot": 1, "warm": 2 };
+var LoadTypeNames = [ "cold", "hot", "warm" ];
+
+// Configuration and results are stored globally.
+window.iterations = 10;
+window.interval = 300;
+window.loadCheck = 0;
+window.timeout = 15000;  // Max ms before killing page.
+window.maxLoadChecks = Math.round(window.timeout / window.interval);
+window.enableSpdy = false;
+window.windowId = 0;
+window.submitter;
+
+// TODO(simonjam): This must be in the same order as LoadType is defined.
+// TODO(simonjam): Figure out how to skip cold and/or hot if desired.
+window.kTestsToRun = [ LoadType.cold, LoadType.hot, LoadType.warm ];
+
+// Map the WebTiming property to the name we use to log it.
+window.loggedTimings = {
+  fetchStart: 'start_load_time',
+  domainLookupEnd: 'dns_time',
+  connectEnd: 'connect_time',
+  responseStart: 'first_byte_time',
+  responseEnd: 'last_byte_time',
+  domInteractive: 'doc_load_time',
+  domContentLoadedEventEnd: 'dcl_time',
+  loadEventEnd: 'total_time',
+};
+
+// This is to be provided by the benchmark starter
+window.benchmarkConfiguration = {};
+
+// Constant StatCounter Names
+var kTCPReadBytes = "tcp.read_bytes";
+var kTCPWriteBytes = "tcp.write_bytes";
+var kRequestCount = "HttpNetworkTransaction.Count";
+var kConnectCount = "tcp.connect";
+var kSpdySessionCount = "spdy.sessions";
+
+var globalTestSetResults = [];
+
+function CHECK(expr, comment) {
+  if (!expr) {
+    console.log(comment);
+    alert(comment);
+  }
+}
+
+// Returns the max value in the array.
+Array.max = function(array) {
+  return Math.max.apply(Math, array);
+};
+
+// Returns the min value in the array.
+Array.min = function(array) {
+  return Math.min.apply(Math, array);
+};
+
+// Returns the sum of all values in the array.
+Array.sum = function(array) {
+  var sum = 0;
+  for (var i = array.length - 1; i >= 0; i--) {
+    sum += array[i];
+  }
+  return sum;
+};
+
+// Returns the mean of the array.
+Array.mean = function(array) {
+  var count = array.length;
+  if (count == 0) { return 0; }
+  var sum = Array.sum(array);
+  return sum / count;
+}
+
+// Returns the standard deviation of the array
+Array.stddev = function(array) {
+  var count = array.length;
+  if (count < 2) { return 0; }
+
+  var mean = Array.mean(array);
+  var variance = 0;
+  for (var i = 0; i < count; i++) {
+    var deviation = mean - array[i];
+    variance += deviation * deviation;
+  }
+  variance /= (count - 1);
+  return Math.sqrt(variance);
+}
+
+function Result() {
+  this.url = "";
+  this.set_id = 0;
+  this.load_type = "";
+  this.paint_time = 0;
+  this.read_bytes_kb = 0;
+  this.write_bytes_kb = 0;
+  this.num_requests = 0;
+  this.num_connects = 0;
+  this.num_sessions = 0;
+}
+
+function ResultCollection() {
+  var results_ = [];
+
+  this.addResult = function(result) {
+    results_.push(result);
+  }
+
+  this.numResults = function() {
+    return results_.length;
+  }
+
+  this.summarize = function() {
+    CHECK(results_.length, "there are no results");
+
+    var unique_urls = {};
+    var total_time_array = []
+    var num = results_.length;
+    var max_iterations = 0;
+
+    var summary = new Result();
+
+    summary.set_id = results_[0].set_id;
+    summary.load_type = results_[0].load_type;
+    summary.iterations = 0;
+
+    for (var i in results_) {
+      var result = results_[i];
+
+      CHECK(summary.set_id == result.set_id, "set_id doesn't match");
+      CHECK(summary.load_type == result.load_type, "load_type doesn't match");
+
+      for (var prop in loggedTimings) {
+        if (loggedTimings[prop] in result) {
+          if (!(loggedTimings[prop] in summary)) {
+            summary[loggedTimings[prop]] = 0;
+          }
+          summary[loggedTimings[prop]] += result[loggedTimings[prop]] / num;
+        }
+      }
+      summary.paint_time += result.paint_time / num;
+      summary.read_bytes_kb += result.read_bytes_kb / num;
+      summary.write_bytes_kb += result.write_bytes_kb / num;
+      summary.num_requests += result.num_requests / num;
+      summary.num_connects += result.num_connects / num;
+      summary.num_sessions += result.num_sessions / num;
+      summary.url = result.url;
+      unique_urls[result.url] = 1;
+      total_time_array.push(result.total_time);
+      max_iterations = Math.max(max_iterations,
+                                result.iterations ?  result.iterations : 0);
+    }
+
+    var num_unique_urls = 0;
+    for (var url in unique_urls) {
+      num_unique_urls++;
+    }
+    if (num_unique_urls > 1) {
+      summary.iterations = max_iterations;
+      summary.url = "<multiple>";
+    } else {
+      summary.iterations = results_.length;
+    }
+    summary.url_count = num_unique_urls;
+    summary.total_time_stddev = Array.stddev(total_time_array);
+
+    return summary;
+  }
+}
+
+function BenchmarkLoad(url, loadType, setId) {
+  var me_ = this;
+  var url_ = url;
+  var loadType_ = loadType;
+  var setId_ = setId;
+  var callbackWhenFinished_;
+
+  var tab_;
+  var result_;
+  var processId_;
+
+  var hasBeenRun_ = false;
+  var checkForLoadId_;
+  var loadCheck_ = 0;
+  var finished_ = false;
+
+  var initialReadBytes_;
+  var initialWriteBytes_;
+  var initialRequestCount_;
+  var initialConnectCount_;
+  var initialSpdySessionCount_;
+  var startTime_;
+
+  this.tab = function() { return tab_; }
+  this.loadType = function() { return loadType_; }
+  this.result = function() { return result_; }
+  this.processId = function() { return processId_; }
+
+  this.run = function(tabToReuse, callbackWhenFinished) {
+    console.log("Running " + url_ + " on tab " +
+                (tabToReuse ? tabToReuse.id : 'new'));
+
+    CHECK(!hasBeenRun_, "This BenchmarkLoad has already run");
+    hasBeenRun_ = true;
+
+    callbackWhenFinished_ = callbackWhenFinished;
+
+    initialReadBytes_ = chrome.benchmarking.counter(kTCPReadBytes);
+    initialWriteBytes_ = chrome.benchmarking.counter(kTCPWriteBytes);
+    initialRequestCount_ = chrome.benchmarking.counter(kRequestCount);
+    initialConnectCount_ = chrome.benchmarking.counter(kConnectCount);
+    initialSpdySessionCount_ = chrome.benchmarking.counter(kSpdySessionCount);
+    startTime_ = new Date();
+
+    var navigationProperties = {
+        "url": url_,
+        "selected": true
+    };
+
+    if (tabToReuse == 0) {
+      // We don't trust the tab creation to succeed, so start a timer
+      // that is cleared when the tab is created.
+      var hangTimer = setTimeout(function() {
+        // It is unlikely but possible for this to get enqueued after
+        // create tabs completes. In this case, loadCheck will have
+        // been cleared, but checkForLoad will not have fired yet.
+        // So, bail out if loadCheck is zero.
+        if (!window.loadCheck) return;
+
+        console.log("chrome.tabs.create failed for " + url_);
+        finished_ = true;
+        callbackWhenFinished_(me_);
+      }, window.timeout);
+
+      chrome.tabs.create(navigationProperties, function(tab) {
+          clearTimeout(hangTimer);
+          me_.startMonitoringLoad(tab);
+      });
+    } else {
+      chrome.tabs.executeScript(
+          tabToReuse.id,
+          { 'code': 'window.history.back();' },
+          function() { me_.startMonitoringLoad(tabToReuse); });
+    }
+  }
+
+  this.startMonitoringLoad = function(tab) {
+    console.log("Assigned " + url_ + " to tab " + tab.id);
+    tab_ = tab;
+    checkForLoadId_ = setInterval(function() {
+      me_.checkForLoad(tab);
+    }, window.interval);
+  }
+
+  this.checkForLoad = function(tab) {
+    loadCheck_++;
+    if (loadCheck_ > window.maxLoadChecks) {
+      console.log("load failed");
+      finished_ = true;
+      clearInterval(checkForLoadId_);
+      me_.finishBenchmarkLoad();
+      return;
+    }
+
+    chrome.tabs.sendRequest(tab.id, {}, me_.handlePossiblePageLoad);
+  }
+
+  this.handlePossiblePageLoad = function(response) {
+    if (finished_) {
+      return;
+    }
+
+    if (response.timing.loadEventEnd && response.loadTimes.finishLoadTime) {
+      finished_ = true;
+      clearInterval(checkForLoadId_);
+
+      // If it record mode, wait here another 10 seconds to be absolutely
+      // sure that any lazy loaded resources are recorded.
+      if (benchmarkConfiguration.record) {
+        setTimeout(function() { me_.handlePageLoaded(response); }, 10000);
+      } else {
+        me_.handlePageLoaded(response);
+      }
+    }
+  }
+
+  this.handlePageLoaded = function(response) {
+    console.log("Page loaded: " + url_ + " on tab " + tab_.id);
+
+    var load_times = response.loadTimes;
+    var timing = response.timing;
+
+    // Make sure the content was fetched via spdy if it is enabled.
+    if (window.enableSpdy && !load_times.wasFetchedViaSpdy) {
+      alert("Did not fetch current url via spdy.\n" +
+            "Ending current test.");
+      me_.finishBenchmarkLoad();
+      return;
+    }
+
+    // Record the individual result
+    var result = new Result()
+    var baseTime = timing.navigationStart;
+    CHECK(baseTime);
+    for (var prop in loggedTimings) {
+      if (prop in timing) {
+        result[loggedTimings[prop]] = timing[prop] - baseTime;
+      }
+    }
+    result.paint_time =
+        load_times.firstPaintTime ?
+        Math.round((1000.0 * load_times.firstPaintTime) - baseTime) : 0;
+    result.set_id = setId_;
+    result.url = url_;
+    result.load_type = LoadTypeNames[loadType_];
+    result.using_spdy = load_times.wasFetchedViaSpdy;
+    var bytesRead = chrome.benchmarking.counter(kTCPReadBytes) -
+        initialReadBytes_;
+    var bytesWrite = chrome.benchmarking.counter(kTCPWriteBytes) -
+        initialWriteBytes_;
+    result.read_bytes_kb = bytesRead / 1024;
+    result.write_bytes_kb = bytesWrite / 1024;
+    result.num_requests = chrome.benchmarking.counter(kRequestCount) -
+        initialRequestCount_;
+    result.num_connects = chrome.benchmarking.counter(kConnectCount) -
+        initialConnectCount_;
+    result.num_sessions = chrome.benchmarking.counter(kSpdySessionCount) -
+        initialSpdySessionCount_;
+
+    result_ = result;
+    window.submitter.PostResult(result, me_.finishBenchmarkLoad);
+  }
+
+  this.finishBenchmarkLoad = function() {
+    chrome.experimental.processes.getProcessIdForTab(tab_.id,
+                                                     me_.handleProcessId);
+  }
+
+  this.handleProcessId = function(processId) {
+    processId_ = processId;
+    if (benchmarkConfiguration.screenshot_dir) {
+      var params = { 'format': 'png' };
+      chrome.tabs.captureVisibleTab(tab_.windowId, params, me_.handleSnapshot);
+    } else {
+      me_.allDone();
+    }
+  }
+
+  this.handleSnapshot = function(dataUri) {
+    postUrl = getWebPageReplayUrl(url_,
+                                  'post-image-' + LoadTypeNames[loadType_]);
+    XHRPost(postUrl, dataUri, me_.allDone);
+  }
+
+  this.allDone = function() {
+    callbackWhenFinished_(me_);
+  }
+}
+
+function Benchmark(url, setIds, callbackWhenFinished) {
+  var me_ = this;
+  var url_ = url;
+  var setIds_ = setIds;
+  var runCount_ = window.iterations;
+  var resultsByLoadType_ = [];
+  var numSummariesInFlight_ = 0;
+  var callbackWhenFinished_ = callbackWhenFinished;
+  var state_;
+  var stateActions_ = [];
+  var initialized_ = false;
+  var processIds_ = {};
+
+  this.runOneIteration = function() {
+    if (!initialized_) {
+      me_.initialize();
+      initialized_ = true;
+    }
+    state_ = LoadType.cold;
+    me_.advanceStateMachine(0);
+  }
+
+  this.initialize = function() {
+    for (var i in kTestsToRun) {
+      resultsByLoadType_[i] = new ResultCollection();
+    }
+    me_.buildStateMachine();
+  }
+
+  this.buildStateMachine = function() {
+    // TODO(simonjam): Support skipping cold and/or hot.
+    stateActions_[LoadType.cold] = me_.runCold;
+    stateActions_[LoadType.hot] = me_.runHot;
+    stateActions_[LoadType.warm] = me_.runWarm;
+    stateActions_[kTestsToRun.length] = me_.handleIterationFinished;
+  }
+
+  this.advanceStateMachine = function(tab) {
+    stateActions_[state_++](tab);
+  }
+
+  this.runCold = function(unusedTab) {
+    console.log("starting cold");
+    var coldLoad = new BenchmarkLoad(url_, LoadType.cold,
+                                     setIds_[LoadType.cold]);
+
+    chrome.benchmarking.clearCache();
+    chrome.benchmarking.clearHostResolverCache();
+    chrome.benchmarking.clearPredictorCache();
+    chrome.benchmarking.closeConnections();
+    me_.asyncClearCookies();
+
+    // Go back to the browser so that tasks can run.
+    setTimeout(function() { coldLoad.run(0, me_.handleLoadFinished); },
+               window.interval);
+  }
+
+  this.runHot = function(tab) {
+    console.log("starting hot on tab " + tab.id);
+    var hotLoad = new BenchmarkLoad(url_, LoadType.hot,
+                                    setIds_[LoadType.hot]);
+
+    chrome.tabs.update(
+        tab.id,
+        // We need to navigate away to perform this test, but we still want to
+        // keep the same renderer. Navigating to a bogus url on the same domain
+        // seems to have the desired effect.
+        { "url": getWebPageReplayUrl(url_, 'generate-404'), "selected": true },
+        function(tab) {
+          setTimeout(function() { hotLoad.run(tab, me_.handleLoadFinished); },
+                     window.interval);
+        });
+  }
+
+  this.runWarm = function(tab) {
+    console.log("starting warm and closing tab " + tab.id);
+    var warmLoad = new BenchmarkLoad(url_, LoadType.warm,
+                                     setIds_[LoadType.warm]);
+
+    chrome.benchmarking.closeConnections();
+
+    chrome.tabs.remove(
+        tab.id,
+        function() {
+            setTimeout(function() { warmLoad.run(0, me_.handleLoadFinished); },
+                       window.interval)
+        });
+  }
+
+  this.handleLoadFinished = function(benchmarkLoad) {
+    var loadType = benchmarkLoad.loadType();
+    console.log("Posted result for " + url_ + " " + loadType + " from tab " +
+                benchmarkLoad.tab().id);
+    var result = benchmarkLoad.result();
+    if (result != null) {
+      resultsByLoadType_[loadType].addResult(result);
+    }
+    processIds_[loadType] = benchmarkLoad.processId();
+
+    me_.advanceStateMachine(benchmarkLoad.tab());
+  }
+
+  this.handleIterationFinished = function(tab) {
+    runCount_--;
+    if (LoadType.cold in processIds_ && LoadType.hot in processIds_) {
+      CHECK(processIds_[LoadType.cold] == processIds_[LoadType.hot],
+            "Hot load occurred in different process than cold: " +
+            processIds_[LoadType.cold] + " != " + processIds_[LoadType.hot]);
+    }
+    console.log("all load types complete, closing " + tab.id);
+    chrome.tabs.remove(tab.id);
+    if (me_.hasMoreIterations()) {
+      callbackWhenFinished_();
+    } else {
+      me_.handleBenchmarkComplete();
+    }
+  }
+
+  this.hasMoreIterations = function() {
+    if (runCount_ <= 0) { return false; }
+
+    // Dynamically look at the current results and see if the variance is low
+    // enough to warrant no longer testing this page.  To do this, we're
+    // using a normal approximate to the distribution of the sample variance.
+    // You can read more about this here:
+    // http://en.wikipedia.org/wiki/Normal_distribution#Estimation_of_parameters
+    // Basically this means we're using a metric similar to the stderr, but
+    // which requires twice the samples:
+    //     error = stddev / sqrt(n/2)
+    var kMinIterationsBeforeStop = 5;
+    var kMinErrorBeforeStop = .02;  // 2%
+
+    var num_iterations = resultsByLoadType_[LoadType.cold].numResults();
+    if (num_iterations >= kMinIterationsBeforeStop) {
+      var results = resultsByLoadType_[LoadType.cold].summarize();
+      var mean = results.total_time;
+      var stddev = results.total_time_stddev;
+      var error = stddev / Math.sqrt(num_iterations / 2);
+      var ratio = error / mean;
+
+      console.log(url + ": CHECKED EARLY BAIL: " + num_iterations +
+                  " iterations, stddev=" + stddev + ", error=" + error);
+
+      if (ratio <= kMinErrorBeforeStop) {
+        console.log("Variance is good enough for url: " + url_ +
+                    ", iterations: " + num_iterations +
+                    ", stddev: " + stddev +
+                    ", error: " + error +
+                    ", ratio: " + ratio);
+        runCount_ = 0;
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  this.handleBenchmarkComplete = function() {
+    console.log("Posting summaries");
+    numSummariesInFlight_ = 0;
+    for (var i in kTestsToRun) {
+      if (resultsByLoadType_[i].numResults()) {
+        numSummariesInFlight_++;
+        var summary = resultsByLoadType_[i].summarize();
+        globalTestSetResults[i].addResult(summary);
+        window.submitter.PostSummary(summary, me_.handleSummaryPosted);
+      }
+    }
+    if (numSummariesInFlight_ == 0) {
+      me_.handleSummaryPosted();
+    }
+  }
+
+  this.handleSummaryPosted = function(response) {
+    console.log("Posted summary: " + response);
+    numSummariesInFlight_--;
+    if (numSummariesInFlight_ <= 0) {
+      callbackWhenFinished_();
+    }
+  }
+
+  this.asyncClearCookies = function() {
+    chrome.cookies.getAll({}, function(cookies) {
+      for (var i = cookies.length - 1; i >= 0; i--) {
+        var cookie = cookies[i];
+
+        if (!cookie || !cookie.domain) continue;
+        var cookie_domain = 'http' + (cookie.secure ? 's' : '') + '://' + cookie.domain;
+
+        // Do not clear the cookie which allows us to login to the results server also.
+        if (!benchmarkConfiguration.server_url) {
+          console.log("WARNING: Not clearing any cookies because unable to " +
+                      "determine results server URL.");
+          continue;
+        }
+        if (benchmarkConfiguration.server_url.indexOf(cookie_domain) == 0) {
+          continue;
+        }
+
+        chrome.cookies.remove({
+          url: cookie_domain + cookie.path,
+          name: cookie.name,
+          storeId: cookie.storeId,
+        });
+      }
+    });
+  }
+}
+
+function BenchmarkManager() {
+  var me_ = this;
+  var setIds_ = [];
+  var benchmarks_ = [];
+  var currentBenchmarkIndex_ = 0;
+  var numSummariesInFlight_ = 0;
+  var numTestsToCreate_;
+
+  this.run = function() {
+    me_.createTests();
+  }
+
+  this.createTests = function() {
+    numTestsToCreate_ = kTestsToRun.length;
+    CHECK(numTestsToCreate_, "There are no tests to run");
+    for (var i in kTestsToRun) {
+      globalTestSetResults[i] = new ResultCollection();
+      window.submitter.CreateTest(LoadTypeNames[kTestsToRun[i]],
+                                  me_.handleTestCreated);
+    }
+  }
+
+  this.handleTestCreated = function(loadType, setId) {
+    numTestsToCreate_--;
+    setIds_[LoadType[loadType]] = setId;
+    if (numTestsToCreate_ <= 0) {
+      me_.createBenchmarks();
+      me_.runNextBenchmark();
+    }
+  }
+
+  this.createBenchmarks = function() {
+    var urls = benchmarkConfiguration.urls;
+    for (var i = 0; i < urls.length; i++) {
+      // Remove extra space at the beginning or end of a url.
+      urls[i] = removeSpace(urls[i]);
+
+      // Alert about and ignore blank page which does not get loaded.
+      if (urls[i] == "about:blank") {
+        alert("blank page loaded!");
+      } else if (!checkScheme(urls[i])) {
+        // Alert about url that is not in scheme http:// or https://.
+        alert(urls[i] + " does not start with http:// or https://.");
+      } else {
+        var benchmark = new Benchmark(urls[i], setIds_,
+                                      me_.handleBenchmarkIterationFinished);
+        benchmarks_.push(benchmark);
+      }
+    }
+  }
+
+  this.runNextBenchmark = function() {
+    var benchmark = benchmarks_[currentBenchmarkIndex_];
+    setTimeout(function() {
+        benchmark.runOneIteration();
+      }, window.interval);
+  }
+
+  this.handleBenchmarkIterationFinished = function() {
+    numSummariesInFlight_ = 0;
+    for (var i in kTestsToRun) {
+      if (globalTestSetResults[i].numResults()) {
+        numSummariesInFlight_++;
+        window.submitter.UpdateSetSummary(
+            globalTestSetResults[i].summarize(),
+            me_.handleSummaryPosted);
+      }
+    }
+    if (numSummariesInFlight_ == 0) {
+      me_.handleSummaryPosted();
+    }
+  }
+
+  this.handleSummaryPosted = function(response) {
+    console.log("Posted set summary: " + response);
+    numSummariesInFlight_--;
+    if (numSummariesInFlight_ <= 0) {
+      if (benchmarks_[currentBenchmarkIndex_].hasMoreIterations()) {
+        currentBenchmarkIndex_++;
+      } else {
+        benchmarks_.splice(currentBenchmarkIndex_, 1);
+        if (benchmarks_.length == 0) {
+          me_.asyncExitBrowser();
+          return;
+        }
+      }
+      if (currentBenchmarkIndex_ >= benchmarks_.length) {
+        currentBenchmarkIndex_ = 0;
+      }
+      me_.runNextBenchmark();
+    }
+  }
+
+  this.asyncExitBrowser = function() {
+    chrome.tabs.getAllInWindow(null, function(tabs) {
+      tabs.forEach(function(tab) {
+        chrome.tabs.remove(tab.id);
+      });
+    });
+    // FIXME: This doesn't actually exit on mac.
+  }
+}
+
+chrome.extension.onConnect.addListener(function(port) {
+  port.onMessage.addListener(function(data) {
+    if (data.message == "start") {
+      window.benchmarkConfiguration = data.benchmark;
+      window.submitter = new TestResultSubmitter(benchmarkConfiguration);
+      run();
+    }
+  });
+});
+
+function run() {
+  window.iterations = benchmarkConfiguration.iterations;
+  window.enableSpdy = benchmarkConfiguration.protocol == "spdy" ||
+                      benchmarkConfiguration.protocol == "spdy-nossl";
+
+  if (window.clearCache) {
+    // Show a warning if we will try to clear the cache between runs
+    // but will also be reusing the same WebKit instance (i.e. Chrome
+    // is in single-process mode) because the WebKit cache might not get
+    // completely cleared between runs.
+    if (chrome.benchmarking.isSingleProcess()) {
+      alert("Warning: the WebKit cache may not be cleared correctly " +
+            "between runs because Chrome is running in single-process mode.");
+    }
+  }
+
+  var benchmarkManager = new BenchmarkManager();
+  benchmarkManager.run();
+}
+
+// Remove extra whitespace in the beginning or end of a url string.
+function removeSpace(url) {
+  var tempUrl = url;
+  while (tempUrl.charAt(tempUrl.length-1) == " ") {
+    tempUrl = tempUrl.substring(0, tempUrl.length-1);
+  };
+  while (tempUrl.charAt(0) == " ") {
+    tempUrl = tempUrl.substring(1, tempUrl.length);
+  };
+  return tempUrl;
+}
+
+// Check whether a Url starts with http:// or https://.
+function checkScheme(url) {
+  var httpStr = "http://";
+  var httpsStr = "https://";
+  var urlSubStr1 = url.substring(0, httpStr.length);
+  var urlSubStr2 = url.substring(0, httpsStr.length);
+
+  if ( (urlSubStr1 == httpStr) || (urlSubStr2 == httpsStr) ) {
+    return true;
+  }
+  return false;
+}
+
+function getWebPageReplayUrl(url, suffix) {
+  var startOfHost = url.indexOf('//') + 2;
+  var startOfPath = url.indexOf('/', startOfHost);
+  var baseUrl = url.substr(0, startOfPath);
+  var customUrl = baseUrl + '/web-page-replay-' + suffix;
+  return customUrl;
+}
+
+// Run at startup
+chrome.windows.getCurrent(function(currentWindow) {
+  window.windowId = currentWindow.id;
+});
+</script>

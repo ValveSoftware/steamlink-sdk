@@ -1,0 +1,93 @@
+#!/usr/bin/python
+
+import dbus
+
+def extract_values(values):
+	val = "{"
+	for key in values.keys():
+		val += " " + key + "="
+		if key in ["PrefixLength"]:
+			val += "%s" % (int(values[key]))
+		else:
+			if key in ["Servers", "Excludes"]:
+				val += extract_list(values[key])
+			else:
+				val += str(values[key])
+	val += " }"
+	return val
+
+def extract_list(list):
+	val = "["
+	for i in list:
+		val += " " + str(i)
+	val += " ]"
+	return val
+
+bus = dbus.SystemBus()
+
+manager = dbus.Interface(bus.get_object("net.connman", "/"),
+					"net.connman.Manager")
+
+properties = manager.GetProperties()
+
+for key in properties.keys():
+	if key in ["OfflineMode", "SessionMode"]:
+		print "%s" % (key)
+		if properties[key] == dbus.Boolean(1):
+			print "    true"
+		else:
+			print "    false"
+	else:
+		print "%s" % (key)
+		print "    %s" % (properties[key])
+
+print ("Services")
+services = manager.GetServices()
+
+for (path, properties) in services:
+	print "    %s" % (path)
+	for key in properties.keys():
+		if key in ["Available", "Remember", "Default",
+				"Favorite", "Immutable", "AutoConnect",
+					"LoginRequired",
+					"PassphraseRequired"]:
+			if properties[key] == dbus.Boolean(1):
+				val = "true"
+			else:
+				val = "false"
+
+		elif key in ["IPv4", "IPv4.Configuration",
+				"IPv6", "IPv6.Configuration",
+					"Proxy", "Proxy.Configuration",
+						"Ethernet", "Provider"]:
+			val = extract_values(properties[key])
+
+		elif key in ["Nameservers", "Nameservers.Configuration",
+				"Domains", "Domains.Configuration",
+					"Security"]:
+			val = extract_list(properties[key])
+
+		elif key in ["Strength", "Priority"]:
+			val = int(properties[key])
+
+		else:
+			val = str(properties[key])
+
+		print "        %s = %s" % (key, val)
+
+print ("Technologies")
+technologies = manager.GetTechnologies()
+
+for (path, properties) in technologies:
+	print "    %s" % (path)
+	for key in properties.keys():
+
+		if key in ["Connected", "Powered", "Tethering"]:
+			if properties[key] == dbus.Boolean(1):
+				val = "true"
+			else:
+				val = "false"
+		else:
+			val = properties[key]
+
+		print "        %s = %s" % (key, val)

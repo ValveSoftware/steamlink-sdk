@@ -1,0 +1,435 @@
+Application programming interface
+*********************************
+
+
+Service basics
+==============
+
+Inside Connection Manager there exists one advanced interface to allow the
+user interface an easy access to networking details and user chosen
+preferences. This is the service list and interface.
+
+The basic idea is that Connection Manager maintains a single flat and sorted
+list of all available, preferred or previously used services. A service here
+can be either a Ethernet device, a WiFi network or a remote Bluetooth device
+(for example a mobile phone).
+
+This list of service is sorted by Connection Manager and there is no need
+for the user interface to implement its own sorting. User decisions will
+need to be done via Connection Manager and it is then responsible to update
+the order of services in this list.
+
+	+---------------------------------------+
+	| Ethernet                              |
+	+---------------------------------------+
+	| Bluetooth phone                       |
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |
+	+---------------------------------------+
+	| My WiFi AP       (strength 80, rsn)   |
+	+---------------------------------------+
+	| Other AP         (strength 70, rsn)   |
+	+---------------------------------------+
+	| Friends AP       (strength 70, wep)   |
+	+---------------------------------------+
+
+If none of the services has been used before the sorting order will be done
+with these priorities:
+
+	1. Ethernet	(lower index numbers first)
+	2. Bluetooth	(last used devices first)
+	3. GSM/UTMS/3G	(if SIM card is present, activated and not roaming)
+	3. WiFi		(signal strength first, then more secure network
+			first)
+
+The Ethernet devices are always sorted first since they are physically built
+into the system and will be always present. In cases they are switched off
+manually they will not be showing in this list.
+
+Since every Bluetooth device has to be configured/paired first, the user
+already made a choice here that these are important. Connection Manager will
+only show devices with PAN or DUN profile support. While Bluetooth devices
+do have a signal strength, it is mostly unknown since background scanning
+in Bluetooth is too expensive. The choice here is to sort the last used
+Bluetooth device before the others.
+
+WiFi networks closer in the proximity should be shown first since it is more
+likely they are selected. The signal strength value is normalized to 0-100
+(effectively a percentage) and allows an easy sorting.
+
+WiFi networks with the same signal strength are then sorted by their security
+setting. WPA2 encrypted networks should be preferred over WPA/WEP and also
+unencrypted ones. After that they will be sorted by the SSID in alphabetical
+order.
+
+In the case the WiFi network uses WPS for setup and it is clearly detectable
+that a network waits for Connection Manager to connect to it (for example via
+a push-to-connect button press on the AP), then this network should be shown
+first before any other WiFi networks. The reason here is that the user already
+made a choice via the access point. However this depends on technical details
+if it is possible to detect these situations.
+
+
+Service order
+=============
+
+All unused services will have the internal order number of 0 and then will
+be sorted according to the rules above. For Bluetooth the user already made
+the decision to setup their device and by that means select it. However
+until the first connection attempt it might have been setup for total
+different reason (like audio usage) and thus it still counts as unused from
+a networking point of view.
+
+Selecting the "My WiFi AP" and successfully connecting to it makes it a
+favorite device and it will become an order number bigger than 0. All
+order numbers are internally. They are given only to service that are marked
+as favorite. For WiFi and Bluetooth a successful connection attempt makes
+these services automatically a favorite. For Ethernet the plugging of a cable
+makes it a favorite. Disconnecting from a network doesn't remove the favorite
+setting. It is a manual operation and is equal to users pressing
+delete/remove button.
+
+	+---------------------------------------+
+	| My WiFi AP       (strength 80, rsn)   |  order=1 - favorite=yes
+	+---------------------------------------+
+	| Ethernet                              |  order=0
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |  order=0
+	+---------------------------------------+
+	|                                       |
+
+Ethernet is special here since the unplugging of the network cable will
+remove the service from the list
+
+	+---------------------------------------+
+	| Ethernet with cable                   |  order=1 - favorite=yes
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |  order=0
+	+---------------------------------------+
+	|                                       |
+
+This means that all services with an order > 0 have favorite=yes and all
+others have favorite=no setting. The favorite setting is exposed via a
+property over the service interface. As mentioned above, the order number
+is only used internally.
+
+Within Connection Manager many services can be connected at the same time and
+also have an IP assignment. However only one can have the default route. The
+service with the default route will always be sorted at the top of the
+list.
+
+	+---------------------------------------+
+	| Ethernet                              |  order=2 - connected=yes
+	+---------------------------------------+
+	| My WiFi AP       (strength 80, rsn)   |  order=1 - connected=yes
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |  order=0
+	+---------------------------------------+
+	|                                       |
+
+To change the default connection to your access point, the user needs to
+manually drag the access point service to the top of the list. Connection
+Manager will not take down default routes if there is no reason to do so.
+A working connection is considered top priority.
+
+	+---------------------------------------+
+	| My WiFi AP       (strength 80, rsn)   |  order=2 - connected=yes
+	+---------------------------------------+
+	| Ethernet                              |  order=1 - connected=yes
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |  order=0
+	+---------------------------------------+
+	|                                       |
+
+Another possible user interaction would be to disconnect the Ethernet service
+and in this case the service falls back down in the list.
+
+	+---------------------------------------+
+	| My WiFi AP       (strength 80, rsn)   |  order=1 - connected=yes
+	+---------------------------------------+
+	| Ethernet                              |  order=1 - connected=no
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |  order=0
+	+---------------------------------------+
+	|                                       |
+
+If the service on the top of the list changes the default route will be
+automatically adjusted as needed. The user can trigger this by disconnecting
+from a network, if the network becomes unavailable (out of range) or if the
+cable gets unplugged.
+
+As described above, the pure case of disconnecting from a network will not
+remove the favorite setting. So previously selected networks are still present
+and are sorted above all others.
+
+	+---------------------------------------+
+	| Ethernet                              |  order=2 - connected=yes
+	+---------------------------------------+
+	| My WiFi AP       (strength 80, rsn)   |  order=1 - connected=no
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |  order=0
+	+---------------------------------------+
+	|                                       |
+
+Unplugging the Ethernet cable will remove the Ethernet service.
+
+	+---------------------------------------+
+	| My WiFi AP       (strength 80, rsn)   |  order=1 - connected=no
+	+---------------------------------------+
+	| Guest            (strength 90, none)  |  order=0
+	+---------------------------------------+
+	|                                       |
+
+
+Service tweaks
+==============
+
+The interfaces of Connection Manager will always export all services that are
+currently known. The Ethernet devices with no cable plugged are actually not
+included in this list. They will only show up once a carrier is detected.
+
+The service interface is not meant for basic device configuration task. So
+switching a device on and off (via RFKILL for example) should be done via
+the technology interface. See "Technology interfaces" chapter in this document.
+
+Due to limited screen size of small devices and the big amount of WiFi
+access points that are deployed right now it might be sensible to not show
+certain WiFi networks in the user interface.
+
+The choice to hide a WiFi network from the user interface should be purely
+done by the signal strength. The optimal cut-off value here still has to be
+determined, but in the end that is a user interface policy.
+
+
+Service naming
+==============
+
+Every service will have a name property that allows the user interface to
+display them directly. All names will be already converted into UTF-8. It
+derives from the netork details.
+
+In case of WiFi this will be the SSID value. The SSID is a binary array and
+will be converted into printable form. Unprintable characters are replaced
+with spaces.
+
+In addition to WiFi naming, WiFi networks are subject to a grouping policy
+performed around SSID and security type. This means that one service will be
+seen for N WiFi networks providing the same SSID and the same security metod.
+For instance, if 5 APs are servicing an SSID called "TEST" with WPA2
+authentication and 3 APs are servicing the same SSID with open authentication
+method, the user will see only two services listed with the name "TEST"
+differentiated by their security type, which are "psk" and "none". Such
+policy is also applied to hidden networks, where hidden services will have an
+empty name and will be differentiated by the security type. The user has then
+to select the one with the right security and the Agent API will request any
+required information such as the SSID for the network (See "Application
+basics" below).
+
+For Bluetooth the device alias is used. The alias is different since it
+can be overwritten by the user via the Bluetooth service. The identification
+is still done based on its address, but the display name might change. In
+most cases the alias is equal to the Bluetooth remote friendly name.
+
+For Ethernet device no name will be provided. The type property will indicate
+that this service is Ethernet and then it is up to the user interface to
+provide a proper localized name for it.
+
+
+Service states
+==============
+
+Every service can have multiple states that indicate what is currently
+going on with it. The choice to have multiple states instead of a simple
+connected yes/no value comes from the fact that it is important to let the
+user interface name if a service is in process of connecting/disconnecting.
+
+The basic state of every service is "idle". This means that this service
+is not in use at all at the moment. It also is not attempting to connect
+or do anything else.
+
+The "association" state indicates that this service tries to establish a
+low-level connection to the network. For example associating/connecting
+with a WiFi access point.
+
+With the "configuration" state the service indicates that it is trying
+to retrieve/configure IP settings.
+
+The "ready" state signals a successful connected device. This doesn't mean
+it has the default route, but basic IP operations will succeed.
+
+With the "disconnect" state a service indicates that it is going to terminate
+the current connection and will return to the "idle" state.
+
+In addition a "failure" state indicates a wrong behavior. It is similar to
+the "idle" state since the service is not connected.
+
+		+---------------+
+		| idle          |<-------------------------------+
+		+---------------+                                |
+		      |                                          |
+		      |                      +-------------+     |
+		      +----------------------| failure     |     |
+		      | service.Connect()    +-------------+     |
+		      V                           A              |
+		+---------------+                 |              |
+		| association   |-----------------+              |
+		+---------------+      error      |              |
+		      |                           |              |
+		      | success                   |              |
+		      V                           |              |
+		+---------------+                 |              |
+		| configuration |-----------------+              |
+		+---------------+      error                     |
+		      |                                          |
+		      | success                                  |
+		      V                                          |
+		+---------------+                                |
+		| ready         |                                |
+		+---------------+                                |
+		      |                                          |
+		      | success                                  |
+		      |                                          |
+		      V                                          |
+		+---------------+                                |
+		| online        |<----------------+              |
+		+---------------+                 |              |
+		      |                           |              |
+		      | service.Disconnect()      |              |
+		      V                           |              |
+		+---------------+                 |              |
+		| disconnect    |-----------------+              |
+		+---------------+      error                     |
+		      |                                          |
+		      +------------------------------------------+
+
+The different states should no be used by the user interface to trigger
+advanced actions. The state transitions are provided for the sole purpose
+to give the user feedback on what is currently going on. Especially in
+cases where networks are flaky or DHCP servers take a long time these
+information are helpful for the user.
+
+Some services might require special authentication procedure like a web
+based confirmation. The LoginRequired property should be used to check
+for this.
+
+
+Application basics
+==================
+
+All applications should use D-Bus to communicate with Connection Manager. The
+main entry point is the manager object. Currently the manager object is
+located at "/", but this might change to allow full namespacing of the API
+in the future. The manager interface is documented in manager-api.txt and
+contains a set of global properties and methods.
+
+A simple way to retrieve all global properties looks like this:
+
+	bus = dbus.SystemBus()
+
+	manager = dbus.Interface(bus.get_object("net.connman", "/"),
+						"net.connman.Manager")
+
+	properties = manager.GetProperties()
+
+Changing a global property is also pretty simple. For example enabling the
+so called offline mode (aka flight mode) it is enough to just set that
+property:
+
+	manager.SetProperty("OfflineMode", dbus.Boolean(1))
+
+The manager object contains references to profiles, devices, services and
+connections. All these references represent other interfaces that allow
+detailed control of Connection Manager. The profiles and devices interfaces
+are more for advanced features and most applications don't need them at all.
+
+The services are represented as a list of object paths. Every of these object
+paths contains a service interface. A service is a global collection for
+Ethernet devices, WiFi networks, Bluetooth services etc. and all these
+different types are treated equally.
+
+Every local Ethernet card will show up as exactly one service. WiFi networks
+will be grouped by SSID, mode and security setting. Bluetooth PAN and DUN
+service will show up per remote device. This creates a simple list that can
+be directly displayed to the users since these are the exact details users
+should care about.
+
+	properties = manager.GetProperties()
+
+	for path in properties["Services"]:
+		service = dbus.Interface(bus.get_object("net.connman", path),
+							"net.connman.Service")
+
+		service_properties = service.GetProperties()
+
+The service interface is documented in service-api.txt and contains common
+properties valid for all services. It also contains method to connect or
+disconnect a specific service. This allows users to select a specific service.
+Connection Manager can also auto-connect services based on his policies or
+via external events (like plugging in an Ethernet cable).
+
+Connecting (or disconnecting) a specific service manually is as simple as
+just telling it to actually connect:
+
+	service.Connect()  or  service.Disconnect()
+
+It is possible to connect multiple services if the underlying technology
+allows it. For example it would be possible to connect to a WiFi network
+and a Bluetooth service at the same time. Trying to connect to a second WiFi
+network with the same WiFi hardware would result in an automatic disconnect
+of the currently connected network. Connection Manager handles all of this
+for the applications in the background. Trying to connect an Ethernet service
+will result in an error if no cable is plugged in. All connection attempts
+can fail for one reason or another. Application should be able to handle
+such errors and will also be notified of changes via signals.
+
+Connection Manager will interact with an agent via the Agent API to confirm
+certain transactions with the user. If Connection Manager needs extra
+information, it will ask the user for exactly the information it requires,
+i.e. passphrase, network's name (for hidden WiFi networks) and more depending
+on the use case (e.g. WPS, EAP). Therefore an application environment using
+Connection Manager should implement one dedicated Connection Manager agent
+according to the Agent API in order to interact with the user. Please see
+agent-api.txt for implementation details.
+
+To monitor the current status of a service the state property can be used. It
+gives detailed information about the current progress.
+
+	properties = service.GetProperties()
+
+	print properties["State"]
+
+All state changes are also sent via the PropertyChanged signal on the
+service interface. This allows asynchronous monitoring without having to poll
+Connection Manager for changes.
+
+
+Technology interfaces
+=====================
+
+When ConnMan is started first time, all technologies except ethernet are
+powered off by default. The reason is that the user needs to decide which
+technologies are relevant to him and what bearers the user wants to use.
+User can use the Technology Powered property to turn on or off a given
+technology. See doc/technology-api.txt document for details.
+
+User can activate offline (flight) mode via Manager OfflineMode property.
+While in offline mode, all the technologies including ethernet are
+powered off. During the offline mode, the user can temporarily activate
+individual technologies by using the Technology Powered property or by
+using the rfkill command or Fn-Fx key combination found in some laptops.
+
+If the host supports rfkill switch, then all the radios can be turned off
+by the kernel when the switch is activated. ConnMan will notice this and
+remove corresponding technologies from D-Bus. Technologies cannot be
+activated while rfkill switch is turned on. When rfkill switch is turned
+off (radios are activated), then ConnMan restores the original Powered
+status for each activated technology.
+
+User can use the rfkill command from command line or indirectly via
+some UI component to activate/deactivate individual radios found in
+the host. ConnMan will listen these rfkill events and set the Powered
+property accordingly. ConnMan will not save the rfkill status it has
+received. This means that after restarting ConnMan, the original and
+saved technology status is used when deciding which technologies should
+be powered. If the user uses the Technology D-Bus API to set the Powered
+property, then that information is saved and used when ConnMan is restarted.
