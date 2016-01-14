@@ -30,6 +30,7 @@ export CC="${CROSS}gcc --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
 export CPP="${CROSS}cpp --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
 export CXX="${CROSS}g++ --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
 export STRIP=${CROSS}strip
+export LC_ALL=C	# Toolchain crashes with some locales
 
 export LDFLAGS="-static-libgcc -static-libstdc++"
 
