@@ -105,10 +105,6 @@ bool CControllerManager::BInitGameControllers()
 			qWarning() << "Couldn't initialize SDL:" << SDL_GetError();
 			return false;
 		}
-
-		// Load any system controller mappings
-		SDL_GameControllerAddMappingsFromFile( "/etc/controller_map.txt" );
-
 		m_bInitalizedSDL = true;
 	}
 	return true;
