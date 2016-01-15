@@ -134,6 +134,6 @@ On the host, run gdb and attach to the gdbserver:
 	Breakpoint 1, __printf (format=0xb6f8c764 "Hello world\n!") at printf.c:28
 	28	printf.c: No such file or directory.
 	(gdb) where
-	#0  __printf (format=0xb6f8c764 "Hello world\n!") at printf.c:28
+	#0  __printf (format=0xb6f8c764 "Hello world!\n") at printf.c:28
 	#1  0xb6f8c704 in main (argc=1, argv=0xbed64e64) at example.c:7
 
