@@ -1,0 +1,71 @@
+diff -ruN tinyxml.orig/Makefile tinyxml/Makefile
+--- tinyxml.orig/Makefile	2011-05-14 19:24:57.000000000 -0700
++++ tinyxml/Makefile	2016-01-15 06:44:55.018475393 -0800
+@@ -19,11 +19,11 @@
+ 
+ #****************************************************************************
+ 
+-CC     := gcc
+-CXX    := g++
+-LD     := g++
+-AR     := ar rc
+-RANLIB := ranlib
++#CC     := gcc
++#CXX    := g++
++LD     := $(CXX)
++#AR     := ar rc
++#RANLIB := ranlib
+ 
+ DEBUG_CFLAGS     := -Wall -Wno-format -g -DDEBUG
+ RELEASE_CFLAGS   := -Wall -Wno-unknown-pragmas -Wno-format -O3
+@@ -81,6 +81,16 @@
+ # Targets of the build
+ #****************************************************************************
+ 
++LIB := libtinyxml.a
++CXXFLAGS += -DTIXML_USE_STL
++OBJ_FILES := tinyxml.o tinyxmlparser.o tinyxmlerror.o
++${LIB}: ${OBJ_FILES}
++	${AR} crv $@ $^
++install:
++	install -m 644 tinyxml.h ${DESTDIR}/usr/include
++	install -m 644 ${LIB} ${DESTDIR}/usr/lib
++	
++
+ OUTPUT := xmltest
+ 
+ all: ${OUTPUT}
+@@ -119,7 +129,7 @@
+ 	bash makedistlinux
+ 
+ clean:
+-	-rm -f core ${OBJS} ${OUTPUT}
++	-rm -f core ${OBJS} ${OUTPUT} ${LIB}
+ 
+ depend:
+ 	#makedepend ${INCS} ${SRCS}
+diff -ruN tinyxml.orig/build_soc.sh tinyxml/build_soc.sh
+--- tinyxml.orig/build_soc.sh	1969-12-31 16:00:00.000000000 -0800
++++ tinyxml/build_soc.sh	2016-01-15 06:33:12.917124336 -0800
+@@ -0,0 +1,7 @@
++#!/bin/bash
++
++source ../../setenv_external.sh
++
++valve_make_clean
++valve_make
++valve_make_install
+diff -ruN tinyxml.orig/tinyxml.h tinyxml/tinyxml.h
+--- tinyxml.orig/tinyxml.h	2011-05-14 19:24:57.000000000 -0700
++++ tinyxml/tinyxml.h	2016-01-15 06:37:44.285172214 -0800
+@@ -26,6 +26,10 @@
+ #ifndef TINYXML_INCLUDED
+ #define TINYXML_INCLUDED
+ 
++#ifndef TIXML_USE_STL
++	#define TIXML_USE_STL
++#endif
++
+ #ifdef _MSC_VER
+ #pragma warning( push )
+ #pragma warning( disable : 4530 )

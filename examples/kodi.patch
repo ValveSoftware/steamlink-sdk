@@ -1,0 +1,138 @@
+diff -ruN -x .git kodi.orig/build_soc.sh kodi/build_soc.sh
+--- kodi.orig/build_soc.sh	1969-12-31 16:00:00.000000000 -0800
++++ kodi/build_soc.sh	2016-01-15 13:42:54.269909459 -0800
+@@ -0,0 +1,22 @@
++# Edits to configure after bootstrap:
++# Line 19416: #use_joystick=no (in arm*-*-linux-gnu* section)
++# Line 22513: PYTHON_VERSION=2.7
++
++export CC="$CC -DEGL_API_FB"
++export CXX="$CXX -DEGL_API_FB"
++export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$MARVELL_ROOTFS/usr/lib/arm-linux-gnueabihf/pkgconfig"
++export PYTHON_VERSION=2.7
++export PYTHON_CPPFLAGS="-I$MARVELL_ROOTFS/usr/include/python2.7"
++export PYTHON_LDFLAGS="-L$MARVELL_ROOTFS/usr/lib -lpython2.7"
++export PYTHON_SITE_PKG="$MARVELL_ROOTFS/usr/lib/python2.7/dist-packages"
++export LDFLAGS="$LDFLAGS -L$MARVELL_ROOTFS/usr/lib/arm-linux-gnueabihf"
++
++# Install the squish library, if it isn't already installed
++if [ ! -f "$MARVELL_ROOTFS/usr/include/squish.h" ]; then
++	(cd tools/depends/native/libsquish-native && make clean; make NATIVEPREFIX=$MARVELL_ROOTFS/usr)
++fi
++
++./configure $VALVE_CONFIGURE_OPTS --enable-gles --enable-joystick --disable-x11 --disable-mysql --disable-webserver --disable-libbluray --disable-libcec --disable-vdpau --disable-vaapi
++
++make clean
++make $MAKE_J
+diff -ruN -x .git kodi.orig/configure.ac kodi/configure.ac
+--- kodi.orig/configure.ac	2016-01-15 13:42:22.929983179 -0800
++++ kodi/configure.ac	2016-01-15 13:43:33.277823658 -0800
+@@ -1266,7 +1266,7 @@
+        AC_DEFINE([HAVE_SDL],[1],["Define to 1 if using sdl"])
+        INCLUDES="$INCLUDES $SDL2_CFLAGS"; LIBS="$LIBS $SDL2_LIBS"; use_joystick="yes"],
+       [if test "$use_joystick" = "yes"; then
+-        AC_MSG_ERROR($sdl_joystick_not_found)
++        AC_MSG_RESULT("SDL joystick enabled")
+       elif test "$use_joystick" != "no"; then
+         AC_MSG_NOTICE($sdl_joystick_not_found)
+         use_joystick="no"
+diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/WinEventsSDL.cpp
+--- kodi.orig/xbmc/windowing/WinEventsSDL.cpp	2016-01-15 13:42:24.477979433 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.cpp	2016-01-15 13:43:33.277823658 -0800
+@@ -39,7 +39,9 @@
+ #include "platform/darwin/osx/CocoaInterface.h"
+ #endif
+ 
+-#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_ANDROID)
++#define TARGET_STEAMLINK
++
++#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_STEAMLINK) && !defined(TARGET_ANDROID)
+ #include <X11/Xlib.h>
+ #include <X11/XKBlib.h>
+ #include "input/XBMC_keysym.h"
+@@ -48,7 +50,7 @@
+ 
+ using namespace KODI::MESSAGING;
+ 
+-#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
++#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_STEAMLINK)
+ // The following chunk of code is Linux specific. For keys that have
+ // with keysym.sym set to zero it checks the scan code, and sets the sym
+ // for some known scan codes. This is mostly the multimedia keys.
+@@ -245,6 +247,7 @@
+         break;
+ #endif
+ 
++#if HAVE_SDL_VERSION == 1
+       case SDL_ACTIVEEVENT:
+         //If the window was inconified or restored
+         if( event.active.state & SDL_APPACTIVE )
+@@ -286,7 +289,7 @@
+           mod |= XBMCKMOD_LSUPER;
+         newEvent.key.keysym.mod = (XBMCMod) mod;
+ 
+-#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
++#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_STEAMLINK)
+         // If the keysym.sym is zero try to get it from the scan code
+         if (newEvent.key.keysym.sym == 0)
+           newEvent.key.keysym.sym = (XBMCKey) SymFromScancode(newEvent.key.keysym.scancode);
+@@ -369,6 +372,7 @@
+         ret |= g_application.OnEvent(newEvent);
+         break;
+       }
++
+       case SDL_VIDEORESIZE:
+       {
+         // Under linux returning from fullscreen, SDL sends an extra event to resize to the desktop
+@@ -389,6 +393,14 @@
+         g_windowManager.MarkDirty();
+         break;
+       }
++
++      case SDL_VIDEOEXPOSE:
++      {
++        g_windowManager.MarkDirty();
++        break;
++      }
++#endif // SDL 1.2
++
+       case SDL_USEREVENT:
+       {
+         XBMC_Event newEvent;
+@@ -397,9 +409,6 @@
+         ret |= g_application.OnEvent(newEvent);
+         break;
+       }
+-      case SDL_VIDEOEXPOSE:
+-        g_windowManager.MarkDirty();
+-        break;
+     }
+     memset(&event, 0, sizeof(SDL_Event));
+   }
+@@ -409,11 +418,13 @@
+ 
+ size_t CWinEventsSDL::GetQueueSize()
+ {
+-  int ret;
++  int ret = 0;
+   SDL_Event event;
+ 
++#if HAVE_SDL_VERSION == 1
+   if (-1 == (ret = SDL_PeepEvents(&event, 0, SDL_PEEKEVENT, ~0)))
+     ret = 0;
++#endif
+ 
+   return ret;
+ }
+diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.h kodi/xbmc/windowing/WinEventsSDL.h
+--- kodi.orig/xbmc/windowing/WinEventsSDL.h	2016-01-15 13:42:24.477979433 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.h	2016-01-15 13:43:33.277823658 -0800
+@@ -28,7 +28,7 @@
+ #if HAVE_SDL_VERSION == 1
+ #include <SDL/SDL_events.h>
+ #elif HAVE_SDL_VERSION == 2
+-#include <SDL/SDL_events.h>
++#include <SDL2/SDL_events.h>
+ #endif
+ 
+ #include "WinEvents.h"

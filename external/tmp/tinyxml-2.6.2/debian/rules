@@ -1,0 +1,41 @@
+#!/usr/bin/make -f
+
+CXXFLAGS += -DTIXML_USE_STL
+
+DEB_VERSION := $(shell dpkg-parsechangelog | egrep '^Version:' | cut -f 2 -d ' ')
+DEB_NOEPOCH_VERSION := $(shell echo $(DEB_VERSION) | cut -d: -f2-)
+DEB_UPSTREAM_VERSION := $(shell echo $(DEB_NOEPOCH_VERSION) | sed 's/-[^-]*$$//')
+
+OBJ_FILES := tinyxml.o tinyxmlparser.o tinyxmlerror.o
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	dh_auto_build -- CXXFLAGS="$(CXXFLAGS)"
+	ar rc libtinyxml.a $(OBJ_FILES)
+	rm *.o xmltest
+	
+	dh_auto_build -- CXXFLAGS="$(CXXFLAGS) -fPIC"
+	g++ -shared -Wl,-soname,libtinyxml.so.$(DEB_UPSTREAM_VERSION) \
+	  -o libtinyxml.so.$(DEB_UPSTREAM_VERSION) $(LDFLAGS) \
+	  $(OBJ_FILES)
+
+override_dh_auto_test:
+	mkdir xmltestdir
+	cp -a utf8test*.xml xmltestdir
+	cd xmltestdir && ../xmltest
+	rm -rf xmltestdir
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f libtinyxml.so* libtinyxml.a
+	rm -rf xmltestdir
+
+override_dh_strip:
+	dh_strip --dbg-package=libtinyxml$(DEB_UPSTREAM_VERSION)-dbg
+
+override_dh_link:
+	dh_link -plibtinyxml-dev usr/lib/libtinyxml.so.$(DEB_UPSTREAM_VERSION) \
+	  usr/lib/libtinyxml.so
+	dh_link --remaining-packages
