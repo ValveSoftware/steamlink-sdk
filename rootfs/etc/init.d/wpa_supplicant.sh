@@ -17,6 +17,7 @@
 FACTORY_DIR=/mnt/factory_setting
 CONFIG_DIR=/mnt/config/system
 SUPPLICANT_CONF_FILE=/tmp/wpa_supplicant.conf
+SKU_DOMAIN_FILE=$FACTORY_DIR/sku_domain.txt
 
 
 ################
@@ -29,13 +30,9 @@ if [ "${ENABLE_CTRL_INTERFACE}" = "1" ]; then
 fi
 
 country_line="" 
-LOCALE_FILE=${CONFIG_DIR}/locale.txt
-if [ -f ${LOCALE_FILE} ]; then
-	country=$(head -1 ${LOCALE_FILE} | sed -r 's/.._(..).*/\1/')
-	case "$country" in
-		*[!\ "  "]*) country_line="country=${country}";;
-	esac                       
-fi                            
+if [ -f "$SKU_DOMAIN_FILE" ]; then
+	country_line="country=$(cat $SKU_DOMAIN_FILE)"
+fi
 
 device_name=Steamlink
 

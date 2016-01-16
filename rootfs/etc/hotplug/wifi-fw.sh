@@ -42,6 +42,17 @@ case $ACTION in
 	    ;;
 	esac
         ;;
+    change)
+        case $SUBSYSTEM in
+	    platform)
+		case $DEVPATH in
+		    */regulatory*)
+		        /usr/bin/crda
+		        ;;
+		esac
+		;;
+	esac
+        ;;
     *)
 		#*echo "act else" >> /tmp/hotplug.$$
     ;;

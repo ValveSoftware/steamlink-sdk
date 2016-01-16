@@ -1,4 +1,4 @@
-absolute_path=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+absolute_path=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
 
 export MARVELL_SDK_PATH=$absolute_path
 export MARVELL_ROOTFS=$MARVELL_SDK_PATH/rootfs
