@@ -1,32 +1,35 @@
 diff -ruN -x .git kodi.orig/build_soc.sh kodi/build_soc.sh
 --- kodi.orig/build_soc.sh	1969-12-31 16:00:00.000000000 -0800
-+++ kodi/build_soc.sh	2016-01-15 13:42:54.269909459 -0800
-@@ -0,0 +1,22 @@
++++ kodi/build_soc.sh	2016-01-16 01:07:02.462225940 -0800
+@@ -0,0 +1,25 @@
 +# Edits to configure after bootstrap:
 +# Line 19416: #use_joystick=no (in arm*-*-linux-gnu* section)
 +# Line 22513: PYTHON_VERSION=2.7
 +
++source ../../setenv_external.sh
++
 +export CC="$CC -DEGL_API_FB"
 +export CXX="$CXX -DEGL_API_FB"
++export LIBXML_LIBS="-lxml2 -llzma" # For some reason the lzma library isn't picked up implicitly
 +export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$MARVELL_ROOTFS/usr/lib/arm-linux-gnueabihf/pkgconfig"
 +export PYTHON_VERSION=2.7
 +export PYTHON_CPPFLAGS="-I$MARVELL_ROOTFS/usr/include/python2.7"
 +export PYTHON_LDFLAGS="-L$MARVELL_ROOTFS/usr/lib -lpython2.7"
 +export PYTHON_SITE_PKG="$MARVELL_ROOTFS/usr/lib/python2.7/dist-packages"
-+export LDFLAGS="$LDFLAGS -L$MARVELL_ROOTFS/usr/lib/arm-linux-gnueabihf"
++export LDFLAGS="$LDFLAGS -L$MARVELL_ROOTFS/lib/arm-linux-gnueabihf -L$MARVELL_ROOTFS/usr/lib/arm-linux-gnueabihf"
 +
 +# Install the squish library, if it isn't already installed
 +if [ ! -f "$MARVELL_ROOTFS/usr/include/squish.h" ]; then
 +	(cd tools/depends/native/libsquish-native && make clean; make NATIVEPREFIX=$MARVELL_ROOTFS/usr)
 +fi
 +
-+./configure $VALVE_CONFIGURE_OPTS --enable-gles --enable-joystick --disable-x11 --disable-mysql --disable-webserver --disable-libbluray --disable-libcec --disable-vdpau --disable-vaapi
++./configure $VALVE_CONFIGURE_OPTS --enable-gles --enable-joystick --disable-x11 --disable-mysql --disable-webserver --disable-samba --disable-ssh --disable-libbluray --disable-libcec --disable-vdpau --disable-vaapi || exit 1
 +
 +make clean
 +make $MAKE_J
 diff -ruN -x .git kodi.orig/configure.ac kodi/configure.ac
---- kodi.orig/configure.ac	2016-01-15 13:42:22.929983179 -0800
-+++ kodi/configure.ac	2016-01-15 13:43:33.277823658 -0800
+--- kodi.orig/configure.ac	2016-01-16 01:06:33.201167405 -0800
++++ kodi/configure.ac	2016-01-16 01:06:47.945701200 -0800
 @@ -1266,7 +1266,7 @@
         AC_DEFINE([HAVE_SDL],[1],["Define to 1 if using sdl"])
         INCLUDES="$INCLUDES $SDL2_CFLAGS"; LIBS="$LIBS $SDL2_LIBS"; use_joystick="yes"],
@@ -37,8 +40,8 @@ diff -ruN -x .git kodi.orig/configure.ac kodi/configure.ac
          AC_MSG_NOTICE($sdl_joystick_not_found)
          use_joystick="no"
 diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/WinEventsSDL.cpp
---- kodi.orig/xbmc/windowing/WinEventsSDL.cpp	2016-01-15 13:42:24.477979433 -0800
-+++ kodi/xbmc/windowing/WinEventsSDL.cpp	2016-01-15 13:43:33.277823658 -0800
+--- kodi.orig/xbmc/windowing/WinEventsSDL.cpp	2016-01-16 01:06:34.613218722 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.cpp	2016-01-16 01:06:47.969702067 -0800
 @@ -39,7 +39,9 @@
  #include "platform/darwin/osx/CocoaInterface.h"
  #endif
@@ -125,8 +128,8 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/
    return ret;
  }
 diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.h kodi/xbmc/windowing/WinEventsSDL.h
---- kodi.orig/xbmc/windowing/WinEventsSDL.h	2016-01-15 13:42:24.477979433 -0800
-+++ kodi/xbmc/windowing/WinEventsSDL.h	2016-01-15 13:43:33.277823658 -0800
+--- kodi.orig/xbmc/windowing/WinEventsSDL.h	2016-01-16 01:06:34.613218722 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.h	2016-01-16 01:06:47.969702067 -0800
 @@ -28,7 +28,7 @@
  #if HAVE_SDL_VERSION == 1
  #include <SDL/SDL_events.h>

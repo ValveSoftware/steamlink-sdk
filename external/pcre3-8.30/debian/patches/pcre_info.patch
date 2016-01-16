@@ -1,0 +1,165 @@
+From: Mark Baker <mark@mnb.org.uk>
+Description: Restore obsolete pcre_info() API for compatiblity
+
+Index: pcre-8.30/Makefile.am
+===================================================================
+--- pcre-8.30.orig/Makefile.am	2012-03-23 22:33:00.000000000 +0000
++++ pcre-8.30/Makefile.am	2012-03-23 22:38:00.000000000 +0000
+@@ -187,6 +187,7 @@
+   pcre_fullinfo.c \
+   pcre_get.c \
+   pcre_globals.c \
++  pcre_info.c \
+   pcre_internal.h \
+   pcre_jit_compile.c \
+   pcre_maketables.c \
+@@ -448,7 +449,7 @@
+ # nice DLL for Windows use". (It is used by the pcre.dll target.)
+ DLL_OBJS= pcre_byte_order.o pcre_compile.o pcre_config.o \
+ 	pcre_dfa_exec.o pcre_exec.o pcre_fullinfo.o pcre_get.o \
+-	pcre_globals.o pcre_jit_compile.o pcre_maketables.o \
++	pcre_globals.o pcre_info.o pcre_jit_compile.o pcre_maketables.o \
+ 	pcre_newline.o pcre_ord2utf8.o pcre_refcount.o \
+ 	pcre_study.o pcre_tables.o pcre_ucd.o \
+ 	pcre_valid_utf8.o pcre_version.o pcre_chartables.o \
+Index: pcre-8.30/Makefile.in
+===================================================================
+--- pcre-8.30.orig/Makefile.in	2012-03-23 22:33:00.000000000 +0000
++++ pcre-8.30/Makefile.in	2012-03-23 22:38:00.000000000 +0000
+@@ -136,7 +136,7 @@
+ libpcre_la_LIBADD =
+ am__libpcre_la_SOURCES_DIST = pcre_byte_order.c pcre_compile.c \
+ 	pcre_config.c pcre_dfa_exec.c pcre_exec.c pcre_fullinfo.c \
+-	pcre_get.c pcre_globals.c pcre_internal.h pcre_jit_compile.c \
++	pcre_get.c pcre_globals.c pcre_info.c pcre_internal.h pcre_jit_compile.c \
+ 	pcre_maketables.c pcre_newline.c pcre_ord2utf8.c \
+ 	pcre_refcount.c pcre_string_utils.c pcre_study.c pcre_tables.c \
+ 	pcre_ucd.c pcre_valid_utf8.c pcre_version.c pcre_xclass.c \
+@@ -145,6 +145,7 @@
+ @WITH_PCRE8_TRUE@	pcre_compile.lo pcre_config.lo \
+ @WITH_PCRE8_TRUE@	pcre_dfa_exec.lo pcre_exec.lo \
+ @WITH_PCRE8_TRUE@	pcre_fullinfo.lo pcre_get.lo pcre_globals.lo \
++@WITH_PCRE8_TRUE@	pcre_info.lo \
+ @WITH_PCRE8_TRUE@	pcre_jit_compile.lo pcre_maketables.lo \
+ @WITH_PCRE8_TRUE@	pcre_newline.lo pcre_ord2utf8.lo \
+ @WITH_PCRE8_TRUE@	pcre_refcount.lo pcre_string_utils.lo \
+@@ -642,6 +643,7 @@
+ @WITH_PCRE8_TRUE@  pcre_fullinfo.c \
+ @WITH_PCRE8_TRUE@  pcre_get.c \
+ @WITH_PCRE8_TRUE@  pcre_globals.c \
++@WITH_PCRE8_TRUE@  pcre_info.c \
+ @WITH_PCRE8_TRUE@  pcre_internal.h \
+ @WITH_PCRE8_TRUE@  pcre_jit_compile.c \
+ @WITH_PCRE8_TRUE@  pcre_maketables.c \
+@@ -720,7 +722,7 @@
+ # nice DLL for Windows use". (It is used by the pcre.dll target.)
+ DLL_OBJS = pcre_byte_order.o pcre_compile.o pcre_config.o \
+ 	pcre_dfa_exec.o pcre_exec.o pcre_fullinfo.o pcre_get.o \
+-	pcre_globals.o pcre_jit_compile.o pcre_maketables.o \
++	pcre_globals.o pcre_info.o pcre_jit_compile.o pcre_maketables.o \
+ 	pcre_newline.o pcre_ord2utf8.o pcre_refcount.o \
+ 	pcre_study.o pcre_tables.o pcre_ucd.o \
+ 	pcre_valid_utf8.o pcre_version.o pcre_chartables.o \
+@@ -1039,6 +1041,7 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcre_fullinfo.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcre_get.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcre_globals.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcre_info.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcre_jit_compile.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcre_jit_test.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcre_maketables.Plo@am__quote@
+Index: pcre-8.30/pcre_info.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ pcre-8.30/pcre_info.c	2012-03-23 23:54:06.000000000 +0000
+@@ -0,0 +1,90 @@
++/*************************************************
++*      Perl-Compatible Regular Expressions       *
++*************************************************/
++
++/* PCRE is a library of functions to support regular expressions whose syntax
++and semantics are as close as possible to those of the Perl 5 language.
++
++                       Written by Philip Hazel
++           Copyright (c) 1997-2009 University of Cambridge
++
++-----------------------------------------------------------------------------
++Redistribution and use in source and binary forms, with or without
++modification, are permitted provided that the following conditions are met:
++
++    * Redistributions of source code must retain the above copyright notice,
++      this list of conditions and the following disclaimer.
++
++    * Redistributions in binary form must reproduce the above copyright
++      notice, this list of conditions and the following disclaimer in the
++      documentation and/or other materials provided with the distribution.
++
++    * Neither the name of the University of Cambridge nor the names of its
++      contributors may be used to endorse or promote products derived from
++      this software without specific prior written permission.
++
++THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++POSSIBILITY OF SUCH DAMAGE.
++-----------------------------------------------------------------------------
++*/
++
++
++/* This module contains the external function pcre_info(), which gives some
++information about a compiled pattern. However, use of this function is now
++deprecated, as it has been superseded by pcre_fullinfo(). */
++
++
++#ifdef HAVE_CONFIG_H
++#include "config.h"
++#endif
++
++#include "pcre_internal.h"
++
++
++/*************************************************
++* (Obsolete) Return info about compiled pattern  *
++*************************************************/
++
++/* This is the original "info" function. It picks potentially useful data out
++of the private structure, but its interface was too rigid. It remains for
++backwards compatibility. The public options are passed back in an int - though
++the re->options field has been expanded to a long int, all the public options
++at the low end of it, and so even on 16-bit systems this will still be OK.
++Therefore, I haven't changed the API for pcre_info().
++
++Arguments:
++  argument_re   points to compiled code
++  optptr        where to pass back the options
++  first_byte    where to pass back the first character,
++                or -1 if multiline and all branches start ^,
++                or -2 otherwise
++
++Returns:        number of capturing subpatterns
++                or negative values on error
++*/
++
++PCRE_EXP_DEFN int PCRE_CALL_CONVENTION
++pcre_info(const pcre *argument_re, int *optptr, int *first_byte)
++{
++const real_pcre *re = (const real_pcre *)argument_re;
++if (re == NULL) return PCRE_ERROR_NULL;
++if (re->magic_number != MAGIC_NUMBER)
++  return PCRE_ERROR_BADMAGIC;
++
++if (optptr != NULL) *optptr = (int)(re->options & PUBLIC_COMPILE_OPTIONS);
++if (first_byte != NULL)
++  *first_byte = ((re->flags & PCRE_FIRSTSET) != 0)? re->first_char :
++     ((re->flags & PCRE_STARTLINE) != 0)? -1 : -2;
++return re->top_bracket;
++}
++
++/* End of pcre_info.c */
