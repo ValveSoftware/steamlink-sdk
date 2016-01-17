@@ -140,3 +140,30 @@ Breakpoint 1, __printf (format=0xb6f8c764 "Hello world!\n") at printf.c:28
 #0  __printf (format=0xb6f8c764 "Hello world!\n") at printf.c:28
 #1  0xb6f8c704 in main (argc=1, argv=0xbed64e64) at example.c:7
 ```
+
+## Building the kernel
+Follow these steps in addition to setting up the build environment as described above.
+
+### Set environment variables for kernel build
+```Bash
+# export ARCH=arm; export LOCALVERSION="-mrvl"
+```
+### Configure kernel for Steam Link target
+```Bash
+#  make bg2cd_penguin_mlc_defconfig
+```
+
+### Customize kernel configuration (optional)
+```Bash
+# make menuconfig
+```
+
+### Build kernel
+```Bash
+# make
+```
+
+### Build modules (optional)
+```Bash
+# make modules
+```
