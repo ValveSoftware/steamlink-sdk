@@ -1,7 +1,7 @@
 diff -ruN -x .git kodi.orig/build_soc.sh kodi/build_soc.sh
 --- kodi.orig/build_soc.sh	1969-12-31 16:00:00.000000000 -0800
-+++ kodi/build_soc.sh	2016-01-16 01:07:02.462225940 -0800
-@@ -0,0 +1,25 @@
++++ kodi/build_soc.sh	2016-01-17 01:09:05.488370760 -0800
+@@ -0,0 +1,76 @@
 +# Edits to configure after bootstrap:
 +# Line 19416: #use_joystick=no (in arm*-*-linux-gnu* section)
 +# Line 22513: PYTHON_VERSION=2.7
@@ -23,13 +23,64 @@ diff -ruN -x .git kodi.orig/build_soc.sh kodi/build_soc.sh
 +	(cd tools/depends/native/libsquish-native && make clean; make NATIVEPREFIX=$MARVELL_ROOTFS/usr)
 +fi
 +
-+./configure $VALVE_CONFIGURE_OPTS --enable-gles --enable-joystick --disable-x11 --disable-mysql --disable-webserver --disable-samba --disable-ssh --disable-libbluray --disable-libcec --disable-vdpau --disable-vaapi || exit 1
++./configure $VALVE_CONFIGURE_OPTS --prefix=/home/steam/apps/kodi --enable-gles --enable-joystick --disable-x11 --disable-mysql --disable-webserver --disable-samba --disable-ssh --disable-libbluray --disable-libcec --disable-vdpau --disable-vaapi || exit 1
 +
 +make clean
-+make $MAKE_J
++make $MAKE_J || exit 2
++
++export DESTDIR=$(pwd)/steamlink/apps/kodi
++make install
++for dir in ${DESTDIR}/home/steam/apps/kodi/*; do
++    rm -rf ${DESTDIR}/$(basename $dir)
++    mv -v $dir ${DESTDIR}
++done
++rm -rf ${DESTDIR}/home
++
++cp -a ../../rootfs/usr/lib/python2.7 ${DESTDIR}/lib/
++
++for i in \
++	libbluetooth.so.3 \
++	libbz2.so.1.0 \
++	libcdio.so.13 \
++	libcrypto.so \
++	libexpat.so.1 \
++	libfribidi.so.0 \
++	liblzma.so.5 \
++	liblzo2.so.2 \
++	libogg.so.0 \
++	libpcre.so.3 \
++	libpcrecpp.so.0 \
++	libpython2.7.so.1.0 \
++	libsqlite3.so.0 \
++	libtag.so.1 \
++	libvorbis.so.0 \
++	libvorbisenc.so.2 \
++	libxml2.so.2 \
++	libxslt.so.1 \
++	libyajl.so.2 \
++
++do
++    library=$(find ../../rootfs -name $i)
++    if [ -f "$library" ]; then
++        target=${DESTDIR}/lib/$i
++        cp -v "$library" ${target}
++        chmod 755 ${target}
++    else
++        echo "Warning: Couldn't find $i"
++    fi
++done
++
++# Strip the binaries
++find ${DESTDIR} -type f | while read file
++do
++    if file ${file} | grep ELF >/dev/null; then
++        echo "Stripping $(basename ${file})"
++        armv7a-cros-linux-gnueabi-strip ${file}
++    fi
++done
 diff -ruN -x .git kodi.orig/configure.ac kodi/configure.ac
---- kodi.orig/configure.ac	2016-01-16 01:06:33.201167405 -0800
-+++ kodi/configure.ac	2016-01-16 01:06:47.945701200 -0800
+--- kodi.orig/configure.ac	2016-01-17 01:04:57.504598283 -0800
++++ kodi/configure.ac	2016-01-17 01:04:35.395873542 -0800
 @@ -1266,7 +1266,7 @@
         AC_DEFINE([HAVE_SDL],[1],["Define to 1 if using sdl"])
         INCLUDES="$INCLUDES $SDL2_CFLAGS"; LIBS="$LIBS $SDL2_LIBS"; use_joystick="yes"],
@@ -39,30 +90,49 @@ diff -ruN -x .git kodi.orig/configure.ac kodi/configure.ac
        elif test "$use_joystick" != "no"; then
          AC_MSG_NOTICE($sdl_joystick_not_found)
          use_joystick="no"
+Binary files kodi.orig/steamlink/apps/kodi/icon.png and kodi/steamlink/apps/kodi/icon.png differ
+diff -ruN -x .git kodi.orig/steamlink/apps/kodi/startkodi.sh kodi/steamlink/apps/kodi/startkodi.sh
+--- kodi.orig/steamlink/apps/kodi/startkodi.sh	1969-12-31 16:00:00.000000000 -0800
++++ kodi/steamlink/apps/kodi/startkodi.sh	2016-01-17 01:04:36.079895954 -0800
+@@ -0,0 +1,9 @@
++#!/bin/sh
++#
++# Start Kodi with the correct environment on the Steam Link
++
++export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PWD}/lib"
++export KODI_HOME="${PWD}/share/kodi"
++export KODI_HOME_BIN="${PWD}/lib/kodi"
++export PYTHONHOME="${PWD}"
++exec ./bin/kodi
+diff -ruN -x .git kodi.orig/steamlink/apps/kodi/toc.txt kodi/steamlink/apps/kodi/toc.txt
+--- kodi.orig/steamlink/apps/kodi/toc.txt	1969-12-31 16:00:00.000000000 -0800
++++ kodi/steamlink/apps/kodi/toc.txt	2016-01-17 01:04:36.079895954 -0800
+@@ -0,0 +1,3 @@
++name=Kodi
++icon=icon.png
++run=startkodi.sh
 diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/WinEventsSDL.cpp
---- kodi.orig/xbmc/windowing/WinEventsSDL.cpp	2016-01-16 01:06:34.613218722 -0800
-+++ kodi/xbmc/windowing/WinEventsSDL.cpp	2016-01-16 01:06:47.969702067 -0800
-@@ -39,7 +39,9 @@
+--- kodi.orig/xbmc/windowing/WinEventsSDL.cpp	2016-01-17 01:04:57.504598283 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.cpp	2016-01-17 01:04:36.563911815 -0800
+@@ -39,7 +39,7 @@
  #include "platform/darwin/osx/CocoaInterface.h"
  #endif
  
 -#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_ANDROID)
-+#define TARGET_STEAMLINK
-+
-+#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_STEAMLINK) && !defined(TARGET_ANDROID)
++#ifdef HAVE_X11
  #include <X11/Xlib.h>
  #include <X11/XKBlib.h>
  #include "input/XBMC_keysym.h"
-@@ -48,7 +50,7 @@
+@@ -48,7 +48,7 @@
  
  using namespace KODI::MESSAGING;
  
 -#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
-+#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_STEAMLINK)
++#ifdef HAVE_X11
  // The following chunk of code is Linux specific. For keys that have
  // with keysym.sym set to zero it checks the scan code, and sets the sym
  // for some known scan codes. This is mostly the multimedia keys.
-@@ -245,6 +247,7 @@
+@@ -245,6 +245,7 @@
          break;
  #endif
  
@@ -70,16 +140,16 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/
        case SDL_ACTIVEEVENT:
          //If the window was inconified or restored
          if( event.active.state & SDL_APPACTIVE )
-@@ -286,7 +289,7 @@
+@@ -286,7 +287,7 @@
            mod |= XBMCKMOD_LSUPER;
          newEvent.key.keysym.mod = (XBMCMod) mod;
  
 -#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
-+#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_STEAMLINK)
++#ifdef HAVE_X11
          // If the keysym.sym is zero try to get it from the scan code
          if (newEvent.key.keysym.sym == 0)
            newEvent.key.keysym.sym = (XBMCKey) SymFromScancode(newEvent.key.keysym.scancode);
-@@ -369,6 +372,7 @@
+@@ -369,6 +370,7 @@
          ret |= g_application.OnEvent(newEvent);
          break;
        }
@@ -87,7 +157,7 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/
        case SDL_VIDEORESIZE:
        {
          // Under linux returning from fullscreen, SDL sends an extra event to resize to the desktop
-@@ -389,6 +393,14 @@
+@@ -389,6 +391,14 @@
          g_windowManager.MarkDirty();
          break;
        }
@@ -102,7 +172,7 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/
        case SDL_USEREVENT:
        {
          XBMC_Event newEvent;
-@@ -397,9 +409,6 @@
+@@ -397,9 +407,6 @@
          ret |= g_application.OnEvent(newEvent);
          break;
        }
@@ -112,7 +182,7 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/
      }
      memset(&event, 0, sizeof(SDL_Event));
    }
-@@ -409,11 +418,13 @@
+@@ -409,11 +416,13 @@
  
  size_t CWinEventsSDL::GetQueueSize()
  {
@@ -128,8 +198,8 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/
    return ret;
  }
 diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.h kodi/xbmc/windowing/WinEventsSDL.h
---- kodi.orig/xbmc/windowing/WinEventsSDL.h	2016-01-16 01:06:34.613218722 -0800
-+++ kodi/xbmc/windowing/WinEventsSDL.h	2016-01-16 01:06:47.969702067 -0800
+--- kodi.orig/xbmc/windowing/WinEventsSDL.h	2016-01-17 01:04:57.504598283 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.h	2016-01-17 01:04:36.563911815 -0800
 @@ -28,7 +28,7 @@
  #if HAVE_SDL_VERSION == 1
  #include <SDL/SDL_events.h>
@@ -139,3 +209,261 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.h kodi/xbmc/windowing/Wi
  #endif
  
  #include "WinEvents.h"
+diff -ruN -x .git kodi.orig/xbmc/windowing/egl/EGLNativeTypeSDL.cpp kodi/xbmc/windowing/egl/EGLNativeTypeSDL.cpp
+--- kodi.orig/xbmc/windowing/egl/EGLNativeTypeSDL.cpp	1969-12-31 16:00:00.000000000 -0800
++++ kodi/xbmc/windowing/egl/EGLNativeTypeSDL.cpp	2016-01-17 01:04:36.571912078 -0800
+@@ -0,0 +1,158 @@
++/*
++ *      Copyright (C) 2011-2013 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#include "system.h"
++
++#include "EGLNativeTypeSDL.h"
++#include "guilib/gui3d.h"
++#include "utils/log.h"
++#include "utils/StringUtils.h"
++
++#if HAVE_SDL_VERSION == 2
++
++CEGLNativeTypeSDL::CEGLNativeTypeSDL()
++{
++  m_window = NULL;
++
++  if (SDL_InitSubSystem(SDL_INIT_VIDEO) < 0) {
++    return;
++  }
++
++  SDL_DisplayMode mode;
++  SDL_GetDesktopDisplayMode(0, &mode);
++
++  m_window = SDL_CreateWindow("SDL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, mode.w, mode.h, SDL_WINDOW_FULLSCREEN|SDL_WINDOW_HIDDEN);
++  if (!m_window) {
++    return;
++  }
++
++  SDL_VERSION(&m_windowInfo.version);
++  if (SDL_GetWindowWMInfo(m_window, &m_windowInfo) < 0 || m_windowInfo.subsystem != SDL_SYSWM_VIVANTE) {
++    SDL_DestroyWindow(m_window);
++    m_window = NULL;
++  }
++}
++
++CEGLNativeTypeSDL::~CEGLNativeTypeSDL()
++{
++  if (m_window) {
++    SDL_DestroyWindow(m_window);
++  }
++  SDL_QuitSubSystem(SDL_INIT_VIDEO);
++} 
++
++bool CEGLNativeTypeSDL::CheckCompatibility()
++{
++  return (m_window != NULL);
++}
++
++void CEGLNativeTypeSDL::Initialize()
++{
++}
++
++void CEGLNativeTypeSDL::Destroy()
++{
++}
++
++bool CEGLNativeTypeSDL::CreateNativeDisplay()
++{
++  return true;
++}
++
++bool CEGLNativeTypeSDL::CreateNativeWindow()
++{
++  SDL_ShowWindow(m_window);
++  return true;
++}
++
++bool CEGLNativeTypeSDL::GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const
++{
++  if (!nativeDisplay)
++    return false;
++  *nativeDisplay = (XBNativeDisplayType*) &m_windowInfo.info.vivante.display;
++  return true;
++}
++
++bool CEGLNativeTypeSDL::GetNativeWindow(XBNativeDisplayType **nativeWindow) const
++{
++  if (!nativeWindow)
++    return false;
++  *nativeWindow = (XBNativeWindowType*) &m_windowInfo.info.vivante.window;
++  return true;
++}  
++
++bool CEGLNativeTypeSDL::DestroyNativeDisplay()
++{
++  return true;
++}
++
++bool CEGLNativeTypeSDL::DestroyNativeWindow()
++{
++  SDL_HideWindow(m_window);
++  return true;
++}
++
++bool CEGLNativeTypeSDL::GetNativeResolution(RESOLUTION_INFO *res) const
++{
++  SDL_GetWindowSize(m_window, &res->iWidth, &res->iHeight);
++  res->fRefreshRate = 59.94f;
++  res->dwFlags = D3DPRESENTFLAG_PROGRESSIVE;
++  res->iScreen = 0;
++  res->bFullScreen = true;
++  res->iSubtitles = static_cast<int>(0.965 * res->iHeight);
++  res->fPixelRatio = 1.0f;
++  res->iScreenWidth = res->iWidth;
++  res->iScreenHeight = res->iHeight;
++  res->strMode = StringUtils::Format("%dx%d @ %.2fp",
++                     res->iScreenWidth,
++                     res->iScreenHeight,
++                     res->fRefreshRate);
++  return true;
++}
++
++bool CEGLNativeTypeSDL::SetNativeResolution(const RESOLUTION_INFO &res)
++{
++  return true;
++}
++
++bool CEGLNativeTypeSDL::ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions)
++{
++  RESOLUTION_INFO res;
++  if (!GetNativeResolution(&res))
++    return false;
++
++  resolutions.push_back(res);
++  return true;
++}
++
++bool CEGLNativeTypeSDL::GetPreferredResolution(RESOLUTION_INFO *res) const
++{
++  return GetNativeResolution(res);
++}
++
++bool CEGLNativeTypeSDL::ShowWindow(bool show)
++{
++  if (show)
++    SDL_ShowWindow(m_window);
++  else
++    SDL_HideWindow(m_window);
++  return true;
++}
++
++#endif // SDL 2.0
+diff -ruN -x .git kodi.orig/xbmc/windowing/egl/EGLNativeTypeSDL.h kodi/xbmc/windowing/egl/EGLNativeTypeSDL.h
+--- kodi.orig/xbmc/windowing/egl/EGLNativeTypeSDL.h	1969-12-31 16:00:00.000000000 -0800
++++ kodi/xbmc/windowing/egl/EGLNativeTypeSDL.h	2016-01-17 01:04:36.571912078 -0800
+@@ -0,0 +1,60 @@
++#pragma once
++
++/*
++ *      Copyright (C) 2011-2013 Team XBMC
++ *      http://xbmc.org
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with XBMC; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#if HAVE_SDL_VERSION == 2
++
++#include "EGLNativeType.h"
++#include "SDL2/SDL.h"
++#include "SDL2/SDL_syswm.h"
++
++class CEGLNativeTypeSDL : public CEGLNativeType
++{
++public:
++  CEGLNativeTypeSDL();
++  virtual ~CEGLNativeTypeSDL();
++  virtual std::string GetNativeName() const { return "SDL"; };
++  virtual bool  CheckCompatibility();
++  virtual void  Initialize();
++  virtual void  Destroy();
++  virtual int   GetQuirks() { return EGL_QUIRK_NONE; };
++
++  virtual bool  CreateNativeDisplay();
++  virtual bool  CreateNativeWindow();
++  virtual bool  GetNativeDisplay(XBNativeDisplayType **nativeDisplay) const;
++  virtual bool  GetNativeWindow(XBNativeWindowType **nativeWindow) const;
++
++  virtual bool  DestroyNativeWindow();
++  virtual bool  DestroyNativeDisplay();
++
++  virtual bool  GetNativeResolution(RESOLUTION_INFO *res) const;
++  virtual bool  SetNativeResolution(const RESOLUTION_INFO &res);
++  virtual bool  ProbeResolutions(std::vector<RESOLUTION_INFO> &resolutions);
++  virtual bool  GetPreferredResolution(RESOLUTION_INFO *res) const;
++
++  virtual bool  ShowWindow(bool show);
++
++private:
++  SDL_Window *m_window;
++  SDL_SysWMinfo m_windowInfo;
++};
++
++#endif // SDL 2.0
+diff -ruN -x .git kodi.orig/xbmc/windowing/egl/EGLWrapper.cpp kodi/xbmc/windowing/egl/EGLWrapper.cpp
+--- kodi.orig/xbmc/windowing/egl/EGLWrapper.cpp	2016-01-17 01:04:57.504598283 -0800
++++ kodi/xbmc/windowing/egl/EGLWrapper.cpp	2016-01-17 01:04:36.571912078 -0800
+@@ -37,6 +37,7 @@
+   #include "EGLNativeTypeIMX.h"
+ #endif
+ #include "EGLNativeTypeAmlogic.h"
++#include "EGLNativeTypeSDL.h"
+ #include "EGLWrapper.h"
+ 
+ #define CheckError() m_result = eglGetError(); if(m_result != EGL_SUCCESS) CLog::Log(LOGERROR, "EGL error in %s: %x",__FUNCTION__, m_result);
+@@ -91,6 +92,9 @@
+   // Try to create each backend in sequence and go with the first one
+   // that we know will work
+   if (
++#if HAVE_SDL_VERSION == 2
++      (nativeGuess = CreateEGLNativeType<CEGLNativeTypeSDL>(implementation)) ||
++#endif
+ #if defined(HAVE_WAYLAND)
+       (nativeGuess = CreateEGLNativeType<CEGLNativeTypeWayland>(implementation)) ||
+ #endif
+diff -ruN -x .git kodi.orig/xbmc/windowing/egl/Makefile.in kodi/xbmc/windowing/egl/Makefile.in
+--- kodi.orig/xbmc/windowing/egl/Makefile.in	2016-01-17 01:04:57.504598283 -0800
++++ kodi/xbmc/windowing/egl/Makefile.in	2016-01-17 01:04:36.571912078 -0800
+@@ -1,6 +1,7 @@
+ INCLUDES=-I.
+ 
+ SRCS = WinSystemEGL.cpp
++SRCS+= EGLNativeTypeSDL.cpp
+ SRCS+= EGLNativeTypeAmlogic.cpp
+ ifeq (@USE_ANDROID@,1)
+ SRCS+= EGLNativeTypeAndroid.cpp
