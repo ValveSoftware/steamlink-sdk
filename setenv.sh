@@ -1,4 +1,4 @@
-absolute_path=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd)
+absolute_path=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
 
 export MARVELL_SDK_PATH=$absolute_path
 export MARVELL_ROOTFS=$MARVELL_SDK_PATH/rootfs
@@ -21,7 +21,7 @@ __EOF__
 export PATH=$QT_HOST_BINS:$PATH
 
 TOOLCHAIN_PATH=$MARVELL_SDK_PATH/toolchain/bin
-export PATH=$TOOLCHAIN_PATH:$PATH
+export PATH=$TOOLCHAIN_PATH:$MARVELL_SDK_PATH/bin:$PATH
 
 export CROSS=armv7a-cros-linux-gnueabi-
 export CROSS_COMPILE=${CROSS}

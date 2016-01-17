@@ -1,0 +1,57 @@
+#!/bin/sh
+
+FACTORY_SETTING=/mnt/factory_setting
+
+# SKU differentiation (SKU domain is a 2-letter combination [XA..XZ]
+SKU_DOMAIN_FILE=$FACTORY_SETTING/sku_domain.txt
+DEFAULT_SKU_DOMAIN="00"
+
+# Regulatory DB (for CRDA)
+REGDB_FILE_TEMPLATE=/usr/lib/crda/regulatory.bin.
+REGDB_FILE_FACTORY=$FACTORY_SETTING/regulatory.bin
+
+# TX power limit file (per SKU domain)
+TXPRWLIMIT_FILE_TEMPLATE=/lib/firmware/mrvl/txpwrlimit_cfg.bin.
+TXPRWLIMIT_FILE_FACTORY=$FACTORY_SETTING/txpwrlimit_cfg.bin
+
+copy_file_to_factory_settings() {
+	src=$1
+	dst=$2
+	mount $FACTORY_SETTING -orw,remount
+	cp $src $dst
+	mount $FACTORY_SETTING -oro,remount
+}
+
+# First read SKU domain from file, or fall back to default
+SKU_DOMAIN=$(cat $SKU_DOMAIN_FILE)
+if [ -z "$SKU_DOMAIN" ]; then
+	SKU_DOMAIN=$DEFAULT_SKU_DOMAIN
+fi
+
+# If regulatory DB for this SKU domain exists in rootfs, compare it
+# to the one in factory setting partition and replace if they differ
+filename=${REGDB_FILE_TEMPLATE}${SKU_DOMAIN}
+if [ -f "$filename" ]; then
+	cmp -s $filename $REGDB_FILE_FACTORY
+	ret=$?
+	if [ $ret -ne 0 ]; then
+		echo "Copying regulatory db from filesystem to factory partition"
+		copy_file_to_factory_settings $filename $REGDB_FILE_FACTORY
+	fi
+fi
+
+# If TX power file for this SKU domain exists in rootfs, compare it
+# to the one in factory setting partition and replace if they differ
+filename="${TXPRWLIMIT_FILE_TEMPLATE}${SKU_DOMAIN}"
+if [ -f "$filename" ]; then
+	cmp -s $filename $TXPRWLIMIT_FILE_FACTORY
+	ret=$?
+	if [ $ret -ne 0 ]; then
+		echo "Copying ($SKU_DOMAIN) TX power limit file from filesystem to factory partition"
+		copy_file_to_factory_settings $filename $TXPRWLIMIT_FILE_FACTORY
+	fi
+fi
+
+# Kick hotplug helper
+echo /etc/hotplug/wifi-fw.sh > /proc/sys/kernel/hotplug
+COUNTRY=00 /usr/bin/crda

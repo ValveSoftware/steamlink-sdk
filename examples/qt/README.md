@@ -7,7 +7,7 @@ It covers the following areas:
 * Handling controller input
 * Simple styling
 
-To build, source ../setenv.sh and then run qmake and then run make
+To build, source ../../setenv.sh and then run qmake and then run make
 
 The final package should include the following files:
 	toc.txt
