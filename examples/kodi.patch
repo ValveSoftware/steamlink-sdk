@@ -252,6 +252,103 @@ diff -ruN -x .git kodi.orig/tools/depends/README-steamlink.txt kodi/tools/depend
 +Then go to librtmp and curl, remove the armv7a-cros-linux-gnueabi directories and rebuild against the shared library versions of libssl and libcrypto.
 +
 +Finally, go to the target/libsdl2/armv7a-cros-linux-gnueabi and make uninstall - we'll use SDL from the Steam Link SDK.
+diff -ruN -x .git kodi.orig/tools/depends/target/boost/fix-move-disables-implicit-copy.patch kodi/tools/depends/target/boost/fix-move-disables-implicit-copy.patch
+--- kodi.orig/tools/depends/target/boost/fix-move-disables-implicit-copy.patch	1969-12-31 16:00:00.000000000 -0800
++++ kodi/tools/depends/target/boost/fix-move-disables-implicit-copy.patch	2016-01-17 15:49:15.728501898 -0800
+@@ -0,0 +1,82 @@
++diff -ru armv7a-cros-linux-gnueabi.old/boost/smart_ptr/shared_array.hpp armv7a-cros-linux-gnueabi/boost/smart_ptr/shared_array.hpp
++--- armv7a-cros-linux-gnueabi.old/boost/smart_ptr/shared_array.hpp	2009-03-02 08:45:22.000000000 -0800
+++++ armv7a-cros-linux-gnueabi/boost/smart_ptr/shared_array.hpp	2016-01-17 15:09:38.736740395 -0800
++@@ -69,7 +69,25 @@
++     {
++     }
++ 
++-//  generated copy constructor, assignment, destructor are fine
+++//  generated copy constructor, destructor are fine... 
+++
+++#if defined( BOOST_HAS_RVALUE_REFS ) 
+++ 
+++// ... except in C++0x, move disables the implicit copy 
+++ 
+++    shared_array( shared_array const & r ): px( r.px ), pn( r.pn ) // never throws 
+++    { 
+++    } 
+++ 
+++#endif 
+++ 
+++    // assignment 
+++ 
+++    shared_array & operator=( shared_array const & r ) // never throws 
+++    { 
+++        this_type( r ).swap( *this ); 
+++        return *this; 
+++    } 
++ 
++     void reset(T * p = 0)
++     {
++diff -ru armv7a-cros-linux-gnueabi.old/boost/smart_ptr/shared_ptr.hpp armv7a-cros-linux-gnueabi/boost/smart_ptr/shared_ptr.hpp
++--- armv7a-cros-linux-gnueabi.old/boost/smart_ptr/shared_ptr.hpp	2009-12-14 09:44:19.000000000 -0800
+++++ armv7a-cros-linux-gnueabi/boost/smart_ptr/shared_ptr.hpp	2016-01-17 15:12:44.264925263 -0800
++@@ -207,7 +207,17 @@
++         boost::detail::sp_enable_shared_from_this( this, p, p );
++     }
++ 
++-//  generated copy constructor, destructor are fine
+++//  generated copy constructor, destructor are fine...
+++
+++#if defined( BOOST_HAS_RVALUE_REFS ) 
+++ 
+++// ... except in C++0x, move disables the implicit copy 
+++ 
+++    shared_ptr( shared_ptr const & r ): px( r.px ), pn( r.pn ) // never throws 
+++    { 
+++    } 
+++ 
+++#endif 
++ 
++     template<class Y>
++     explicit shared_ptr(weak_ptr<Y> const & r): pn(r.pn) // may throw
++diff -ru armv7a-cros-linux-gnueabi.old/boost/smart_ptr/weak_ptr.hpp armv7a-cros-linux-gnueabi/boost/smart_ptr/weak_ptr.hpp
++--- armv7a-cros-linux-gnueabi.old/boost/smart_ptr/weak_ptr.hpp	2009-12-14 09:44:19.000000000 -0800
+++++ armv7a-cros-linux-gnueabi/boost/smart_ptr/weak_ptr.hpp	2016-01-17 15:13:48.287620892 -0800
++@@ -40,8 +40,24 @@
++     {
++     }
++ 
++-//  generated copy constructor, assignment, destructor are fine
++-
+++//  generated copy constructor, assignment, destructor are fine... 
+++ 
+++#if defined( BOOST_HAS_RVALUE_REFS ) 
+++ 
+++// ... except in C++0x, move disables the implicit copy 
+++ 
+++    weak_ptr( weak_ptr const & r ): px( r.px ), pn( r.pn ) // never throws 
+++    { 
+++    } 
+++ 
+++    weak_ptr & operator=( weak_ptr const & r ) // never throws 
+++    { 
+++        px = r.px; 
+++        pn = r.pn; 
+++        return *this; 
+++    } 
+++ 
+++#endif 
++ 
++ //
++ //  The "obvious" converting constructor implementation:
+diff -ruN -x .git kodi.orig/tools/depends/target/boost/Makefile kodi/tools/depends/target/boost/Makefile
+--- kodi.orig/tools/depends/target/boost/Makefile	2016-01-17 01:04:32.507778944 -0800
++++ kodi/tools/depends/target/boost/Makefile	2016-01-17 15:49:15.728501898 -0800
+@@ -25,6 +25,7 @@
+ 	cd $(PLATFORM); patch -p0 < ../fix_shared_ptr_multithread.patch
+ endif
+ 	cd $(PLATFORM); patch -p1 < ../fix-self-assignment-warnings.patch
++	cd $(PLATFORM); patch -p1 < ../fix-move-disables-implicit-copy.patch
+ 	cd $(PLATFORM); ./bootstrap.sh --prefix=$(PREFIX)
+ 
+ .installed-$(PLATFORM): $(PLATFORM)
 diff -ruN -x .git kodi.orig/tools/depends/target/ffmpeg/Makefile kodi/tools/depends/target/ffmpeg/Makefile
 --- kodi.orig/tools/depends/target/ffmpeg/Makefile	2016-01-17 01:04:32.511779075 -0800
 +++ kodi/tools/depends/target/ffmpeg/Makefile	2016-01-17 07:40:50.701149804 -0800
