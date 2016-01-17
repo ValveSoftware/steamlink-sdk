@@ -37,8 +37,8 @@ for item in $AVAILABLE_BITSTREAMFILTERS
 do CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-bsf=$item"
 done
 
-./configure --enable-cross-compile --enable-shared --arch=arm --target-os=linux --cc="$CC" --cxx="$CXX" --dep-cc="$CC" --ld="$CC" --as="$CC" --disable-stripping --prefix=/usr $CONFIGURE_OPTIONS || exit 1
+./configure --enable-cross-compile --arch=arm --target-os=linux --cc="$CC" --cxx="$CXX" --dep-cc="$CC" --ld="$CC" --as="$CC" --prefix=/usr $CONFIGURE_OPTIONS || exit 1
 
-#valve_make_clean
+valve_make_clean
 valve_make
 valve_make_install
