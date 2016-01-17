@@ -144,6 +144,8 @@ Breakpoint 1, __printf (format=0xb6f8c764 "Hello world!\n") at printf.c:28
 ## Building the kernel
 Follow these steps in addition to setting up the build environment as described above.
 
+WARNING: Steam Link devices will only boot with a kernel signed by Valve. If you attempt to replace the kernel with an unsigned binary you will void your warrantee and render your Steam Link unbootable.
+
 ### Set environment variables for kernel build
 ```Bash
 # export ARCH=arm; export LOCALVERSION="-mrvl"
