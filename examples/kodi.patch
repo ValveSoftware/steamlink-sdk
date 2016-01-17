@@ -1,32 +1,38 @@
 diff -ruN -x .git kodi.orig/build_soc.sh kodi/build_soc.sh
 --- kodi.orig/build_soc.sh	1969-12-31 16:00:00.000000000 -0800
-+++ kodi/build_soc.sh	2016-01-17 01:09:05.488370760 -0800
-@@ -0,0 +1,76 @@
-+# Edits to configure after bootstrap:
++++ kodi/build_soc.sh	2016-01-17 07:40:50.693149431 -0800
+@@ -0,0 +1,177 @@
++#!/bin/bash
++#
++# First go to tools/depends and read README-steamlink.txt and build
++# and install dependencies
++#
++# Then run bootstrap in this directory
++#
++# Then edit configure after bootstrap:
 +# Line 19416: #use_joystick=no (in arm*-*-linux-gnu* section)
 +# Line 22513: PYTHON_VERSION=2.7
++# Line 29449: pkg_cfg_prefix=
 +
-+source ../../setenv_external.sh
++source ../../setenv.sh
++source ../../xbmc-deps/armv7a-cros-linux-gnueabi/share/config.site
++
++DEPS_INSTALL_PATH=${PWD}/../../xbmc-deps/armv7a-cros-linux-gnueabi
 +
 +export CC="$CC -DEGL_API_FB"
 +export CXX="$CXX -DEGL_API_FB"
-+export LIBXML_LIBS="-lxml2 -llzma" # For some reason the lzma library isn't picked up implicitly
-+export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:$MARVELL_ROOTFS/usr/lib/arm-linux-gnueabihf/pkgconfig"
-+export PYTHON_VERSION=2.7
-+export PYTHON_CPPFLAGS="-I$MARVELL_ROOTFS/usr/include/python2.7"
-+export PYTHON_LDFLAGS="-L$MARVELL_ROOTFS/usr/lib -lpython2.7"
-+export PYTHON_SITE_PKG="$MARVELL_ROOTFS/usr/lib/python2.7/dist-packages"
-+export LDFLAGS="$LDFLAGS -L$MARVELL_ROOTFS/lib/arm-linux-gnueabihf -L$MARVELL_ROOTFS/usr/lib/arm-linux-gnueabihf"
++export CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
++export LD AR AS NM STRIP RANLIB OBJDUMP
++export PYTHON_VERSION PYTHON_CPPFLAGS PYTHON_LDFLAGS PYTHON_SITE_PKG PYTHON_NOVERSIONCHECK NATIVE_ROOT
++export UDEV_CFLAGS=-I${DEPS_INSTALL_PATH}/include
++export UDEV_LIBS=-ludev
++export CEC_CFLAGS=-I${DEPS_INSTALL_PATH}/include
++export CEC_LIBS=-lcec
++export LIBXML_CFLAGS=-I${DEPS_INSTALL_PATH}/include/libxml2
++#./configure $VALVE_CONFIGURE_OPTS --prefix=/home/steam/apps/kodi --disable-x11 || exit 1
 +
-+# Install the squish library, if it isn't already installed
-+if [ ! -f "$MARVELL_ROOTFS/usr/include/squish.h" ]; then
-+	(cd tools/depends/native/libsquish-native && make clean; make NATIVEPREFIX=$MARVELL_ROOTFS/usr)
-+fi
-+
-+./configure $VALVE_CONFIGURE_OPTS --prefix=/home/steam/apps/kodi --enable-gles --enable-joystick --disable-x11 --disable-mysql --disable-webserver --disable-samba --disable-ssh --disable-libbluray --disable-libcec --disable-vdpau --disable-vaapi || exit 1
-+
-+make clean
-+make $MAKE_J || exit 2
++#make clean
++#make $MAKE_J || exit 2
 +
 +export DESTDIR=$(pwd)/steamlink/apps/kodi
 +make install
@@ -36,31 +42,28 @@ diff -ruN -x .git kodi.orig/build_soc.sh kodi/build_soc.sh
 +done
 +rm -rf ${DESTDIR}/home
 +
-+cp -a ../../rootfs/usr/lib/python2.7 ${DESTDIR}/lib/
++cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/
 +
 +for i in \
-+	libbluetooth.so.3 \
-+	libbz2.so.1.0 \
-+	libcdio.so.13 \
-+	libcrypto.so \
-+	libexpat.so.1 \
-+	libfribidi.so.0 \
-+	liblzma.so.5 \
-+	liblzo2.so.2 \
++	libasound.so.2 \
++	libass.so.5 \
++	libbluray.so.1 \
++	libcec.so.3.0 \
++	libcrypto.so.1.0.0 \
++	libcurl.so.4 \
++	libgif.so.7 \
++	libnfs.so.4 \
 +	libogg.so.0 \
-+	libpcre.so.3 \
-+	libpcrecpp.so.0 \
-+	libpython2.7.so.1.0 \
-+	libsqlite3.so.0 \
-+	libtag.so.1 \
-+	libvorbis.so.0 \
++	libplist.so.1 \
++	librtmp.so.1 \
++	libshairplay.so.0 \
++	libsmbclient.so.0 \
++	libssl.so.1.0.0 \
 +	libvorbisenc.so.2 \
-+	libxml2.so.2 \
-+	libxslt.so.1 \
-+	libyajl.so.2 \
++	libvorbis.so.0 \
 +
 +do
-+    library=$(find ../../rootfs -name $i)
++    library=${DEPS_INSTALL_PATH}/lib/$i
 +    if [ -f "$library" ]; then
 +        target=${DESTDIR}/lib/$i
 +        cp -v "$library" ${target}
@@ -78,6 +81,104 @@ diff -ruN -x .git kodi.orig/build_soc.sh kodi/build_soc.sh
 +        armv7a-cros-linux-gnueabi-strip ${file}
 +    fi
 +done
++
++# Add the icon
++base64 -d >${DESTDIR}/icon.png <<__EOF__
++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
++lUsF4P8BXBKtqr0J9mEAAAAASUVORK5CYII=
++__EOF__
 diff -ruN -x .git kodi.orig/configure.ac kodi/configure.ac
 --- kodi.orig/configure.ac	2016-01-17 01:04:57.504598283 -0800
 +++ kodi/configure.ac	2016-01-17 01:04:35.395873542 -0800
@@ -90,16 +191,15 @@ diff -ruN -x .git kodi.orig/configure.ac kodi/configure.ac
        elif test "$use_joystick" != "no"; then
          AC_MSG_NOTICE($sdl_joystick_not_found)
          use_joystick="no"
-Binary files kodi.orig/steamlink/apps/kodi/icon.png and kodi/steamlink/apps/kodi/icon.png differ
 diff -ruN -x .git kodi.orig/steamlink/apps/kodi/startkodi.sh kodi/steamlink/apps/kodi/startkodi.sh
 --- kodi.orig/steamlink/apps/kodi/startkodi.sh	1969-12-31 16:00:00.000000000 -0800
-+++ kodi/steamlink/apps/kodi/startkodi.sh	2016-01-17 01:04:36.079895954 -0800
++++ kodi/steamlink/apps/kodi/startkodi.sh	2016-01-17 07:40:50.701149804 -0800
 @@ -0,0 +1,9 @@
 +#!/bin/sh
 +#
 +# Start Kodi with the correct environment on the Steam Link
 +
-+export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PWD}/lib"
++export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/pulseaudio:${PWD}/lib"
 +export KODI_HOME="${PWD}/share/kodi"
 +export KODI_HOME_BIN="${PWD}/lib/kodi"
 +export PYTHONHOME="${PWD}"
@@ -111,104 +211,76 @@ diff -ruN -x .git kodi.orig/steamlink/apps/kodi/toc.txt kodi/steamlink/apps/kodi
 +name=Kodi
 +icon=icon.png
 +run=startkodi.sh
-diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/WinEventsSDL.cpp
---- kodi.orig/xbmc/windowing/WinEventsSDL.cpp	2016-01-17 01:04:57.504598283 -0800
-+++ kodi/xbmc/windowing/WinEventsSDL.cpp	2016-01-17 01:04:36.563911815 -0800
-@@ -39,7 +39,7 @@
- #include "platform/darwin/osx/CocoaInterface.h"
- #endif
- 
--#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_ANDROID)
-+#ifdef HAVE_X11
- #include <X11/Xlib.h>
- #include <X11/XKBlib.h>
- #include "input/XBMC_keysym.h"
-@@ -48,7 +48,7 @@
- 
- using namespace KODI::MESSAGING;
- 
--#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
-+#ifdef HAVE_X11
- // The following chunk of code is Linux specific. For keys that have
- // with keysym.sym set to zero it checks the scan code, and sets the sym
- // for some known scan codes. This is mostly the multimedia keys.
-@@ -245,6 +245,7 @@
-         break;
- #endif
- 
-+#if HAVE_SDL_VERSION == 1
-       case SDL_ACTIVEEVENT:
-         //If the window was inconified or restored
-         if( event.active.state & SDL_APPACTIVE )
-@@ -286,7 +287,7 @@
-           mod |= XBMCKMOD_LSUPER;
-         newEvent.key.keysym.mod = (XBMCMod) mod;
- 
--#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
-+#ifdef HAVE_X11
-         // If the keysym.sym is zero try to get it from the scan code
-         if (newEvent.key.keysym.sym == 0)
-           newEvent.key.keysym.sym = (XBMCKey) SymFromScancode(newEvent.key.keysym.scancode);
-@@ -369,6 +370,7 @@
-         ret |= g_application.OnEvent(newEvent);
-         break;
-       }
+diff -ruN -x .git kodi.orig/tools/depends/README-steamlink.txt kodi/tools/depends/README-steamlink.txt
+--- kodi.orig/tools/depends/README-steamlink.txt	1969-12-31 16:00:00.000000000 -0800
++++ kodi/tools/depends/README-steamlink.txt	2016-01-17 07:40:50.701149804 -0800
+@@ -0,0 +1,37 @@
++First run:
++./configure --with-toolchain=$HOME/steamlink-sdk/toolchain --prefix=$HOME/steamlink-sdk/xbmc-deps --host=armv7a-cros-linux-gnueabi
 +
-       case SDL_VIDEORESIZE:
-       {
-         // Under linux returning from fullscreen, SDL sends an extra event to resize to the desktop
-@@ -389,6 +391,14 @@
-         g_windowManager.MarkDirty();
-         break;
-       }
++Then edit $HOME/steamlink-sdk/xbmc-deps/armv7a-cros-linux-gnueabi/share/config.site and add at the top:
++MARVELL_SDK_PATH="$HOME/steamlink-sdk"
++MARVELL_ROOTFS="$MARVELL_SDK_PATH/rootfs"
 +
-+      case SDL_VIDEOEXPOSE:
-+      {
-+        g_windowManager.MarkDirty();
-+        break;
-+      }
-+#endif // SDL 1.2
++and edit CC, CXX and CPP:
++CC="$HOME/steamlink-sdk/toolchain/bin/armv7a-cros-linux-gnueabi-gcc --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
++CXX="$HOME/steamlink-sdk/toolchain/bin/armv7a-cros-linux-gnueabi-g++ --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
++CPP="$CC -E"
 +
-       case SDL_USEREVENT:
-       {
-         XBMC_Event newEvent;
-@@ -397,9 +407,6 @@
-         ret |= g_application.OnEvent(newEvent);
-         break;
-       }
--      case SDL_VIDEOEXPOSE:
--        g_windowManager.MarkDirty();
--        break;
-     }
-     memset(&event, 0, sizeof(SDL_Event));
-   }
-@@ -409,11 +416,13 @@
++The edit /home/slouken/steamlink-sdk/xbmc-deps/armv7a-cros-linux-gnueabi/share/Toolchain.cmake and change (with the appropriate paths):
++SET(CMAKE_C_FLAGS " --sysroot=/home/slouken/steamlink-sdk/rootfs -marm -mfloat-abi=hard -isystem /home/slouken/steamlink-sdk/xbmc-deps/armv7a-cros-linux-gnueabi/include")
++SET(CMAKE_CXX_FLAGS " --sysroot=/home/slouken/steamlink-sdk/rootfs -marm -mfloat-abi=hard -g -O2 -std=gnu++11  -isystem /home/slouken/steamlink-sdk/xbmc-deps/armv7a-cros-linux-gnueabi/include")
++
++Then edit Makefile.include and add at the top:
++MARVELL_SDK_PATH=$(HOME)/steamlink-sdk
++MARVELL_ROOTFS=$(MARVELL_SDK_PATH)/rootfs
++
++then edit CPU and OS:
++CPU=armv7-a
++OS=linux
++
++and edit CC, CXX and CPP:
++CC=$(HOME)/steamlink-sdk/toolchain/bin/armv7a-cros-linux-gnueabi-gcc --sysroot=$(MARVELL_ROOTFS) -marm -mfloat-abi=hard
++CXX=$(HOME)/steamlink-sdk/toolchain/bin/armv7a-cros-linux-gnueabi-g++ --sysroot=$(MARVELL_ROOTFS) -marm -mfloat-abi=hard
++CPP=$(CC) -E
++
++You'll also need to go to the Steam Link SDK external directory and run valve_make_uninstall in the gmp directory, since it conflicts with the gmp included here.
++
++Once everything is done, we need to fix some things up:
++
++Go to target/openssl/armv7a-cros-linux-gnueabi and copy the shared library files to ~/steamlink-sdk/xbmc-deps/armv7a-cros-linux-gnueabi/lib
++Then go to librtmp and curl, remove the armv7a-cros-linux-gnueabi directories and rebuild against the shared library versions of libssl and libcrypto.
++
++Finally, go to the target/libsdl2/armv7a-cros-linux-gnueabi and make uninstall - we'll use SDL from the Steam Link SDK.
+diff -ruN -x .git kodi.orig/tools/depends/target/ffmpeg/Makefile kodi/tools/depends/target/ffmpeg/Makefile
+--- kodi.orig/tools/depends/target/ffmpeg/Makefile	2016-01-17 01:04:32.511779075 -0800
++++ kodi/tools/depends/target/ffmpeg/Makefile	2016-01-17 07:40:50.701149804 -0800
+@@ -8,7 +8,7 @@
  
- size_t CWinEventsSDL::GetQueueSize()
- {
--  int ret;
-+  int ret = 0;
-   SDL_Event event;
- 
-+#if HAVE_SDL_VERSION == 1
-   if (-1 == (ret = SDL_PeepEvents(&event, 0, SDL_PEEKEVENT, ~0)))
-     ret = 0;
-+#endif
- 
-   return ret;
- }
-diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.h kodi/xbmc/windowing/WinEventsSDL.h
---- kodi.orig/xbmc/windowing/WinEventsSDL.h	2016-01-17 01:04:57.504598283 -0800
-+++ kodi/xbmc/windowing/WinEventsSDL.h	2016-01-17 01:04:36.563911815 -0800
-@@ -28,7 +28,7 @@
- #if HAVE_SDL_VERSION == 1
- #include <SDL/SDL_events.h>
- #elif HAVE_SDL_VERSION == 2
--#include <SDL/SDL_events.h>
-+#include <SDL2/SDL_events.h>
- #endif
- 
- #include "WinEvents.h"
+ # configuration settings
+ ffmpg_config = --prefix=$(PREFIX) --extra-version="kodi-$(VERSION)"
+-ffmpg_config += --cc=$(CC) --cxx=$(CXX) --ar=$(AR) --ranlib=$(RANLIB)
++ffmpg_config += --cc="$(CC)" --cxx="$(CXX)" --ar=$(AR) --ranlib=$(RANLIB)
+ ffmpg_config += --disable-devices --disable-doc
+ ffmpg_config += --disable-ffplay --disable-ffmpeg --disable-sdl
+ ffmpg_config += --disable-ffprobe --disable-ffserver
+diff -ruN -x .git kodi.orig/tools/depends/target/libgpg-error/README-steamlink.txt kodi/tools/depends/target/libgpg-error/README-steamlink.txt
+--- kodi.orig/tools/depends/target/libgpg-error/README-steamlink.txt	1969-12-31 16:00:00.000000000 -0800
++++ kodi/tools/depends/target/libgpg-error/README-steamlink.txt	2016-01-17 07:40:50.701149804 -0800
+@@ -0,0 +1 @@
++Edit armv7a-cros-linux-gnueabi/src/Makefile and set host_triplet = arm-unknown-linux-gnueabi
+diff -ruN -x .git kodi.orig/tools/depends/target/openssl/Makefile kodi/tools/depends/target/openssl/Makefile
+--- kodi.orig/tools/depends/target/openssl/Makefile	2016-01-17 01:04:32.519779338 -0800
++++ kodi/tools/depends/target/openssl/Makefile	2016-01-17 07:40:50.701149804 -0800
+@@ -37,7 +37,7 @@
+ 	#when compiled on darwin it just won't realise that we do crosscompiling
+ 	#so it would stick in -arch i386 or -arch x86_64 into the cflags
+ 	#that would break the cross compile so we have to get rid of these
+-	cd $(PLATFORM); AR="$(AR)" CFLAGS="$(CFLAGS)" CC=$(CC) RANLIB=$(RANLIB) $(CONFIGURE)
++	cd $(PLATFORM); AR="$(AR)" CFLAGS="$(CFLAGS)" CC="$(CC)" RANLIB=$(RANLIB) $(CONFIGURE)
+ 	if test "$(OS)" = "osx"; then \
+ 		sed -ie "s|CC= /usr/bin/gcc-4.2|CC= $(CC)|" "$(PLATFORM)/Makefile"; \
+ 		sed -ie "s|CFLAG= |CFLAG=$(CFLAGS) |" "$(PLATFORM)/Makefile"; \
 diff -ruN -x .git kodi.orig/xbmc/windowing/egl/EGLNativeTypeSDL.cpp kodi/xbmc/windowing/egl/EGLNativeTypeSDL.cpp
 --- kodi.orig/xbmc/windowing/egl/EGLNativeTypeSDL.cpp	1969-12-31 16:00:00.000000000 -0800
 +++ kodi/xbmc/windowing/egl/EGLNativeTypeSDL.cpp	2016-01-17 01:04:36.571912078 -0800
@@ -467,3 +539,101 @@ diff -ruN -x .git kodi.orig/xbmc/windowing/egl/Makefile.in kodi/xbmc/windowing/e
  SRCS+= EGLNativeTypeAmlogic.cpp
  ifeq (@USE_ANDROID@,1)
  SRCS+= EGLNativeTypeAndroid.cpp
+diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.cpp kodi/xbmc/windowing/WinEventsSDL.cpp
+--- kodi.orig/xbmc/windowing/WinEventsSDL.cpp	2016-01-17 01:04:57.504598283 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.cpp	2016-01-17 01:04:36.563911815 -0800
+@@ -39,7 +39,7 @@
+ #include "platform/darwin/osx/CocoaInterface.h"
+ #endif
+ 
+-#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN) && !defined(TARGET_ANDROID)
++#ifdef HAVE_X11
+ #include <X11/Xlib.h>
+ #include <X11/XKBlib.h>
+ #include "input/XBMC_keysym.h"
+@@ -48,7 +48,7 @@
+ 
+ using namespace KODI::MESSAGING;
+ 
+-#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
++#ifdef HAVE_X11
+ // The following chunk of code is Linux specific. For keys that have
+ // with keysym.sym set to zero it checks the scan code, and sets the sym
+ // for some known scan codes. This is mostly the multimedia keys.
+@@ -245,6 +245,7 @@
+         break;
+ #endif
+ 
++#if HAVE_SDL_VERSION == 1
+       case SDL_ACTIVEEVENT:
+         //If the window was inconified or restored
+         if( event.active.state & SDL_APPACTIVE )
+@@ -286,7 +287,7 @@
+           mod |= XBMCKMOD_LSUPER;
+         newEvent.key.keysym.mod = (XBMCMod) mod;
+ 
+-#if defined(TARGET_POSIX) && !defined(TARGET_DARWIN)
++#ifdef HAVE_X11
+         // If the keysym.sym is zero try to get it from the scan code
+         if (newEvent.key.keysym.sym == 0)
+           newEvent.key.keysym.sym = (XBMCKey) SymFromScancode(newEvent.key.keysym.scancode);
+@@ -369,6 +370,7 @@
+         ret |= g_application.OnEvent(newEvent);
+         break;
+       }
++
+       case SDL_VIDEORESIZE:
+       {
+         // Under linux returning from fullscreen, SDL sends an extra event to resize to the desktop
+@@ -389,6 +391,14 @@
+         g_windowManager.MarkDirty();
+         break;
+       }
++
++      case SDL_VIDEOEXPOSE:
++      {
++        g_windowManager.MarkDirty();
++        break;
++      }
++#endif // SDL 1.2
++
+       case SDL_USEREVENT:
+       {
+         XBMC_Event newEvent;
+@@ -397,9 +407,6 @@
+         ret |= g_application.OnEvent(newEvent);
+         break;
+       }
+-      case SDL_VIDEOEXPOSE:
+-        g_windowManager.MarkDirty();
+-        break;
+     }
+     memset(&event, 0, sizeof(SDL_Event));
+   }
+@@ -409,11 +416,13 @@
+ 
+ size_t CWinEventsSDL::GetQueueSize()
+ {
+-  int ret;
++  int ret = 0;
+   SDL_Event event;
+ 
++#if HAVE_SDL_VERSION == 1
+   if (-1 == (ret = SDL_PeepEvents(&event, 0, SDL_PEEKEVENT, ~0)))
+     ret = 0;
++#endif
+ 
+   return ret;
+ }
+diff -ruN -x .git kodi.orig/xbmc/windowing/WinEventsSDL.h kodi/xbmc/windowing/WinEventsSDL.h
+--- kodi.orig/xbmc/windowing/WinEventsSDL.h	2016-01-17 01:04:57.504598283 -0800
++++ kodi/xbmc/windowing/WinEventsSDL.h	2016-01-17 01:04:36.563911815 -0800
+@@ -28,7 +28,7 @@
+ #if HAVE_SDL_VERSION == 1
+ #include <SDL/SDL_events.h>
+ #elif HAVE_SDL_VERSION == 2
+-#include <SDL/SDL_events.h>
++#include <SDL2/SDL_events.h>
+ #endif
+ 
+ #include "WinEvents.h"
