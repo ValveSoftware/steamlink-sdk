@@ -1,0 +1,94 @@
+Using the glibc microbenchmark suite
+====================================
+
+The glibc microbenchmark suite automatically generates code for specified
+functions, builds and calls them repeatedly for given inputs to give some
+basic performance properties of the function.
+
+Running the benchmark:
+=====================
+
+The benchmark can be executed by invoking make as follows:
+
+  $ make bench
+
+This runs each function for 10 seconds and appends its output to
+benchtests/bench.out.  To ensure that the tests are rebuilt, one could run:
+
+  $ make bench-clean
+
+The duration of each test can be configured setting the BENCH_DURATION variable
+in the call to make.  One should run `make bench-clean' before changing
+BENCH_DURATION.
+
+  $ make BENCH_DURATION=1 bench
+
+The benchmark suite does function call measurements using architecture-specific
+high precision timing instructions whenever available.  When such support is
+not available, it uses clock_gettime (CLOCK_PROCESS_CPUTIME_ID).  One can force
+the benchmark to use clock_gettime by invoking make as follows:
+
+  $ make USE_CLOCK_GETTIME=1 bench
+
+Again, one must run `make bench-clean' before changing the measurement method.
+
+Adding a function to benchtests:
+===============================
+
+If the name of the function is `foo', then the following procedure should allow
+one to add `foo' to the bench tests:
+
+- Append the function name to the bench variable in the Makefile.
+
+- Make a file called `foo-inputs` to provide the definition and input for the
+  function.  The file should have some directives telling the parser script
+  about the function and then one input per line.  Directives are lines that
+  have a special meaning for the parser and they begin with two hashes '##'.
+  The following directives are recognized:
+
+  - args: This should be assigned a colon separated list of types of the input
+    arguments.  This directive may be skipped if the function does not take any
+    inputs.  One may identify output arguments by nesting them in <>.  The
+    generator will create variables to get outputs from the calling function.
+  - ret: This should be assigned the type that the function returns.  This
+    directive may be skipped if the function does not return a value.
+  - includes: This should be assigned a comma-separated list of headers that
+    need to be included to provide declarations for the function and types it
+    may need (specifically, this includes using "#include <header>").
+  - include-sources: This should be assigned a comma-separated list of source
+    files that need to be included to provide definitions of global variables
+    and functions (specifically, this includes using "#include "source").
+  - name: See following section for instructions on how to use this directive.
+
+  Lines beginning with a single hash '#' are treated as comments.  See
+  pow-inputs for an example of an input file.
+
+Multiple execution units per function:
+=====================================
+
+Some functions have distinct performance characteristics for different input
+domains and it may be necessary to measure those separately.  For example, some
+math functions perform computations at different levels of precision (64-bit vs
+240-bit vs 768-bit) and mixing them does not give a very useful picture of the
+performance of these functions.  One could separate inputs for these domains in
+the same file by using the `name' directive that looks something like this:
+
+  ##name: 240bit
+
+See the pow-inputs file for an example of what such a partitioned input file
+would look like.
+
+Benchmark Sets:
+==============
+
+In addition to standard benchmarking of functions, one may also generate
+custom outputs for a set of functions.  This is currently used by string
+function benchmarks where the aim is to compare performance between
+implementations at various alignments and for various sizes.
+
+To add a benchset for `foo':
+
+- Add `foo' to the benchset variable.
+- Write your bench-foo.c that prints out the measurements to stdout.
+- On execution, a bench-foo.out is created in $(objpfx) with the contents of
+  stdout.

@@ -1,0 +1,46 @@
+GLIBC_PROVIDES dnl See aclocal.m4 in the top level source directory.
+# Local configure fragment for sysdeps/arm.
+
+dnl It is always possible to access static and hidden symbols in an
+dnl position independent way.
+dnl NOTE: This feature was added by the GCC TLS patches.  We should test for
+dnl it.  Until we do, don't define it.
+#AC_DEFINE(PI_STATIC_AND_HIDDEN)
+
+AC_CACHE_CHECK([whether the CFI directive .cfi_sections is supported],
+  [libc_cv_asm_cfi_directive_sections],
+  [cat > conftest.s <<EOF
+	.text
+	.cfi_sections .debug_frame, .eh_frame
+	.cfi_startproc
+	.cfi_endproc
+EOF
+  if AC_TRY_COMMAND(${CC-cc} $ASFLAGS -c conftest.s 1>&AS_MESSAGE_LOG_FD); then
+    libc_cv_asm_cfi_directive_sections=yes
+  else
+    libc_cv_asm_cfi_directive_sections=no
+  fi
+  rm -f conftest*])
+if test $libc_cv_asm_cfi_directive_sections != yes; then
+  AC_MSG_ERROR([need .cfi_sections in this configuration])
+fi
+
+# We check to see if the compiler and flags are
+# selecting the hard-float ABI and if they are then
+# we set libc_cv_arm_pcs_vfp to yes which causes
+# HAVE_ARM_PCS_VFP to be defined in config.h and
+# in include/libc-symbols.h and thus available to
+# shlib-versions to select the appropriate name for
+# the dynamic linker via %ifdef.
+AC_CACHE_CHECK([whether the compiler is using the ARM hard-float ABI],
+  [libc_cv_arm_pcs_vfp],
+  [AC_EGREP_CPP(yes,[#ifdef __ARM_PCS_VFP
+                      yes
+                     #endif
+  ], libc_cv_arm_pcs_vfp=yes, libc_cv_arm_pcs_vfp=no)])
+if test $libc_cv_arm_pcs_vfp = yes; then
+  AC_DEFINE(HAVE_ARM_PCS_VFP)
+  LIBC_CONFIG_VAR([default-abi], [hard])
+else
+  LIBC_CONFIG_VAR([default-abi], [soft])
+fi

@@ -1,0 +1,242 @@
+@node POSIX Threads
+@c @node POSIX Threads, Internal Probes, Cryptographic Functions, Top
+@chapter POSIX Threads
+@c %MENU% POSIX Threads
+@cindex pthreads
+
+This chapter describes the @glibcadj{} POSIX Thread implementation.
+
+@menu
+* Thread-specific Data::          Support for creating and
+				  managing thread-specific data
+* Non-POSIX Extensions::          Additional functions to extend
+				  POSIX Thread functionality
+@end menu
+
+@node Thread-specific Data
+@section Thread-specific Data
+
+The @glibcadj{} implements functions to allow users to create and manage
+data specific to a thread.  Such data may be destroyed at thread exit,
+if a destructor is provided.  The following functions are defined:
+
+@deftypefun int pthread_key_create (pthread_key_t *@var{key}, void (*@var{destructor})(void*))
+@safety{@prelim{}@mtsafe{}@assafe{}@acsafe{}}
+@c pthread_key_create ok
+@c  KEY_UNUSED ok
+@c  KEY_USABLE ok
+Create a thread-specific data key for the calling thread, referenced by
+@var{key}.
+
+Objects declared with the C++11 @code{thread_local} keyword are destroyed
+before thread-specific data, so they should not be used in thread-specific
+data destructors or even as members of the thread-specific data, since the
+latter is passed as an argument to the destructor function.
+@end deftypefun
+
+@deftypefun int pthread_key_delete (pthread_key_t @var{key})
+@safety{@prelim{}@mtsafe{}@assafe{}@acsafe{}}
+@c pthread_key_delete ok
+@c   This uses atomic compare and exchange to increment the seq number
+@c   after testing it's not a KEY_UNUSED seq number.
+@c  KEY_UNUSED dup ok
+Destroy the thread-specific data @var{key} in the calling thread.  The
+destructor for the thread-specific data is not called during destruction, nor
+is it called during thread exit.
+@end deftypefun
+
+@deftypefun void *pthread_getspecific (pthread_key_t @var{key})
+@safety{@prelim{}@mtsafe{}@assafe{}@acsafe{}}
+@c pthread_getspecific ok
+Return the thread-specific data associated with @var{key} in the calling
+thread.
+@end deftypefun
+
+@deftypefun int pthread_setspecific (pthread_key_t @var{key}, const void *@var{value})
+@safety{@prelim{}@mtsafe{}@asunsafe{@asucorrupt{} @ascuheap{}}@acunsafe{@acucorrupt{} @acsmem{}}}
+@c pthread_setspecific @asucorrupt @ascuheap @acucorrupt @acsmem
+@c   a level2 block may be allocated by a signal handler after
+@c   another call already made a decision to allocate it, thus losing
+@c   the allocated value.  the seq number is updated before the
+@c   value, which might cause an earlier-generation value to seem
+@c   current if setspecific is cancelled or interrupted by a signal
+@c  KEY_UNUSED ok
+@c  calloc dup @ascuheap @acsmem
+Associate the thread-specific @var{value} with @var{key} in the calling thread.
+@end deftypefun
+
+
+@node Non-POSIX Extensions
+@section Non-POSIX Extensions
+
+In addition to implementing the POSIX API for threads, @theglibc{} provides
+additional functions and interfaces to provide functionality not specified in
+the standard.
+
+@menu
+* Default Thread Attributes::             Setting default attributes for
+					  threads in a process.
+@end menu
+
+@node Default Thread Attributes
+@subsection Setting Process-wide defaults for thread attributes
+
+@Theglibc{} provides non-standard API functions to set and get the default
+attributes used in the creation of threads in a process.
+
+@deftypefun int pthread_getattr_default_np (pthread_attr_t *@var{attr})
+@safety{@prelim{}@mtsafe{}@asunsafe{@asulock{}}@acunsafe{@aculock{}}}
+@c Takes lock around read from default_pthread_attr.
+Get the default attribute values and set @var{attr} to match.  This
+function returns @math{0} on success and a non-zero error code on
+failure.
+@end deftypefun
+
+@deftypefun int pthread_setattr_default_np (pthread_attr_t *@var{attr})
+@safety{@prelim{}@mtsafe{}@asunsafe{@ascuheap{} @asulock{}}@acunsafe{@aculock{} @acsmem{}}}
+@c pthread_setattr_default_np @ascuheap @asulock @aculock @acsmem
+@c  check_sched_policy_attr ok
+@c  check_sched_priority_attr ok
+@c   sched_get_priority_min dup ok
+@c   sched_get_priority_max dup ok
+@c  check_cpuset_attr ok
+@c   determine_cpumask_size ok
+@c  check_stacksize_attr ok
+@c  lll_lock @asulock @aculock
+@c  free dup @ascuheap @acsmem
+@c  realloc dup @ascuheap @acsmem
+@c  memcpy dup ok
+@c  lll_unlock @asulock @aculock
+Set the default attribute values to match the values in @var{attr}.  The
+function returns @math{0} on success and a non-zero error code on failure.
+The following error codes are defined for this function:
+
+@table @code
+@item EINVAL
+At least one of the values in @var{attr} does not qualify as valid for the
+attributes or the stack address is set in the attribute.
+@item ENOMEM
+The system does not have sufficient memory.
+@end table
+@end deftypefun
+
+@c FIXME these are undocumented:
+@c pthread_atfork
+@c pthread_attr_destroy
+@c pthread_attr_getaffinity_np
+@c pthread_attr_getdetachstate
+@c pthread_attr_getguardsize
+@c pthread_attr_getinheritsched
+@c pthread_attr_getschedparam
+@c pthread_attr_getschedpolicy
+@c pthread_attr_getscope
+@c pthread_attr_getstack
+@c pthread_attr_getstackaddr
+@c pthread_attr_getstacksize
+@c pthread_attr_init
+@c pthread_attr_setaffinity_np
+@c pthread_attr_setdetachstate
+@c pthread_attr_setguardsize
+@c pthread_attr_setinheritsched
+@c pthread_attr_setschedparam
+@c pthread_attr_setschedpolicy
+@c pthread_attr_setscope
+@c pthread_attr_setstack
+@c pthread_attr_setstackaddr
+@c pthread_attr_setstacksize
+@c pthread_barrierattr_destroy
+@c pthread_barrierattr_getpshared
+@c pthread_barrierattr_init
+@c pthread_barrierattr_setpshared
+@c pthread_barrier_destroy
+@c pthread_barrier_init
+@c pthread_barrier_wait
+@c pthread_cancel
+@c pthread_cleanup_push
+@c pthread_cleanup_pop
+@c pthread_condattr_destroy
+@c pthread_condattr_getclock
+@c pthread_condattr_getpshared
+@c pthread_condattr_init
+@c pthread_condattr_setclock
+@c pthread_condattr_setpshared
+@c pthread_cond_broadcast
+@c pthread_cond_destroy
+@c pthread_cond_init
+@c pthread_cond_signal
+@c pthread_cond_timedwait
+@c pthread_cond_wait
+@c pthread_create
+@c pthread_detach
+@c pthread_equal
+@c pthread_exit
+@c pthread_getaffinity_np
+@c pthread_getattr_np
+@c pthread_getconcurrency
+@c pthread_getcpuclockid
+@c pthread_getname_np
+@c pthread_getschedparam
+@c pthread_join
+@c pthread_kill
+@c pthread_kill_other_threads_np
+@c pthread_mutexattr_destroy
+@c pthread_mutexattr_getkind_np
+@c pthread_mutexattr_getprioceiling
+@c pthread_mutexattr_getprotocol
+@c pthread_mutexattr_getpshared
+@c pthread_mutexattr_getrobust
+@c pthread_mutexattr_getrobust_np
+@c pthread_mutexattr_gettype
+@c pthread_mutexattr_init
+@c pthread_mutexattr_setkind_np
+@c pthread_mutexattr_setprioceiling
+@c pthread_mutexattr_setprotocol
+@c pthread_mutexattr_setpshared
+@c pthread_mutexattr_setrobust
+@c pthread_mutexattr_setrobust_np
+@c pthread_mutexattr_settype
+@c pthread_mutex_consistent
+@c pthread_mutex_consistent_np
+@c pthread_mutex_destroy
+@c pthread_mutex_getprioceiling
+@c pthread_mutex_init
+@c pthread_mutex_lock
+@c pthread_mutex_setprioceiling
+@c pthread_mutex_timedlock
+@c pthread_mutex_trylock
+@c pthread_mutex_unlock
+@c pthread_once
+@c pthread_rwlockattr_destroy
+@c pthread_rwlockattr_getkind_np
+@c pthread_rwlockattr_getpshared
+@c pthread_rwlockattr_init
+@c pthread_rwlockattr_setkind_np
+@c pthread_rwlockattr_setpshared
+@c pthread_rwlock_destroy
+@c pthread_rwlock_init
+@c pthread_rwlock_rdlock
+@c pthread_rwlock_timedrdlock
+@c pthread_rwlock_timedwrlock
+@c pthread_rwlock_tryrdlock
+@c pthread_rwlock_trywrlock
+@c pthread_rwlock_unlock
+@c pthread_rwlock_wrlock
+@c pthread_self
+@c pthread_setaffinity_np
+@c pthread_setcancelstate
+@c pthread_setcanceltype
+@c pthread_setconcurrency
+@c pthread_setname_np
+@c pthread_setschedparam
+@c pthread_setschedprio
+@c pthread_sigmask
+@c pthread_sigqueue
+@c pthread_spin_destroy
+@c pthread_spin_init
+@c pthread_spin_lock
+@c pthread_spin_trylock
+@c pthread_spin_unlock
+@c pthread_testcancel
+@c pthread_timedjoin_np
+@c pthread_tryjoin_np
+@c pthread_yield
