@@ -76,7 +76,7 @@
 #define HAVE_STDINT_H 1
 #define HAVE_CTYPE_H 1
 #define HAVE_MATH_H 1
-/* #undef HAVE_ICONV_H */
+#define HAVE_ICONV_H 1
 #define HAVE_SIGNAL_H 1
 /* #undef HAVE_ALTIVEC_H */
 /* #undef HAVE_PTHREAD_NP_H */
