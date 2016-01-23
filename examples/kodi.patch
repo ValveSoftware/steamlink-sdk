@@ -213,7 +213,7 @@ diff -ruN -x .git kodi.orig/steamlink/apps/kodi/toc.txt kodi/steamlink/apps/kodi
 +run=startkodi.sh
 diff -ruN -x .git kodi.orig/tools/depends/README-steamlink.txt kodi/tools/depends/README-steamlink.txt
 --- kodi.orig/tools/depends/README-steamlink.txt	1969-12-31 16:00:00.000000000 -0800
-+++ kodi/tools/depends/README-steamlink.txt	2016-01-17 07:40:50.701149804 -0800
++++ kodi/tools/depends/README-steamlink.txt	2016-01-22 23:05:01.517340099 -0800
 @@ -0,0 +1,37 @@
 +First run:
 +./configure --with-toolchain=$HOME/steamlink-sdk/toolchain --prefix=$HOME/steamlink-sdk/xbmc-deps --host=armv7a-cros-linux-gnueabi
@@ -248,10 +248,27 @@ diff -ruN -x .git kodi.orig/tools/depends/README-steamlink.txt kodi/tools/depend
 +
 +Once everything is done, we need to fix some things up:
 +
-+Go to target/openssl/armv7a-cros-linux-gnueabi and copy the shared library files to ~/steamlink-sdk/xbmc-deps/armv7a-cros-linux-gnueabi/lib
++Go to target/openssl/armv7a-cros-linux-gnueabi and copy the shared libraries and symlinks to ~/steamlink-sdk/xbmc-deps/armv7a-cros-linux-gnueabi/lib
 +Then go to librtmp and curl, remove the armv7a-cros-linux-gnueabi directories and rebuild against the shared library versions of libssl and libcrypto.
 +
 +Finally, go to the target/libsdl2/armv7a-cros-linux-gnueabi and make uninstall - we'll use SDL from the Steam Link SDK.
+diff -ruN -x .git kodi.orig/tools/depends/target/boost/fix-modern-glibc-pthreads.patch kodi/tools/depends/target/boost/fix-modern-glibc-pthreads.patch
+--- kodi.orig/tools/depends/target/boost/fix-modern-glibc-pthreads.patch	1969-12-31 16:00:00.000000000 -0800
++++ kodi/tools/depends/target/boost/fix-modern-glibc-pthreads.patch	2016-01-22 23:05:01.537340814 -0800
+@@ -0,0 +1,13 @@
++diff -ru armv7a-cros-linux-gnueabi.old/boost/config/stdlib/libstdcpp3.hpp armv7a-cros-linux-gnueabi/boost/config/stdlib/libstdcpp3.hpp
++--- armv7a-cros-linux-gnueabi.old/boost/config/stdlib/libstdcpp3.hpp	2010-06-11 04:16:34.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/boost/config/stdlib/libstdcpp3.hpp	2016-01-19 08:34:39.682747723 -0800
++@@ -31,7 +31,8 @@
++ 
++ #ifdef __GLIBCXX__ // gcc 3.4 and greater:
++ #  if defined(_GLIBCXX_HAVE_GTHR_DEFAULT) \
++-        || defined(_GLIBCXX__PTHREADS)
+++        || defined(_GLIBCXX__PTHREADS) \
+++        || defined(_GLIBCXX_HAS_GTHREADS)
++       //
++       // If the std lib has thread support turned on, then turn it on in Boost
++       // as well.  We do this because some gcc-3.4 std lib headers define _REENTANT
 diff -ruN -x .git kodi.orig/tools/depends/target/boost/fix-move-disables-implicit-copy.patch kodi/tools/depends/target/boost/fix-move-disables-implicit-copy.patch
 --- kodi.orig/tools/depends/target/boost/fix-move-disables-implicit-copy.patch	1969-12-31 16:00:00.000000000 -0800
 +++ kodi/tools/depends/target/boost/fix-move-disables-implicit-copy.patch	2016-01-17 15:49:15.728501898 -0800
@@ -338,14 +355,332 @@ diff -ruN -x .git kodi.orig/tools/depends/target/boost/fix-move-disables-implici
 + 
 + //
 + //  The "obvious" converting constructor implementation:
+diff -ruN -x .git kodi.orig/tools/depends/target/boost/fix-xtime-time_utc.patch kodi/tools/depends/target/boost/fix-xtime-time_utc.patch
+--- kodi.orig/tools/depends/target/boost/fix-xtime-time_utc.patch	1969-12-31 16:00:00.000000000 -0800
++++ kodi/tools/depends/target/boost/fix-xtime-time_utc.patch	2016-01-22 23:05:01.537340814 -0800
+@@ -0,0 +1,305 @@
++diff -ru armv7a-cros-linux-gnueabi.old/boost/thread/xtime.hpp armv7a-cros-linux-gnueabi/boost/thread/xtime.hpp
++--- armv7a-cros-linux-gnueabi.old/boost/thread/xtime.hpp	2008-06-18 06:01:08.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/boost/thread/xtime.hpp	2016-01-18 17:53:50.276639131 -0800
++@@ -20,7 +20,7 @@
++ 
++ enum xtime_clock_types
++ {
++-    TIME_UTC=1
+++    TIME_UTC_=1
++ //    TIME_TAI,
++ //    TIME_MONOTONIC,
++ //    TIME_PROCESS,
++@@ -68,7 +68,7 @@
++ 
++ inline int xtime_get(struct xtime* xtp, int clock_type)
++ {
++-    if (clock_type == TIME_UTC)
+++    if (clock_type == TIME_UTC_)
++     {
++         *xtp=get_xtime(get_system_time());
++         return clock_type;
++diff -ru armv7a-cros-linux-gnueabi.old/libs/interprocess/test/condition_test_template.hpp armv7a-cros-linux-gnueabi/libs/interprocess/test/condition_test_template.hpp
++--- armv7a-cros-linux-gnueabi.old/libs/interprocess/test/condition_test_template.hpp	2009-10-15 11:45:53.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/interprocess/test/condition_test_template.hpp	2016-01-18 22:05:03.548494930 -0800
++@@ -49,8 +49,8 @@
++     const int NANOSECONDS_PER_MILLISECOND = 1000000;
++ 
++     boost::xtime xt;
++-    int ret = boost::xtime_get(&xt, boost::TIME_UTC);
++-    assert(ret == static_cast<int>(boost::TIME_UTC));(void)ret;
+++    int ret = boost::xtime_get(&xt, boost::TIME_UTC_);
+++    assert(ret == static_cast<int>(boost::TIME_UTC_));(void)ret;
++     nsecs += xt.nsec;
++     msecs += nsecs / NANOSECONDS_PER_MILLISECOND;
++     secs += msecs / MILLISECONDS_PER_SECOND;
++diff -ru armv7a-cros-linux-gnueabi.old/libs/interprocess/test/util.hpp armv7a-cros-linux-gnueabi/libs/interprocess/test/util.hpp
++--- armv7a-cros-linux-gnueabi.old/libs/interprocess/test/util.hpp	2009-10-15 11:45:53.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/interprocess/test/util.hpp	2016-01-18 22:04:59.552589864 -0800
++@@ -71,7 +71,7 @@
++ boost::xtime xsecs(int secs)
++ {
++    boost::xtime ret;
++-   boost::xtime_get(&ret, boost::TIME_UTC);
+++   boost::xtime_get(&ret, boost::TIME_UTC_);
++    ret.sec += secs;
++    return ret;
++ }
++diff -ru armv7a-cros-linux-gnueabi.old/libs/spirit/classic/test/grammar_mt_tests.cpp armv7a-cros-linux-gnueabi/libs/spirit/classic/test/grammar_mt_tests.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/spirit/classic/test/grammar_mt_tests.cpp	2008-06-22 08:05:38.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/spirit/classic/test/grammar_mt_tests.cpp	2016-01-18 22:04:55.800678974 -0800
++@@ -70,7 +70,7 @@
++ {
++     static long const nanoseconds_per_second = 1000L*1000L*1000L;
++     boost::xtime xt;
++-    boost::xtime_get(&xt, boost::TIME_UTC);
+++    boost::xtime_get(&xt, boost::TIME_UTC_);
++     xt.nsec+=1000*1000*milliseconds;
++     while (xt.nsec > nanoseconds_per_second)
++     {
++diff -ru armv7a-cros-linux-gnueabi.old/libs/spirit/classic/test/owi_mt_tests.cpp armv7a-cros-linux-gnueabi/libs/spirit/classic/test/owi_mt_tests.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/spirit/classic/test/owi_mt_tests.cpp	2008-06-22 08:05:38.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/spirit/classic/test/owi_mt_tests.cpp	2016-01-18 22:04:52.204691943 -0800
++@@ -86,7 +86,7 @@
++             return test_size;
++ 
++         boost::xtime now;
++-        boost::xtime_get(&now, boost::TIME_UTC);
+++        boost::xtime_get(&now, boost::TIME_UTC_);
++         unsigned long seconds = now.sec - start_time.sec;
++         if (seconds < 4)
++         {
++@@ -187,7 +187,7 @@
++ void concurrent_creation_of_objects()
++ {
++     {
++-        boost::xtime_get(&start_time, boost::TIME_UTC);
+++        boost::xtime_get(&start_time, boost::TIME_UTC_);
++         boost::thread thread1(callable_ref(test1));
++         boost::thread thread2(callable_ref(test2));
++         boost::thread thread3(callable_ref(test3));
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/example/starvephil.cpp armv7a-cros-linux-gnueabi/libs/thread/example/starvephil.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/thread/example/starvephil.cpp	2006-09-14 14:51:01.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/thread/example/starvephil.cpp	2016-01-18 22:04:46.820281302 -0800
++@@ -50,7 +50,7 @@
++                       << "very hot ..." << std::endl;
++         }
++         boost::xtime xt;
++-        boost::xtime_get(&xt, boost::TIME_UTC);
+++        boost::xtime_get(&xt, boost::TIME_UTC_);
++         xt.sec += 3;
++         boost::thread::sleep(xt);
++         m_chickens += value;
++@@ -85,7 +85,7 @@
++             std::cout << "(" << clock() << ") Chef: cooking ..." << std::endl;
++         }
++         boost::xtime xt;
++-        boost::xtime_get(&xt, boost::TIME_UTC);
+++        boost::xtime_get(&xt, boost::TIME_UTC_);
++         xt.sec += 2;
++         boost::thread::sleep(xt);
++         {
++@@ -111,7 +111,7 @@
++             if (m_id > 0)
++             {
++                 boost::xtime xt;
++-                boost::xtime_get(&xt, boost::TIME_UTC);
+++                boost::xtime_get(&xt, boost::TIME_UTC_);
++                 xt.sec += 3;
++                 boost::thread::sleep(xt);
++             }
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/example/tennis.cpp armv7a-cros-linux-gnueabi/libs/thread/example/tennis.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/thread/example/tennis.cpp	2009-10-19 02:18:13.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/thread/example/tennis.cpp	2016-01-18 22:04:34.131313298 -0800
++@@ -104,7 +104,7 @@
++     boost::thread thrdb(thread_adapter(&player, (void*)PLAYER_B));
++ 
++     boost::xtime xt;
++-    boost::xtime_get(&xt, boost::TIME_UTC);
+++    boost::xtime_get(&xt, boost::TIME_UTC_);
++     xt.sec += 1;
++     boost::thread::sleep(xt);
++     {
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/example/thread.cpp armv7a-cros-linux-gnueabi/libs/thread/example/thread.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/thread/example/thread.cpp	2006-09-14 14:51:01.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/thread/example/thread.cpp	2016-01-18 22:04:30.459033081 -0800
++@@ -14,7 +14,7 @@
++     void operator()()
++     {
++         boost::xtime xt;
++-        boost::xtime_get(&xt, boost::TIME_UTC);
+++        boost::xtime_get(&xt, boost::TIME_UTC_);
++         xt.sec += m_secs;
++ 
++         boost::thread::sleep(xt);
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/example/xtime.cpp armv7a-cros-linux-gnueabi/libs/thread/example/xtime.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/thread/example/xtime.cpp	2006-09-14 14:51:01.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/thread/example/xtime.cpp	2016-01-18 22:04:39.139695419 -0800
++@@ -10,7 +10,7 @@
++ int main(int argc, char* argv[])
++ {
++     boost::xtime xt;
++-    boost::xtime_get(&xt, boost::TIME_UTC);
+++    boost::xtime_get(&xt, boost::TIME_UTC_);
++     xt.sec += 1;
++     boost::thread::sleep(xt); // Sleep for 1 second
++ }
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/src/pthread/thread.cpp armv7a-cros-linux-gnueabi/libs/thread/src/pthread/thread.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/thread/src/pthread/thread.cpp	2010-07-09 12:13:09.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/thread/src/pthread/thread.cpp	2016-01-18 22:04:02.164873491 -0800
++@@ -350,7 +350,7 @@
++                     cond.timed_wait(lock, xt);
++ #   endif
++                     xtime cur;
++-                    xtime_get(&cur, TIME_UTC);
+++                    xtime_get(&cur, TIME_UTC_);
++                     if (xtime_cmp(xt, cur) <= 0)
++                         return;
++                 }
++@@ -365,7 +365,7 @@
++             BOOST_VERIFY(!pthread_yield());
++ #   else
++             xtime xt;
++-            xtime_get(&xt, TIME_UTC);
+++            xtime_get(&xt, TIME_UTC_);
++             sleep(xt);
++ #   endif
++         }
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/src/pthread/timeconv.inl armv7a-cros-linux-gnueabi/libs/thread/src/pthread/timeconv.inl
++--- armv7a-cros-linux-gnueabi.old/libs/thread/src/pthread/timeconv.inl	2010-04-01 08:04:15.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/thread/src/pthread/timeconv.inl	2016-01-18 22:04:16.141940259 -0800
++@@ -20,8 +20,8 @@
++ inline void to_time(int milliseconds, boost::xtime& xt)
++ {
++     int res = 0;
++-    res = boost::xtime_get(&xt, boost::TIME_UTC);
++-    BOOST_ASSERT(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&xt, boost::TIME_UTC_);
+++    BOOST_ASSERT(res == boost::TIME_UTC_);
++ 
++     xt.sec += (milliseconds / MILLISECONDS_PER_SECOND);
++     xt.nsec += ((milliseconds % MILLISECONDS_PER_SECOND) *
++@@ -57,8 +57,8 @@
++ {
++     boost::xtime cur;
++     int res = 0;
++-    res = boost::xtime_get(&cur, boost::TIME_UTC);
++-    BOOST_ASSERT(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&cur, boost::TIME_UTC_);
+++    BOOST_ASSERT(res == boost::TIME_UTC_);
++ 
++     if (boost::xtime_cmp(xt, cur) <= 0)
++     {
++@@ -88,8 +88,8 @@
++ {
++     boost::xtime cur;
++     int res = 0;
++-    res = boost::xtime_get(&cur, boost::TIME_UTC);
++-    BOOST_ASSERT(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&cur, boost::TIME_UTC_);
+++    BOOST_ASSERT(res == boost::TIME_UTC_);
++ 
++     if (boost::xtime_cmp(xt, cur) <= 0)
++         milliseconds = 0;
++@@ -110,8 +110,8 @@
++ {
++     boost::xtime cur;
++     int res = 0;
++-    res = boost::xtime_get(&cur, boost::TIME_UTC);
++-    BOOST_ASSERT(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&cur, boost::TIME_UTC_);
+++    BOOST_ASSERT(res == boost::TIME_UTC_);
++ 
++     if (boost::xtime_cmp(xt, cur) <= 0)
++         microseconds = 0;
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/src/win32/timeconv.inl armv7a-cros-linux-gnueabi/libs/thread/src/win32/timeconv.inl
++--- armv7a-cros-linux-gnueabi.old/libs/thread/src/win32/timeconv.inl	2007-11-25 10:38:02.000000000 -0800
+++++ armv7a-cros-linux-gnueabi/libs/thread/src/win32/timeconv.inl	2016-01-18 22:04:25.570660011 -0800
++@@ -17,8 +17,8 @@
++ inline void to_time(int milliseconds, boost::xtime& xt)
++ {
++     int res = 0;
++-    res = boost::xtime_get(&xt, boost::TIME_UTC);
++-    assert(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&xt, boost::TIME_UTC_);
+++    assert(res == boost::TIME_UTC_);
++ 
++     xt.sec += (milliseconds / MILLISECONDS_PER_SECOND);
++     xt.nsec += ((milliseconds % MILLISECONDS_PER_SECOND) *
++@@ -54,8 +54,8 @@
++ {
++     boost::xtime cur;
++     int res = 0;
++-    res = boost::xtime_get(&cur, boost::TIME_UTC);
++-    assert(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&cur, boost::TIME_UTC_);
+++    assert(res == boost::TIME_UTC_);
++ 
++     if (boost::xtime_cmp(xt, cur) <= 0)
++     {
++@@ -85,8 +85,8 @@
++ {
++     boost::xtime cur;
++     int res = 0;
++-    res = boost::xtime_get(&cur, boost::TIME_UTC);
++-    assert(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&cur, boost::TIME_UTC_);
+++    assert(res == boost::TIME_UTC_);
++ 
++     if (boost::xtime_cmp(xt, cur) <= 0)
++         milliseconds = 0;
++@@ -107,8 +107,8 @@
++ {
++     boost::xtime cur;
++     int res = 0;
++-    res = boost::xtime_get(&cur, boost::TIME_UTC);
++-    assert(res == boost::TIME_UTC);
+++    res = boost::xtime_get(&cur, boost::TIME_UTC_);
+++    assert(res == boost::TIME_UTC_);
++ 
++     if (boost::xtime_cmp(xt, cur) <= 0)
++         microseconds = 0;
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/test/test_xtime.cpp armv7a-cros-linux-gnueabi/libs/thread/test/test_xtime.cpp
++--- armv7a-cros-linux-gnueabi.old/libs/thread/test/test_xtime.cpp	2008-07-08 00:44:55.000000000 -0700
+++++ armv7a-cros-linux-gnueabi/libs/thread/test/test_xtime.cpp	2016-01-18 22:03:43.752385517 -0800
++@@ -17,8 +17,8 @@
++ {
++     boost::xtime xt1, xt2, cur;
++     BOOST_CHECK_EQUAL(
++-        boost::xtime_get(&cur, boost::TIME_UTC),
++-        static_cast<int>(boost::TIME_UTC));
+++        boost::xtime_get(&cur, boost::TIME_UTC_),
+++        static_cast<int>(boost::TIME_UTC_));
++ 
++     xt1 = xt2 = cur;
++     xt1.nsec -= 1;
++@@ -42,14 +42,14 @@
++     boost::xtime orig, cur, old;
++     BOOST_CHECK_EQUAL(
++         boost::xtime_get(&orig,
++-            boost::TIME_UTC), static_cast<int>(boost::TIME_UTC));
+++            boost::TIME_UTC_), static_cast<int>(boost::TIME_UTC_));
++     old = orig;
++ 
++     for (int x=0; x < 100; ++x)
++     {
++         BOOST_CHECK_EQUAL(
++-            boost::xtime_get(&cur, boost::TIME_UTC),
++-            static_cast<int>(boost::TIME_UTC));
+++            boost::xtime_get(&cur, boost::TIME_UTC_),
+++            static_cast<int>(boost::TIME_UTC_));
++         BOOST_CHECK(boost::xtime_cmp(cur, orig) >= 0);
++         BOOST_CHECK(boost::xtime_cmp(cur, old) >= 0);
++         old = cur;
++diff -ru armv7a-cros-linux-gnueabi.old/libs/thread/test/util.inl armv7a-cros-linux-gnueabi/libs/thread/test/util.inl
++--- armv7a-cros-linux-gnueabi.old/libs/thread/test/util.inl	2008-11-03 14:29:39.000000000 -0800
+++++ armv7a-cros-linux-gnueabi/libs/thread/test/util.inl	2016-01-18 22:03:52.120188275 -0800
++@@ -28,7 +28,7 @@
++     const int NANOSECONDS_PER_MILLISECOND = 1000000;
++ 
++     boost::xtime xt;
++-    if (boost::TIME_UTC != boost::xtime_get (&xt, boost::TIME_UTC))
+++    if (boost::TIME_UTC_ != boost::xtime_get (&xt, boost::TIME_UTC_))
++         BOOST_ERROR ("boost::xtime_get != boost::TIME_UTC");
++ 
++     nsecs += xt.nsec;
 diff -ruN -x .git kodi.orig/tools/depends/target/boost/Makefile kodi/tools/depends/target/boost/Makefile
 --- kodi.orig/tools/depends/target/boost/Makefile	2016-01-17 01:04:32.507778944 -0800
-+++ kodi/tools/depends/target/boost/Makefile	2016-01-17 15:49:15.728501898 -0800
-@@ -25,6 +25,7 @@
++++ kodi/tools/depends/target/boost/Makefile	2016-01-22 23:05:01.537340814 -0800
+@@ -1,5 +1,5 @@
+ include ../../Makefile.include
+-DEPS= ../../Makefile.include add-arm-mem-barrier.patch fix-deprecated-swp.patch fix_shared_ptr_multithread.patch Makefile
++DEPS= ../../Makefile.include Makefile add-arm-mem-barrier.patch fix-deprecated-swp.patch fix-move-disables-implicit-copy.patch fix-self-assignment-warnings.patch fix_shared_ptr_multithread.patch fix-xtime-time_utc.patch fix-modern-glibc-pthreads.patch
+ 
+ #Headers Only!
+ LIBNAME=boost
+@@ -25,6 +25,9 @@
  	cd $(PLATFORM); patch -p0 < ../fix_shared_ptr_multithread.patch
  endif
  	cd $(PLATFORM); patch -p1 < ../fix-self-assignment-warnings.patch
 +	cd $(PLATFORM); patch -p1 < ../fix-move-disables-implicit-copy.patch
++	cd $(PLATFORM); patch -p1 < ../fix-xtime-time_utc.patch
++	cd $(PLATFORM); patch -p1 < ../fix-modern-glibc-pthreads.patch
  	cd $(PLATFORM); ./bootstrap.sh --prefix=$(PREFIX)
  
  .installed-$(PLATFORM): $(PLATFORM)
