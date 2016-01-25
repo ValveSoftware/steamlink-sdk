@@ -9,8 +9,8 @@ CPUOBJS += $(OBJ)/cpu/z80_drz80/drz80.o $(OBJ)/cpu/z80_drz80/drz80_z80.o
 
 #CPUOBJS += $(OBJ)/cpu/nec_armnec/armV30.o $(OBJ)/cpu/nec_armnec/armV33.o $(OBJ)/cpu/nec_armnec/armnecintrf.o
 
-OSOBJS = $(OBJ)/rpi/minimal.o \
-	$(OBJ)/rpi/rpi.o $(OBJ)/rpi/video.o $(OBJ)/rpi/blit.o \
-	$(OBJ)/rpi/sound.o $(OBJ)/rpi/input.o $(OBJ)/rpi/fileio.o \
-	$(OBJ)/rpi/config.o $(OBJ)/rpi/fronthlp.o \
-	$(OBJ)/rpi/gp2x_frontend.o $(OBJ)/rpi/glib_ini_file.o
+OSOBJS = $(OBJ)/sdl/minimal.o \
+	$(OBJ)/sdl/sdl.o $(OBJ)/sdl/video.o $(OBJ)/sdl/blit.o \
+	$(OBJ)/sdl/sound.o $(OBJ)/sdl/input.o $(OBJ)/sdl/fileio.o \
+	$(OBJ)/sdl/config.o $(OBJ)/sdl/fronthlp.o \
+	$(OBJ)/sdl/gp2x_frontend.o $(OBJ)/sdl/glib_ini_file.o

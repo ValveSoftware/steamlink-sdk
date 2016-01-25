@@ -6,7 +6,8 @@ endif
 # (actually you'll probably need your own main makefile anyways)
 # MAMEOS = msdos
 #MAMEOS = gp2x
-MAMEOS = rpi
+#MAMEOS = rpi
+MAMEOS = sdl
 
 # extension for executables
 # EXE = .exe

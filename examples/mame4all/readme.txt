@@ -1,8 +1,8 @@
-MAME4ALL for Pi by Squid
+MAME4ALL for Steam Link by Sam Lantinga
 
 INTRODUCTION
 
-This is a MAME Raspberry Pi port based on Franxis MAME4ALL which is itself based on the MAME 0.37b5 emulator by Nicola Salmoria.
+This is a MAME Steam Link port based on the Squid Raspberry Pi port based on Franxis MAME4ALL which is itself based on the MAME 0.37b5 emulator by Nicola Salmoria.
 To see MAME license see the end of this document.
 It emulates all arcade games supported by original MAME 0.37b5 plus some additional games from newer MAME versions.
 
@@ -10,15 +10,7 @@ This version emulates 2270 different romsets.
 
 Although this is an old version of MAME it plays much faster than the newer versions and as the Pi is relatively CPU underpowered (yes even the RPi2) it was chosen to get as many games working at full speed as possible (full speed means 100% with no frame skip). It also plays most of the games I'm interested in playing!
 
-This is a highly optimised version for the Raspberry Pi, using GLES2/dispmanx for graphics, ALSA for sound and SDL for input. It also uses the GPU for post-processing effects like scanlines.
-
-Pi Store version is here:
-http://store.raspberrypi.com/
-
-Web page for downloads, news, source, additional information:
-https://sourceforge.net/projects/mame4allpi/
-
-(No asking for ROMS)
+This is a highly optimised version for the Steam Link, using SDL for graphics, audio and input.
 
 
 CONTROLS
@@ -37,8 +29,9 @@ NOTE: To type OK when MAME requires it with the joystick, press LEFT and then RI
 
 
 INSTALLATION
-For the Pi Store version place the ROMS in the directory:
-/usr/local/bin/indiecity/InstalledApps/mame4all/Full/roms/
+Run the build_steamlink.sh script, which creates a steamlink folder that you
+can put on a USB drive and put into the Steam Link. Once you power cyle the
+Steam Link, it will copy the files and any roms you have in the roms directory.
 
 mame        -> MAME and frontend.
 mame.cfg    -> MAME configuration file, limited support to only the options in the supplied file (not the full MAME settings).
@@ -56,49 +49,6 @@ samples/    -> Samples directory
 skins/      -> Frontend skins directory
 snap/       -> Screen snapshots directory
 sta/        -> Save states directory
-
-To run MAME simple run the "mame" executable. At the command line "./mame".
-This runs the GUI frontend by default. To simply run MAME without the GUI
-enter "./mame {gamerom}" where "{gamerom}" is the game to run.
-
-It will work in X-Windows or in the Console (which is preferred).
-
-
-Pi CONFIGURATION
-
-I highly recommend overclocking your Raspberry Pi to gain maximum performance as MAME is very CPU intensive and overclocking will make most games run at full speed. The Pi 2 does not require overclocking.
-
-Overclocking is supported by the Raspberry Foundation.
-
-My overclocking settings which work well, (/boot/config.txt)
-arm_freq=900
-core_freq=300
-sdram_freq=500
-
-NOTE: Make sure overclocking is actually working by checking "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor" should be "ondemand". Later kernels appear to set it to "powersave" by default. You will also need to make this permanent after a reboot.
-
-I'd also recommend a minimum of 64MB for the GPU RAM allocation (gpu_mem=64).
-
-If your sound is too quiet then do the following to fix that:
-First get the playback device, type "amixer controls"
-This will show the numid for the playback device, probably 3.
-Now set the volume, type "amixer cset numid=3 90%".
-Then reboot to make it permanent.
-
-If you're having problems with HDMI audio then it is likely PulseAudio
-is causing the issues as it has problems with the ALSA drivers. To fix
-this simply remove PulseAudio:
-sudo apt-get --purge remove pulseaudio
-sudo apt-get autoremove
-
-Additionally some TVs have problems with mono sound through HDMI, to fix this try setting the "force_stereo" to "yes" in mame.cfg.
-
-If you're getting a black screen when running in Console mode with
-Composite output, try removing/commenting out the "overscan_" parameters from "/boot/config.txt" as follows (using disable_overscan doesn't appear to fix it):
-#overscan_left=16
-#overscan_right=16
-#overscan_top=16
-#overscan_bottom=16
 
 If the image goes off your TV screen then you can change the border width by setting "display_border" in mame.cfg. 
 
@@ -167,12 +117,15 @@ ORIGINAL CREDITS
 
 PORT CREDITS
 
+  * Ported to Steam Link by Sam Lantinga
   * Ported to Raspberry Pi by Squid.
   * Original MAM4ALL port to GP2X, WIZ and CAANOO by Franxis (franxism@gmail.com) based on source code MAME 0.37b5 (dated on july 2000).
-  * ALSA sound code is based on code from RetroArch (http://themaister.net/retroarch.html)
 
 
 CHANGE LOG
+
+January 25, 2016:
+  * Initial port to Steam Link
 
 February 11, 2015:
   * Increased joystick axis detection.
@@ -239,12 +192,8 @@ TODO
 
 KNOWN PROBLEMS
 
-  * Not perfect sound or incomplete in some games. Sometimes simply quiting a game and restarting can fix the sound - believe this is due to ALSA Pi driver bugs. Additionally try removing pulseaudio to improve sound problems.
-  * Make sure nothing is running in the background. For best performance run in the console instead of X-Windows. But if experiencing black screen in the console, try running in X-Windows or use the console overscan settings above.
-  * The SDL input drivers are a little buggy, if input suddenly stops, reboot the Pi.
   * If a game crashes either during play or on exit try disabling the DrZ80 core (-nodrz80_snd) on the command line.
-  * Slow playability in modern games. Most games run at full speed on an overclocked Pi.
-  * Memory leaks. In case of errors/crashes reboot your Pi.
+  * Slow playability in modern games.
 
 THANKS TO
 
