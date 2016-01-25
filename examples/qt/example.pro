@@ -51,3 +51,7 @@ TRANSLATIONS += \
 	translations/example_uk_UA.ts \
 	translations/example_zh_CN.ts \
 	translations/example_zh_TW.ts \
+
+removesteamlink.commands = $(RM) -r steamlink
+distclean.depends = removesteamlink
+QMAKE_EXTRA_TARGETS += distclean removesteamlink

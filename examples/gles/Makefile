@@ -12,3 +12,4 @@ clean:
 
 distclean: clean
 	$(RM) testgles2
+	$(RM) -r steamlink

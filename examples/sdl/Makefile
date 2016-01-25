@@ -12,3 +12,4 @@ clean:
 
 distclean: clean
 	$(RM) testspriteminimal
+	$(RM) -r steamlink
