@@ -17,30 +17,27 @@ VPATH=src $(wildcard src/cpu/*)
 
 # compiler, linker and utilities
 MD = @mkdir -p
-RM = rm -f
-CC  = gcc
-CPP = g++
-AS  = as
-LD  = gcc
-STRIP = strip
+#RM = rm -f
+#CC  = gcc
+#CPP = g++
+#AS  = as
+LD  = $(CXX)
+STRIP = :
+CPP = $(CXX)
 
 EMULATOR = $(TARGET)$(EXE)
 
 DEFS = -DGP2X -DLSB_FIRST -DALIGN_INTS -DALIGN_SHORTS -DINLINE="static __inline" -Dasm="__asm__ __volatile__" -DMAME_UNDERCLOCK -DENABLE_AUTOFIRE -DBIGCASE
 ##sq DEFS = -DGP2X -DLSB_FIRST -DALIGN_INTS -DALIGN_SHORTS -DINLINE="static __inline" -Dasm="__asm__ __volatile__" -DMAME_UNDERCLOCK -DMAME_FASTSOUND -DENABLE_AUTOFIRE -DBIGCASE
 
+OPTIMIZE := -g -O2
 CFLAGS += -fsigned-char $(DEVLIBS) \
 	-Isrc -Isrc/$(MAMEOS) -Isrc/zlib \
-	-I/usr/include/SDL \
-	-I$(SDKSTAGE)/opt/vc/include -I$(SDKSTAGE)/opt/vc/include/interface/vcos/pthreads \
-	-I$(SDKSTAGE)/opt/vc/include/interface/vmcs_host/linux \
-	-I/usr/include/glib-2.0 -I/usr/lib/arm-linux-gnueabihf/glib-2.0/include \
-	-O3 -ffast-math -fno-builtin -fsingle-precision-constant \
-	-Wall -Wno-sign-compare -Wunused -Wpointer-arith -Wcast-align -Waggregate-return -Wshadow 
+	-I$(MARVELL_ROOTFS)/usr/include/SDL2 \
+	$(OPTIMIZE) -ffast-math -fno-builtin -fsingle-precision-constant \
+	-Wall -Wno-sign-compare -Wunused -Wpointer-arith -Wcast-align -Waggregate-return -Wshadow -Wno-write-strings -Wno-narrowing
 
-LDFLAGS = $(CFLAGS)
-
-LIBS = -lm -lpthread -lSDL -L$(SDKSTAGE)/opt/vc/lib -lbcm_host -lGLESv2 -lEGL -lglib-2.0 -lasound -lrt
+LIBS = -lm -lpthread -lSDL2 -lGLESv2 -lEGL -lasound -lrt
 
 OBJ = obj_$(TARGET)_$(MAMEOS)
 OBJDIRS = $(OBJ) $(OBJ)/cpu $(OBJ)/sound $(OBJ)/$(MAMEOS) \

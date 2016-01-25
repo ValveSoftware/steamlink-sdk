@@ -8,8 +8,11 @@
 
 #include "driver.h"
 #include <ctype.h>
-#include "allegro.h"
+#ifdef HAVE_GLIB
 #include <glib.h>
+#else
+#include "glib_ini_file.h"
+#endif
 
 /* from video.c */
 extern int frameskip,autoframeskip;
@@ -53,52 +56,26 @@ int fast_sound=0;
 /* from minimal.c */
 extern int rotate_controls;
 
-static struct { char *name; int id; } joy_table[] =
-{
-	{ "none",               JOY_TYPE_NONE },
-	{ "auto",               JOY_TYPE_AUTODETECT },
-	{ "standard",           JOY_TYPE_STANDARD },
-	{ "dual",               JOY_TYPE_2PADS },
-	{ "4button",            JOY_TYPE_4BUTTON },
-	{ "6button",            JOY_TYPE_6BUTTON },
-	{ "8button",            JOY_TYPE_8BUTTON },
-	{ "fspro",              JOY_TYPE_FSPRO },
-	{ "wingex",             JOY_TYPE_WINGEX },
-	{ "sidewinder",         JOY_TYPE_SIDEWINDER },
-	{ "gamepadpro",         JOY_TYPE_GAMEPAD_PRO },
-	{ "grip",               JOY_TYPE_GRIP },
-	{ "grip4",              JOY_TYPE_GRIP4 },
-	{ "sneslpt1",           JOY_TYPE_SNESPAD_LPT1 },
-	{ "sneslpt2",           JOY_TYPE_SNESPAD_LPT2 },
-	{ "sneslpt3",           JOY_TYPE_SNESPAD_LPT3 },
-	{ "psxlpt1",            JOY_TYPE_PSXPAD_LPT1 },
-	{ "psxlpt2",            JOY_TYPE_PSXPAD_LPT2 },
-	{ "psxlpt3",            JOY_TYPE_PSXPAD_LPT3 },
-	{ "n64lpt1",            JOY_TYPE_N64PAD_LPT1 },
-	{ "n64lpt2",            JOY_TYPE_N64PAD_LPT2 },
-	{ "n64lpt3",            JOY_TYPE_N64PAD_LPT3 },
-	{ "wingwarrior",        JOY_TYPE_WINGWARRIOR },
-	{ "segaisa",            JOY_TYPE_IFSEGA_ISA },
-	{ "segapci",            JOY_TYPE_IFSEGA_PCI },
-	{ 0, 0 }
-} ;
-
 static GKeyFile *gkeyfile=0;
 
 void open_config_file(void)
 {
 	GError *error = NULL;
 
-	gkeyfile = g_key_file_new ();
-	if (!(int)g_key_file_load_from_file (gkeyfile, "mame.cfg", G_KEY_FILE_NONE, &error))
+	if (!gkeyfile)
 	{
-	    gkeyfile=0;
+		gkeyfile = g_key_file_new();
+		if (!(int)g_key_file_load_from_file (gkeyfile, "mame.cfg", G_KEY_FILE_NONE, &error))
+		{
+		    gkeyfile=0;
+		}
 	}
 }
 
 void close_config_file(void)
 {
-	g_key_file_free(gkeyfile);
+	// Leave it open for other config queries
+	//g_key_file_free(gkeyfile);
 }
 
 /*
@@ -374,6 +351,7 @@ void parse_cmdline (int argc, char **argv, int game_index)
 	/* read input configuration */
 	use_mouse = get_bool   ("config", "mouse",   NULL,  1);
 	joyname   = get_string ("config", "joystick", "joy", "standard");
+	joystick = (strcmp(joyname, "none") != 0);
 
 	/* misc configuration */
 	options.cheat      = get_bool ("config", "cheat", NULL, 0);
@@ -447,27 +425,6 @@ void parse_cmdline (int argc, char **argv, int game_index)
 
 		options.vector_width = gfx_width;
 		options.vector_height = gfx_height;
-	}
-
-	/* convert joystick name into an Allegro-compliant joystick signature */
-	joystick = -2; /* default to invalid value */
-
-	for (i = 0; joy_table[i].name != NULL; i++)
-	{
-		if (strcasecmp (joy_table[i].name, joyname) == 0)
-		{
-			joystick = joy_table[i].id;
-			logerror("using joystick %s = %08x\n",
-						joyname,joy_table[i].id);
-			break;
-		}
-	}
-
-	if (joystick == -2)
-	{
-		logerror("%s is not a valid entry for a joystick\n",
-					joyname);
-		joystick = JOY_TYPE_NONE;
 	}
 
 	/* Underclock settings */

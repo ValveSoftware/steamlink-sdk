@@ -3,7 +3,6 @@
 #include "driver.h"
 #include "ui_text.h" /* LBO 042400 */
 #include "artwork.h"
-//sqdebug #include "port_wrapper.h"
 
 static struct RunningMachine machine;
 struct RunningMachine *Machine = &machine;

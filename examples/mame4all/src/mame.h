@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-//sqdebug #include "port_wrapper.h"
 
 #ifdef MESS
 #include "mess/mess.h"

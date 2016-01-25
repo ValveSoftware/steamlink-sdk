@@ -7,7 +7,6 @@
 #include "minimal.h"
 #include "gp2x_frontend_list.h"
 #include <SDL.h>
-#include "allegro.h"
 
 int game_num_avail=0;
 static int last_game_selected=0;
@@ -33,32 +32,34 @@ static unsigned short *gp2xsplash_bmp;
 #define MAXFAVS 1000
 static char favarray[MAXFAVS][9];
 
-static void gp2x_exit(void);
-
-#define gp2x_color15(R,G,B)  ((R >> 3) << 11) | (( G >> 2) << 5 ) | (( B >> 3 ) << 0 )
-
-#define A_1 0
-#define START_1 6
-#define SELECT_1 7
-#define UP_1 8
-#define DOWN_1 9
-#define LEFT_1 10
-#define RIGHT_1 11
-#define QUIT 12
+enum
+{
+	A_1,
+	START_1,
+	SELECT_1,
+	UP_1,
+	DOWN_1,
+	LEFT_1,
+	RIGHT_1,
+	QUIT,
+	NUMKEYS
+};
 
 void open_config_file(void);
 void close_config_file(void);
 int get_int (char *section, char *option, char *shortcut, int def);
 int is_joy_button_pressed (int button, int ExKey);
 
-static void load_bmp_16bpp(unsigned short *out, unsigned short *in)
+static void load_bmp_16bpp(uint32_t *out, unsigned short *in)
 {
- 	int y;
+ 	int x,y;
 
 	//Load bitmap, file will be flipped y so invert
 	in+=(640*480)-1;
  	for (y=479;y!=-1;y--) {
-		memcpy(out, in, 640*2);
+		for (x=0;x<640;++x) {
+			out[x] = gp2x_col16to32(in[x]);
+		}
 		out+=640;
 		in-=640;
 	}
@@ -99,7 +100,7 @@ static void gp2x_intro_screen(int first_run) {
 	}
 
 	if(first_run) {
-		load_bmp_16bpp(gp2x_screen15,gp2xsplash_bmp);
+		load_bmp_16bpp(gp2x_screen32,gp2xsplash_bmp);
 		FE_DisplayScreen();
 		sleep(1);
 	}
@@ -304,7 +305,7 @@ static void game_list_view(int *pos) {
 	int screen_x = 38;
 
 	/* Draw background image */
-	load_bmp_16bpp(gp2x_screen15,gp2xmenu_bmp);
+	load_bmp_16bpp(gp2x_screen32,gp2xmenu_bmp);
 
 	/* Check Limits */
 	if (*pos<0)
@@ -342,17 +343,17 @@ static void game_list_view(int *pos) {
 
 				if (aux_pos==*pos) {
 					if(foundfav) 
-						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color15(50,255,50));
+						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color32(50,255,50));
 					else
-						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color15(0,150,255));
-					gp2x_gamelist_text_out( screen_x-10, screen_y,">",gp2x_color15(255,255,255) );
-					gp2x_gamelist_text_out( screen_x-13, screen_y-1,"-",gp2x_color15(255,255,255) );
+						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color32(0,150,255));
+					gp2x_gamelist_text_out( screen_x-10, screen_y,">",gp2x_color32(255,255,255) );
+					gp2x_gamelist_text_out( screen_x-13, screen_y-1,"-",gp2x_color32(255,255,255) );
 				}
 				else {
 					if(foundfav) 
-						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color15(50,255,50));
+						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color32(50,255,50));
 					else
-						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color15(255,255,255));
+						gp2x_gamelist_text_out( screen_x, screen_y, fe_drivers[i].description, gp2x_color32(255,255,255));
 				}
 				
 				screen_y+=8;
@@ -397,23 +398,13 @@ static char *game_list_description (int index)
 }
 
 
-static void gp2x_exit(void)
-{
-	remove("frontend/mame.lst");
-	sync();
-	gp2x_deinit();
-    deinit_SDL();
-	exit(0);
-}
-
 extern unsigned long ExKey1;
 
 extern int osd_is_sdlkey_pressed(int inkey);
 extern int is_joy_axis_pressed (int axis, int dir, int joynum);
 
-#define NUMKEYS 256
-static Uint16 pi_key[NUMKEYS];
-static Uint16 pi_joy[NUMKEYS];
+static int pi_key[NUMKEYS];
+static int pi_joy[NUMKEYS];
 int joyaxis_LR, joyaxis_UD;
 
 static void select_game(char *emu, char *game)
@@ -568,8 +559,8 @@ void frontend_gui (char *gamename, int first_run)
 	if (game_num_avail==0)
 	{
 		/* Draw background image */
-    	load_bmp_16bpp(gp2x_screen15,gp2xmenu_bmp);
-		gp2x_gamelist_text_out(35, 110, "ERROR: NO AVAILABLE GAMES FOUND",gp2x_color15(255,255,255));
+    	load_bmp_16bpp(gp2x_screen32,gp2xmenu_bmp);
+		gp2x_gamelist_text_out(35, 110, "ERROR: NO AVAILABLE GAMES FOUND",gp2x_color32(255,255,255));
 		FE_DisplayScreen();
 		sleep(5);
 		gp2x_exit();
@@ -584,18 +575,18 @@ void frontend_gui (char *gamename, int first_run)
 	}
 
 	//Read joystick configuration
-	memset(pi_key, 0, NUMKEYS*2);
-	memset(pi_joy, 0, NUMKEYS*2);
+	memset(pi_key, 0, sizeof(pi_key));
+	memset(pi_joy, 0, sizeof(pi_key));
 	open_config_file();	
 
-	pi_key[START_1] = get_int("frontend", "K_START",    NULL, KEY_ENTER);
-	pi_key[SELECT_1] = get_int("frontend", "K_SELECT",    NULL, KEY_5);
-	pi_key[LEFT_1] = get_int("frontend", "K_LEFT",    NULL, KEY_LEFT);
-	pi_key[RIGHT_1] = get_int("frontend", "K_RIGHT",    NULL, KEY_RIGHT);
-	pi_key[UP_1] = get_int("frontend", "K_UP",    NULL, KEY_UP);
-	pi_key[DOWN_1] = get_int("frontend", "K_DOWN",    NULL, KEY_DOWN);
-	pi_key[A_1] = get_int("frontend", "K_A",    NULL, KEY_LCONTROL);
-	pi_key[QUIT] = get_int("frontend", "K_QUIT",    NULL, KEY_ESC);
+	pi_key[START_1] = get_int("frontend", "K_START",    NULL, SDL_SCANCODE_RETURN);
+	pi_key[SELECT_1] = get_int("frontend", "K_SELECT",    NULL, SDL_SCANCODE_5);
+	pi_key[LEFT_1] = get_int("frontend", "K_LEFT",    NULL, SDL_SCANCODE_LEFT);
+	pi_key[RIGHT_1] = get_int("frontend", "K_RIGHT",    NULL, SDL_SCANCODE_RIGHT);
+	pi_key[UP_1] = get_int("frontend", "K_UP",    NULL, SDL_SCANCODE_UP);
+	pi_key[DOWN_1] = get_int("frontend", "K_DOWN",    NULL, SDL_SCANCODE_DOWN);
+	pi_key[A_1] = get_int("frontend", "K_A",    NULL, SDL_SCANCODE_LCTRL);
+	pi_key[QUIT] = get_int("frontend", "K_QUIT",    NULL, SDL_SCANCODE_ESCAPE);
 
 	pi_joy[START_1] = get_int("frontend", "J_START",    NULL, 9);
 	pi_joy[SELECT_1] = get_int("frontend", "J_SELECT",    NULL, 8);

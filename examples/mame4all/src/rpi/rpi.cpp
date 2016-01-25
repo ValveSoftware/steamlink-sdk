@@ -12,6 +12,8 @@
 #include <signal.h>
 #include <time.h>
 #include <ctype.h>
+#include <limits.h>
+#include <stdio.h>
 #include "stdarg.h"
 #include "string.h"
 #include "minimal.h"
@@ -116,15 +118,20 @@ int main (int argc, char **argv)
     int use_gui=0;
     int first_run=1;
 
-    char abspath[1000];
-
 	kiosk_mode=0;
 
-    realpath(argv[0], abspath);
-    char *dirsep = strrchr(abspath, '/');
-    if( dirsep != 0 ) *dirsep = 0;
-	chdir(abspath);
-    
+	{
+	    char *abspath = (char*)malloc(PATH_MAX);
+		if (!abspath) {
+			logerror("Out of memory\n");
+		}
+	    realpath(argv[0], abspath);
+	    char *dirsep = strrchr(abspath, '/');
+	    if( dirsep != 0 ) *dirsep = 0;
+		chdir(abspath);
+		free(abspath);
+	}
+ 
 	memset(&options,0,sizeof(options));
 
 	/* these two are not available in mame.cfg */
@@ -432,11 +439,12 @@ gui_loop:
 
 void CLIB_DECL logerror(const char *text,...)
 {
-	if (errorlog)
-	{
-		va_list arg;
-		va_start(arg,text);
+	va_list arg;
+	va_start(arg,text);
+	if (errorlog) {
 		vfprintf(errorlog,text,arg);
-		va_end(arg);
+	} else {
+		vfprintf(stderr,text,arg);
 	}
+	va_end(arg);
 }

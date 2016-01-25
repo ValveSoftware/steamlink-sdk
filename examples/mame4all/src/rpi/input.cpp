@@ -1,15 +1,13 @@
-#include "allegro.h"
 #include "driver.h"
 #include <SDL.h>
 
-int use_mouse;
-int joystick;
+int use_mouse=1;
+int joystick=0;
 
 unsigned long ExKey1=0;
 unsigned long ExKey2=0;
 unsigned long ExKey3=0;
 unsigned long ExKey4=0;
-unsigned long ExKeyKB=0;
 int num_joysticks=4;
 
 int mouse_xrel=0;
@@ -20,221 +18,113 @@ Uint8 mouse_button=0;
 
 static struct KeyboardInfo keylist[] =
 {
-	{ "A",			KEY_A,				KEYCODE_A },
-	{ "B",			KEY_B,				KEYCODE_B },
-	{ "C",			KEY_C,				KEYCODE_C },
-	{ "D",			KEY_D,				KEYCODE_D },
-	{ "E",			KEY_E,				KEYCODE_E },
-	{ "F",			KEY_F,				KEYCODE_F },
-	{ "G",			KEY_G,				KEYCODE_G },
-	{ "H",			KEY_H,				KEYCODE_H },
-	{ "I",			KEY_I,				KEYCODE_I },
-	{ "J",			KEY_J,				KEYCODE_J },
-	{ "K",			KEY_K,				KEYCODE_K },
-	{ "L",			KEY_L,				KEYCODE_L },
-	{ "M",			KEY_M,				KEYCODE_M },
-	{ "N",			KEY_N,				KEYCODE_N },
-	{ "O",			KEY_O,				KEYCODE_O },
-	{ "P",			KEY_P,				KEYCODE_P },
-	{ "Q",			KEY_Q,				KEYCODE_Q },
-	{ "R",			KEY_R,				KEYCODE_R },
-	{ "S",			KEY_S,				KEYCODE_S },
-	{ "T",			KEY_T,				KEYCODE_T },
-	{ "U",			KEY_U,				KEYCODE_U },
-	{ "V",			KEY_V,				KEYCODE_V },
-	{ "W",			KEY_W,				KEYCODE_W },
-	{ "X",			KEY_X,				KEYCODE_X },
-	{ "Y",			KEY_Y,				KEYCODE_Y },
-	{ "Z",			KEY_Z,				KEYCODE_Z },
-	{ "0",			KEY_0,				KEYCODE_0 },
-	{ "1",			KEY_1,				KEYCODE_1 },
-	{ "2",			KEY_2,				KEYCODE_2 },
-	{ "3",			KEY_3,				KEYCODE_3 },
-	{ "4",			KEY_4,				KEYCODE_4 },
-	{ "5",			KEY_5,				KEYCODE_5 },
-	{ "6",			KEY_6,				KEYCODE_6 },
-	{ "7",			KEY_7,				KEYCODE_7 },
-	{ "8",			KEY_8,				KEYCODE_8 },
-	{ "9",			KEY_9,				KEYCODE_9 },
-	{ "0 PAD",		KEY_0_PAD,			KEYCODE_0_PAD },
-	{ "1 PAD",		KEY_1_PAD,			KEYCODE_1_PAD },
-	{ "2 PAD",		KEY_2_PAD,			KEYCODE_2_PAD },
-	{ "3 PAD",		KEY_3_PAD,			KEYCODE_3_PAD },
-	{ "4 PAD",		KEY_4_PAD,			KEYCODE_4_PAD },
-	{ "5 PAD",		KEY_5_PAD,			KEYCODE_5_PAD },
-	{ "6 PAD",		KEY_6_PAD,			KEYCODE_6_PAD },
-	{ "7 PAD",		KEY_7_PAD,			KEYCODE_7_PAD },
-	{ "8 PAD",		KEY_8_PAD,			KEYCODE_8_PAD },
-	{ "9 PAD",		KEY_9_PAD,			KEYCODE_9_PAD },
-	{ "F1",			KEY_F1,				KEYCODE_F1 },
-	{ "F2",			KEY_F2,				KEYCODE_F2 },
-	{ "F3",			KEY_F3,				KEYCODE_F3 },
-	{ "F4",			KEY_F4,				KEYCODE_F4 },
-	{ "F5",			KEY_F5,				KEYCODE_F5 },
-	{ "F6",			KEY_F6,				KEYCODE_F6 },
-	{ "F7",			KEY_F7,				KEYCODE_F7 },
-	{ "F8",			KEY_F8,				KEYCODE_F8 },
-	{ "F9",			KEY_F9,				KEYCODE_F9 },
-	{ "F10",		KEY_F10,			KEYCODE_F10 },
-	{ "F11",		KEY_F11,			KEYCODE_F11 },
-	{ "F12",		KEY_F12,			KEYCODE_F12 },
-	{ "ESC",		KEY_ESC,			KEYCODE_ESC },
-	{ "~",			KEY_TILDE,			KEYCODE_TILDE },
-	{ "-",          	KEY_MINUS,          		KEYCODE_MINUS },
-	{ "=",          	KEY_EQUALS,         		KEYCODE_EQUALS },
-	{ "BKSPACE",		KEY_BACKSPACE,			KEYCODE_BACKSPACE },
-	{ "TAB",		KEY_TAB,			KEYCODE_TAB },
-	{ "[",          	KEY_OPENBRACE,      		KEYCODE_OPENBRACE },
-	{ "]",          	KEY_CLOSEBRACE,     		KEYCODE_CLOSEBRACE },
-	{ "ENTER",		KEY_ENTER,			KEYCODE_ENTER },
-	{ ";",          	KEY_COLON,          		KEYCODE_COLON },
-	{ ":",          	KEY_QUOTE,          		KEYCODE_QUOTE },
-	{ "\\",         	KEY_BACKSLASH,      		KEYCODE_BACKSLASH },
-	{ "<",          	KEY_BACKSLASH2,     		KEYCODE_BACKSLASH2 },
-	{ ",",          	KEY_COMMA,          		KEYCODE_COMMA },
-	{ ".",          	KEY_STOP,           		KEYCODE_STOP },
-	{ "/",          	KEY_SLASH,          		KEYCODE_SLASH },
-	{ "SPACE",		KEY_SPACE,			KEYCODE_SPACE },
-	{ "INS",		KEY_INSERT,			KEYCODE_INSERT },
-	{ "DEL",		KEY_DEL,			KEYCODE_DEL },
-	{ "HOME",		KEY_HOME,			KEYCODE_HOME },
-	{ "END",		KEY_END,			KEYCODE_END },
-	{ "PGUP",		KEY_PGUP,			KEYCODE_PGUP },
-	{ "PGDN",		KEY_PGDN,			KEYCODE_PGDN },
-	{ "LEFT",		KEY_LEFT,			KEYCODE_LEFT },
-	{ "RIGHT",		KEY_RIGHT,			KEYCODE_RIGHT },
-	{ "UP",			KEY_UP,				KEYCODE_UP },
-	{ "DOWN",		KEY_DOWN,			KEYCODE_DOWN },
-	{ "/ PAD",      	KEY_SLASH_PAD,      		KEYCODE_SLASH_PAD },
-	{ "* PAD",      	KEY_ASTERISK,       		KEYCODE_ASTERISK },
-	{ "- PAD",      	KEY_MINUS_PAD,      		KEYCODE_MINUS_PAD },
-	{ "+ PAD",      	KEY_PLUS_PAD,       		KEYCODE_PLUS_PAD },
-	{ ". PAD",      	KEY_DEL_PAD,        		KEYCODE_DEL_PAD },
-	{ "ENTER PAD",  	KEY_ENTER_PAD,      		KEYCODE_ENTER_PAD },
-	{ "PRTSCR",     	KEY_PRTSCR,         		KEYCODE_PRTSCR },
-	{ "PAUSE",      	KEY_PAUSE,          		KEYCODE_PAUSE },
-	{ "LSHIFT",		KEY_LSHIFT,			KEYCODE_LSHIFT },
-	{ "RSHIFT",		KEY_RSHIFT,			KEYCODE_RSHIFT },
-	{ "LCTRL",		KEY_LCONTROL,			KEYCODE_LCONTROL },
-	{ "RCTRL",		KEY_RCONTROL,			KEYCODE_RCONTROL },
-	{ "ALT",		KEY_ALT,			KEYCODE_LALT },
-	{ "ALTGR",		KEY_ALTGR,			KEYCODE_RALT },
-	{ "LWIN",		KEY_LWIN,			KEYCODE_OTHER },
-	{ "RWIN",		KEY_RWIN,			KEYCODE_OTHER },
-	{ "MENU",		KEY_MENU,			KEYCODE_OTHER },
-	{ "SCRLOCK",    	KEY_SCRLOCK,        		KEYCODE_SCRLOCK },
-	{ "NUMLOCK",    	KEY_NUMLOCK,        		KEYCODE_NUMLOCK },
-	{ "CAPSLOCK",   	KEY_CAPSLOCK,       		KEYCODE_CAPSLOCK },
+	{ "A",			SDL_SCANCODE_A,				KEYCODE_A },
+	{ "B",			SDL_SCANCODE_B,				KEYCODE_B },
+	{ "C",			SDL_SCANCODE_C,				KEYCODE_C },
+	{ "D",			SDL_SCANCODE_D,				KEYCODE_D },
+	{ "E",			SDL_SCANCODE_E,				KEYCODE_E },
+	{ "F",			SDL_SCANCODE_F,				KEYCODE_F },
+	{ "G",			SDL_SCANCODE_G,				KEYCODE_G },
+	{ "H",			SDL_SCANCODE_H,				KEYCODE_H },
+	{ "I",			SDL_SCANCODE_I,				KEYCODE_I },
+	{ "J",			SDL_SCANCODE_J,				KEYCODE_J },
+	{ "K",			SDL_SCANCODE_K,				KEYCODE_K },
+	{ "L",			SDL_SCANCODE_L,				KEYCODE_L },
+	{ "M",			SDL_SCANCODE_M,				KEYCODE_M },
+	{ "N",			SDL_SCANCODE_N,				KEYCODE_N },
+	{ "O",			SDL_SCANCODE_O,				KEYCODE_O },
+	{ "P",			SDL_SCANCODE_P,				KEYCODE_P },
+	{ "Q",			SDL_SCANCODE_Q,				KEYCODE_Q },
+	{ "R",			SDL_SCANCODE_R,				KEYCODE_R },
+	{ "S",			SDL_SCANCODE_S,				KEYCODE_S },
+	{ "T",			SDL_SCANCODE_T,				KEYCODE_T },
+	{ "U",			SDL_SCANCODE_U,				KEYCODE_U },
+	{ "V",			SDL_SCANCODE_V,				KEYCODE_V },
+	{ "W",			SDL_SCANCODE_W,				KEYCODE_W },
+	{ "X",			SDL_SCANCODE_X,				KEYCODE_X },
+	{ "Y",			SDL_SCANCODE_Y,				KEYCODE_Y },
+	{ "Z",			SDL_SCANCODE_Z,				KEYCODE_Z },
+	{ "0",			SDL_SCANCODE_0,				KEYCODE_0 },
+	{ "1",			SDL_SCANCODE_1,				KEYCODE_1 },
+	{ "2",			SDL_SCANCODE_2,				KEYCODE_2 },
+	{ "3",			SDL_SCANCODE_3,				KEYCODE_3 },
+	{ "4",			SDL_SCANCODE_4,				KEYCODE_4 },
+	{ "5",			SDL_SCANCODE_5,				KEYCODE_5 },
+	{ "6",			SDL_SCANCODE_6,				KEYCODE_6 },
+	{ "7",			SDL_SCANCODE_7,				KEYCODE_7 },
+	{ "8",			SDL_SCANCODE_8,				KEYCODE_8 },
+	{ "9",			SDL_SCANCODE_9,				KEYCODE_9 },
+	{ "0 PAD",		SDL_SCANCODE_KP_0,			KEYCODE_0_PAD },
+	{ "1 PAD",		SDL_SCANCODE_KP_1,			KEYCODE_1_PAD },
+	{ "2 PAD",		SDL_SCANCODE_KP_2,			KEYCODE_2_PAD },
+	{ "3 PAD",		SDL_SCANCODE_KP_3,			KEYCODE_3_PAD },
+	{ "4 PAD",		SDL_SCANCODE_KP_4,			KEYCODE_4_PAD },
+	{ "5 PAD",		SDL_SCANCODE_KP_5,			KEYCODE_5_PAD },
+	{ "6 PAD",		SDL_SCANCODE_KP_6,			KEYCODE_6_PAD },
+	{ "7 PAD",		SDL_SCANCODE_KP_7,			KEYCODE_7_PAD },
+	{ "8 PAD",		SDL_SCANCODE_KP_8,			KEYCODE_8_PAD },
+	{ "9 PAD",		SDL_SCANCODE_KP_9,			KEYCODE_9_PAD },
+	{ "F1",			SDL_SCANCODE_F1,			KEYCODE_F1 },
+	{ "F2",			SDL_SCANCODE_F2,			KEYCODE_F2 },
+	{ "F3",			SDL_SCANCODE_F3,			KEYCODE_F3 },
+	{ "F4",			SDL_SCANCODE_F4,			KEYCODE_F4 },
+	{ "F5",			SDL_SCANCODE_F5,			KEYCODE_F5 },
+	{ "F6",			SDL_SCANCODE_F6,			KEYCODE_F6 },
+	{ "F7",			SDL_SCANCODE_F7,			KEYCODE_F7 },
+	{ "F8",			SDL_SCANCODE_F8,			KEYCODE_F8 },
+	{ "F9",			SDL_SCANCODE_F9,			KEYCODE_F9 },
+	{ "F10",		SDL_SCANCODE_F10,			KEYCODE_F10 },
+	{ "F11",		SDL_SCANCODE_F11,			KEYCODE_F11 },
+	{ "F12",		SDL_SCANCODE_F12,			KEYCODE_F12 },
+	{ "ESC",		SDL_SCANCODE_ESCAPE,		KEYCODE_ESC },
+	{ "~",			SDL_SCANCODE_GRAVE,			KEYCODE_TILDE },
+	{ "-",         	SDL_SCANCODE_MINUS,    		KEYCODE_MINUS },
+	{ "=",         	SDL_SCANCODE_EQUALS,   		KEYCODE_EQUALS },
+	{ "BKSPACE",	SDL_SCANCODE_BACKSPACE,		KEYCODE_BACKSPACE },
+	{ "TAB",		SDL_SCANCODE_TAB,			KEYCODE_TAB },
+	{ "[",         	SDL_SCANCODE_LEFTBRACKET,	KEYCODE_OPENBRACE },
+	{ "]",         	SDL_SCANCODE_RIGHTBRACKET,	KEYCODE_CLOSEBRACE },
+	{ "ENTER",		SDL_SCANCODE_RETURN,		KEYCODE_ENTER },
+	{ ";",         	SDL_SCANCODE_SEMICOLON,    	KEYCODE_COLON },
+	{ ":",         	SDL_SCANCODE_APOSTROPHE,   	KEYCODE_QUOTE },
+	{ "\\",        	SDL_SCANCODE_BACKSLASH,    	KEYCODE_BACKSLASH },
+	{ "<",         	SDL_SCANCODE_NONUSHASH,   	KEYCODE_BACKSLASH2 },
+	{ ",",         	SDL_SCANCODE_COMMA,        	KEYCODE_COMMA },
+	{ ".",         	SDL_SCANCODE_STOP,         	KEYCODE_STOP },
+	{ "/",         	SDL_SCANCODE_SLASH,        	KEYCODE_SLASH },
+	{ "SPACE",		SDL_SCANCODE_SPACE,			KEYCODE_SPACE },
+	{ "INS",		SDL_SCANCODE_INSERT,		KEYCODE_INSERT },
+	{ "DEL",		SDL_SCANCODE_DELETE,		KEYCODE_DEL },
+	{ "HOME",		SDL_SCANCODE_HOME,			KEYCODE_HOME },
+	{ "END",		SDL_SCANCODE_END,			KEYCODE_END },
+	{ "PGUP",		SDL_SCANCODE_PAGEUP,		KEYCODE_PGUP },
+	{ "PGDN",		SDL_SCANCODE_PAGEDOWN,		KEYCODE_PGDN },
+	{ "LEFT",		SDL_SCANCODE_LEFT,			KEYCODE_LEFT },
+	{ "RIGHT",		SDL_SCANCODE_RIGHT,			KEYCODE_RIGHT },
+	{ "UP",			SDL_SCANCODE_UP,			KEYCODE_UP },
+	{ "DOWN",		SDL_SCANCODE_DOWN,			KEYCODE_DOWN },
+	{ "/ PAD",     	SDL_SCANCODE_KP_DIVIDE,    	KEYCODE_SLASH_PAD },
+	{ "* PAD",     	SDL_SCANCODE_KP_MULTIPLY,  	KEYCODE_ASTERISK },
+	{ "- PAD",     	SDL_SCANCODE_KP_MINUS,    	KEYCODE_MINUS_PAD },
+	{ "+ PAD",     	SDL_SCANCODE_KP_PLUS,     	KEYCODE_PLUS_PAD },
+	{ ". PAD",     	SDL_SCANCODE_KP_PERIOD,   	KEYCODE_DEL_PAD },
+	{ "ENTER PAD", 	SDL_SCANCODE_KP_ENTER,    	KEYCODE_ENTER_PAD },
+	{ "PRTSCR",    	SDL_SCANCODE_PRINTSCREEN,  	KEYCODE_PRTSCR },
+	{ "PAUSE",     	SDL_SCANCODE_PAUSE,        	KEYCODE_PAUSE },
+	{ "LSHIFT",		SDL_SCANCODE_LSHIFT,		KEYCODE_LSHIFT },
+	{ "RSHIFT",		SDL_SCANCODE_RSHIFT,		KEYCODE_RSHIFT },
+	{ "LCTRL",		SDL_SCANCODE_LCTRL,			KEYCODE_LCONTROL },
+	{ "RCTRL",		SDL_SCANCODE_RCTRL,			KEYCODE_RCONTROL },
+	{ "ALT",		SDL_SCANCODE_LALT,			KEYCODE_LALT },
+	{ "ALTGR",		SDL_SCANCODE_RALT,			KEYCODE_RALT },
+	{ "LWIN",		SDL_SCANCODE_LGUI,			KEYCODE_OTHER },
+	{ "RWIN",		SDL_SCANCODE_RGUI,			KEYCODE_OTHER },
+	{ "MENU",		SDL_SCANCODE_MENU,			KEYCODE_OTHER },
+	{ "SCRLOCK",   	SDL_SCANCODE_SCROLLLOCK,	KEYCODE_SCRLOCK },
+	{ "NUMLOCK",   	SDL_SCANCODE_NUMLOCKCLEAR,	KEYCODE_NUMLOCK },
+	{ "CAPSLOCK",  	SDL_SCANCODE_CAPSLOCK, 		KEYCODE_CAPSLOCK },
 	{ 0, 0, 0 }	/* end of table */
 };
-
-struct SDLtranslate
-{
-    int mamekey;
-    int sdlkey;
-};
-
-
-static struct SDLtranslate sdlkeytranslate[] =
-{
-	{	KEY_A,						SDLK_a },
-	{	KEY_B,						SDLK_b },
-	{	KEY_C,						SDLK_c },
-	{	KEY_D,						SDLK_d },
-	{	KEY_E,						SDLK_e },
-	{	KEY_F,						SDLK_f },
-	{	KEY_G,						SDLK_g },
-	{	KEY_H,						SDLK_h },
-	{	KEY_I,						SDLK_i },
-	{	KEY_J,						SDLK_j },
-	{	KEY_K,						SDLK_k },
-	{	KEY_L,						SDLK_l },
-	{	KEY_M,						SDLK_m },
-	{	KEY_N,						SDLK_n },
-	{	KEY_O,						SDLK_o },
-	{	KEY_P,						SDLK_p },
-	{	KEY_Q,						SDLK_q },
-	{	KEY_R,						SDLK_r },
-	{	KEY_S,						SDLK_s },
-	{	KEY_T,						SDLK_t },
-	{	KEY_U,						SDLK_u },
-	{	KEY_V,						SDLK_v },
-	{	KEY_W,						SDLK_w },
-	{	KEY_X,						SDLK_x },
-	{	KEY_Y,						SDLK_y },
-	{	KEY_Z,						SDLK_z },
-	{	KEY_0,						SDLK_0 },
-	{	KEY_1,						SDLK_1 },
-	{	KEY_2,						SDLK_2 },
-	{	KEY_3,						SDLK_3 },
-	{	KEY_4,						SDLK_4 },
-	{	KEY_5,						SDLK_5 },
-	{	KEY_6,						SDLK_6 },
-	{	KEY_7,						SDLK_7 },
-	{	KEY_8,						SDLK_8 },
-	{	KEY_9,						SDLK_9 },
-	{	KEY_0_PAD,					SDLK_KP0 },
-	{	KEY_1_PAD,					SDLK_KP1 },
-	{	KEY_2_PAD,					SDLK_KP2 },
-	{	KEY_3_PAD,					SDLK_KP3 },
-	{	KEY_4_PAD,					SDLK_KP4 },
-	{	KEY_5_PAD,					SDLK_KP5 },
-	{	KEY_6_PAD,					SDLK_KP6 },
-	{	KEY_7_PAD,					SDLK_KP7 },
-	{	KEY_8_PAD,					SDLK_KP8 },
-	{	KEY_9_PAD,					SDLK_KP9 },
-	{	KEY_F1,						SDLK_F1 },
-	{	KEY_F2,						SDLK_F2 },
-	{	KEY_F3,						SDLK_F3 },
-	{	KEY_F4,						SDLK_F4 },
-	{	KEY_F5,						SDLK_F5 },
-	{	KEY_F6,						SDLK_F6 },
-	{	KEY_F7,						SDLK_F7 },
-	{	KEY_F8,						SDLK_F8 },
-	{	KEY_F9,						SDLK_F9 },
-	{	KEY_F10,					SDLK_F10 },
-	{	KEY_F11,					SDLK_F11 },
-	{	KEY_F12,					SDLK_F12 },
-	{	KEY_ESC,					SDLK_ESCAPE },
-	{	KEY_TILDE,					SDLK_BACKQUOTE },
-	{	KEY_MINUS,		          	SDLK_MINUS },
-	{	KEY_EQUALS,		         	SDLK_EQUALS },
-	{	KEY_BACKSPACE,				SDLK_BACKSPACE },
-	{	KEY_TAB,					SDLK_TAB },
-	{	KEY_OPENBRACE,		      	SDLK_LEFTBRACKET },
-	{	KEY_CLOSEBRACE,		     	SDLK_RIGHTBRACKET },
-	{	KEY_ENTER,					SDLK_RETURN },
-	{	KEY_COLON,		          	SDLK_COLON },
-	{	KEY_QUOTE,		          	SDLK_QUOTE },
-	{	KEY_BACKSLASH,		      	SDLK_BACKSLASH },
-	{	KEY_COMMA,                  SDLK_COMMA },
-	{	KEY_STOP,		           	SDLK_PERIOD },
-	{	KEY_SLASH,		          	SDLK_SLASH },
-	{	KEY_SPACE,					SDLK_SPACE },
-	{	KEY_INSERT,					SDLK_INSERT },
-	{	KEY_DEL,					SDLK_DELETE },
-	{	KEY_HOME,					SDLK_HOME },
-	{	KEY_END,					SDLK_END },
-	{	KEY_PGUP,					SDLK_PAGEUP },
-	{	KEY_PGDN,					SDLK_PAGEDOWN },
-	{	KEY_LEFT,					SDLK_LEFT },
-	{	KEY_RIGHT,					SDLK_RIGHT },
-	{	KEY_UP,						SDLK_UP },
-	{	KEY_DOWN,					SDLK_DOWN },
-	{  	KEY_SLASH_PAD,		      	SDLK_KP_DIVIDE },
-	{	KEY_ASTERISK,		       	SDLK_KP_MULTIPLY },
-	{	KEY_MINUS_PAD,		      	SDLK_KP_MINUS },
-	{  	KEY_PLUS_PAD,		       	SDLK_KP_PLUS },
-	{ 	KEY_ENTER_PAD,		      	SDLK_KP_ENTER },
-	{	KEY_LSHIFT,					SDLK_LSHIFT },
-	{	KEY_RSHIFT,					SDLK_RSHIFT },
-	{	KEY_LCONTROL,				SDLK_LCTRL },
-	{	KEY_RCONTROL,				SDLK_RCTRL },
-	{	KEY_ALT,					SDLK_LALT },
-	{	KEY_ALTGR,					SDLK_RALT },
-	{ 0, 0 }	/* end of table */
-};
-
 
 /* return a list of all available keys */
 const struct KeyboardInfo *osd_get_key_list(void)
@@ -242,38 +132,22 @@ const struct KeyboardInfo *osd_get_key_list(void)
 	return keylist;
 }
 
-static int key[KEY_MAX];
+static bool key[SDL_NUM_SCANCODES];
 
 // Do the translation from SDL Key to mame key
 // and set the mame keys
 //
-void keyprocess(SDLKey inkey, SDL_bool pressed)
+void keyprocess(SDL_Scancode inkey, bool pressed)
 {
-	int i=0;
-
-	while(sdlkeytranslate[i].mamekey)
-	{	
-		if(inkey == sdlkeytranslate[i].sdlkey)
-		{
-			key[sdlkeytranslate[i].mamekey]=pressed;
-			break;
-		}
-		i++;
-	}
+	key[inkey] = pressed;
 }
 
 int osd_is_sdlkey_pressed(int inkey)
 {
-	int i=0;
-
-	while(sdlkeytranslate[i].mamekey)
-	{
-		if(inkey == (int) sdlkeytranslate[i].sdlkey)
-		{
-			return (key[sdlkeytranslate[i].mamekey]);
-		}
-		i++;
+	if (inkey >= SDL_arraysize(key)) {
+		return 0;
 	}
+	return key[inkey];
 }
 
 void joyprocess(Uint8 button, SDL_bool pressed, Uint8 njoy)
@@ -282,9 +156,10 @@ void joyprocess(Uint8 button, SDL_bool pressed, Uint8 njoy)
 	unsigned long *mykey=0;
 
 	if(njoy == 0) mykey = &ExKey1;
-	if(njoy == 1) mykey = &ExKey2;
-	if(njoy == 2) mykey = &ExKey3;
-	if(njoy == 3) mykey = &ExKey4;
+	else if(njoy == 1) mykey = &ExKey2;
+	else if(njoy == 2) mykey = &ExKey3;
+	else if(njoy == 3) mykey = &ExKey4;
+	else return;
 
     switch(button)
     {
@@ -306,28 +181,20 @@ void joyprocess(Uint8 button, SDL_bool pressed, Uint8 njoy)
             val=GP2X_8; break;
         case 8:
             val=GP2X_9; break;
-			break;
 		case 9:
             val=GP2X_10; break;
-			break;
 		case 10:
             val=GP2X_11; break;
-			break;
 		case 11:
             val=GP2X_12; break;
-			break;
 		case 12:
             val=GP2X_13; break;
-			break;
 		case 13:
             val=GP2X_14; break;
-			break;
 		case 14:
             val=GP2X_15; break;
-			break;
 		case 15:
             val=GP2X_16; break;
-			break;
         default:
             return;
     }
@@ -367,38 +234,38 @@ void mouse_button_process(Uint8 button, SDL_bool pressed)
 
 void gp2x_joystick_clear(void)
 {
-	int i;
-
     SDL_Event event;
-    while(SDL_PollEvent(&event));
+    while(SDL_PollEvent(&event) > 0)
+	{
+		continue;
+	}
+
 	ExKey1=0;
 	ExKey2=0;
 	ExKey3=0;
 	ExKey4=0;
 
-	for(i=0;i<KEY_MAX;i++) {
-		key[i] = 0;
-	}
+	memset(key, 0, sizeof(key));
 }
 
 
 
 int osd_is_key_pressed(int keycode)
 {
-	if (keycode >= KEY_MAX) return 0;
+	if (keycode >= SDL_arraysize(key)) return 0;
 
-	if (keycode == KEY_PAUSE)
+	if (keycode == SDL_SCANCODE_PAUSE)
 	{
 		static int pressed,counter;
 		int res;
 
-		res = key[KEY_PAUSE] ^ pressed;
+		res = key[SDL_SCANCODE_PAUSE] ^ pressed;
 		if (res)
 		{
 			if (counter > 0)
 			{
 				if (--counter == 0)
-					pressed = key[KEY_PAUSE];
+					pressed = key[SDL_SCANCODE_PAUSE];
 			}
 			else counter = 10;
 		}
@@ -663,11 +530,6 @@ int is_joy_button_pressed (int button, int ExKey)
 	return 0; 
 }
 
-//#define JOY_LEFT_PRESSED is_joy_axis_pressed(0,1,ExKey1)
-//#define JOY_RIGHT_PRESSED is_joy_axis_pressed(0,2,ExKey1)
-//#define JOY_UP_PRESSED is_joy_axis_pressed(1,1,ExKey1)
-//#define JOY_DOWN_PRESSED is_joy_axis_pressed(1,2,ExKey1)
-
 extern SDL_Joystick* myjoy[4];
 
 int is_joy_axis_pressed (int axis, int dir, int joynum)
@@ -753,7 +615,7 @@ int osd_is_joy_pressed(int joycode)
 
 void osd_poll_joysticks(void)
 {
-	//Update both the keyboard and all joysticks
+	// Update both the keyboard and all joysticks
 	gp2x_joystick_read();
 }
 
@@ -767,7 +629,7 @@ void osd_analogjoy_read(int player,int *analog_x, int *analog_y)
 	*analog_x = *analog_y = 0;
 
 	/* is there an analog joystick at all? */
-	if (player+1 > num_joysticks || joystick == JOY_TYPE_NONE)
+	if (player+1 > num_joysticks || !joystick)
 		return;
 
 	if (!myjoy[player]) return;
@@ -824,14 +686,6 @@ void osd_trak_read(int player,int *deltax,int *deltay)
    	*deltay=SDL_JoystickGetAxis(myjoy[player], 1)/256/4;
 }
 
-
-#ifndef MESS
-#ifndef TINY_COMPILE
-extern int no_of_tiles;
-extern struct GameDriver driver_neogeo;
-#endif
-#endif
-
 void osd_customize_inputport_defaults(struct ipd *defaults)
 {
 }
@@ -842,18 +696,13 @@ void osd_led_w(int led,int on)
 
 void msdos_init_input (void)
 {
-	int i;
-	
 	/* Initialize keyboard to not pressed */
-	for (i = 0;i < KEY_MAX;i++)
-	{
-		key[i]=0;
-	}	
+	memset(key, 0, sizeof(key));
 
-	if (joystick == JOY_TYPE_NONE)
-		logerror("Joystick not found\n");
-	else
+	if (joystick)
 		logerror("Installed %s %s\n","Joystick", "GP2X");
+	else
+		logerror("Joystick not found\n");
 
 	init_joy_list();
 

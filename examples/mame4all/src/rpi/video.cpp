@@ -32,7 +32,7 @@ static unsigned int *dirtycolor;
 static int dirtypalette;
 static int dirty_bright;
 static int bright_lookup[256];
-extern UINT32 *palette_16bit_lookup;
+extern UINT32 *palette_32bit_lookup;
 
 int frameskip,autoframeskip;
 #define FRAMESKIP_LEVELS 12
@@ -71,10 +71,11 @@ static int frameskip_counter;
 #define TICKER unsigned long
 #define ticker() gp2x_timer_read() 
 #define vsync() gp2x_video_wait_vsync()
-#define makecol(r,g,b) gp2x_video_color15(r,g,b,0)
-#define getr(c) gp2x_video_getr15(c)
-#define getg(c) gp2x_video_getg15(c)
-#define getb(c) gp2x_video_getb15(c)
+#define makecol32(R,G,B) (0xFF000000 | ((UINT32)R << 16) | ((UINT32)G << 8) | B)
+#define makecol16(R,G,B) (((R>>3)&0x1f) << 11) | (((G>>2)&0x3f) << 5 ) | (((B>>3)&0x1f) << 0 );
+#define getr16(C) (((C)>>8)&0xF8)
+#define getg16(C) (((C)>>3)&0xF8)
+#define getb16(C) (((C)<<3)&0xF8)
 
 static struct osd_bitmap *mybitmap;
 
@@ -488,8 +489,8 @@ void osd_close_display(void)
 	dirtycolor = 0;
 	free(current_palette);
 	current_palette = 0;
-	free(palette_16bit_lookup);
-	palette_16bit_lookup = 0;
+	free(palette_32bit_lookup);
+	palette_32bit_lookup = 0;
 }
 
 int osd_allocate_colors(unsigned int totalcolors,const unsigned char *palette,unsigned short *pens,int modifiable)
@@ -504,8 +505,8 @@ int osd_allocate_colors(unsigned int totalcolors,const unsigned char *palette,un
 
 	dirtycolor = (unsigned int*)malloc(screen_colors * sizeof(int));
 	current_palette = (unsigned char*)malloc(3 * screen_colors * sizeof(unsigned char));
-	palette_16bit_lookup = (UINT32*)malloc(screen_colors * sizeof(palette_16bit_lookup[0]));
-	if (dirtycolor == 0 || current_palette == 0 || palette_16bit_lookup == 0)
+	palette_32bit_lookup = (UINT32*)malloc(screen_colors * sizeof(palette_32bit_lookup[0]));
+	if (dirtycolor == 0 || current_palette == 0 || palette_32bit_lookup == 0)
 		return 1;
 
 	for (i = 0;i < screen_colors;i++)
@@ -524,13 +525,13 @@ int osd_allocate_colors(unsigned int totalcolors,const unsigned char *palette,un
 			r = 255 * brightness * pow(palette[3*i+0] / 255.0, 1 / osd_gamma_correction) / 100;
 			g = 255 * brightness * pow(palette[3*i+1] / 255.0, 1 / osd_gamma_correction) / 100;
 			b = 255 * brightness * pow(palette[3*i+2] / 255.0, 1 / osd_gamma_correction) / 100;
-			*pens++ = makecol(r,g,b);
+			*pens++ = makecol16(r,g,b);
 		}
 
-		Machine->uifont->colortable[0] = makecol(0x00,0x00,0x00);
-		Machine->uifont->colortable[1] = makecol(0xff,0xff,0xff);
-		Machine->uifont->colortable[2] = makecol(0xff,0xff,0xff);
-		Machine->uifont->colortable[3] = makecol(0x00,0x00,0x00);
+		Machine->uifont->colortable[0] = makecol16(0x00,0x00,0x00);
+		Machine->uifont->colortable[1] = makecol16(0xff,0xff,0xff);
+		Machine->uifont->colortable[2] = makecol16(0xff,0xff,0xff);
+		Machine->uifont->colortable[3] = makecol16(0x00,0x00,0x00);
 	}
 	else
 	{
@@ -672,9 +673,9 @@ void osd_get_pen(int pen,unsigned char *red, unsigned char *green, unsigned char
 {
 	if (video_depth != 8 && modifiable_palette == 0)
 	{
-		*red =   getr(pen);
-		*green = getg(pen);
-		*blue =  getb(pen);
+		*red =   getr16(pen);
+		*green = getg16(pen);
+		*blue =  getb16(pen);
 	}
 	else
 	{
@@ -921,10 +922,9 @@ void osd_update_video_and_audio(struct osd_bitmap *bitmap)
 							g = bright_lookup[g];
 							b = bright_lookup[b];
 						}
-						gp2x_video_color8(i,r,g,b);
+						palette_32bit_lookup[i] = makecol32(r,g,b);
 					}
 				}
-				gp2x_video_setpalette();
 			}
 		}
 		else
@@ -960,10 +960,9 @@ void osd_update_video_and_audio(struct osd_bitmap *bitmap)
 							g = bright_lookup[g];
 							b = bright_lookup[b];
 						}
-						palette_16bit_lookup[i] = makecol(r,g,b);
+						palette_32bit_lookup[i] = makecol32(r,g,b);
 					}
 				}
-				gp2x_video_setpalette();
 			}
 		}
 
