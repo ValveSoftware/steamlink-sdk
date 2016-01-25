@@ -42,7 +42,7 @@ unset path_to_executable
 
 export SOC_BUILD=armv7a-cros-linux-gnueabi
 
-export PKG_CONFIG_PATH=$MARVELL_ROOTFS/usr/lib/pkgconfig
+export PKG_CONFIG_PATH="$MARVELL_ROOTFS/usr/lib/pkgconfig:$MARVELL_ROOTFS/usr/local/Qt-5.4.1/lib/pkgconfig"
 export PKG_CONFIG_SYSROOT_DIR=$MARVELL_ROOTFS
 
 export VALVE_CONFIGURE_OPTS="--host=$SOC_BUILD \
