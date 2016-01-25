@@ -2,9 +2,9 @@
 
 source ../../setenv_external.sh
 
-./configure --with-pcap=linux $VALVE_CONFIGURE_OPTS
+./configure --with-pcap=linux $STEAMLINK_CONFIGURE_OPTS
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install
 

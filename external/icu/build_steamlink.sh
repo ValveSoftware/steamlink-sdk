@@ -20,9 +20,9 @@ source ../../setenv_external.sh
 rm -rf build_icu_marvell
 mkdir build_icu_marvell
 pushd build_icu_marvell
-sh $ICU_SOURCES/source/configure --with-cross-build=$ICU_SOURCES/build_icu_linux --enable-extras=no --enable-tests=no --enable-samples=no $VALVE_CONFIGURE_OPTS
+sh $ICU_SOURCES/source/configure --with-cross-build=$ICU_SOURCES/build_icu_linux --enable-extras=no --enable-tests=no --enable-samples=no $STEAMLINK_CONFIGURE_OPTS
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install
 popd

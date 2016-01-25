@@ -4,7 +4,7 @@ source ../../setenv_external.sh
 export UDEV_CFLAGS="-I${MARVELL_ROOTFS}/usr/include"
 export UDEV_LIBS="-L${MARVELL_ROOTFS}/usr/lib -ludev"
 
-./configure $VALVE_CONFIGURE_OPTS \
+./configure $STEAMLINK_CONFIGURE_OPTS \
 	  --disable-oss-output \
 	  --disable-oss-wrapper \
 	  --disable-coreaudio-output \
@@ -16,6 +16,6 @@ export UDEV_LIBS="-L${MARVELL_ROOTFS}/usr/lib -ludev"
 	  --enable-udev
 
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install

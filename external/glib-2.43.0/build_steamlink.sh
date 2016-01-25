@@ -6,11 +6,11 @@ source ../../setenv_external.sh
 export LIBFFI_LIBS="-L$MARVELL_ROOTFS/usr/lib -lffi"
 
 cp -f marvell.cache config.cache
-./configure $VALVE_CONFIGURE_OPTS \
+./configure $STEAMLINK_CONFIGURE_OPTS \
 	--cache-file=config.cache \
 	--disable-man \
 	--disable-gtk-doc-html
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install

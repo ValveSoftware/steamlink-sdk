@@ -7,6 +7,6 @@ source ../../setenv_external.sh
 #	<config.h.in >config.h
 cp config.h.in config.h
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install

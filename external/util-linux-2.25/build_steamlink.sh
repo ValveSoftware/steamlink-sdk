@@ -24,13 +24,13 @@
 
 source ../../setenv_external.sh
 
-./configure $VALVE_CONFIGURE_OPTS \
+./configure $STEAMLINK_CONFIGURE_OPTS \
 	--without-python \
 	--without-ncurses \
 	--disable-all-programs \
 	--enable-libblkid \
 	--enable-libuuid
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install

@@ -2,8 +2,8 @@
 
 source ../../setenv_external.sh
 
-./configure $VALVE_CONFIGURE_OPTS --disable-doc --disable-manpages
+./configure $STEAMLINK_CONFIGURE_OPTS --disable-doc --disable-manpages
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install

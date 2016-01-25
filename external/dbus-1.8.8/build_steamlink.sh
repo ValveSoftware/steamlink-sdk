@@ -8,4 +8,7 @@
 	--disable-systemd \
 	--disable-static \
 	--disable-tests
-make clean && make $MAKE_J && DESTDIR=$MARVELL_ROOTFS make install
+
+steamlink_make_clean
+steamlink_make
+steamlink_make_install

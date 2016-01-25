@@ -10,7 +10,7 @@ export DBUS_CFLAGS="-I$MARVELL_ROOTFS/usr/include/dbus-1.0 \
 export GLIB_CFLAGS="-I$MARVELL_ROOTFS/usr/include/glib-2.0/ \
 	-I$MARVELL_ROOTFS/usr/lib/glib-2.0/include/"
 
-./configure $VALVE_CONFIGURE_OPTS \
+./configure $STEAMLINK_CONFIGURE_OPTS \
 	--disable-polkit \
 	--disable-selinux \
 	--disable-gadget \
@@ -19,8 +19,8 @@ export GLIB_CFLAGS="-I$MARVELL_ROOTFS/usr/include/glib-2.0/ \
 	--disable-tools \
 	--disable-test
 
-valve_make_clean
-valve_make
-valve_make_install
+steamlink_make_clean
+steamlink_make
+steamlink_make_install
 
 install -m 755 client/connmanctl $MARVELL_ROOTFS/usr/bin
