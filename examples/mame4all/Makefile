@@ -37,8 +37,14 @@ CFLAGS += -fsigned-char $(DEVLIBS) \
 	-I$(MARVELL_ROOTFS)/usr/include/SDL2 \
 	$(OPTIMIZE) -ffast-math -fno-builtin -fsingle-precision-constant \
 	-Wall -Wno-sign-compare -Wunused -Wpointer-arith -Wcast-align -Waggregate-return -Wshadow -Wno-write-strings -Wno-narrowing
+ifeq ($(STEAMLINK),1)
+CFLAGS += -DSTEAMLINK
+endif
 
-LIBS = -lm -lpthread -lSDL2 -lGLESv2 -lEGL -lasound -lrt
+LIBS = -lSDL2 -lm -lpthread -lrt
+ifeq ($(STEAMLINK),1)
+LIBS += -lSLAudio -lSLVideo
+endif
 
 OBJ = obj_$(TARGET)_$(MAMEOS)
 OBJDIRS = $(OBJ) $(OBJ)/cpu $(OBJ)/sound $(OBJ)/$(MAMEOS) \

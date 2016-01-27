@@ -7,12 +7,27 @@
 #include <SDL.h>
 #include <assert.h>
 
+#ifdef STEAMLINK
+// The OpenGL ES scaling quality is better than the Steam Link overlay scaling
+//#define USE_SLVIDEO
+#endif
+
+#ifdef USE_SLVIDEO
+#include <SLVideo.h>
+#endif
+
 static SDL_Window *window;
 static int window_width = 640;
 static int window_height = 480;
+#ifdef USE_SLVIDEO
+static CSLVideoContext *s_pContext;
+static CSLVideoOverlay *s_pOverlay[5];
+static int s_iOverlay;
+#else
 static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 static SDL_Rect displayRect;
+#endif
 SDL_Joystick* myjoy[4];
 
 
@@ -22,6 +37,7 @@ int rotate_controls=0;
 
 static int surface_width;
 static int surface_height;
+static int surface_pitch;
 
 extern void keyprocess(SDL_Scancode inkey, bool pressed);
 extern void joyprocess(Uint8 button, SDL_bool pressed, Uint8 njoy);
@@ -88,6 +104,7 @@ void exitfunc()
 	SDL_Quit();
 }
 
+#ifndef USE_SLVIDEO
 static void CalculateDisplayRect(int nScreenWidth, int nScreenHeight, int nGameWidth, int nGameHeight, SDL_Rect *pDisplayRect)
 {
         float flScreenAspect = static_cast<float>( nScreenWidth ) / nScreenHeight;
@@ -106,6 +123,7 @@ static void CalculateDisplayRect(int nScreenWidth, int nScreenHeight, int nGameW
         pDisplayRect->x = ( nScreenWidth - pDisplayRect->w ) / 2;
         pDisplayRect->y = ( nScreenHeight - pDisplayRect->h ) / 2;
 }
+#endif
 
 int init_SDL(void)
 {
@@ -120,13 +138,20 @@ int init_SDL(void)
 	}
 
 	window = SDL_CreateWindow("MAME4ALL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, window_width, window_height, SDL_WINDOW_FULLSCREEN);
-	if ( !window ) {
+	if (!window) {
 		fprintf(stderr, "Unable to create window: %s\n", SDL_GetError());
 		return(0);
 	}
 	SDL_GetWindowSize(window, &window_width, &window_height);
 
-	renderer = SDL_CreateRenderer(window, -1, 0);
+#ifdef USE_SLVIDEO
+	s_pContext = SLVideo_CreateContext();
+	if (!s_pContext) {
+		fprintf(stderr, "Unable to create video context\n");
+		return(0);
+	}
+#else
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC);
 	if (!renderer) {
 		fprintf(stderr, "Unable to create renderer: %s\n", SDL_GetError());
 		return(0);
@@ -137,6 +162,7 @@ int init_SDL(void)
 
 	// Use linear interpolation when stretching to fill the screen
 	SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "linear" );
+#endif
 
 	// We handle up to four joysticks
 	if (SDL_NumJoysticks() > 0) 
@@ -160,11 +186,18 @@ int init_SDL(void)
 
 void deinit_SDL(void)
 {
+#ifdef USE_SLVIDEO
+	if (s_pContext) {
+		SLVideo_FreeContext(s_pContext);
+		s_pContext = NULL;
+	}
+#else
 	if (renderer)
 	{
 		SDL_DestroyRenderer(renderer);
 		renderer = NULL;
 	}
+#endif
 
 	if (window)
 	{
@@ -178,11 +211,24 @@ void deinit_SDL(void)
 
 void gp2x_deinit(void)
 {
-	if (texture) SDL_DestroyTexture(texture);
-	texture = NULL;
-
-	if(gp2x_screen32) free(gp2x_screen32);
-	gp2x_screen32 = NULL;
+#ifdef USE_SLVIDEO
+	for (int i = 0; i < SDL_arraysize(s_pOverlay); ++i) {
+		if (s_pOverlay[i]) {
+			SLVideo_FreeOverlay(s_pOverlay[i]);
+			s_pOverlay[i] = NULL;
+		}
+		gp2x_screen32 = NULL;
+	}
+#else
+	if (texture) {
+		SDL_DestroyTexture(texture);
+		texture = NULL;
+	}
+	if (gp2x_screen32) {
+		free(gp2x_screen32);
+		gp2x_screen32 = NULL;
+	}
+#endif
 }
 
 void gp2x_exit(void)
@@ -199,20 +245,57 @@ void gp2x_set_video_mode(struct osd_bitmap *bitmap, int bpp,int width,int height
 	surface_width = width;
 	surface_height = height;
 
-	gp2x_screen32 = (uint32_t *) calloc(1, surface_width*surface_height*4);
+	gp2x_deinit();
 
+	surface_pitch = surface_width*sizeof(uint32_t);
+	gp2x_screen32 = (uint32_t *) calloc(1, surface_pitch*surface_height);
+
+#ifdef USE_SLVIDEO
+	for (int i = 0; i < SDL_arraysize(s_pOverlay); ++i) {
+		s_pOverlay[i] = SLVideo_CreateOverlay(s_pContext, width, height);
+	}
+	s_iOverlay = -1;
+#else
 	if (texture) SDL_DestroyTexture(texture);
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, surface_width, surface_height);
 
 	CalculateDisplayRect(window_width, window_height, surface_width, surface_height, &displayRect);
+#endif
 }
 
 void gp2x_video_flip()
 {
-#if 0
-static int nFrame;
-if ( ( ++nFrame % 2 ) == 0 ) return;
-#endif
+#ifdef USE_SLVIDEO
+	s_iOverlay = (s_iOverlay + 1) % SDL_arraysize(s_pOverlay);
+
+	uint32_t *pPixels;
+	int nPitch;
+	SLVideo_GetOverlayPixels(s_pOverlay[s_iOverlay], &pPixels, &nPitch);
+	if (!pPixels) {
+		return;
+	}
+	if (nPitch == surface_pitch) {
+		memcpy(pPixels, gp2x_screen32, surface_height*surface_pitch);
+	} else {
+		uint8_t *pSrc = (uint8_t*)gp2x_screen32;
+		uint8_t *pDst = (uint8_t*)pPixels;
+		for (int row = 0; row < surface_height; ++row) {
+			memcpy(pDst, pSrc, surface_width*sizeof(uint32_t));
+			pSrc += surface_pitch;
+			pDst += nPitch;
+		}
+	}
+
+	// Don't flip faster than 60 FPS, and sleep at least a little bit
+	static Uint32 last_flip;
+	Uint32 now;
+	do {
+		SDL_Delay(1);
+	} while (((now=SDL_GetTicks())-last_flip) < 15);
+	last_flip = now;
+
+	SLVideo_ShowOverlay(s_pOverlay[s_iOverlay]);
+#else
 	if (displayRect.x)
 	{
 		SDL_Rect blank;
@@ -238,9 +321,10 @@ if ( ( ++nFrame % 2 ) == 0 ) return;
 		SDL_RenderFillRect(renderer, &blank);
 	}
 
-	SDL_UpdateTexture(texture, NULL, gp2x_screen32, surface_width*4);
+	SDL_UpdateTexture(texture, NULL, gp2x_screen32, surface_pitch);
 	SDL_RenderCopy(renderer, texture, NULL, &displayRect);
 	SDL_RenderPresent(renderer);
+#endif
 }
 
 

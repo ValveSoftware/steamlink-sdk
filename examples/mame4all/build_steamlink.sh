@@ -3,7 +3,7 @@
 
 source ../../setenv.sh
 
-make $MAKE_J || exit 2
+STEAMLINK=1 make $MAKE_J || exit 2
 
 export DESTDIR="${PWD}/steamlink/apps/mame4all"
 

@@ -1,12 +1,26 @@
 
 #include "driver.h"
 #include "minimal.h"
+
+#ifdef STEAMLINK
+#define USE_SLAUDIO
+#endif
+
+#ifdef USE_SLAUDIO
+#include <SLAudio.h>
+#else
 #include <SDL.h>
+#endif
 
 int soundcard,usestereo;
 int master_volume = 100;
 
+#ifdef USE_SLAUDIO
+static CSLAudioContext *s_pContext;
+static CSLAudioStream *s_pStream;
+#else
 static SDL_AudioDeviceID audio_device = 1;
+#endif
 static int stream_cache_channels;
 static int samples_per_frame;
 static int bytes_per_frame;
@@ -56,7 +70,7 @@ int osd_start_audio_stream(int stereo)
 
 	/* determine the number of samples per frame */
 	//Fix for games like galaxian that have fractional fps
-	if(Machine->drv->frames_per_second > 60) 
+	if (Machine->drv->frames_per_second > 60) 
 	{
 		samples_per_frame = Machine->sample_rate / (int)Machine->drv->frames_per_second;
 	} 
@@ -69,6 +83,15 @@ int osd_start_audio_stream(int stereo)
 	//Sound switched off?
 	if (Machine->sample_rate == 0) return samples_per_frame;
 
+#ifdef USE_SLAUDIO
+	s_pContext = SLAudio_CreateContext();
+	s_pStream = SLAudio_CreateStream(s_pContext, Machine->sample_rate, stream_cache_channels, bytes_per_frame);
+	if (!s_pStream) {
+		logerror("Couldn't create audio stream\n");
+		Machine->sample_rate = 0;
+		return samples_per_frame;
+	}
+#else
 	// attempt to initialize SDL
 	SDL_AudioSpec spec;
 	SDL_zero(spec);
@@ -82,6 +105,7 @@ int osd_start_audio_stream(int stereo)
 		return samples_per_frame;
 	}
 	SDL_PauseAudioDevice(audio_device, 0);
+#endif
 
 	return samples_per_frame;
 }
@@ -92,7 +116,18 @@ void osd_stop_audio_stream(void)
 	if (Machine->sample_rate == 0)
 		return;
 
+#ifdef USE_SLAUDIO
+	if (s_pStream) {
+		SLAudio_FreeStream(s_pStream);
+		s_pStream = NULL;
+	}
+	if (s_pContext) {
+		SLAudio_FreeContext(s_pContext);
+		s_pContext = NULL;
+	}
+#else
 	SDL_CloseAudio();
+#endif
 
 	// print out over/underflow stats
 	logerror("Sound buffer: fifo_overrun=%d fifo_underrun=%d\n", fifo_overrun, fifo_underrun);
@@ -103,6 +138,11 @@ int osd_update_audio_stream(INT16 *buffer)
 	// Soundcard switch off?
 	if (Machine->sample_rate == 0) return samples_per_frame;
 
+#ifdef USE_SLAUDIO
+	void *frame = SLAudio_BeginFrame(s_pStream);
+	memcpy(frame, buffer, bytes_per_frame);
+	SLAudio_SubmitFrame(s_pStream);
+#else
 	Uint32 unBytesQueued = SDL_GetQueuedAudioSize(audio_device);
 	if (unBytesQueued == 0) {
 		++fifo_underrun;
@@ -124,6 +164,7 @@ int osd_update_audio_stream(INT16 *buffer)
 	}
 	SDL_QueueAudio(audio_device, buffer, bytes_per_frame);
 	profiler_mark(PROFILER_END);
+#endif
 
 	return samples_per_frame;
 }
@@ -143,15 +184,6 @@ void osd_set_mastervolume(int _attenuation)
 		attenuation = -32;
 	} else {
 		attenuation = _attenuation;
-	}
-
-	if (Machine->sample_rate > 0) {
-		if (attenuation == -32) {
-			SDL_PauseAudioDevice(audio_device, 1);
-			SDL_ClearQueuedAudio(audio_device);
-		} else {
-			SDL_PauseAudioDevice(audio_device, 0);
-		}
 	}
 }
 
