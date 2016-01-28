@@ -8,8 +8,7 @@
 #include <assert.h>
 
 #ifdef STEAMLINK
-// The OpenGL ES scaling quality is better than the Steam Link overlay scaling
-//#define USE_SLVIDEO
+#define USE_SLVIDEO
 #endif
 
 #ifdef USE_SLVIDEO
@@ -23,6 +22,7 @@ static int window_height = 480;
 static CSLVideoContext *s_pContext;
 static CSLVideoOverlay *s_pOverlay[5];
 static int s_iOverlay;
+static int surface_multiple;
 #else
 static SDL_Renderer *renderer;
 static SDL_Texture *texture;
@@ -251,8 +251,15 @@ void gp2x_set_video_mode(struct osd_bitmap *bitmap, int bpp,int width,int height
 	gp2x_screen32 = (uint32_t *) calloc(1, surface_pitch*surface_height);
 
 #ifdef USE_SLVIDEO
+	const int MAX_SURFACE_MULTIPLE = 2;
+	surface_multiple = 1;
+	while (surface_multiple < MAX_SURFACE_MULTIPLE &&
+	       (surface_width*(surface_multiple+1)) < window_width &&
+               (surface_height*(surface_multiple+1)) < window_height) {
+		++surface_multiple;
+	}
 	for (int i = 0; i < SDL_arraysize(s_pOverlay); ++i) {
-		s_pOverlay[i] = SLVideo_CreateOverlay(s_pContext, width, height);
+		s_pOverlay[i] = SLVideo_CreateOverlay(s_pContext, surface_width*surface_multiple, surface_height*surface_multiple);
 	}
 	s_iOverlay = -1;
 #else
@@ -262,6 +269,78 @@ void gp2x_set_video_mode(struct osd_bitmap *bitmap, int bpp,int width,int height
 	CalculateDisplayRect(window_width, window_height, surface_width, surface_height, &displayRect);
 #endif
 }
+
+#ifdef USE_SLVIDEO
+static void copy1(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
+{
+	if (nSrcPitch == nDstPitch) {
+		memcpy(pDst, pSrc, surface_height*nSrcPitch);
+		return;
+	}
+
+	nSrcPitch /= 4;
+	nDstPitch /= 4;
+	for (int row = 0; row < surface_height; ++row) {
+		memcpy(pDst, pSrc, surface_width*sizeof(uint32_t));
+		pSrc += nSrcPitch;
+		pDst += nDstPitch;
+	}
+}
+
+static void copy2(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
+{
+	assert((nSrcPitch/4) == surface_width);
+	nDstPitch /= 4;
+	for (int row = 0; row < surface_height; ++row) {
+		uint32_t *pRow = pDst;
+		for (int col = 0; col < surface_width; ++col) {
+			*pRow++ = *pSrc;
+			*pRow++ = *pSrc;
+			++pSrc;
+		}
+		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(uint32_t));
+		pDst += 2*nDstPitch;
+	}
+}
+
+static void copy3(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
+{
+	assert((nSrcPitch/4) == surface_width);
+	nDstPitch /= 4;
+	for (int row = 0; row < surface_height; ++row) {
+		uint32_t *pRow = pDst;
+		for (int col = 0; col < surface_width; ++col) {
+			*pRow++ = *pSrc;
+			*pRow++ = *pSrc;
+			*pRow++ = *pSrc;
+			++pSrc;
+		}
+		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(uint32_t));
+		memcpy(pDst + nDstPitch*2, pDst, nDstPitch*sizeof(uint32_t));
+		pDst += 3*nDstPitch;
+	}
+}
+
+static void copy4(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
+{
+	assert((nSrcPitch/4) == surface_width);
+	nDstPitch /= 4;
+	for (int row = 0; row < surface_height; ++row) {
+		uint32_t *pRow = pDst;
+		for (int col = 0; col < surface_width; ++col) {
+			*pRow++ = *pSrc;
+			*pRow++ = *pSrc;
+			*pRow++ = *pSrc;
+			*pRow++ = *pSrc;
+			++pSrc;
+		}
+		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(uint32_t));
+		memcpy(pDst + nDstPitch*2, pDst, nDstPitch*sizeof(uint32_t));
+		memcpy(pDst + nDstPitch*3, pDst, nDstPitch*sizeof(uint32_t));
+		pDst += 4*nDstPitch;
+	}
+}
+#endif // USE_SLVIDEO
 
 void gp2x_video_flip()
 {
@@ -274,16 +353,22 @@ void gp2x_video_flip()
 	if (!pPixels) {
 		return;
 	}
-	if (nPitch == surface_pitch) {
-		memcpy(pPixels, gp2x_screen32, surface_height*surface_pitch);
-	} else {
-		uint8_t *pSrc = (uint8_t*)gp2x_screen32;
-		uint8_t *pDst = (uint8_t*)pPixels;
-		for (int row = 0; row < surface_height; ++row) {
-			memcpy(pDst, pSrc, surface_width*sizeof(uint32_t));
-			pSrc += surface_pitch;
-			pDst += nPitch;
-		}
+	switch (surface_multiple) {
+	case 1:
+		copy1(gp2x_screen32, surface_pitch, pPixels, nPitch);
+		break;
+	case 2:
+		copy2(gp2x_screen32, surface_pitch, pPixels, nPitch);
+		break;
+	case 3:
+		copy3(gp2x_screen32, surface_pitch, pPixels, nPitch);
+		break;
+	case 4:
+		copy4(gp2x_screen32, surface_pitch, pPixels, nPitch);
+		break;
+	default:
+		printf("Unexpected surface_multiple: %d\n", surface_multiple);
+		break;
 	}
 
 	// Don't flip faster than 60 FPS, and sleep at least a little bit
