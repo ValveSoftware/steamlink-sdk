@@ -29,8 +29,6 @@ static SDL_Renderer *renderer;
 static SDL_Texture *texture;
 static SDL_Rect displayRect;
 #endif
-SDL_Joystick* myjoy[4];
-
 
 uint32_t *gp2x_screen32 = NULL;
 
@@ -45,7 +43,87 @@ extern void joyprocess(Uint8 button, SDL_bool pressed, Uint8 njoy);
 extern void mouse_motion_process(int x, int y);
 extern void mouse_button_process(Uint8 button, SDL_bool pressed);
 
-unsigned long gp2x_joystick_read()
+struct Controller_t
+{
+	enum Type {
+		k_Available,
+		k_Joystick,
+		k_Gamepad,
+	} type;
+
+	SDL_JoystickID instance_id;
+	SDL_Joystick *joystick;
+	SDL_GameController *gamepad;
+};
+static Controller_t controllers[4];
+
+static void add_controller(Controller_t::Type type, int device_index)
+{
+	for (int i = 0; i < SDL_arraysize(controllers); ++i) {
+		Controller_t &controller = controllers[i];
+		if (controller.type == Controller_t::k_Available) {
+			if (type == Controller_t::k_Gamepad) {
+				controller.gamepad = SDL_GameControllerOpen(device_index);
+				if (!controller.gamepad) {
+					fprintf(stderr, "Couldn't open gamepad: %s\n", SDL_GetError());
+					return;
+				}
+				controller.joystick = SDL_GameControllerGetJoystick(controller.gamepad);
+				printf("Opened game controller %s at index %d\n", SDL_GameControllerName(controller.gamepad), i);
+			} else {
+				controller.joystick = SDL_JoystickOpen(device_index);
+				if (!controller.joystick) {
+					fprintf(stderr, "Couldn't open joystick: %s\n", SDL_GetError());
+					return;
+				}
+				printf("Opened joystick %s at index %d\n", SDL_JoystickName(controller.joystick), i);
+			}
+			controller.type = type;
+			controller.instance_id = SDL_JoystickInstanceID(controller.joystick);
+			return;
+		}
+	}
+
+	// No free controller slots, drop this one
+}
+
+static bool get_controller_index(Controller_t::Type type, SDL_JoystickID instance_id, int *controller_index)
+{
+	for (int i = 0; i < SDL_arraysize(controllers); ++i) {
+		Controller_t &controller = controllers[i];
+		if (controller.type != type) {
+			continue;
+		}
+		if (controller.instance_id != instance_id) {
+			continue;
+		}
+		*controller_index = i;
+		return true;
+	}
+	return false;
+}
+
+static void remove_controller(Controller_t::Type type, SDL_JoystickID instance_id)
+{
+	for (int i = 0; i < SDL_arraysize(controllers); ++i) {
+		Controller_t &controller = controllers[i];
+		if (controller.type != type) {
+			continue;
+		}
+		if (controller.instance_id != instance_id) {
+			continue;
+		}
+		if (controller.type == Controller_t::k_Gamepad) {
+			SDL_GameControllerClose(controller.gamepad);
+		} else {
+			SDL_JoystickClose(controller.joystick);
+		}
+		controller.type = Controller_t::k_Available;
+		return;
+	}
+}
+
+void gp2x_joystick_read(void)
 {
 	// Reset mouse incase there is no motion
 	mouse_motion_process(0,0);
@@ -60,11 +138,55 @@ unsigned long gp2x_joystick_read()
 			case SDL_KEYUP:
 				keyprocess(event.key.keysym.scancode, false);
 				break;
+			case SDL_JOYDEVICEADDED:
+				if (!SDL_IsGameController(event.jdevice.which)) {
+					add_controller(Controller_t::k_Joystick, event.jdevice.which);
+				}
+				break;
+			case SDL_JOYDEVICEREMOVED:
+				remove_controller(Controller_t::k_Joystick, event.jdevice.which);
+				break;
 			case SDL_JOYBUTTONDOWN:
-				joyprocess(event.jbutton.button, SDL_TRUE, event.jbutton.which);
+				{
+					int controller_index;
+					if (!get_controller_index(Controller_t::k_Joystick, event.jbutton.which, &controller_index)) {
+						break;
+					}
+					joyprocess(event.jbutton.button, SDL_TRUE, controller_index);
+				}
 				break;
 			case SDL_JOYBUTTONUP:
-				joyprocess(event.jbutton.button, SDL_FALSE, event.jbutton.which);
+				{
+					int controller_index;
+					if (!get_controller_index(Controller_t::k_Joystick, event.jbutton.which, &controller_index)) {
+						break;
+					}
+					joyprocess(event.jbutton.button, SDL_FALSE, controller_index);
+				}
+				break;
+			case SDL_CONTROLLERDEVICEADDED:
+				add_controller(Controller_t::k_Gamepad, event.cdevice.which);
+				break;
+			case SDL_CONTROLLERDEVICEREMOVED:
+				remove_controller(Controller_t::k_Gamepad, event.cdevice.which);
+				break;
+			case SDL_CONTROLLERBUTTONDOWN:
+				{
+					int controller_index;
+					if (!get_controller_index(Controller_t::k_Gamepad, event.cbutton.which, &controller_index)) {
+						break;
+					}
+					joyprocess(event.cbutton.button, SDL_TRUE, controller_index);
+				}
+				break;
+			case SDL_CONTROLLERBUTTONUP:
+				{
+					int controller_index;
+					if (!get_controller_index(Controller_t::k_Gamepad, event.cbutton.which, &controller_index)) {
+						break;
+					}
+					joyprocess(event.cbutton.button, SDL_FALSE, controller_index);
+				}
 				break;
 			case SDL_MOUSEMOTION:
 				mouse_motion_process(event.motion.xrel, event.motion.yrel);
@@ -82,7 +204,25 @@ unsigned long gp2x_joystick_read()
 				break;
 		}
 	}
-	return 0;
+}
+
+bool gp2x_joystick_connected(int player)
+{
+	return player < SDL_arraysize(controllers) && controllers[player].type != Controller_t::k_Available;
+}
+
+int gp2x_joystick_getaxis(int player, int axis)
+{
+	if (!gp2x_joystick_connected(player)) {
+		return 0;
+	}
+
+	Controller_t &controller = controllers[player];
+	if (controller.type == Controller_t::k_Gamepad) {
+		return SDL_GameControllerGetAxis(controller.gamepad, (SDL_GameControllerAxis)axis);
+	} else {
+		return SDL_JoystickGetAxis(controller.joystick, axis);
+	}
 }
 
 void gp2x_timer_delay(unsigned long ticks)
@@ -128,12 +268,7 @@ static void CalculateDisplayRect(int nScreenWidth, int nScreenHeight, int nGameW
 
 int init_SDL(void)
 {
-	myjoy[0]=0;
-	myjoy[1]=0;
-	myjoy[2]=0;
-	myjoy[3]=0;
-
-	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_JOYSTICK) < 0) {
+	if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_GAMECONTROLLER) < 0) {
 		fprintf(stderr, "Unable to init SDL: %s\n", SDL_GetError());
 		return(0);
 	}
@@ -165,18 +300,6 @@ int init_SDL(void)
 	SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, "linear" );
 #endif
 
-	// We handle up to four joysticks
-	if (SDL_NumJoysticks() > 0) 
-	{
-		int i;
-		SDL_JoystickEventState(SDL_ENABLE);
-		
-		for ( i=0; i < SDL_arraysize(myjoy) && i<SDL_NumJoysticks(); i++) {	
-			myjoy[i]=SDL_JoystickOpen(i);
-		}
-		if (myjoy[0]) 
-			logerror("Found %d joysticks\n",SDL_NumJoysticks());
-	}
 	SDL_ShowCursor(SDL_DISABLE);
 
 	//Clean exits, hopefully!

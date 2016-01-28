@@ -55,7 +55,9 @@ extern void gp2x_exit(void);
 extern void gp2x_timer_delay(unsigned long ticks);
 extern void gp2x_video_flip(void);
 extern void gp2x_joystick_clear(void);
-extern unsigned long gp2x_joystick_read(void);
+extern void gp2x_joystick_read(void);
+extern bool gp2x_joystick_connected(int player);
+extern int gp2x_joystick_getaxis(int player, int axis);
 extern unsigned long gp2x_timer_read(void);
 
 extern void gp2x_set_video_mode(struct osd_bitmap *bitmap, int bpp,int width,int height);

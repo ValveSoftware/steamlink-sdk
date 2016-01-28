@@ -234,11 +234,9 @@ void mouse_button_process(Uint8 button, SDL_bool pressed)
 
 void gp2x_joystick_clear(void)
 {
-    SDL_Event event;
-    while(SDL_PollEvent(&event) > 0)
-	{
-		continue;
-	}
+	SDL_FlushEvents(SDL_KEYDOWN, SDL_MOUSEWHEEL);
+	SDL_FlushEvents(SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERBUTTONUP);
+	SDL_FlushEvents(SDL_CONTROLLERAXISMOTION, SDL_CONTROLLERBUTTONUP);
 
 	ExKey1=0;
 	ExKey2=0;
@@ -530,18 +528,14 @@ int is_joy_button_pressed (int button, int ExKey)
 	return 0; 
 }
 
-extern SDL_Joystick* myjoy[4];
-
 int is_joy_axis_pressed (int axis, int dir, int joynum)
 {
-	if (!myjoy[joynum]) return 0;
-
 	/* Normal controls */
 	if(dir == 1) { //left up
-		if(SDL_JoystickGetAxis(myjoy[joynum], axis) < -12000) return true;	
+		if(gp2x_joystick_getaxis(joynum, axis) < -12000) return true;	
 	}
 	if(dir == 2) { //right down
-		if(SDL_JoystickGetAxis(myjoy[joynum], axis) > 12000) return true;	
+		if(gp2x_joystick_getaxis(joynum, axis) > 12000) return true;	
 	}
 
 	return 0;
@@ -632,10 +626,10 @@ void osd_analogjoy_read(int player,int *analog_x, int *analog_y)
 	if (player+1 > num_joysticks || !joystick)
 		return;
 
-	if (!myjoy[player]) return;
+	if (!gp2x_joystick_connected(player)) return;
 
-	pos_analog_x=SDL_JoystickGetAxis(myjoy[player], 0)/256;	
-	pos_analog_y=SDL_JoystickGetAxis(myjoy[player], 1)/256;	
+	pos_analog_x=gp2x_joystick_getaxis(player, 0)/256;	
+	pos_analog_y=gp2x_joystick_getaxis(player, 1)/256;	
 
 	if (pos_analog_x<-128) pos_analog_x=-128;
 	if (pos_analog_x>128) pos_analog_x=128;
@@ -671,19 +665,15 @@ void osd_joystick_end_calibration (void)
 
 void osd_trak_read(int player,int *deltax,int *deltay)
 {
-	*deltax = *deltay = 0;
-
-	if (use_mouse && !myjoy[player] && player == 0) 
+	if (use_mouse && player == 0 && !gp2x_joystick_connected(player)) 
 	{
 		*deltax = mouse_xrel*2;
 		*deltay = mouse_yrel*2;
 		return;
 	}
 
- 	if (!myjoy[player]) return;
-
-   	*deltax=SDL_JoystickGetAxis(myjoy[player], 0)/256/4;
-   	*deltay=SDL_JoystickGetAxis(myjoy[player], 1)/256/4;
+   	*deltax=gp2x_joystick_getaxis(player, 0)/256/4;
+   	*deltay=gp2x_joystick_getaxis(player, 1)/256/4;
 }
 
 void osd_customize_inputport_defaults(struct ipd *defaults)
