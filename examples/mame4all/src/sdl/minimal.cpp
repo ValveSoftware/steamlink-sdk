@@ -8,7 +8,8 @@
 #include <assert.h>
 
 #ifdef STEAMLINK
-#define USE_SLVIDEO
+// OpenGL ES scaling has a good balance of speed and quality, so use that...
+//#define USE_SLVIDEO
 #endif
 
 #ifdef USE_SLVIDEO
@@ -271,6 +272,19 @@ void gp2x_set_video_mode(struct osd_bitmap *bitmap, int bpp,int width,int height
 }
 
 #ifdef USE_SLVIDEO
+#if defined(USE_SCALE2X)
+#define restrict
+#include "scale2x-3.2/scale2x.c"
+#include "scale2x-3.2/scale3x.c"
+#include "scale2x-3.2/scalebit.c"
+#elif defined(USE_XBRZ)
+#define NDEBUG
+#include "xBRZ/xbrz.cpp"
+#elif defined(USE_HQ2X)
+#include "hqx/trunk/src/init.c"
+#include "hqx/trunk/src/hq2x.c"
+#endif
+
 static void copy1(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 {
 	if (nSrcPitch == nDstPitch) {
@@ -289,6 +303,15 @@ static void copy1(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 
 static void copy2(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 {
+#if defined(USE_SCALE2X)
+	scale2x(pDst, nDstPitch, pSrc, nSrcPitch, 4, surface_width, surface_height);
+#elif defined(USE_XBRZ)
+	xbrz::scale(2, pSrc, pDst, surface_width, surface_height, xbrz::ColorFormat::ARGB);
+#elif defined(USE_HQ2X)
+	static bool init;
+	if (!init) { hqxInit(); init = true; }
+	hq2x_32(pSrc, pDst, surface_width, surface_height);
+#else
 	assert((nSrcPitch/4) == surface_width);
 	nDstPitch /= 4;
 	for (int row = 0; row < surface_height; ++row) {
@@ -301,6 +324,7 @@ static void copy2(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(uint32_t));
 		pDst += 2*nDstPitch;
 	}
+#endif
 }
 
 static void copy3(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
