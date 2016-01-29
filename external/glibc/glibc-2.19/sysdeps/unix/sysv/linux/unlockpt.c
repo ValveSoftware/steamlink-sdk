@@ -1,0 +1,48 @@
+/* Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+   Contributed by Zack Weinberg <zack@rabi.phys.columbia.edu>, 1998.
+
+   The GNU C Library is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Lesser General Public
+   License as published by the Free Software Foundation; either
+   version 2.1 of the License, or (at your option) any later version.
+
+   The GNU C Library is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Lesser General Public License for more details.
+
+   You should have received a copy of the GNU Lesser General Public
+   License along with the GNU C Library; if not, see
+   <http://www.gnu.org/licenses/>.  */
+
+#include <errno.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <termios.h>
+
+
+/* Unlock the slave pseudo terminal associated with the master pseudo
+   terminal specified by FD.  */
+int
+unlockpt (int fd)
+{
+#ifdef TIOCSPTLCK
+  int save_errno = errno;
+  int unlock = 0;
+
+  if (__ioctl (fd, TIOCSPTLCK, &unlock))
+    {
+      if (errno == EINVAL)
+	{
+	  __set_errno (save_errno);
+	  return 0;
+	}
+      else
+	return -1;
+    }
+#endif
+  /* If we have no TIOCSPTLCK ioctl, all slave pseudo terminals are
+     unlocked by default.  */
+  return 0;
+}

@@ -21,6 +21,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QFontDatabase>
+#include <SDL2/SDL.h>
 
 #include "controllermanager.h"
 #include "hello.h"
@@ -59,6 +60,11 @@ static void LoadFonts()
 //--------------------------------------------------------------------------------------------------
 int main( int argc, char *argv[] )
 {
+	//
+	// Initialize SDL to set up display mode and scale
+	//
+	SDL_Init(SDL_INIT_VIDEO);
+
 	//
 	// Create the Qt application
 	//
