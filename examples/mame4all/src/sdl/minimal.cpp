@@ -9,7 +9,7 @@
 
 #ifdef STEAMLINK
 // OpenGL ES scaling has a good balance of speed and quality, so use that...
-#define USE_SLVIDEO
+//#define USE_SLVIDEO
 #endif
 
 #ifdef USE_SLVIDEO
