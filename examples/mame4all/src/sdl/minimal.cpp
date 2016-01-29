@@ -9,7 +9,7 @@
 
 #ifdef STEAMLINK
 // OpenGL ES scaling has a good balance of speed and quality, so use that...
-//#define USE_SLVIDEO
+#define USE_SLVIDEO
 #endif
 
 #ifdef USE_SLVIDEO
@@ -415,10 +415,10 @@ static void copy1(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 		return;
 	}
 
-	nSrcPitch /= 4;
-	nDstPitch /= 4;
+	nSrcPitch /= sizeof(*pSrc);
+	nDstPitch /= sizeof(*pDst);
 	for (int row = 0; row < surface_height; ++row) {
-		memcpy(pDst, pSrc, surface_width*sizeof(uint32_t));
+		memcpy(pDst, pSrc, surface_width*sizeof(*pSrc));
 		pSrc += nSrcPitch;
 		pDst += nDstPitch;
 	}
@@ -427,7 +427,7 @@ static void copy1(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 static void copy2(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 {
 #if defined(USE_SCALE2X)
-	scale2x(pDst, nDstPitch, pSrc, nSrcPitch, 4, surface_width, surface_height);
+	scale2x(pDst, nDstPitch, pSrc, nSrcPitch, sizeof(*pDst), surface_width, surface_height);
 #elif defined(USE_XBRZ)
 	xbrz::scale(2, pSrc, pDst, surface_width, surface_height, xbrz::ColorFormat::ARGB);
 #elif defined(USE_HQ2X)
@@ -435,8 +435,8 @@ static void copy2(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 	if (!init) { hqxInit(); init = true; }
 	hq2x_32(pSrc, pDst, surface_width, surface_height);
 #else
-	assert((nSrcPitch/4) == surface_width);
-	nDstPitch /= 4;
+	assert((nSrcPitch/sizeof(*pSrc)) == surface_width);
+	nDstPitch /= sizeof(*pDst);
 	for (int row = 0; row < surface_height; ++row) {
 		uint32_t *pRow = pDst;
 		for (int col = 0; col < surface_width; ++col) {
@@ -444,48 +444,10 @@ static void copy2(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
 			*pRow++ = *pSrc;
 			++pSrc;
 		}
-		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(uint32_t));
+		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(*pDst));
 		pDst += 2*nDstPitch;
 	}
 #endif
-}
-
-static void copy3(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
-{
-	assert((nSrcPitch/4) == surface_width);
-	nDstPitch /= 4;
-	for (int row = 0; row < surface_height; ++row) {
-		uint32_t *pRow = pDst;
-		for (int col = 0; col < surface_width; ++col) {
-			*pRow++ = *pSrc;
-			*pRow++ = *pSrc;
-			*pRow++ = *pSrc;
-			++pSrc;
-		}
-		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(uint32_t));
-		memcpy(pDst + nDstPitch*2, pDst, nDstPitch*sizeof(uint32_t));
-		pDst += 3*nDstPitch;
-	}
-}
-
-static void copy4(uint32_t *pSrc, int nSrcPitch, uint32_t *pDst, int nDstPitch)
-{
-	assert((nSrcPitch/4) == surface_width);
-	nDstPitch /= 4;
-	for (int row = 0; row < surface_height; ++row) {
-		uint32_t *pRow = pDst;
-		for (int col = 0; col < surface_width; ++col) {
-			*pRow++ = *pSrc;
-			*pRow++ = *pSrc;
-			*pRow++ = *pSrc;
-			*pRow++ = *pSrc;
-			++pSrc;
-		}
-		memcpy(pDst + nDstPitch, pDst, nDstPitch*sizeof(uint32_t));
-		memcpy(pDst + nDstPitch*2, pDst, nDstPitch*sizeof(uint32_t));
-		memcpy(pDst + nDstPitch*3, pDst, nDstPitch*sizeof(uint32_t));
-		pDst += 4*nDstPitch;
-	}
 }
 #endif // USE_SLVIDEO
 
@@ -506,12 +468,6 @@ void gp2x_video_flip()
 		break;
 	case 2:
 		copy2(gp2x_screen32, surface_pitch, pPixels, nPitch);
-		break;
-	case 3:
-		copy3(gp2x_screen32, surface_pitch, pPixels, nPitch);
-		break;
-	case 4:
-		copy4(gp2x_screen32, surface_pitch, pPixels, nPitch);
 		break;
 	default:
 		printf("Unexpected surface_multiple: %d\n", surface_multiple);
