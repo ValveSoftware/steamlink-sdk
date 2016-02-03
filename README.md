@@ -30,7 +30,7 @@ The SDL game controller API is recommended for Steam Controller support on the S
 Very simple example applications to demonstrate how to build applications using the SDK
 
 ###external
-Source code to 3rd party components of the Steam Link, each directory has a `build_soc.sh` script to rebuild the component.
+Source code to 3rd party components of the Steam Link, each directory has a `build_steamlink.sh` script to rebuild the component.
 
 ###kernel
 Steam Link linux kernel source code
