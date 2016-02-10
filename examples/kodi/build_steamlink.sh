@@ -129,7 +129,13 @@ if ! grep "host_triplet = arm-unknown-linux-gnueabi" "${SOC_BUILD}/src/Makefile"
 fi
 popd
 
+# make everything
+make -C target || exit 3
+make -C target/samba || exit 3
+
 # Build the shared library version of OpenSSL
+# We need to do this after make target because something in that process
+# sometimes removes the shared library links
 if [ ! -L "${DEPS_INSTALL_PATH}/lib/libssl.so" ]; then
 	pushd target/openssl
 	make || exit 3
@@ -137,12 +143,11 @@ if [ ! -L "${DEPS_INSTALL_PATH}/lib/libssl.so" ]; then
 	popd
 	for dependency in curl librtmp; do
 		rm -rf target/${dependency}/${SOC_BUILD}
+		make -C target/${dependency}
 	done
 fi
 
-# Now make everything else...
-make -C target || exit 3
-make -C target/samba || exit 3
+# All done!
 popd
 
 #
