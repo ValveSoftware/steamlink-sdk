@@ -39,6 +39,7 @@ private:
 	struct GameController_t;
 
 	bool BInitGameControllers();
+	bool BShouldIgnoreController( const char *pszGUID );
 	void CheckGameControllers();
 	void OnGameControllerAdded( int iJoystick );
 	void OnGameControllerRemoved( int nJoystickID );

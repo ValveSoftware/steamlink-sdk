@@ -159,8 +159,9 @@ extern SLGAMEPAD_DECLSPEC void SLVideo_SetOverlayDisplayArea( CSLVideoOverlay *p
 
 //--------------------------------------------------------------------------------------------------
 // Make an overlay visible
-// Only one overlay can be visible at a time. You can have double-buffered graphics by having
-// two overlays and sequentially showing them to alternate which is visible on screen.
+// Only one overlay can be visible at a time. You can have multi-buffered graphics by having
+// multiple overlays and sequentially showing them. If you're changing them every frame you
+// should use multiple overlays to avoid tearing.
 //--------------------------------------------------------------------------------------------------
 extern SLGAMEPAD_DECLSPEC void SLVideo_ShowOverlay( CSLVideoOverlay *pOverlay );
 
