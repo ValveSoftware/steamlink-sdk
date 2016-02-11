@@ -30,7 +30,7 @@ void blitscreen_dirty1_color8(struct osd_bitmap *bitmap)
 
     do
         {
-		for (x = 0; x < width; ++x)
+		for (x = 0; x < columns; ++x)
 		{
 			address[x] = palette_32bit_lookup[lb[x]];
 		}
@@ -53,7 +53,7 @@ void blitscreen_dirty0_color8(struct osd_bitmap *bitmap)
 
     do
         {
-		for (x = 0; x < width; ++x)
+		for (x = 0; x < columns; ++x)
 		{
 			address[x] = palette_32bit_lookup[lb[x]];
 		}
