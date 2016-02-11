@@ -1,0 +1,63 @@
+#!/usr/bin/make -f
+# Sample debian.rules file - for GNU Hello (1.3).
+# Copyright 1994,1995 by Ian Jackson.
+# I hereby give you perpetual unlimited permission to copy,
+# modify and relicense this file, provided that you do not remove
+# my name from the file itself.  (I assert my moral right of
+# paternity under the Copyright, Designs and Patents Act 1988.)
+# This file may have to be extensively modified
+#
+# Modified to be a prototype for debmake by Christoph Lameter <clameter@debian.org>
+#
+# Modified to work with debhelper-tools by Christian Kurz <shorty@debian.org>
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+build: build-stamp
+build-stamp:
+	dh_testdir
+	make
+	touch build-stamp
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp
+	rm -f libefence.so.0.0
+	dh_clean
+	$(MAKE) clean
+
+# Build architecture-independent files here.
+binary-indep: build
+# We have nothing to do by default.
+
+# Build architecture-dependent files here.
+binary-arch: build
+	dh_testdir
+	dh_testroot
+	dh_clean
+	dh_installdirs usr/lib usr/share/man/man3
+	install -m 644 libefence.a debian/electric-fence/usr/lib
+	install -m 644 libefence.so.0.0 debian/electric-fence/usr/lib
+	dh_link /usr/lib/libefence.so.0.0 /usr/lib/libefence.so.0
+	#ln -s debian/electric-fence/usr/lib/libefence.so.0 ./libefence.so
+	dh_link /usr/lib/libefence.so.0 /usr/lib/libefence.so
+	install -m 644 libefence.3 debian/electric-fence/usr/share/man/man3/libefence.3
+	dh_installdocs README debian/README.gdb
+	dh_installchangelogs
+	dh_installman libefence.3
+	chown -R root.root debian/electric-fence
+	dh_strip
+	dh_compress
+	dh_lintian
+	dh_installdeb
+	dh_fixperms
+	dh_shlibdeps debian/electric-fence/usr/lib/libefence.so.0.0
+	dpkg-shlibdeps debian/electric-fence/usr/lib/libefence.so.0.0
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb	
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary
