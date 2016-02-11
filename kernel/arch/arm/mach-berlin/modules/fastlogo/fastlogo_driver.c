@@ -416,7 +416,9 @@ static void fastlogo_device_exit(void)
     /* unregister VPP interrupt */
     msleep(100); //100 milliseconds
     free_irq(IRQ_DHUBINTRAVIO0, NULL);
-    console_loglevel = save_console_loglevel; // restore console printk
+    /* Only restore loglevel if it is still the same we set it to, else leave it be */
+    if (console_loglevel == LIMIT_CONSOLE_LOGLEVEL)
+	    console_loglevel = save_console_loglevel; // restore console printk
 
     gs_trace("dev exit done\n");
 
