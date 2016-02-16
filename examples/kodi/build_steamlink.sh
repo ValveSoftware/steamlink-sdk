@@ -148,7 +148,11 @@ if [ ! -L "${DEPS_INSTALL_PATH}/lib/libssl.so" ]; then
 	done
 fi
 
+# Build binary add-ons
+make -C target/binary-addons PREFIX="${TOP}/steamlink/apps/kodi/home/steam/apps/kodi" -j20 || exit 3
+
 # All done!
+
 popd
 
 #
