@@ -58,10 +58,12 @@ static void mv_start_ehc(struct usb_hcd *hcd)
 	temp |= USBMODE_CM_HOST;
 	ehci_writel(ehci, temp, hcd->regs + MV_USBMODE);*/
 
-	usleep_range(2000, 2500);
+	usleep_range(4000, 4500); /* increase delay */
 
 	temp = 1 << berlin->reset;
 	writel(temp, IOMEM(MEMMAP_CHIP_CTRL_REG_BASE + MV_USB_RESET_TRIGGER));
+
+	usleep_range(2000, 2500); /* add delay before power up external */
 
 	GPIO_PortWrite(berlin->pwr_gpio, 1);
 }
