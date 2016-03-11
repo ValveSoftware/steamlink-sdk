@@ -3,6 +3,7 @@
 
 TOP="${PWD}"
 SRC="${TOP}/kodi-src"
+NCPU=`grep -c processor /proc/cpuinfo`
 
 #
 # Download the source to Kodi
@@ -173,7 +174,7 @@ pushd "${SRC}"
 ./configure $STEAMLINK_CONFIGURE_OPTS --prefix=/home/apps/kodi --disable-x11 || exit 4
 
 make clean
-make $MAKE_J || exit 5
+make -j${NCPU} || exit 5
 
 export DESTDIR="${TOP}/steamlink/apps/kodi"
 make install
