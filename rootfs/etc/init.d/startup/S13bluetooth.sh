@@ -23,4 +23,4 @@ fi
 echo "modprobe bt8xxx ${BG_MAC_ARG} cal_cfg=${BT_CAL}"
 modprobe bt8xxx ${BG_MAC_ARG} cal_cfg=${BT_CAL}
 
-/usr/libexec/bluetooth/bluetoothd -E --noplugin=a2dp,avrcp &
+/usr/libexec/bluetooth/bluetoothd -E &

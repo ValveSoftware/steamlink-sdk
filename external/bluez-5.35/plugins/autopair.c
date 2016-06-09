@@ -82,10 +82,16 @@ static ssize_t autopair_pincb(struct btd_adapter *adapter,
 		case 0x06:		/* Headphones */
 		case 0x07:		/* Portable Audio */
 		case 0x0a:		/* HiFi Audio Device */
-			if (attempt > 1)
+			if (attempt == 1) {
+				memcpy(pinbuf, "0000", 4);
+				return 4;
+			}
+			else if (attempt == 2) {
+				memcpy(pinbuf, "1234", 4);
+				return 4;
+			}
+			else
 				return 0;
-			memcpy(pinbuf, "0000", 4);
-			return 4;
 		}
 		break;
 

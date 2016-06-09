@@ -6,29 +6,9 @@ MOUNT_DISK=/mnt/disk
 MOUNT_CONFIG=/mnt/config
 MOUNT_SCRATCH=/mnt/scratch
 OVERRIDE=${MOUNT_DISK}/steamlink
+ERROR_MOUNTING_PARTITION_FILE=/tmp/error_mounting_partition.txt
 
-# Wait a couple seconds for the kernel to detect a USB drive
-for i in `seq 4`; do
-	# Check if we have a Mass Media device on USB
-	mass_media_class=$(find /sys/devices/soc.0/f7ee0000.usb/ -name bInterfaceClass|xargs grep 08)
-	if [ -n "$mass_media_class" ]; then
-		# Additional wait for the disk device to be created
-		for j in 1 2; do
-			PART_DISK=$(echo /dev/block/sda? | sed 's, .*,,')
-			if [ -e ${PART_DISK} ]; then
-				break
-			fi
-			sleep 1
-		done
-	fi
-	sleep 0.5
-done
-
-# Check whether there is a USB drive connected
-if [ -e ${PART_DISK} ]; then
-	mkdir -p ${MOUNT_DISK}
-	mount ${PART_DISK} ${MOUNT_DISK}
-
+handle_usb_drive_partition() {
 	# Copy any system config files
 	#
 	# Set the system update URL in:
@@ -88,7 +68,34 @@ if [ -e ${PART_DISK} ]; then
 	if [ -f ${FACTORY_TEST} ]; then
 		sh ${FACTORY_TEST}
 	fi
-fi
+}
+
+# Wait a couple seconds for the kernel to detect a USB drive
+for i in `seq 4`; do
+	# Check if we have a Mass Media device on USB
+	mass_media_class=$(find /sys/devices/soc.0/f7ee0000.usb/ -name bInterfaceClass|xargs grep 08)
+	if [ -n "$mass_media_class" ]; then
+		# Additional wait for the disk device to be created
+		sleep 2
+		mkdir -p ${MOUNT_DISK}
+		# Iterate over all partitions
+		for device in $(blkid|awk -F ':' '{ print $1 }'); do
+			echo "Found device $device" > /dev/console
+			mount $device ${MOUNT_DISK}
+			ret=$?
+			if [ $ret -ne 0 ]; then
+				# Pass device name to application, it can indidate it to user
+				echo "$device" >> $ERROR_MOUNTING_PARTITION_FILE
+			fi
+			if [ -d ${OVERRIDE} ]; then
+				handle_usb_drive_partition
+			fi
+			umount ${MOUNT_DISK}
+		done
+		break
+	fi
+	sleep 0.5
+done
 
 # Remove any stale recovery files
 if [ -d ${MOUNT_SCRATCH}/recovery -a ! -f ${OVERRIDE}/keep_recovery.txt ]; then

@@ -1,0 +1,94 @@
+#!/bin/sh
+
+# This file is part of PulseAudio.
+#
+# PulseAudio is free software; you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# PulseAudio is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with PulseAudio; if not, see <http://www.gnu.org/licenses/>.
+
+VERSION_STRING="@PACKAGE_NAME@ esd wrapper @PACKAGE_VERSION@"
+
+fail() {
+    echo "ERROR: $1"
+    exit 1
+}
+
+ARGS=" --log-target=syslog"
+
+while [ "$#" -gt "0" ]; do
+
+    case "$1" in
+        "")
+            ;;
+
+        -v|--version)
+            echo "$VERSION_STRING"
+            exit 0
+            ;;
+
+        -h|--help)
+            cat <<EOF
+$VERSION_STRING
+
+Usage: $0 [options]
+
+  -v --version  print version information
+  -h --help     show this help
+
+Ignored directives:
+
+  -tcp          use tcp/ip sockets in addition to unix domain
+  -promiscuous  don't require authentication
+  -d DEVICE     force esd to use sound device DEVICE
+  -b            run server in 8 bit sound mode
+  -r RATE       run server at sample rate of RATE
+  -as SECS      free audio device after SECS of inactivity
+  -unix         use unix domain sockets instead of tcp/ip
+  -public       make tcp/ip access public (other than localhost)
+  -terminate    terminate esd daemone after last client exits
+  -nobeeps      disable startup beeps
+  -trust        start esd even if use of /tmp/.esd can be insecure
+  -port PORT    listen for connections at PORT (only for tcp/ip)
+  -bind ADDRESS binds to ADDRESS (only for tcp/ip)
+EOF
+            exit 0
+            ;;
+
+        -spawnpid)
+            shift
+            ARGS="$ARGS '-Lmodule-esound-compat-spawnpid pid=$1'"
+            ;;
+
+        -spawnfd)
+            shift
+            ARGS="$ARGS '-Lmodule-esound-compat-spawnfd fd=$1'"
+            ;;
+        
+        -unix|-b|-public|-terminate|-nobeeps|-trust|-tcp|-promiscuous)  
+            # Ignore these commands
+            ;; 
+
+        -d|-r|-as|-port|-bind)
+            # Ignore these commands and their arguments
+            shift
+
+            ;;
+
+        *)
+            fail "Unknown command: $1"
+            ;;
+    esac
+
+    shift
+done
+
+eval "exec '@PA_BINARY@'$ARGS"

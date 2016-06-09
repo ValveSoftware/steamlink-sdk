@@ -78,11 +78,14 @@
 #include <linux/stat.h>
 #include <linux/module.h>
 #include <linux/usb/input.h>
+#include <linux/usb/quirks.h>
+#include <linux/power_supply.h>
 
 #define DRIVER_AUTHOR "Marko Friedemann <mfr@bmx-chemnitz.de>"
 #define DRIVER_DESC "X-Box pad driver"
 
 #define XPAD_PKT_LEN 64
+#define BAT_NAME_LEN 16
 
 /* xbox d-pads should map to buttons, as is required for DDR pads
    but we map them to axes when possible to simplify things */
@@ -90,6 +93,7 @@
 #define MAP_TRIGGERS_TO_BUTTONS		(1 << 1)
 #define MAP_STICKS_TO_NULL		(1 << 2)
 #define MAP_BACK_PADDLES_SEPARATELY	(1 << 3)
+#define FLAG_NEEDS_RUMBLE_TO_INITIALIZE	(1 << 4)
 #define DANCEPAD_MAP_CONFIG	(MAP_DPAD_TO_BUTTONS |			\
 				MAP_TRIGGERS_TO_BUTTONS | MAP_STICKS_TO_NULL)
 
@@ -170,7 +174,7 @@ static const struct xpad_device {
 	{ 0x0e6f, 0x0006, "Edge wireless Controller", 0, XTYPE_XBOX },
 	{ 0x0e6f, 0x0105, "HSM3 Xbox360 dancepad", MAP_DPAD_TO_BUTTONS, XTYPE_XBOX360 },
 	{ 0x0e6f, 0x0113, "Afterglow AX.1 Gamepad for Xbox 360", 0, XTYPE_XBOX360 },
-	{ 0x0e6f, 0x0139, "Afterglow Wired Controller for Xbox One", 0, XTYPE_XBOXONE },
+	{ 0x0e6f, 0x0139, "Afterglow Wired Controller for Xbox One", 0, XTYPE_XBOXONE_ELITE },
 	{ 0x0e6f, 0x0201, "Pelican PL-3601 'TSZ' Wired Xbox 360 Controller", 0, XTYPE_XBOX360 },
 	{ 0x0e6f, 0x0213, "Afterglow Gamepad for Xbox 360", 0, XTYPE_XBOX360 },
 	{ 0x0e6f, 0x021f, "Rock Candy Gamepad for Xbox 360", 0, XTYPE_XBOX360 },
@@ -199,8 +203,6 @@ static const struct xpad_device {
 	{ 0x162e, 0xbeef, "Joytech Neo-Se Take2", 0, XTYPE_XBOX360 },
 	{ 0x1689, 0xfd00, "Razer Onza Tournament Edition", 0, XTYPE_XBOX360 },
 	{ 0x1689, 0xfd01, "Razer Onza Classic Edition", 0, XTYPE_XBOX360 },
-	{ 0x24c6, 0x542a, "Xbox ONE spectra", 0, XTYPE_XBOXONE },
-	{ 0x24c6, 0x5d04, "Razer Sabertooth", 0, XTYPE_XBOX360 },
 	{ 0x1bad, 0x0002, "Harmonix Rock Band Guitar", 0, XTYPE_XBOX360 },
 	{ 0x1bad, 0x0003, "Harmonix Rock Band Drumkit", MAP_DPAD_TO_BUTTONS, XTYPE_XBOX360 },
 	{ 0x1bad, 0xf016, "Mad Catz Xbox 360 Controller", 0, XTYPE_XBOX360 },
@@ -213,12 +215,15 @@ static const struct xpad_device {
 	{ 0x24c6, 0x5000, "Razer Atrox Arcade Stick", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5300, "PowerA MINI PROEX Controller", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5303, "Xbox Airflo wired controller", 0, XTYPE_XBOX360 },
+	{ 0x24c6, 0x541a, "Xbox ONE mini liquid metal", FLAG_NEEDS_RUMBLE_TO_INITIALIZE, XTYPE_XBOXONE_ELITE },
+	{ 0x24c6, 0x542a, "Xbox ONE spectra", FLAG_NEEDS_RUMBLE_TO_INITIALIZE, XTYPE_XBOXONE_ELITE },
 	{ 0x24c6, 0x543a, "PowerA Xbox One wired controller", 0, XTYPE_XBOXONE },
 	{ 0x24c6, 0x5500, "Hori XBOX 360 EX 2 with Turbo", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5501, "Hori Real Arcade Pro VX-SA", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5506, "Hori SOULCALIBUR V Stick", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5b02, "Thrustmaster, Inc. GPX Controller", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5b03, "Thrustmaster Ferrari 458 Racing Wheel", 0, XTYPE_XBOX360 },
+	{ 0x24c6, 0x5d04, "Razer Sabertooth", 0, XTYPE_XBOX360 },
 	{ 0xffff, 0xffff, "Chinese-made Xbox Controller", 0, XTYPE_XBOX },
 	{ 0x0000, 0x0000, "Generic X-Box pad", 0, XTYPE_UNKNOWN }
 };
@@ -373,6 +378,11 @@ struct usb_xpad {
 	int xtype;			/* type of xbox device */
 	const char *name;		/* name of the device */
 	struct work_struct work;	/* init/remove device from callback */
+
+	int is_open;
+	char battery_name[BAT_NAME_LEN]; /* Battery name string */
+	struct power_supply battery;	/* battery status for wireless controllers */
+	int battery_capacity;		/* battery capacity */
 };
 
 static int xpad_send_ff(struct usb_xpad *xpad, int strong, int weak);
@@ -391,6 +401,8 @@ static int xpad_find_joydev(struct device *dev, void *data)
 
 	return 0;
 }
+static void xpad_x360w_initialize(struct usb_xpad *xpad);
+static void xpad_x360w_deinitialize(struct usb_xpad *xpad);
 
 /*
  *	xpad_process_packet
@@ -544,8 +556,10 @@ static void presence_work_function(struct work_struct *work)
 			/* complain only, not much else we can do here */
 			dev_err(&xpad->intf->dev, "unable to init device\n");
 		}
+		xpad_x360w_initialize(xpad);
 	} else {
 		xpad_deinit_input(xpad);
+		xpad_x360w_deinitialize(xpad);
 	}
 }
 
@@ -577,6 +591,10 @@ static void xpad360w_process_packet(struct usb_xpad *xpad, u16 cmd, unsigned cha
 			return;
 		}
 	}
+
+	/* Battery status report */
+	if (data[0] == 0 && data[1] == 0 && data[2] == 0 && data[3] == 0x13)
+		xpad->battery_capacity = data[4]; /* TODO: Min/Max? &? Voltage? */
 
 	/* Valid pad data */
 	if (!(data[1] & 0x1))
@@ -725,6 +743,8 @@ static void xpad_irq_in(struct urb *urb)
 			__func__, status);
 		goto exit;
 	}
+
+	usb_mark_last_busy(xpad->udev);
 
 	switch (xpad->xtype) {
 	case XTYPE_XBOX360:
@@ -1210,6 +1230,10 @@ static int xpad_init_xbox_one_controller(struct usb_xpad *xpad)
 		ret = xpad_send_irq_out(xpad, xbox_one_elite_init_3, sizeof(xbox_one_elite_init_3));
 		if (ret) return ret;
 		xpad->odata_serial = 3;
+		if (xpad->mapping & FLAG_NEEDS_RUMBLE_TO_INITIALIZE) {
+			/* Do the rumble with magical values to make the controller send reports */
+			ret = xpad_send_ff(xpad, 0x1D * 512, 0x1D * 512);
+		}
 	}
 	return ret;
 }
@@ -1226,6 +1250,8 @@ static int xpad_open(struct input_dev *dev)
 	if (usb_submit_urb(xpad->irq_in, GFP_KERNEL))
 		return -EIO;
 
+	xpad->is_open = 1;
+
 	if (xpad->xtype == XTYPE_XBOXONE || xpad->xtype == XTYPE_XBOXONE_ELITE) {
 		return xpad_init_xbox_one_controller(xpad);
 	}
@@ -1241,6 +1267,7 @@ static void xpad_close(struct input_dev *dev)
 		usb_kill_urb(xpad->irq_in);
 
 	xpad_stop_output(xpad);
+	xpad->is_open = 0;
 }
 
 static void xpad_set_up_abs(struct input_dev *input_dev, signed short abs)
@@ -1372,6 +1399,102 @@ fail_init_ff:
 	return error;
 }
 
+static int xpad360w_send_presence_packet(struct usb_xpad *xpad)
+{
+	static const uint8_t x360w_presence_packet[12] = { 0x08, 0x00, 0x0F, 0xC0 };
+
+	return xpad_send_irq_out(xpad, x360w_presence_packet, 12);
+}
+
+/* Send packet to turn controller off */
+static ssize_t
+set_power_off(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct usb_interface *intf = to_usb_interface(dev);
+	struct usb_xpad *xpad = usb_get_intfdata (intf);
+	static const uint8_t x360w_power_off_packet[12] = { 0x00, 0x00, 0x08, 0xC0 };
+
+	xpad_send_irq_out(xpad, x360w_power_off_packet, 12);
+	return count;
+}
+
+
+#if defined(CONFIG_POWER_SUPPLY)
+static DEVICE_ATTR(power_off, S_IRUSR|S_IWUSR, NULL, set_power_off);
+
+static enum power_supply_property xpad_battery_props[] = {
+	POWER_SUPPLY_PROP_CAPACITY
+};
+
+static int xpad_battery_get_property(struct power_supply *psy,
+				     enum power_supply_property psp,
+				     union power_supply_propval *val)
+{
+	struct usb_xpad *xpad = container_of(psy, struct usb_xpad, battery);
+	int ret = 0;
+
+	switch (psp) {
+		case POWER_SUPPLY_PROP_CAPACITY:
+			val->intval = xpad->battery_capacity;
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+	}
+
+	return ret;
+}
+
+static void xpad_x360w_initialize_battery(struct usb_xpad *xpad)
+{
+	int error = 0;
+
+	snprintf(xpad->battery_name, BAT_NAME_LEN,
+		 "xpad_battery.%lu", xpad->joydev_id);
+
+	xpad->battery.properties = xpad_battery_props;
+	xpad->battery.num_properties = ARRAY_SIZE(xpad_battery_props);
+	xpad->battery.get_property = xpad_battery_get_property;
+	xpad->battery.name = xpad->battery_name;
+	xpad->battery.type = POWER_SUPPLY_TYPE_BATTERY;
+	xpad->battery.use_for_apm = 0;
+
+	error = power_supply_register(&xpad->intf->dev,
+				      &xpad->battery);
+
+	if (!error)
+		power_supply_powers(&xpad->battery,
+				    &xpad->intf->dev);
+}
+
+static void xpad_x360w_deinitialize_battery(struct usb_xpad *xpad)
+{
+	if (xpad->battery.dev) {
+		power_supply_unregister(&xpad->battery);
+		xpad->battery.dev = NULL;
+	}
+}
+#else
+static void xpad_x360w_initialize_battery(struct usb_xpad *xpad) {}
+static void xpad_x360w_deinitialize_battery(struct usb_xpad *xpad) {}
+#endif
+
+static void xpad_x360w_initialize(struct usb_xpad *xpad)
+{
+	device_create_file(&xpad->intf->dev, &dev_attr_power_off);
+	xpad_x360w_initialize_battery(xpad);
+}
+
+static void xpad_x360w_deinitialize(struct usb_xpad *xpad)
+{
+	if (xpad->xtype != XTYPE_XBOX360W)
+		return;
+
+	xpad_x360w_deinitialize_battery(xpad);
+	device_remove_file(&xpad->intf->dev, &dev_attr_power_off);
+}
+
 static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id)
 {
 	struct usb_device *udev = interface_to_usbdev(intf);
@@ -1379,8 +1502,6 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 	struct usb_endpoint_descriptor *ep_irq_in;
 	int ep_irq_in_idx;
 	int i, error = 0;
-	unsigned long flags;
-	unsigned char *odata;
 	int bInterval;
 
 	for (i = 0; xpad_device[i].idVendor; i++) {
@@ -1445,6 +1566,10 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 			xpad->mapping |= MAP_STICKS_TO_NULL;
 	}
 
+	if (xpad->xtype == XTYPE_XBOX360 || xpad->xtype == XTYPE_XBOXONE ||
+	    xpad->xtype == XTYPE_XBOXONE_ELITE)
+		udev->quirks |= USB_QUIRK_RESET_RESUME;
+
 	error = xpad_init_output(intf, xpad);
 	if (error)
 		goto fail3;
@@ -1485,34 +1610,7 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 			goto fail4;
 		}
 		
-		spin_lock_irqsave(&xpad->odata_lock, flags);
-		/*
-		 * send presence packet
-		 * This will force the controller to resend connection packets.
-		 * This is useful in the case we activate the module after the
-		 * adapter has been plugged in, as it won't automatically
-		 * send us info about the controllers.
-		 */
-		odata = xpad_get_irq_out_buffer(xpad);
-		if (!odata) {
-			spin_unlock_irqrestore(&xpad->odata_lock, flags);
-			error = -ENOMEM;
-			goto fail4;
-		}
-		odata[0] = 0x08;
-		odata[1] = 0x00;
-		odata[2] = 0x0F;
-		odata[3] = 0xC0;
-		odata[4] = 0x00;
-		odata[5] = 0x00;
-		odata[6] = 0x00;
-		odata[7] = 0x00;
-		odata[8] = 0x00;
-		odata[9] = 0x00;
-		odata[10] = 0x00;
-		odata[11] = 0x00;
-		error = xpad_submit_irq_out_buffer(xpad, odata, 12);
-		spin_unlock_irqrestore(&xpad->odata_lock, flags);
+		error = xpad360w_send_presence_packet(xpad);
 		if (error)
 			goto fail4;
 	} else {
@@ -1541,12 +1639,16 @@ static void xpad_deinit_input(struct usb_xpad *xpad)
 		return;
 }
 
+
 static void xpad_disconnect(struct usb_interface *intf)
 {
 	struct usb_xpad *xpad = usb_get_intfdata (intf);
 
-	if (xpad->pad_present)
+	if (xpad->pad_present) {
 		xpad_deinit_input(xpad);
+		xpad_x360w_deinitialize(xpad);
+	}
+
 	xpad_deinit_output(xpad);
 
 	if (xpad->xtype == XTYPE_XBOX360W) {
@@ -1564,11 +1666,57 @@ static void xpad_disconnect(struct usb_interface *intf)
 	usb_set_intfdata(intf, NULL);
 }
 
+static int xpad_suspend(struct usb_interface *intf, pm_message_t message)
+{
+	struct usb_xpad *xpad = usb_get_intfdata(intf);
+
+	if (xpad->xtype == XTYPE_XBOX360W || xpad->is_open) {
+		usb_kill_urb(xpad->irq_in);
+	}
+
+	/* odata_list is cleared in xpad_irq_out */
+	usb_kill_urb(xpad->irq_out);
+	return 0;
+}
+
+static int xpad_resume(struct usb_interface *intf)
+{
+	int ret = 0;
+	struct usb_xpad *xpad = usb_get_intfdata(intf);
+
+	if (xpad->xtype == XTYPE_XBOX360W) {
+		ret = usb_submit_urb(xpad->irq_in, GFP_KERNEL);
+		xpad360w_send_presence_packet(xpad);
+	} else if(xpad->is_open) {
+		ret = usb_submit_urb(xpad->irq_in, GFP_KERNEL);
+	}
+
+	xpad_init_xbox_one_controller(xpad);
+	/* Inject a button event */
+	if (xpad->xtype == XTYPE_XBOXONE) {
+		input_report_key(xpad->dev, BTN_MODE, 1);
+		input_report_key(xpad->dev, BTN_MODE, 0);
+		input_sync(xpad->dev);
+	}
+
+	xpad_send_led_command(xpad, (xpad->joydev_id % 4) + 2);
+	return ret;
+}
+
+static int xpad_reset_resume(struct usb_interface *intf)
+{
+	return xpad_resume(intf);
+}
+
 static struct usb_driver xpad_driver = {
 	.name		= "xpad",
 	.probe		= xpad_probe,
 	.disconnect	= xpad_disconnect,
 	.id_table	= xpad_table,
+	.suspend	= xpad_suspend,
+	.resume		= xpad_resume,
+	.reset_resume	= xpad_reset_resume,
+	.supports_autosuspend = 1,
 };
 
 module_usb_driver(xpad_driver);

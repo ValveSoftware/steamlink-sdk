@@ -93,7 +93,20 @@ extern SLGAMEPAD_DECLSPEC int SLAudio_GetSpeakerCount( CSLAudioContext *pContext
 
 //--------------------------------------------------------------------------------------------------
 // Create an audio stream
+//
 // The data format is 16-bit signed PCM data, and you write nFrameSizeBytes bytes at a time.
+//
+// The native frequency is 48000 Hz, and multi-channel audio uses the following channel order:
+//
+// 1 channel
+// 2 channels: left, right
+// 3 channels: left, center, right
+// 4 channels: front left, front right, rear left, rear right
+// 6 channels: front left, center, front right, rear left, rear right, LFE
+//
+// You should calculate nFrameSizeBytes as the amount of data you want to write in one chunk,
+// for example if you're opening at 48000 Hz, 2 channels, you might want to write 50 ms at a
+// time, which would be 48 * 50 * 2 * sizeof(int16_t) = 9600
 //--------------------------------------------------------------------------------------------------
 extern SLGAMEPAD_DECLSPEC CSLAudioStream *SLAudio_CreateStream( CSLAudioContext *pContext, int nFrequency, int nChannels, int nFrameSizeBytes );
 
@@ -112,7 +125,7 @@ extern SLGAMEPAD_DECLSPEC void SLAudio_SubmitFrame( CSLAudioStream *pStream );
 
 
 //--------------------------------------------------------------------------------------------------
-// Return the number of audio samples currently queued for playback
+// Return the number of audio samples (nChannels * sizeof(int16_t)) currently queued for playback
 //--------------------------------------------------------------------------------------------------
 extern SLGAMEPAD_DECLSPEC uint32_t SLAudio_GetQueuedAudioSamples( CSLAudioStream *pStream );
 
