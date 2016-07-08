@@ -8,7 +8,7 @@ SRC="${TOP}/kodi-src"
 # Download the source to Kodi
 #
 if [ ! -d "${SRC}" ]; then
-	git clone https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
+	git clone -b "16.1-Jarvis" https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
 	rm -f "${TOP}/.patch-applied"
 fi
 
@@ -167,7 +167,7 @@ export CEC_CFLAGS="-I${DEPS_INSTALL_PATH}/include"
 export CEC_LIBS=-lcec
 export LIBXML_CFLAGS="-I${DEPS_INSTALL_PATH}/include/libxml2"
 export PULSE_CFLAGS="-I${MARVELL_ROOTFS}/usr/include"
-export PULSE_LIBS="-lpulse -L${MARVELL_ROOTFS}/usr/lib/pulseaudio -lpulsecommon-6.0"
+export PULSE_LIBS="-lpulse -L${MARVELL_ROOTFS}/usr/lib/pulseaudio -lpulsecommon-8.0"
 export PKG_CONFIG_SYSROOT_DIR="${MARVELL_ROOTFS}"
 pushd "${SRC}"
 ./configure $STEAMLINK_CONFIGURE_OPTS --prefix=/home/steam/apps/kodi --disable-x11 || exit 4
@@ -183,7 +183,7 @@ for dir in "${DESTDIR}/home/steam/apps/kodi"/*; do
 done
 rm -rf "${DESTDIR}/home"
 
-cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/
+cp -a ${DEPS_INSTALL_PATH}/lib/python2.6 ${DESTDIR}/lib/
 
 for i in \
 	libass.so.5 \
