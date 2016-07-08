@@ -1,0 +1,35 @@
+
+#Building Kodi
+
+Before compiling, make sure you have installed these packages:
+```Bash
+automake build-essential cmake curl default-jre doxygen gawk git gperf swig unzip zip wget
+```
+For non-debianish distros:
+- `build-essential` means `make`, `gcc`, etc.
+- `default-jre` will be `openjdk7-jre` or something like that
+
+This list might be incomplete. When your build fails on some dependency,
+please install it with your package manager. You can find the list of all required
+packages in [Kodi readme](https://github.com/xbmc/xbmc/blob/master/docs/README.linux#L46)
+(some libraries are not required, since they will be built with the Steam Link SDK compiler from source).
+
+##Executing the build process
+
+1. Open new terminal window, **DO NOT** `source setenv.sh` - it will break the build environment!
+2. `$ cd /path/to/steamlink-sdk/examples/kodi`
+3. `$ ./build_steamlink.sh`
+4. Go get some coffee
+
+This should end with `Build complete!` message and you should have `steamlink` dir in your current directory.
+Copy the `steamlink` directory to a USB flash drive, insert it into the Steam Link and
+power cycle the device.
+
+##What is working:
+- Addons
+- Pictures
+- Video output (tested some .avi files with DivX 5 and Indeo5 codec)
+
+##What is not:
+- Sound output (in GUI, in Music addons, in Videos)
+- ...
