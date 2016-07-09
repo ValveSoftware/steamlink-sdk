@@ -1,11 +1,11 @@
 
 #About
 
-This script compiles Kodi version 16.1-Jarvis (c327c53). You can change this in `build_steamlink.sh`
-by providing different tag/branch or by removing `-b "16.1-Jarvis"` parameter,
+This script compiles Kodi version 16.1-Jarvis ([c327c53](https://github.com/xbmc/xbmc/commit/c327c53ac5346f71219e8353fe046e43e4d4a827)).
+You can change this in `build_steamlink.sh` by providing different tag/branch or by removing `-b "16.1-Jarvis"` parameter,
 however the build script can break.
 
-I have tested this on Arch Linux and Ubuntu 16.04.
+It was tested on Arch Linux and Ubuntu 16.04.
 
 ##Building Kodi
 
@@ -36,8 +36,8 @@ power cycle the device.
 ##What is working:
 - Addons
 - Pictures
-- Video output (tested some .avi files with DivX 5 and Indeo5 codec)
+- Video output (no HW decoding?)
+- Sound output (thanks to [@garbear](https://github.com/garbear/))
 
-##What is not:
-- Sound output (in GUI, in Music addons, in Videos)
+##What is not working:
 - ...
