@@ -24,6 +24,15 @@ if [ "${TOP}/kodi.patch" -nt "${TOP}/.patch-applied" ]; then
 	touch "${TOP}/.patch-applied"
 fi
 
+if [ "${TOP}/kodi-audio.patch" -nt "${TOP}/.audio-patch-applied" ]; then
+	pushd "${SRC}"
+	git clean -fxd
+	git checkout .
+	patch -p1 <"${TOP}/kodi-audio.patch" || exit 1
+	popd
+	touch "${TOP}/.audio-patch-applied"
+fi
+
 if [ ! -f "${SRC}/configure" ]; then
 	pushd "${SRC}"
 	./bootstrap || exit 1
