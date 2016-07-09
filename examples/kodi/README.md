@@ -1,13 +1,21 @@
 
-#Building Kodi
+#About
+
+This script compiles Kodi version 16.1-Jarvis (c327c53). You can change this in `build_steamlink.sh`
+by providing different tag/branch or by removing `-b "16.1-Jarvis"` parameter,
+however the build script can break.
+
+I have tested this on Arch Linux and Ubuntu 16.04.
+
+##Building Kodi
 
 Before compiling, make sure you have installed these packages:
 ```Bash
-automake build-essential cmake curl default-jre doxygen gawk git gperf swig unzip zip wget
+automake autopoint build-essential cmake curl default-jre doxygen gawk git gperf libcurl4-openssl-dev libtool swig unzip zip zlib1g-dev wget
 ```
 For non-debianish distros:
 - `build-essential` means `make`, `gcc`, etc.
-- `default-jre` will be `openjdk7-jre` or something like that
+- `default-jre` will be `jre8-openjdk` or something like that
 
 This list might be incomplete. When your build fails on some dependency,
 please install it with your package manager. You can find the list of all required
