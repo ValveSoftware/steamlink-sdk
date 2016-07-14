@@ -27,7 +27,6 @@ extern "C" {
 #define __user
 #endif
 #include <linux/capability.h>
-#include <linux/xattr.h>
 
 /*
  * POSIX capability types
