@@ -25,7 +25,7 @@ popd
 # Install it
 #
 mkdir -p "${TOP}/steamlink/apps"
-cp -av cp-build-steamlink/steamlink/* "${TOP}/steamlink/apps"
+cp -av cp-build-steamlink/steamlink/* "${TOP}/steamlink/apps" || exit 1
 
 #
 # All done!
