@@ -20,7 +20,6 @@ if [ "${TOP}/kodi.patch" -nt "${TOP}/.patch-applied" ]; then
 	git clean -fxd
 	git checkout .
 	patch -p1 <"${TOP}/kodi.patch" || exit 1
-	patch -p1 <"${TOP}/kodi-audio.patch" || exit 1
 	popd
 	touch "${TOP}/.patch-applied"
 fi
