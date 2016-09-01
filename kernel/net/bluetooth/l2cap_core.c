@@ -3069,6 +3069,17 @@ done:
 
 	switch (chan->mode) {
 	case L2CAP_MODE_BASIC:
+		/* HACK FOR XBOX ONE S CONTROLLERS
+		 * If we add options to the configuration request, the
+		 * Xbox One S controller responds with:
+		 *   Result: Failure - unknown options (0x0003)
+		 * For now, just don't send configuration options.
+		 * Remove this hack once the controller supports it
+		 */
+#if 0
+		if (disable_ertm)
+			break;
+
 		if (!(chan->conn->feat_mask & L2CAP_FEAT_ERTM) &&
 		    !(chan->conn->feat_mask & L2CAP_FEAT_STREAMING))
 			break;
@@ -3082,6 +3093,7 @@ done:
 
 		l2cap_add_conf_opt(&ptr, L2CAP_CONF_RFC, sizeof(rfc),
 				   (unsigned long) &rfc);
+#endif
 		break;
 
 	case L2CAP_MODE_ERTM:

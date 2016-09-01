@@ -41,7 +41,7 @@ extern "C" {
 //--------------------------------------------------------------------------------------------------
 // Make sure functions are exported from the shared library
 //--------------------------------------------------------------------------------------------------
-#define SLGAMEPAD_DECLSPEC __attribute__ ((visibility("default")))
+#define SLVIDEO_DECLSPEC __attribute__ ((visibility("default")))
 
 
 //--------------------------------------------------------------------------------------------------
@@ -90,7 +90,7 @@ typedef struct CSLVideoStream CSLVideoStream;
 // Set the log level for the SLVideo library
 // The default log level is k_ESLVideoLogError
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_SetLogLevel( ESLVideoLog eLogLevel );
+extern SLVIDEO_DECLSPEC void SLVideo_SetLogLevel( ESLVideoLog eLogLevel );
 
 
 //--------------------------------------------------------------------------------------------------
@@ -99,62 +99,62 @@ extern SLGAMEPAD_DECLSPEC void SLVideo_SetLogLevel( ESLVideoLog eLogLevel );
 // Setting NULL disables log output. Log messages end with a newline.
 //--------------------------------------------------------------------------------------------------
 typedef void (*SLVideo_LogFunction)( void *pContext, ESLVideoLog eLogLevel, const char *pszMessage );
-extern SLGAMEPAD_DECLSPEC void SLVideo_SetLogFunction( SLVideo_LogFunction pFunction, void *pContext );
+extern SLVIDEO_DECLSPEC void SLVideo_SetLogFunction( SLVideo_LogFunction pFunction, void *pContext );
 
 
 //--------------------------------------------------------------------------------------------------
 // Create a Steam Link video context
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC CSLVideoContext *SLVideo_CreateContext();
+extern SLVIDEO_DECLSPEC CSLVideoContext *SLVideo_CreateContext();
 
 
 //--------------------------------------------------------------------------------------------------
 // Get the display resolution
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_GetDisplayResolution( CSLVideoContext *pContext, int *pnWidth, int *pnHeight );
+extern SLVIDEO_DECLSPEC void SLVideo_GetDisplayResolution( CSLVideoContext *pContext, int *pnWidth, int *pnHeight );
 
 
 //--------------------------------------------------------------------------------------------------
 // Enable protected content (HDCP)
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_EnableProtectedContent( CSLVideoContext *pContext );
+extern SLVIDEO_DECLSPEC void SLVideo_EnableProtectedContent( CSLVideoContext *pContext );
 
 
 //--------------------------------------------------------------------------------------------------
 // Disable protected content (HDCP)
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_DisableProtectedContent( CSLVideoContext *pContext );
+extern SLVIDEO_DECLSPEC void SLVideo_DisableProtectedContent( CSLVideoContext *pContext );
 
 
 //--------------------------------------------------------------------------------------------------
 // Create an ARGB overlay surface
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC CSLVideoOverlay *SLVideo_CreateOverlay( CSLVideoContext *pContext, int nWidth, int nHeight );
+extern SLVIDEO_DECLSPEC CSLVideoOverlay *SLVideo_CreateOverlay( CSLVideoContext *pContext, int nWidth, int nHeight );
 
 
 //--------------------------------------------------------------------------------------------------
 // Get the overlay size
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_GetOverlaySize( CSLVideoOverlay *pOverlay, int *pnWidth, int *pnHeight );
+extern SLVIDEO_DECLSPEC void SLVideo_GetOverlaySize( CSLVideoOverlay *pOverlay, int *pnWidth, int *pnHeight );
 
 
 //--------------------------------------------------------------------------------------------------
 // Get the overlay pixels
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_GetOverlayPixels( CSLVideoOverlay *pOverlay, uint32_t **ppPixels, int *pnPitch );
+extern SLVIDEO_DECLSPEC void SLVideo_GetOverlayPixels( CSLVideoOverlay *pOverlay, uint32_t **ppPixels, int *pnPitch );
 
 
 //--------------------------------------------------------------------------------------------------
 // Set the output area for the overlay to be centered, fullscreen, with correct aspect ratio
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_SetOverlayDisplayFullscreen( CSLVideoOverlay *pOverlay );
+extern SLVIDEO_DECLSPEC void SLVideo_SetOverlayDisplayFullscreen( CSLVideoOverlay *pOverlay );
 
 
 //--------------------------------------------------------------------------------------------------
 // Set the output area for the overlay
 // The offset and size coordinates are float 0.0 - 1.0
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_SetOverlayDisplayArea( CSLVideoOverlay *pOverlay, float flOffsetX, float flOffsetY, float flWidth, float flHeight );
+extern SLVIDEO_DECLSPEC void SLVideo_SetOverlayDisplayArea( CSLVideoOverlay *pOverlay, float flOffsetX, float flOffsetY, float flWidth, float flHeight );
 
 
 //--------------------------------------------------------------------------------------------------
@@ -163,50 +163,53 @@ extern SLGAMEPAD_DECLSPEC void SLVideo_SetOverlayDisplayArea( CSLVideoOverlay *p
 // multiple overlays and sequentially showing them. If you're changing them every frame you
 // should use multiple overlays to avoid tearing.
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_ShowOverlay( CSLVideoOverlay *pOverlay );
+extern SLVIDEO_DECLSPEC void SLVideo_ShowOverlay( CSLVideoOverlay *pOverlay );
 
 
 //--------------------------------------------------------------------------------------------------
 // Make an overlay no longer visible
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_HideOverlay( CSLVideoOverlay *pOverlay );
+extern SLVIDEO_DECLSPEC void SLVideo_HideOverlay( CSLVideoOverlay *pOverlay );
 
 
 //--------------------------------------------------------------------------------------------------
 // Free an overlay
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_FreeOverlay( CSLVideoOverlay *pOverlay );
+extern SLVIDEO_DECLSPEC void SLVideo_FreeOverlay( CSLVideoOverlay *pOverlay );
 
 
 //--------------------------------------------------------------------------------------------------
 // Create a video stream
+//
+// If bLowLatency is non-zero, the stream will be optimized for low latency display and 
+// will only support I and P frames.
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC CSLVideoStream *SLVideo_CreateStream( CSLVideoContext *pContext, ESLVideoFormat eFormat );
+extern SLVIDEO_DECLSPEC CSLVideoStream *SLVideo_CreateStream( CSLVideoContext *pContext, ESLVideoFormat eFormat, int bLowLatency );
 
 
 //--------------------------------------------------------------------------------------------------
 // Set the video transfer matrix (optional, defaults to k_ESLVideoTransferMatrix_Automatic)
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_SetStreamVideoTransferMatrix( CSLVideoStream *pStream, ESLVideoTransferMatrix eVideoTransferMatrix );
+extern SLVIDEO_DECLSPEC void SLVideo_SetStreamVideoTransferMatrix( CSLVideoStream *pStream, ESLVideoTransferMatrix eVideoTransferMatrix );
 
 
 //--------------------------------------------------------------------------------------------------
 // Set the expected video framerate (optional)
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_SetStreamTargetFramerate( CSLVideoStream *pStream, unsigned unFramerateNumerator, unsigned unFramerateDenominator );
+extern SLVIDEO_DECLSPEC void SLVideo_SetStreamTargetFramerate( CSLVideoStream *pStream, unsigned unFramerateNumerator, unsigned unFramerateDenominator );
 
 
 //--------------------------------------------------------------------------------------------------
 // Set the expected video bitrate, in kBit/s (optional)
 // The Steam Link video decoder has an approximate bit rate limit of about 30000 (30 Mbit/s)
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_SetStreamTargetBitrate( CSLVideoStream *pStream, int nBitrate );
+extern SLVIDEO_DECLSPEC void SLVideo_SetStreamTargetBitrate( CSLVideoStream *pStream, int nBitrate );
 
 
 //--------------------------------------------------------------------------------------------------
 // Get the current video stream resolution or 0x0 if not yet detected
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_GetStreamResolution( CSLVideoStream *pStream, int *pnWidth, int *pnHeight );
+extern SLVIDEO_DECLSPEC void SLVideo_GetStreamResolution( CSLVideoStream *pStream, int *pnWidth, int *pnHeight );
 
 
 //--------------------------------------------------------------------------------------------------
@@ -214,14 +217,14 @@ extern SLGAMEPAD_DECLSPEC void SLVideo_GetStreamResolution( CSLVideoStream *pStr
 // This function returns 0 on success or -1 if there is a macroblock error or the decoder can't
 // keep up with the data rate.
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC int SLVideo_BeginFrame( CSLVideoStream *pStream, int nFrameSize );
+extern SLVIDEO_DECLSPEC int SLVideo_BeginFrame( CSLVideoStream *pStream, int nFrameSize );
 
 
 //--------------------------------------------------------------------------------------------------
 // Add video data to the frame
 // This function returns 0 on success or -1 if you try to write more data than expected
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC int SLVideo_WriteFrameData( CSLVideoStream *pStream, void *pData, int nDataSize );
+extern SLVIDEO_DECLSPEC int SLVideo_WriteFrameData( CSLVideoStream *pStream, void *pData, int nDataSize );
 
 
 //--------------------------------------------------------------------------------------------------
@@ -229,19 +232,27 @@ extern SLGAMEPAD_DECLSPEC int SLVideo_WriteFrameData( CSLVideoStream *pStream, v
 // This function returns 0 on success or -1 if there is an error submitting the frame.
 // The frame will be automatically displayed when decoding is complete.
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC int SLVideo_SubmitFrame( CSLVideoStream *pStream );
+extern SLVIDEO_DECLSPEC int SLVideo_SubmitFrame( CSLVideoStream *pStream );
+
+
+//--------------------------------------------------------------------------------------------------
+// Get the amount of video queued (submitted but not presented) in milliseconds
+//
+// This function returns 0 for low latency streams.
+//--------------------------------------------------------------------------------------------------
+extern SLVIDEO_DECLSPEC uint32_t SLVideo_GetQueuedVideoMS( CSLVideoStream *pStream );
 
 
 //--------------------------------------------------------------------------------------------------
 // Free a video stream
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_FreeStream( CSLVideoStream *pStream );
+extern SLVIDEO_DECLSPEC void SLVideo_FreeStream( CSLVideoStream *pStream );
 
 
 //--------------------------------------------------------------------------------------------------
 // Free a Steam Link video context
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLVideo_FreeContext( CSLVideoContext *pContext );
+extern SLVIDEO_DECLSPEC void SLVideo_FreeContext( CSLVideoContext *pContext );
 
 
 //--------------------------------------------------------------------------------------------------

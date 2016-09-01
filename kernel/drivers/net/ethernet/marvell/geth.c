@@ -1677,6 +1677,8 @@ static int geth_open(struct net_device *dev)
 		mp->int_mask |= INT_TX_END_0 << i;
 	}
 
+	geth_program_unicast_filter(dev);
+	dev_printk(KERN_DEFAULT, &dev->dev, "reprogrammed MAC %pM\n", dev->dev_addr);
 	port_start(mp);
 
 	wrlp(mp, ETH_EIMR, mp->int_mask);

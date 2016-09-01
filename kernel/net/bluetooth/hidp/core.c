@@ -381,6 +381,9 @@ static int hidp_output_raw_report(struct hid_device *hid, unsigned char *data, s
 	case HID_OUTPUT_REPORT:
 		return hidp_queue_report(session, data, count);
 		break;
+	case HID_OUTPUT_REPORT_IN_CTRL: /* For hid-sony */
+		report_type = HIDP_TRANS_SET_REPORT | HIDP_DATA_RTYPE_OUPUT;
+		break;
 	default:
 		return -EINVAL;
 	}

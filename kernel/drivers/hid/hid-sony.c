@@ -912,11 +912,11 @@ static __u8 *sony_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 	 * the gyroscope values to corresponding axes so we need a
 	 * modified one.
 	 */
-	if ((sc->quirks & DUALSHOCK4_CONTROLLER_USB) && *rsize == 467) {
+	if (sc->quirks & DUALSHOCK4_CONTROLLER_USB) {
 		hid_info(hdev, "Using modified Dualshock 4 report descriptor with gyroscope axes\n");
 		rdesc = dualshock4_usb_rdesc;
 		*rsize = sizeof(dualshock4_usb_rdesc);
-	} else if ((sc->quirks & DUALSHOCK4_CONTROLLER_BT) && *rsize == 357) {
+	} else if (sc->quirks & DUALSHOCK4_CONTROLLER_BT) {
 		hid_info(hdev, "Using modified Dualshock 4 Bluetooth report descriptor\n");
 		rdesc = dualshock4_bt_rdesc;
 		*rsize = sizeof(dualshock4_bt_rdesc);
@@ -1693,12 +1693,16 @@ static void dualshock4_state_worker(struct work_struct *work)
 	buf[offset++] = sc->led_delay_on[3];
 	buf[offset++] = sc->led_delay_off[3];
 
+	/* When connected over bluetooth, the DS4 wants output repots
+	 * in the control endpoint instead of interrupt endpoint,
+	 * add a workaround since hidp forces them to interrupt ep by default */
 	if (sc->quirks & DUALSHOCK4_CONTROLLER_USB)
 		hdev->hid_output_raw_report(hdev, buf, DS4_REPORT_0x05_SIZE,
 					HID_OUTPUT_REPORT);
 	else
 		hdev->hid_output_raw_report(hdev, buf, DS4_REPORT_0x11_SIZE,
-					HID_OUTPUT_REPORT);
+					    HID_OUTPUT_REPORT_IN_CTRL);
+
 }
 
 static int sony_allocate_output_report(struct sony_sc *sc)

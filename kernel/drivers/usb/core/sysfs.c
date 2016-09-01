@@ -220,6 +220,274 @@ set_avoid_reset_quirk(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR(avoid_reset_quirk, S_IRUGO | S_IWUSR,
 		show_avoid_reset_quirk, set_avoid_reset_quirk);
 
+#if defined (CONFIG_BERLIN_STEAMLINK_LOW_POWER)
+
+/* Steam Link Low Power States:
+ * 0 - Normal operation.  Clocks are fast
+ * 1 - Deep Sleep mode.  Clocks are slowed
+ * 2 - Nap mode. Clocks are fast, but usb / input drivers are monitored
+ *     for a wake up event.  Used for slient updates to detect if input
+ *     has come into the system.
+ *
+ * The system will automatically transition from Nap / Deep Sleep back to
+ * Normal when input, usb plug, usb unplug, usb remote wakeup events are
+ * detected.
+ *
+ * The following transitions are allowed:
+ * 0 -> 1 (through sysfs)
+ * 1 -> 0 (through sysfs or automatically as described above)
+ * 1 -> 2 (through sysfs)
+ * 2 -> 1 (through sysfs)
+ * 2 -> 0 (through sysfs or automatically as described above)
+ *
+ */
+
+#define STEAMLINK_LOW_POWER_STATE_NORMAL       (0)
+#define STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP   (1)
+#define STEAMLINK_LOW_POWER_STATE_NAP          (2)
+
+/* Magic number from  Marvell: the factor by which the clock
+ *  is slowed */
+#define STEAMLINK_SLOW_CLOCK_MULTIPLICATION_FACTOR (34)
+
+static DEFINE_SPINLOCK(steamlink_low_power_lock);
+static unsigned long steamlink_low_power_state;
+static unsigned long steamlink_low_power_regs[8];
+static unsigned long steamlink_low_power_start_jiffies;
+static unsigned long steamlink_elapsed_ms;
+
+/* Save off current register settings so they can be restored when
+ * coming out of low power
+ */
+static inline void save_marvell_regs(void)
+{
+	volatile unsigned long *magic;
+
+	magic = (volatile unsigned long *) 0xF7EA0150;
+	steamlink_low_power_regs[0] = *magic;
+	magic = (volatile unsigned long *) 0xF7EA000C;
+	steamlink_low_power_regs[1] = *magic;
+	magic = (volatile unsigned long *) 0xF7EA0014;
+	steamlink_low_power_regs[2] = *magic;
+	magic = (volatile unsigned long *) 0xF7EA0018;
+	steamlink_low_power_regs[3] = *magic;
+	magic = (volatile unsigned long *) 0xF7FE1404;
+	steamlink_low_power_regs[4] = *magic;
+	magic = (volatile unsigned long *) 0xF7EA000C;
+	steamlink_low_power_regs[5] = *magic;
+	magic = (volatile unsigned long *) 0xF7EA003C;
+	steamlink_low_power_regs[6] = *magic;
+	magic = (volatile unsigned long *) 0xF7EA0040;
+	steamlink_low_power_regs[7] = *magic;
+}
+
+/* Restore register settings from saved values.
+ */
+static inline void restore_marvell_regs(void)
+{
+	volatile unsigned long *magic;
+
+	/* Enable peripheral clocks */
+	magic = (volatile unsigned long *) 0xF7EA0150;
+	*magic = steamlink_low_power_regs[0];
+	/* SYSPLL restore */
+	magic = (volatile unsigned long *) 0xF7EA000C;
+	*magic = steamlink_low_power_regs[1];
+	magic = (volatile unsigned long *) 0xF7EA0014;
+	*magic = steamlink_low_power_regs[2];
+	magic = (volatile unsigned long *) 0xF7EA0018;
+	*magic = steamlink_low_power_regs[3];
+	/* turn on PHY power */
+	magic = (volatile unsigned long *) 0xF7FE1404;
+	*magic = steamlink_low_power_regs[4];
+	/* CPUPLL restore */
+	magic = (volatile unsigned long *) 0xF7EA000C;
+	*magic = steamlink_low_power_regs[5];
+	magic = (volatile unsigned long *) 0xF7EA003C;
+	*magic = steamlink_low_power_regs[6];
+	magic = (volatile unsigned long *) 0xF7EA0040;
+	*magic = steamlink_low_power_regs[7];
+}
+
+static inline void write_marvell_regs(void)
+{
+	volatile unsigned long *magic;
+
+	/* turn off PHY power */
+	magic = (volatile unsigned long *) 0xF7FE1404;
+	*magic = 0x4000001;
+	/* Disabling peripheral clocks */
+	magic = (volatile unsigned long *) 0xF7EA0150;
+	*magic = 0x3FDFF743;
+	/* CPUPLL BYPASS */
+	magic = (volatile unsigned long *) 0xF7EA000C;
+	*magic = 0x1800;
+	magic = (volatile unsigned long *) 0xF7EA0040;
+	*magic = 0x110B12D;
+	magic = (volatile unsigned long *) 0xF7EA003C;
+	*magic = 0x5652A804;
+	/* SYSPLL BYPASS */
+	magic = (volatile unsigned long *) 0xF7EA000C;
+	*magic =  0x1C00;
+	magic = (volatile unsigned long *) 0xF7EA0018;
+	*magic = 0x1CC8113;
+	magic = (volatile unsigned long *) 0xF7EA0014;
+	*magic =  0x4E52A204;
+}
+
+/* This function handles transitions to STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP
+ * and STEAMLINK_LOW_POWER_STATE_NAP.
+ * See steamlink_low_power_exit_if_appropriate for transitions to
+ * STEAMLINK_LOW_POWER_STATE_NORMAL.
+ */
+static int steamlink_low_power_enter(unsigned long next_state)
+{
+	unsigned long flags;
+	int ret;
+
+	spin_lock_irqsave(&steamlink_low_power_lock, flags);
+
+	/* Validate the transition
+	 */
+	if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_NORMAL
+		&& next_state != STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP) {
+		ret = 0;
+		goto done;
+	}
+	else if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP
+			 && next_state != STEAMLINK_LOW_POWER_STATE_NAP) {
+		ret = 0;
+		goto done;
+	}
+	else if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_NAP
+			 && next_state != STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP) {
+		ret = 0;
+		goto done;
+	}
+
+	printk("steamlink_low_power_enter(next_state=%ld), current state = %ld\n", next_state, steamlink_low_power_state);
+
+	/* Note: Marvell provided the magic numbers for the registers / values.
+	 * See source for test_power executable for more information.
+	 * Also Note: test_power turns down vcore by sending the appropriate
+	 * i2c commands to the ldo.  We are not doing that here because it
+	 * only saves about 35 mW of power to do that and would require a
+	 * lot of additional effort.
+	 */
+	if (next_state == STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP) {
+		save_marvell_regs();
+		write_marvell_regs();
+	}
+	else if (next_state == STEAMLINK_LOW_POWER_STATE_NAP) {
+		restore_marvell_regs();
+	}
+
+	steamlink_low_power_start_jiffies = jiffies;
+	steamlink_low_power_state = next_state;
+	ret = 0;
+
+done:
+	spin_unlock_irqrestore(&steamlink_low_power_lock, flags);
+
+	return ret;
+}
+
+int	steamlink_low_power_exit_if_appropriate(char *caller)
+{
+	unsigned long flags;
+	unsigned long multiplication_factor = 1;
+	int ret;
+
+	spin_lock_irqsave(&steamlink_low_power_lock, flags);
+
+	if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_NORMAL) {
+		ret = 0;
+		goto done;
+	}
+
+	printk("steamlink_low_power_exit_if_appropriate: %s causing exit from low power mode %ld\n", caller, steamlink_low_power_state);
+
+	if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP) {
+		restore_marvell_regs();
+		multiplication_factor = STEAMLINK_SLOW_CLOCK_MULTIPLICATION_FACTOR;
+	}
+
+	steamlink_elapsed_ms = jiffies_to_msecs(jiffies - steamlink_low_power_start_jiffies) * multiplication_factor;
+
+	steamlink_low_power_state = STEAMLINK_LOW_POWER_STATE_NORMAL;
+	ret = 0;
+
+done:
+	spin_unlock_irqrestore(&steamlink_low_power_lock, flags);
+
+	return ret;
+}
+
+static ssize_t
+show_steamlink_low_power_state(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%ld\n", steamlink_low_power_state);
+}
+
+static ssize_t
+set_steamlink_low_power_state(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned long val;
+	ssize_t	ret = -EINVAL;
+
+	if (sscanf(buf, "%ld", &val) != 1)
+		return -EINVAL;
+
+	printk("set_steamlink_low_power_state: current %ld, want %ld\n", steamlink_low_power_state, val);
+
+	/* Enter / exit low power mode */
+	if (val != STEAMLINK_LOW_POWER_STATE_NORMAL) {
+		steamlink_low_power_enter(val);
+		ret = count;
+	}
+	else {
+		steamlink_low_power_exit_if_appropriate("usb sysfs set");
+		ret = count;
+	}
+
+	return ret;
+}
+
+static DEVICE_ATTR(steamlink_low_power_state, S_IRUGO | S_IWUSR,
+		show_steamlink_low_power_state, set_steamlink_low_power_state);
+
+static ssize_t
+show_steamlink_low_power_elapsed_ms(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret;
+	unsigned long flags;
+
+	spin_lock_irqsave(&steamlink_low_power_lock, flags);
+
+	/* If not in low power mode, return the last amount of time elapsed
+	 * while in low power, otherwise return the current amount of time
+	 * elapsed while in low power
+	 */
+	if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_NORMAL)	{
+		ret = sprintf(buf, "%lu\n", steamlink_elapsed_ms);
+	}
+	else if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP) {
+		ret = sprintf(buf, "%u\n", jiffies_to_msecs(jiffies - steamlink_low_power_start_jiffies) * STEAMLINK_SLOW_CLOCK_MULTIPLICATION_FACTOR);
+	}
+	else if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_NAP) {
+		ret = sprintf(buf, "%u\n", jiffies_to_msecs(jiffies - steamlink_low_power_start_jiffies));
+	}
+
+	spin_unlock_irqrestore(&steamlink_low_power_lock, flags);
+
+	return ret;
+}
+static DEVICE_ATTR(steamlink_low_power_elapsed_ms, S_IRUGO | S_IWUSR,
+		show_steamlink_low_power_elapsed_ms, NULL);
+
+#endif /* defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER) */
+
 static ssize_t
 show_urbnum(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -659,6 +927,10 @@ static struct attribute *dev_attrs[] = {
 	&dev_attr_remove.attr,
 	&dev_attr_removable.attr,
 	&dev_attr_ltm_capable.attr,
+#if defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER)
+	&dev_attr_steamlink_low_power_state.attr,
+	&dev_attr_steamlink_low_power_elapsed_ms.attr,
+#endif /* defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER) */
 	NULL,
 };
 static struct attribute_group dev_attr_grp = {

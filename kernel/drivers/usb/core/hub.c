@@ -42,6 +42,10 @@
 #define USB_VENDOR_GENESYS_LOGIC		0x05e3
 #define HUB_QUIRK_CHECK_PORT_AUTOSUSPEND	0x01
 
+#if defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER)
+extern int steamlink_low_power_exit_if_appropriate(char *caller);
+#endif /* defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER) */
+
 struct usb_port {
 	struct usb_device *child;
 	struct device dev;
@@ -3147,6 +3151,11 @@ int usb_port_resume(struct usb_device *udev, pm_message_t msg)
 	int		status;
 	u16		portchange, portstatus;
 
+#if defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER)
+	/* Exit low power if a USB remote wakeup happens */
+	steamlink_low_power_exit_if_appropriate("usb_port_resume");
+#endif /* defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER) */
+
 	/* Skip the initial Clear-Suspend step for a remote wakeup */
 	status = hub_port_status(hub, port1, &portstatus, &portchange);
 	if (status == 0 && !port_is_suspended(hub, portstatus))
@@ -4291,6 +4300,11 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 			le16_to_cpu(hub->descriptor->wHubCharacteristics);
 	struct usb_device *udev;
 	int status, i;
+
+#if defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER)
+	/* Exit low power when a USB device is plugged / unplugged */
+	steamlink_low_power_exit_if_appropriate("hub_port_connect_change");
+#endif /* defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER) */
 
 	dev_dbg (hub_dev,
 		"port %d, status %04x, change %04x, %s\n",

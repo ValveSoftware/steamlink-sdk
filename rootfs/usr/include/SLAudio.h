@@ -41,7 +41,7 @@ extern "C" {
 //--------------------------------------------------------------------------------------------------
 // Make sure functions are exported from the shared library
 //--------------------------------------------------------------------------------------------------
-#define SLGAMEPAD_DECLSPEC __attribute__ ((visibility("default")))
+#define SLAUDIO_DECLSPEC __attribute__ ((visibility("default")))
 
 
 //--------------------------------------------------------------------------------------------------
@@ -67,7 +67,7 @@ typedef struct CSLAudioStream CSLAudioStream;
 // Set the log level for the SLAudio library
 // The default log level is k_ESLAudioLogError
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLAudio_SetLogLevel( ESLAudioLog eLogLevel );
+extern SLAUDIO_DECLSPEC void SLAudio_SetLogLevel( ESLAudioLog eLogLevel );
 
 
 //--------------------------------------------------------------------------------------------------
@@ -76,19 +76,19 @@ extern SLGAMEPAD_DECLSPEC void SLAudio_SetLogLevel( ESLAudioLog eLogLevel );
 // Setting NULL disables log output. Log messages end with a newline.
 //--------------------------------------------------------------------------------------------------
 typedef void (*SLAudio_LogFunction)( void *pContext, ESLAudioLog eLogLevel, const char *pszMessage );
-extern SLGAMEPAD_DECLSPEC void SLAudio_SetLogFunction( SLAudio_LogFunction pFunction, void *pContext );
+extern SLAUDIO_DECLSPEC void SLAudio_SetLogFunction( SLAudio_LogFunction pFunction, void *pContext );
 
 
 //--------------------------------------------------------------------------------------------------
 // Create a Steam Link audio context
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC CSLAudioContext *SLAudio_CreateContext();
+extern SLAUDIO_DECLSPEC CSLAudioContext *SLAudio_CreateContext();
 
 
 //--------------------------------------------------------------------------------------------------
 // Get the number of speakers configured on the system
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC int SLAudio_GetSpeakerCount( CSLAudioContext *pContext );
+extern SLAUDIO_DECLSPEC int SLAudio_GetSpeakerCount( CSLAudioContext *pContext );
 
 
 //--------------------------------------------------------------------------------------------------
@@ -108,38 +108,38 @@ extern SLGAMEPAD_DECLSPEC int SLAudio_GetSpeakerCount( CSLAudioContext *pContext
 // for example if you're opening at 48000 Hz, 2 channels, you might want to write 50 ms at a
 // time, which would be 48 * 50 * 2 * sizeof(int16_t) = 9600
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC CSLAudioStream *SLAudio_CreateStream( CSLAudioContext *pContext, int nFrequency, int nChannels, int nFrameSizeBytes );
+extern SLAUDIO_DECLSPEC CSLAudioStream *SLAudio_CreateStream( CSLAudioContext *pContext, int nFrequency, int nChannels, int nFrameSizeBytes );
 
 
 //--------------------------------------------------------------------------------------------------
 // Get a pointer to the data for the next frame
 // You should write exactly nFrameSizeBytes bytes of audio data and then call SLAudio_SubmitFrame()
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void *SLAudio_BeginFrame( CSLAudioStream *pStream );
+extern SLAUDIO_DECLSPEC void *SLAudio_BeginFrame( CSLAudioStream *pStream );
 
 
 //--------------------------------------------------------------------------------------------------
 // Submit the frame data for for playback
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLAudio_SubmitFrame( CSLAudioStream *pStream );
+extern SLAUDIO_DECLSPEC void SLAudio_SubmitFrame( CSLAudioStream *pStream );
 
 
 //--------------------------------------------------------------------------------------------------
 // Return the number of audio samples (nChannels * sizeof(int16_t)) currently queued for playback
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC uint32_t SLAudio_GetQueuedAudioSamples( CSLAudioStream *pStream );
+extern SLAUDIO_DECLSPEC uint32_t SLAudio_GetQueuedAudioSamples( CSLAudioStream *pStream );
 
 
 //--------------------------------------------------------------------------------------------------
 // Free an audio stream
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLAudio_FreeStream( CSLAudioStream *pStream );
+extern SLAUDIO_DECLSPEC void SLAudio_FreeStream( CSLAudioStream *pStream );
 
 
 //--------------------------------------------------------------------------------------------------
 // Free a Steam Link audio context
 //--------------------------------------------------------------------------------------------------
-extern SLGAMEPAD_DECLSPEC void SLAudio_FreeContext( CSLAudioContext *pContext );
+extern SLAUDIO_DECLSPEC void SLAudio_FreeContext( CSLAudioContext *pContext );
 
 
 //--------------------------------------------------------------------------------------------------

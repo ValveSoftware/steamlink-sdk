@@ -29,6 +29,7 @@
 #define MS_NOGET		0x10
 #define MS_DUPLICATE_USAGES	0x20
 #define MS_RDESC_3K		0x40
+#define MS_XBOX_ONE_S 	0x80
 
 static __u8 *ms_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
@@ -95,11 +96,43 @@ static int ms_presenter_8k_quirk(struct hid_input *hi, struct hid_usage *usage,
 	return 1;
 }
 
+static int ms_xbox_one_s_quirk(struct hid_input *hi, struct hid_usage *usage,
+		unsigned long **bit, int *max)
+{
+	switch (usage->hid & HID_USAGE_PAGE) {
+
+	case HID_UP_GENDESK:
+		if ((usage->hid & 0xf0) == 0x80) {	/* SystemControl */
+			switch (usage->hid & 0xf) {
+			case 0x5:
+				/* override the default mapping of KEY_MENU */
+				ms_map_key_clear(BTN_MODE);
+				return 1;
+			default:
+				break;
+			}
+			break;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	/* Let the normal mapping happen for everything else */
+	return 0;
+}
+
 static int ms_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
 {
 	unsigned long quirks = (unsigned long)hid_get_drvdata(hdev);
+
+	if (quirks & MS_XBOX_ONE_S) {
+		int ret = ms_xbox_one_s_quirk(hi, usage, bit, max);
+		return ret;
+	}
 
 	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_MSVENDOR)
 		return 0;
@@ -208,6 +241,9 @@ static const struct hid_device_id ms_devices[] = {
 
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_PRESENTER_8K_BT),
 		.driver_data = MS_PRESENTER },
+
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_ONE_S),
+		.driver_data = MS_XBOX_ONE_S },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, ms_devices);

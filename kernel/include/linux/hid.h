@@ -251,6 +251,7 @@ struct hid_item {
 #define HID_INPUT_REPORT	0
 #define HID_OUTPUT_REPORT	1
 #define HID_FEATURE_REPORT	2
+#define HID_OUTPUT_REPORT_IN_CTRL	3
 
 /*
  * HID connect requests

@@ -29,6 +29,10 @@
 #include <linux/rcupdate.h>
 #include "input-compat.h"
 
+#if defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER)
+extern int	steamlink_low_power_exit_if_appropriate(char *caller);
+#endif /* defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER) */
+
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
@@ -2025,6 +2029,12 @@ int input_register_device(struct input_dev *dev)
 	unsigned int packet_size;
 	const char *path;
 	int error;
+
+#if defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER)
+	/* Exit low power if a new input device is created, for instance when
+	 * a bluetooth device connects */
+	steamlink_low_power_exit_if_appropriate("input_register_device");
+#endif /* defined(CONFIG_BERLIN_STEAMLINK_LOW_POWER) */
 
 	if (dev->devres_managed) {
 		devres = devres_alloc(devm_input_device_unregister,
