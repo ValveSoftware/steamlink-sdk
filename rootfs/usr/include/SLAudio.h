@@ -108,7 +108,7 @@ extern SLAUDIO_DECLSPEC int SLAudio_GetSpeakerCount( CSLAudioContext *pContext )
 // for example if you're opening at 48000 Hz, 2 channels, you might want to write 50 ms at a
 // time, which would be 48 * 50 * 2 * sizeof(int16_t) = 9600
 //--------------------------------------------------------------------------------------------------
-extern SLAUDIO_DECLSPEC CSLAudioStream *SLAudio_CreateStream( CSLAudioContext *pContext, int nFrequency, int nChannels, int nFrameSizeBytes );
+extern SLAUDIO_DECLSPEC CSLAudioStream *SLAudio_CreateStream( CSLAudioContext *pContext, int nFrequency, int nChannels, int nFrameSizeBytes, int bLowLatency );
 
 
 //--------------------------------------------------------------------------------------------------
