@@ -584,10 +584,10 @@ index 95d3ded..b5b4a9f 100644
  SRCS += DSPAddons/ActiveAEDSP.cpp
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp
 new file mode 100644
-index 0000000..0265dda
+index 0000000..a06acaa
 --- /dev/null
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp
-@@ -0,0 +1,234 @@
+@@ -0,0 +1,259 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -622,6 +622,8 @@ index 0000000..0265dda
 +#define SL_SAMPLE_RATE  48000
 +#define SINK_FEED_MS    50 // Steam Link game streaming uses 10ms
 +#define CACHE_TOTAL_MS  200
++#define INITIAL_ATTENUATION_TIME 6.0
++#define DELAY_OFFSET_SECONDS -0.025
 +
 +using namespace STEAMLINK;
 +
@@ -674,6 +676,9 @@ index 0000000..0265dda
 +{
 +  Deinitialize();
 +
++  m_initialAttenuation = true;
++  m_startTime = (double)CurrentHostCounter() / CurrentHostFrequency();
++  
 +  format.m_dataFormat    = AE_FMT_S16NE;
 +  format.m_sampleRate    = SL_SAMPLE_RATE;
 +  format.m_frames        = format.m_sampleRate * SINK_FEED_MS / 1000;
@@ -683,7 +688,7 @@ index 0000000..0265dda
 +  CSLAudioContext* context = SLAudio_CreateContext();
 +  if (context)
 +  {
-+    CSLAudioStream* stream = SLAudio_CreateStream(context, m_format.m_sampleRate, m_format.m_channelLayout.Count(), format.m_frames * format.m_frameSize);
++    CSLAudioStream* stream = SLAudio_CreateStream(context, m_format.m_sampleRate, m_format.m_channelLayout.Count(), format.m_frames * format.m_frameSize, false);
 +    if (stream)
 +    {
 +      // Success
@@ -755,7 +760,16 @@ index 0000000..0265dda
 +  chunk.m_nSize = (frames - offset) * m_format.m_frameSize;
 +  chunk.m_pData = new uint8_t[chunk.m_nSize];
 +  std::memcpy(chunk.m_pData, data[0] + offset * m_format.m_frameSize, chunk.m_nSize);
-+  chunk.m_nNowSecs = nowSecs + g_unQueuedVideoMS / 1000.0;
++  if (m_initialAttenuation)
++  {
++    double flVolume = (nowSecs - m_startTime) / INITIAL_ATTENUATION_TIME;
++    flVolume *= flVolume;
++    if (flVolume < 1.0)
++      AttenuateChunk(&chunk, flVolume);
++    else
++      m_initialAttenuation = false;
++  }
++  chunk.m_nNowSecs = nowSecs + g_unQueuedVideoMS / 1000.0 + DELAY_OFFSET_SECONDS;
 +  m_AudioQueue.push( chunk );
 +
 +  while (m_AudioQueue.size() > 0)
@@ -783,6 +797,17 @@ index 0000000..0265dda
 +void CAESinkSteamLink::GetDelay(AEDelayStatus &status)
 +{
 +  status.SetDelay(GetDelaySecs());
++}
++
++void CAESinkSteamLink::AttenuateChunk(CAudioChunk *pChunk, double flVolume)
++{
++  int16_t *pData = (int16_t*)pChunk->m_pData;
++  int nCount = pChunk->m_nSize / sizeof(*pData);
++  while (nCount--)
++  {
++    *pData = static_cast<int16_t>(*pData * flVolume);
++    ++pData;
++  }
 +}
 +
 +void CAESinkSteamLink::Drain()
@@ -824,10 +849,10 @@ index 0000000..0265dda
 +}
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h
 new file mode 100644
-index 0000000..2ce5643
+index 0000000..817b389
 --- /dev/null
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,81 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -901,6 +926,11 @@ index 0000000..2ce5643
 +    double m_nNowSecs;
 +  };
 +  std::queue<CAudioChunk> m_AudioQueue;
++
++  // Initial attenuation to cover audio sync
++  double m_startTime;
++  bool m_initialAttenuation;
++  void AttenuateChunk(CAudioChunk *pChunk, double flVolume);
 +};
 +
 +}
