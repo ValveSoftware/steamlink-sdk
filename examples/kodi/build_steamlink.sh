@@ -170,14 +170,14 @@ export PULSE_CFLAGS="-I${MARVELL_ROOTFS}/usr/include"
 export PULSE_LIBS="-lpulse -L${MARVELL_ROOTFS}/usr/lib/pulseaudio -lpulsecommon-8.0"
 export PKG_CONFIG_SYSROOT_DIR="${MARVELL_ROOTFS}"
 pushd "${SRC}"
-./configure $STEAMLINK_CONFIGURE_OPTS --prefix=/home/steam/apps/kodi --disable-x11 || exit 4
+./configure $STEAMLINK_CONFIGURE_OPTS --prefix=/home/apps/kodi --disable-x11 || exit 4
 
 make clean
 make $MAKE_J || exit 5
 
 export DESTDIR="${TOP}/steamlink/apps/kodi"
 make install
-for dir in "${DESTDIR}/home/steam/apps/kodi"/*; do
+for dir in "${DESTDIR}/home/apps/kodi"/*; do
     rm -rf "${DESTDIR}/$(basename $dir)"
     mv -v "$dir" "${DESTDIR}"
 done
