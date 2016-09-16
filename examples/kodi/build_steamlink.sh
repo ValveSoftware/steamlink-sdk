@@ -337,6 +337,13 @@ Dmc5Aex2Gz+/G2jq9qIHn+FEjMaZHXAOMB2nD2A8Tl6oAvCmvSWK08/Z4Mbc7wG1OHc0HjZCwXou
 lUsF4P8BXBKtqr0J9mEAAAAASUVORK5CYII=
 __EOF__
 
+# Pack it up
+name=$(basename ${DESTDIR})
+pushd "$(dirname ${DESTDIR})"
+tar zcvf $name.tgz $name
+rm -rf $name
+popd
+
 # All done!
 echo "Build complete!"
 echo
