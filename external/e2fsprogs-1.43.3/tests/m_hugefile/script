@@ -1,0 +1,71 @@
+FSCK_OPT=-fn
+OUT=$test_name.log
+EXP=$test_dir/expect
+CONF=$TMPFILE.conf
+
+if [ $(uname -s) = "Darwin" ]; then
+	# creates a 4TB filesystem
+	echo "$test_name: $DESCRIPTION: skipped for HFS+ (no sparse files)"
+	return 0
+fi
+
+if [ $(uname -s) = "FreeBSD" ]; then
+	# creates a 4TB filesystem
+	echo "$test_name: $DESCRIPTION: skipped for FreeBSD (no sparse files)"
+	return 0
+fi
+
+cat > $CONF << ENDL
+[fs_types]
+	hugefile = {
+		features = extent,huge_file,flex_bg,uninit_bg,dir_nlink,extra_isize,^resize_inode,sparse_super2
+		hash_alg = half_md4
+		num_backup_sb = 0
+		packed_meta_blocks = 1
+		make_hugefiles = 1
+		inode_ratio = 4194304
+		hugefiles_dir = /store
+		hugefiles_name = big-data
+		hugefiles_digits = 0
+		hugefiles_size = 0
+		hugefiles_align = 256M
+		num_hugefiles = 1
+		zero_hugefiles = false
+		flex_bg_size = 262144
+	}
+ENDL
+
+echo "mke2fs -F -T hugefile test.img 4T" > $OUT
+MKE2FS_CONFIG=$CONF $MKE2FS -F -T hugefile $TMPFILE 4T >> $OUT 2>&1
+rm -rf $CONF
+
+# check the file system if we get this far, we succeeded...
+$FSCK $FSCK_OPT -N test_filesys $TMPFILE >> $OUT 2>&1
+status=$?
+echo Exit status is $status >> $OUT
+
+echo 'debugfs -R "extents /store/big-data" test.img | head' >> $OUT
+
+$DEBUGFS -R "extents /store/big-data" $TMPFILE 2>&1 | head -n 20 >> $OUT 2>&1
+
+rm $TMPFILE
+
+#
+# Do the verification
+#
+
+sed -f $cmd_dir/filter.sed -e "s;$TMPFILE;test.img;" -e 's/test_filesys:.*//g' < $OUT > $OUT.new
+mv $OUT.new $OUT
+
+cmp -s $OUT $EXP
+status=$?
+
+if [ "$status" = 0 ] ; then
+	echo "$test_name: $test_description: ok"
+	touch $test_name.ok
+else
+	echo "$test_name: $test_description: failed"
+	diff $DIFF_OPTS $EXP $OUT > $test_name.failed
+fi
+
+unset IMAGE FSCK_OPT OUT EXP CONF
