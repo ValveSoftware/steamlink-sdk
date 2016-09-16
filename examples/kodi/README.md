@@ -36,7 +36,7 @@ power cycle the device.
 ##What is working:
 - Addons
 - Pictures
-- Video output (no HW decoding?)
+- Video output
 - Sound output (thanks to [@garbear](https://github.com/garbear/))
 
 ##What is not working:
