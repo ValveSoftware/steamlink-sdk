@@ -1,0 +1,64 @@
+Architecture overview
+=====================
+
+The PACrunner daemon is a pretty simple daemon with the main focus on PAC
+file execution. It supports a few simple tasks:
+
+	1) Configuration interface for PAC URLs
+
+	2) Downloading and maintaining PAC files
+
+	3) Exectuion of PAC files via Javascript engine
+
+	4) Answering of FindProxyForURL client queries
+
+A Connection Manager for example uses Web Proxy Autodiscovery (WPAD) or
+other methods to retrieve PAC URLs and then loads them into PACrunner.
+
+When a client application then calls FindProxyForURL the appropriate PAC
+file will be executed and its result reported to the client.
+
+
+        +------------+    +------------+    +------------+
+        |  Client 1  |    |  Client 2  |    |  Client 3  |
+        +------------+    +------------+    +------------+
+              |           |  libproxy  |    |  libproxy  |
+              |           +------------+    +------------+
+              |                 |                 |
+              | D-Bus           | D-Bus           | D-Bus
+              V                 V                 V
+        +------------------------------------------------+
+        |                                                |
+        |  FindProxyForURL client interface              |<-----+
+        |                                                |      |
+        +------------------------------------------------+      |
+        |                                                |      |
+        |  PACrunner core                                |      |
+        |                                                |      |
+        |      - Javascript engine                       |      |
+        |      - PAC file maintenance                    |      |
+        |                                                |      |
+        +------------------------------------------------+      |
+        |                                                |      |
+        |  Proxy configuration interface                 |      |
+        |                                                |      |
+        +------------------------------------------------+      |
+                        ^                                       |
+                        | D-Bus                                 | D-Bus
+                        |                                       |
+        +------------------------------------------------+      |
+        |                                                |      |
+        |  Connection Manager                            |------+
+        |                                                |
+        +------------------------------------------------+
+
+
+The design supports multiple Connection Managers, but in most systems it is
+expected to have only one.
+
+Some Connection Managers managers will also use FindProxyForURL interface
+to determine the proxy when interacting with the Internet.
+
+The default security settings of the proxy configuration interface restricts
+modifications to a system level user like root. While the client interface
+is available for all applications in the system.

@@ -30,10 +30,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
+#include <sys/timex.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
 #include <glib.h>
 
@@ -65,9 +67,13 @@ struct ntp_msg {
 
 #define OFFSET_1900_1970  2208988800UL	/* 1970 - 1900 in seconds */
 
-#define STEPTIME_MIN_OFFSET  0.128
+#define STEPTIME_MIN_OFFSET  0.4
 
 #define LOGTOD(a)  ((a) < 0 ? 1. / (1L << -(a)) : 1L << (int)(a))
+#define NSEC_PER_SEC  ((uint64_t)1000000000ULL)
+#ifndef ADJ_SETOFFSET
+#define ADJ_SETOFFSET		0x0100  /* add 'time' to current time */
+#endif
 
 #define NTP_SEND_TIMEOUT       2
 #define NTP_SEND_RETRIES       3
@@ -117,12 +123,12 @@ static struct timespec mtx_time;
 static int transmit_fd = 0;
 
 static char *timeserver = NULL;
-static struct sockaddr_in timeserver_addr;
+static struct sockaddr_in6 timeserver_addr;
 static gint poll_id = 0;
 static gint timeout_id = 0;
 static guint retries = 0;
 
-static void send_packet(int fd, const char *server, uint32_t timeout);
+static void send_packet(int fd, struct sockaddr *server, uint32_t timeout);
 
 static void next_server(void)
 {
@@ -143,17 +149,19 @@ static gboolean send_timeout(gpointer user_data)
 	if (retries++ == NTP_SEND_RETRIES)
 		next_server();
 	else
-		send_packet(transmit_fd, timeserver, timeout << 1);
+		send_packet(transmit_fd, (struct sockaddr *)&timeserver_addr, timeout << 1);
 
 	return FALSE;
 }
 
-static void send_packet(int fd, const char *server, uint32_t timeout)
+static void send_packet(int fd, struct sockaddr *server, uint32_t timeout)
 {
 	struct ntp_msg msg;
-	struct sockaddr_in addr;
 	struct timeval transmit_timeval;
 	ssize_t len;
+	void * addr;
+	int size;
+	char ipaddrstring[INET6_ADDRSTRLEN + 1];
 
 	/*
 	 * At some point, we could specify the actual system precision with:
@@ -164,14 +172,19 @@ static void send_packet(int fd, const char *server, uint32_t timeout)
 	memset(&msg, 0, sizeof(msg));
 	msg.flags = NTP_FLAGS_ENCODE(NTP_FLAG_LI_NOTINSYNC, NTP_FLAG_VN_VER4,
 	    NTP_FLAG_MD_CLIENT);
-	msg.poll = 4;	// min
-	msg.poll = 10;	// max
+	msg.poll = 10;
 	msg.precision = NTP_PRECISION_S;
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(123);
-	addr.sin_addr.s_addr = inet_addr(server);
+	if (server->sa_family == AF_INET) {
+		size = sizeof(struct sockaddr_in);
+		addr = (void *)&(((struct sockaddr_in *)&timeserver_addr)->sin_addr);
+	} else if (server->sa_family == AF_INET6) {
+		size = sizeof(struct sockaddr_in6);
+		addr = (void *)&timeserver_addr.sin6_addr;
+	} else {
+		connman_error("Family is neither ipv4 nor ipv6");
+		return;
+	}
 
 	gettimeofday(&transmit_timeval, NULL);
 	clock_gettime(CLOCK_MONOTONIC, &mtx_time);
@@ -180,10 +193,12 @@ static void send_packet(int fd, const char *server, uint32_t timeout)
 	msg.xmttime.fraction = htonl(transmit_timeval.tv_usec * 1000);
 
 	len = sendto(fd, &msg, sizeof(msg), MSG_DONTWAIT,
-						&addr, sizeof(addr));
+						server, size);
+
 	if (len < 0) {
 		connman_error("Time request for server %s failed (%d/%s)",
-			server, errno, strerror(errno));
+			inet_ntop(server->sa_family, addr, ipaddrstring, sizeof(ipaddrstring)),
+			errno, strerror(errno));
 
 		if (errno == ENETUNREACH)
 			__connman_timeserver_sync_next();
@@ -192,7 +207,8 @@ static void send_packet(int fd, const char *server, uint32_t timeout)
 	}
 
 	if (len != sizeof(msg)) {
-		connman_error("Broken time request for server %s", server);
+		connman_error("Broken time request for server %s",
+			inet_ntop(server->sa_family, addr, ipaddrstring, sizeof(ipaddrstring)));
 		return;
 	}
 
@@ -213,7 +229,7 @@ static gboolean next_poll(gpointer user_data)
 	if (!timeserver || transmit_fd == 0)
 		return FALSE;
 
-	send_packet(transmit_fd, timeserver, NTP_SEND_TIMEOUT);
+	send_packet(transmit_fd, (struct sockaddr *)&timeserver_addr, NTP_SEND_TIMEOUT);
 
 	return FALSE;
 }
@@ -235,6 +251,7 @@ static void decode_msg(void *base, size_t len, struct timeval *tv,
 	double m_delta, org, rec, xmt, dst;
 	double delay, offset;
 	static guint transmit_delay;
+	struct timex tmx = {};
 
 	if (len < sizeof(*msg)) {
 		connman_error("Invalid response from time server");
@@ -324,47 +341,50 @@ static void decode_msg(void *base, size_t len, struct timeval *tv,
 
 	poll_id = g_timeout_add_seconds(transmit_delay, next_poll, NULL);
 
-	connman_info("ntp: time slew %+.6f s", offset);
-
 	if (offset < STEPTIME_MIN_OFFSET && offset > -STEPTIME_MIN_OFFSET) {
-		struct timeval adj;
+		tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_OFFSET | ADJ_TIMECONST | ADJ_MAXERROR | ADJ_ESTERROR;
+		tmx.status = STA_PLL;
+		tmx.offset = offset * NSEC_PER_SEC;
+		tmx.constant = msg->poll - 4;
+		tmx.maxerror = 0;
+		tmx.esterror = 0;
 
-		adj.tv_sec = (long) offset;
-		adj.tv_usec = (offset - adj.tv_sec) * 1000000;
-
-		DBG("adjusting time");
-
-		if (adjtime(&adj, &adj) < 0) {
-			connman_error("Failed to adjust time");
-			return;
-		}
-
-		DBG("%lu seconds, %lu msecs", adj.tv_sec, adj.tv_usec);
+		connman_info("ntp: adjust (slew): %+.6f sec", offset);
 	} else {
-		struct timeval cur;
-		double dtime;
+		tmx.modes = ADJ_STATUS | ADJ_NANO | ADJ_SETOFFSET;
 
-		gettimeofday(&cur, NULL);
-		dtime = offset + cur.tv_sec + 1.0e-6 * cur.tv_usec;
-		cur.tv_sec = (long) dtime;
-		cur.tv_usec = (dtime - cur.tv_sec) * 1000000;
+		/* ADJ_NANO uses nanoseconds in the microseconds field */
+		tmx.time.tv_sec = (long)offset;
+		tmx.time.tv_usec = (offset - tmx.time.tv_sec) * NSEC_PER_SEC;
 
-		DBG("setting time");
-
-		if (settimeofday(&cur, NULL) < 0) {
-			connman_error("Failed to set time");
-			return;
+		/* the kernel expects -0.3s as {-1, 7000.000.000} */
+		if (tmx.time.tv_usec < 0) {
+			tmx.time.tv_sec  -= 1;
+			tmx.time.tv_usec += NSEC_PER_SEC;
 		}
 
-		DBG("%lu seconds, %lu msecs", cur.tv_sec, cur.tv_usec);
+		connman_info("ntp: adjust (jump): %+.6f sec", offset);
 	}
+
+	if (NTP_FLAGS_LI_DECODE(msg->flags) & NTP_FLAG_LI_ADDSECOND)
+		tmx.status |= STA_INS;
+	else if (NTP_FLAGS_LI_DECODE(msg->flags) & NTP_FLAG_LI_DELSECOND)
+		tmx.status |= STA_DEL;
+
+	if (adjtimex(&tmx) < 0) {
+		connman_error("Failed to adjust time");
+		return;
+	}
+
+	DBG("interval/delta/delay/drift %fs/%+.3fs/%.3fs/%+ldppm",
+		LOGTOD(msg->poll), offset, delay, tmx.freq / 65536);
 }
 
 static gboolean received_data(GIOChannel *channel, GIOCondition condition,
 							gpointer user_data)
 {
 	unsigned char buf[128];
-	struct sockaddr_in sender_addr;
+	struct sockaddr_in6 sender_addr;
 	struct msghdr msg;
 	struct iovec iov;
 	struct cmsghdr *cmsg;
@@ -373,6 +393,9 @@ static gboolean received_data(GIOChannel *channel, GIOCondition condition,
 	char aux[128];
 	ssize_t len;
 	int fd;
+	int size;
+	void * addr_ptr;
+	void * src_ptr;
 
 	if (condition & (G_IO_HUP | G_IO_ERR | G_IO_NVAL)) {
 		connman_error("Problem with timer server channel");
@@ -397,8 +420,20 @@ static gboolean received_data(GIOChannel *channel, GIOCondition condition,
 	if (len < 0)
 		return TRUE;
 
-	if (timeserver_addr.sin_addr.s_addr != sender_addr.sin_addr.s_addr)
-		/* only accept messages from the timeserver */
+	if (sender_addr.sin6_family == AF_INET) {
+		size = 4;
+		addr_ptr = &((struct sockaddr_in *)&timeserver_addr)->sin_addr;
+		src_ptr = &((struct sockaddr_in *)&sender_addr)->sin_addr;
+	} else if (sender_addr.sin6_family == AF_INET6) {
+		size = 16;
+		addr_ptr = &((struct sockaddr_in6 *)&timeserver_addr)->sin6_addr;
+		src_ptr = &((struct sockaddr_in6 *)&sender_addr)->sin6_addr;
+	} else {
+		connman_error("Not a valid family type");
+		return TRUE;
+	}
+
+	if(memcmp(addr_ptr, src_ptr, size) != 0)
 		return TRUE;
 
 	tv = NULL;
@@ -423,36 +458,76 @@ static gboolean received_data(GIOChannel *channel, GIOCondition condition,
 static void start_ntp(char *server)
 {
 	GIOChannel *channel;
-	struct sockaddr_in addr;
+	struct addrinfo hint;
+	struct addrinfo *info;
+	struct sockaddr * addr;
+	struct sockaddr_in  * in4addr;
+	struct sockaddr_in6 in6addr;
+	int size;
+	int family;
 	int tos = IPTOS_LOWDELAY, timestamp = 1;
+	int ret;
 
 	if (!server)
 		return;
 
-	DBG("server %s", server);
+	memset(&hint, 0, sizeof(hint));
+	hint.ai_family = AF_UNSPEC;
+	hint.ai_socktype = SOCK_DGRAM;
+	hint.ai_flags = AI_NUMERICHOST | AI_PASSIVE;
+	ret = getaddrinfo(server, NULL, &hint, &info);
+
+	if (ret) {
+		connman_error("cannot get server info");
+		return;
+	}
+
+	family = info->ai_family;
+
+	memcpy(&timeserver_addr, info->ai_addr, info->ai_addrlen);
+	freeaddrinfo(info);
+	memset(&in6addr, 0, sizeof(in6addr));
+
+	if (family == AF_INET) {
+		((struct sockaddr_in *)&timeserver_addr)->sin_port = htons(123);
+		in4addr = (struct sockaddr_in *)&in6addr;
+		in4addr->sin_family = family;
+		addr = (struct sockaddr *)in4addr;
+		size = sizeof(struct sockaddr_in);
+	} else if (family == AF_INET6) {
+		timeserver_addr.sin6_port = htons(123);
+		in6addr.sin6_family = family;
+		addr = (struct sockaddr *)&in6addr;
+		size = sizeof(in6addr);
+	} else {
+		connman_error("Family is neither ipv4 nor ipv6");
+		return;
+	}
+
+	DBG("server %s family %d", server, family);
 
 	if (channel_watch > 0)
 		goto send;
 
-	transmit_fd = socket(PF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-	if (transmit_fd < 0) {
-		connman_error("Failed to open time server socket");
-		return;
+	transmit_fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+
+	if (transmit_fd <= 0) {
+                connman_error("Failed to open time server socket");
+                return;
 	}
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-
-	if (bind(transmit_fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	if (bind(transmit_fd, (struct sockaddr *) addr, size) < 0) {
 		connman_error("Failed to bind time server socket");
 		close(transmit_fd);
 		return;
 	}
 
-	if (setsockopt(transmit_fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0) {
-		connman_error("Failed to set type of service option");
-		close(transmit_fd);
-		return;
+	if (family == AF_INET) {
+		if (setsockopt(transmit_fd, IPPROTO_IP, IP_TOS, &tos, sizeof(tos)) < 0) {
+			connman_error("Failed to set type of service option");
+			close(transmit_fd);
+			return;
+		}
 	}
 
 	if (setsockopt(transmit_fd, SOL_SOCKET, SO_TIMESTAMP, &timestamp,
@@ -480,7 +555,7 @@ static void start_ntp(char *server)
 	g_io_channel_unref(channel);
 
 send:
-	send_packet(transmit_fd, server, NTP_SEND_TIMEOUT);
+	send_packet(transmit_fd, (struct sockaddr*)&timeserver_addr, NTP_SEND_TIMEOUT);
 }
 
 int __connman_ntp_start(char *server)
@@ -494,7 +569,6 @@ int __connman_ntp_start(char *server)
 		g_free(timeserver);
 
 	timeserver = g_strdup(server);
-	timeserver_addr.sin_addr.s_addr = inet_addr(server);
 
 	start_ntp(timeserver);
 

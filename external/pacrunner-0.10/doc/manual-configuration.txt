@@ -1,0 +1,75 @@
+Manual proxy configuration
+==========================
+
+PACrunner let's you configure a "manual"  Method  in  the  Manager  DBus  API,
+through which  you  can  provide  a  manual  proxy  configuration  filling  in
+Servers list and, optionally, Excludes list.
+See manager-api.txt for more information.
+
+Such manual configuration handles only well known protocols:
+	- http
+	- https
+	- ftp
+	- socks4
+	- socks5
+
+It returns only one result, as it is done for the "auto" Method
+
+Format:
+------
+
+Servers and Excludes are list of URIs, parsed without any  regular  expression
+method in pacrunner's core.   (small  detail:  if  an  IP  address  is	given,
+its sanity is not checked)
+
+
+
+Servers list follows such URI:
+	<protocol://><<login>:<pass>@><hostname><:port></>
+Where:
+	- protocol: if one of the known protocols, if any
+	- login and pass: are the authentication credentials, if any
+	- hostname: the hostname or ip address of the proxy server
+	- port: the specific port of the proxy service, if any
+
+Excludes rule list follows such URI: <protocol://><rule>
+Where:
+	- protocol: if one of the known protocols, if any
+	- rule: a specific string matching rule on the hostname part
+
+This exclusion rule follows such format:
+	- *keyword -> all hostname ending with keyword ('*' is optional)
+	- keyword* -> all hostname starting with keyword
+	- keyword  -> all hostname containing keyword (*keyword* does the same)
+
+Either the protocol or the rule might not be provided:
+	- If the protocol is not provided: the rule will apply	on  all  known
+          protocols.
+	- If the rule is not provided: the exclusion will be  applied  on  all
+          url matching the given protocol.
+
+How Servers list apply:
+----------------------
+
+There is 2 ways.  Either there is a generic  proxy  or	protocol  based  proxy
+(based on the known protocols). They do not apply together: it's either one or
+the other.
+So when a proxy server is given without a protocol,  it  will  set  a  generic
+proxy server and this will be the only way.
+
+How Excludes list apply:
+-----------------------
+
+If a generic exclusion rule is present - a non protocol-based one  then  -  it
+will  be  tested  in  priority,  and/or  the  other  rules  will  be   tested.
+
+If given url is for protocol ftp, and there is	no  exclusion  rule  for  that
+protocol,  all	other  protocol  rules	will  not   of	 course   be   tested.
+
+Output:
+------
+
+"DIRECT", or a server: its hostname and, if present, its port.
+
+DIRECT does not mean it went succefully:
+If pacrunner cannot parse the checked URL it will return DIRECT also.

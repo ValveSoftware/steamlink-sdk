@@ -247,7 +247,6 @@ int pa__init(pa_module*m) {
 #endif
     {
         pa_log_warn("failed to detect any sound hardware.");
-        goto fail;
     }
 
     pa_log_info("loaded %i modules.", n);

@@ -1,8 +1,6 @@
 #!/bin/bash
 
 source ../../setenv_external.sh
-export UDEV_CFLAGS="-I${MARVELL_ROOTFS}/usr/include"
-export UDEV_LIBS="-L${MARVELL_ROOTFS}/usr/lib -ludev"
 
 ./configure $STEAMLINK_CONFIGURE_OPTS \
 	  --disable-oss-output \
@@ -13,8 +11,8 @@ export UDEV_LIBS="-L${MARVELL_ROOTFS}/usr/lib -ludev"
 	  --disable-bluez4 \
 	  --disable-bluez5-ofono-headset \
 	  --enable-bluez5 \
-	  --enable-udev
-
+	  --disable-udev \
+	  --disable-alsa
 
 steamlink_make_clean
 steamlink_make

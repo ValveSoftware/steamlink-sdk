@@ -83,6 +83,7 @@ typedef struct
  *  \sa SDL_SetWindowPosition()
  *  \sa SDL_SetWindowSize()
  *  \sa SDL_SetWindowBordered()
+ *  \sa SDL_SetWindowResizable()
  *  \sa SDL_SetWindowTitle()
  *  \sa SDL_ShowWindow()
  */
@@ -121,7 +122,7 @@ typedef enum
 /**
  *  \brief Used to indicate that you don't care what the window position is.
  */
-#define SDL_WINDOWPOS_UNDEFINED_MASK    0x1FFF0000
+#define SDL_WINDOWPOS_UNDEFINED_MASK    0x1FFF0000u
 #define SDL_WINDOWPOS_UNDEFINED_DISPLAY(X)  (SDL_WINDOWPOS_UNDEFINED_MASK|(X))
 #define SDL_WINDOWPOS_UNDEFINED         SDL_WINDOWPOS_UNDEFINED_DISPLAY(0)
 #define SDL_WINDOWPOS_ISUNDEFINED(X)    \
@@ -130,7 +131,7 @@ typedef enum
 /**
  *  \brief Used to indicate that the window position should be centered.
  */
-#define SDL_WINDOWPOS_CENTERED_MASK    0x2FFF0000
+#define SDL_WINDOWPOS_CENTERED_MASK    0x2FFF0000u
 #define SDL_WINDOWPOS_CENTERED_DISPLAY(X)  (SDL_WINDOWPOS_CENTERED_MASK|(X))
 #define SDL_WINDOWPOS_CENTERED         SDL_WINDOWPOS_CENTERED_DISPLAY(0)
 #define SDL_WINDOWPOS_ISCENTERED(X)    \
@@ -705,6 +706,23 @@ extern DECLSPEC void SDLCALL SDL_GetWindowMaximumSize(SDL_Window * window,
  */
 extern DECLSPEC void SDLCALL SDL_SetWindowBordered(SDL_Window * window,
                                                    SDL_bool bordered);
+
+/**
+ *  \brief Set the user-resizable state of a window.
+ *
+ *  This will add or remove the window's SDL_WINDOW_RESIZABLE flag and
+ *  allow/disallow user resizing of the window. This is a no-op if the
+ *  window's resizable state already matches the requested state.
+ *
+ *  \param window The window of which to change the resizable state.
+ *  \param resizable SDL_TRUE to allow resizing, SDL_FALSE to disallow.
+ *
+ *  \note You can't change the resizable state of a fullscreen window.
+ *
+ *  \sa SDL_GetWindowFlags()
+ */
+extern DECLSPEC void SDLCALL SDL_SetWindowResizable(SDL_Window * window,
+                                                    SDL_bool resizable);
 
 /**
  *  \brief Show a window.
