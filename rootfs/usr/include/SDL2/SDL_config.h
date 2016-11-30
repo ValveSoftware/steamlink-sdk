@@ -20,8 +20,8 @@
   3. This notice may not be removed or altered from any source distribution.
 */
 
-#ifndef _SDL_config_h
-#define _SDL_config_h
+#ifndef SDL_config_h_
+#define SDL_config_h_
 
 /**
  *  \file SDL_config.h.in
@@ -174,6 +174,7 @@
 #define HAVE_PTHREAD_SETNAME_NP 1
 /* #undef HAVE_PTHREAD_SET_NAME_NP */
 #define HAVE_SEM_TIMEDWAIT 1
+#define HAVE_GETAUXVAL 1
 
 #else
 #define HAVE_STDARG_H 1
@@ -254,7 +255,6 @@
 /* #undef SDL_HAPTIC_XINPUT */
 
 /* Enable various shared object loading systems */
-/* #undef SDL_LOADSO_HAIKU */
 #define SDL_LOADSO_DLOPEN 1
 /* #undef SDL_LOADSO_DUMMY */
 /* #undef SDL_LOADSO_LDG */
@@ -361,4 +361,4 @@
 /* Enable ime support */
 #define SDL_USE_IME 1
 
-#endif /* _SDL_config_h */
+#endif /* SDL_config_h_ */

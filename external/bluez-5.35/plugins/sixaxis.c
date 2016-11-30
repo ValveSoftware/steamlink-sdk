@@ -303,6 +303,7 @@ static bool setup_device(int fd, int index, struct btd_adapter *adapter)
 	btd_device_set_pnpid(device, devices[index].source, devices[index].vid,
 				devices[index].pid, devices[index].version);
 	btd_device_set_temporary(device, false);
+	btd_device_set_trusted(device, true);
 
 	return true;
 }
@@ -500,7 +501,25 @@ static void device_added(struct udev_device *udevice)
 
 	fd = open(udev_device_get_devnode(udevice), O_RDWR);
 	if (fd < 0)
-		return;
+	{
+		// Add this hack for steamlink
+		// This is due to us not having an udevd and hence the device node
+		// may not have been created at this point. Retry until timeout or it appears.
+		int retry = 0, found = 0;
+		while(retry++ < 25) {
+			usleep(10*1000);
+			fd = open(udev_device_get_devnode(udevice), O_RDWR);
+			if (fd >= 0) {
+				DBG("Found on retry=%d", retry);
+				found = 1;
+				break;
+			}
+		}
+		if (!found) {
+			DBG("device %s not found", udev_device_get_devnode(udevice));
+			return;
+		}
+	}
 
 	io = g_io_channel_unix_new(fd);
 
