@@ -85,7 +85,7 @@ int osd_start_audio_stream(int stereo)
 
 #ifdef USE_SLAUDIO
 	s_pContext = SLAudio_CreateContext();
-	s_pStream = SLAudio_CreateStream(s_pContext, Machine->sample_rate, stream_cache_channels, bytes_per_frame);
+	s_pStream = SLAudio_CreateStream(s_pContext, Machine->sample_rate, stream_cache_channels, bytes_per_frame, false);
 	if (!s_pStream) {
 		logerror("Couldn't create audio stream\n");
 		Machine->sample_rate = 0;
