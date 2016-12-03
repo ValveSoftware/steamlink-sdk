@@ -361,4 +361,7 @@
 /* Enable ime support */
 #define SDL_USE_IME 1
 
+/* Enable dynamic udev support */
+#define SDL_UDEV_DYNAMIC "libudev.so.1"
+
 #endif /* SDL_config_h_ */

@@ -7,6 +7,12 @@
 
 #ifndef QT_BOOTSTRAPPED
 
+#if defined(QT_NO_ALSA) && defined(QT_ALSA)
+# undef QT_NO_ALSA
+#elif !defined(QT_NO_ALSA) && !defined(QT_ALSA)
+# define QT_NO_ALSA
+#endif
+
 #if defined(QT_NO_CUPS) && defined(QT_CUPS)
 # undef QT_NO_CUPS
 #elif !defined(QT_NO_CUPS) && !defined(QT_CUPS)

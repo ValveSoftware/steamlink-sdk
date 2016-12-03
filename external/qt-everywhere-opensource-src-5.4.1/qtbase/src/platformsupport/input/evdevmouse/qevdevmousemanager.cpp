@@ -44,12 +44,16 @@
 #include <QDebug>
 #endif
 
+#define ENV_READ_THROTTLE_RATE 10
+
 QT_BEGIN_NAMESPACE
 
 QEvdevMouseManager::QEvdevMouseManager(const QString &key, const QString &specification, QObject *parent)
-    : QObject(parent), m_x(0), m_y(0), m_xoffset(0), m_yoffset(0)
+    : QObject(parent), m_x(0), m_y(0), m_xoffset(0), m_yoffset(0), m_envReadThrottle(0), m_sensitivity(1.0f), m_accum_x(0.0f), m_accum_y(0.0f)
 {
     Q_UNUSED(key);
+
+    readMouseParamsFromEnv();
 
     QString spec = QString::fromLocal8Bit(qgetenv("QT_QPA_EVDEV_MOUSE_PARAMETERS"));
 
@@ -63,16 +67,8 @@ QEvdevMouseManager::QEvdevMouseManager(const QString &key, const QString &specif
         if (arg.startsWith(QLatin1String("/dev/"))) {
             // if device is specified try to use it
             devices.append(arg);
-            args.removeAll(arg);
-        } else if (arg.startsWith(QLatin1String("xoffset="))) {
-            m_xoffset = arg.mid(8).toInt();
-        } else if (arg.startsWith(QLatin1String("yoffset="))) {
-            m_yoffset = arg.mid(8).toInt();
         }
     }
-
-    // build new specification without /dev/ elements
-    m_spec = args.join(QLatin1Char(':'));
 
     // add all mice for devices specified in the argument list
     foreach (const QString &device, devices)
@@ -103,12 +99,29 @@ QEvdevMouseManager::~QEvdevMouseManager()
     m_mice.clear();
 }
 
+static int
+GetScaledMouseDelta(float scale, int value, float *accum)
+{
+    if (scale != 1.0f) {
+        *accum += scale * value;
+        if (*accum >= 0.0f) {
+            value = (int)floorf(*accum);
+        } else {
+            value = (int)ceilf(*accum);
+        }
+        *accum -= value;
+    }
+    return value;
+}
+
 void QEvdevMouseManager::handleMouseEvent(int x, int y, bool abs, Qt::MouseButtons buttons)
 {
+    readMouseParamsFromEnv();
+
     // update current absolute coordinates
     if (!abs) {
-        m_x += x;
-        m_y += y;
+        m_x += GetScaledMouseDelta(m_sensitivity, x, &m_accum_x);
+        m_y += GetScaledMouseDelta(m_sensitivity, y, &m_accum_y);
     } else {
         m_x = x;
         m_y = y;
@@ -173,6 +186,38 @@ void QEvdevMouseManager::removeMouse(const QString &deviceNode)
         m_mice.remove(deviceNode);
         delete handler;
     }
+}
+
+void QEvdevMouseManager::readMouseParamsFromEnv()
+{
+    if (m_envReadThrottle++ % ENV_READ_THROTTLE_RATE)
+        return;
+
+    QString spec = QString::fromLocal8Bit(qgetenv("QT_QPA_EVDEV_MOUSE_PARAMETERS"));
+
+    if (spec.isEmpty() || m_lastEnvSpec == spec)
+        return;
+
+    m_lastEnvSpec = spec;
+
+    QStringList args = spec.split(QLatin1Char(':'));
+
+    foreach (const QString &arg, args) {
+        if (arg.startsWith(QLatin1String("/dev/"))) {
+            args.removeAll(arg);
+        } else if (arg.startsWith(QLatin1String("xoffset="))) {
+            m_xoffset = arg.mid(8).toInt();
+        } else if (arg.startsWith(QLatin1String("yoffset="))) {
+            m_yoffset = arg.mid(8).toInt();
+        } else if (arg.startsWith(QLatin1String("sensitivity="))) {
+            m_sensitivity = arg.mid(12).toFloat();
+            if (m_sensitivity <= 0.0f)
+                m_sensitivity = 1.0f;
+        }
+    }
+
+    // build new specification without /dev/ elements
+    m_spec = args.join(QLatin1Char(':'));
 }
 
 QT_END_NAMESPACE

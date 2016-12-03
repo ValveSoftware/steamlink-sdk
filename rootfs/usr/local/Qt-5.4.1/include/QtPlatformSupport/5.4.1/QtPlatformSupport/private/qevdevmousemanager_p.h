@@ -73,6 +73,9 @@ private slots:
     void removeMouse(const QString &deviceNode);
 
 private:
+    void readMouseParamsFromEnv();
+
+private:
     QString m_spec;
     QHash<QString,QEvdevMouseHandler*> m_mice;
     QDeviceDiscovery *m_deviceDiscovery;
@@ -80,6 +83,11 @@ private:
     int m_y;
     int m_xoffset;
     int m_yoffset;
+    QString m_lastEnvSpec;
+    unsigned int m_envReadThrottle;
+    float m_sensitivity;
+    float m_accum_x;
+    float m_accum_y;
 };
 
 QT_END_NAMESPACE

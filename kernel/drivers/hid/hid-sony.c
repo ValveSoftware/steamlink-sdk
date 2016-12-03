@@ -1614,6 +1614,7 @@ static void sixaxis_state_worker(struct work_struct *work)
 	struct sixaxis_output_report *report =
 		(struct sixaxis_output_report *)sc->output_report_dmabuf;
 	int n;
+	int hid_report_type = HID_OUTPUT_REPORT;
 
 	/* Initialize the report with default values */
 	memcpy(report, &default_report, sizeof(struct sixaxis_output_report));
@@ -1648,9 +1649,12 @@ static void sixaxis_state_worker(struct work_struct *work)
 		}
 	}
 
+	if (sc->quirks & SIXAXIS_CONTROLLER_BT)
+		hid_report_type = HID_OUTPUT_REPORT_IN_CTRL;
+
 	sc->hdev->hid_output_raw_report(sc->hdev, (__u8 *)report,
 			sizeof(struct sixaxis_output_report),
-			HID_OUTPUT_REPORT);
+			hid_report_type);
 }
 
 static void dualshock4_state_worker(struct work_struct *work)

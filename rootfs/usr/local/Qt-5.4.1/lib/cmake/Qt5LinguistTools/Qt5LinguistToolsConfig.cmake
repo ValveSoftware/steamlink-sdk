@@ -22,7 +22,7 @@ endmacro()
 if (NOT TARGET Qt5::lrelease)
     add_executable(Qt5::lrelease IMPORTED)
 
-    set(imported_location "/home/saml/dev/steamlink/firmware/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/lrelease")
+    set(imported_location "/home/jamesz/work/valve-ro/steamlink-fw/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/lrelease")
     _qt5_LinguistTools_check_file_exists(${imported_location})
 
     set_target_properties(Qt5::lrelease PROPERTIES
@@ -33,7 +33,7 @@ endif()
 if (NOT TARGET Qt5::lupdate)
     add_executable(Qt5::lupdate IMPORTED)
 
-    set(imported_location "/home/saml/dev/steamlink/firmware/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/lupdate")
+    set(imported_location "/home/jamesz/work/valve-ro/steamlink-fw/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/lupdate")
     _qt5_LinguistTools_check_file_exists(${imported_location})
 
     set_target_properties(Qt5::lupdate PROPERTIES
@@ -44,7 +44,7 @@ endif()
 if (NOT TARGET Qt5::lconvert)
     add_executable(Qt5::lconvert IMPORTED)
 
-    set(imported_location "/home/saml/dev/steamlink/firmware/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/lconvert")
+    set(imported_location "/home/jamesz/work/valve-ro/steamlink-fw/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/lconvert")
     _qt5_LinguistTools_check_file_exists(${imported_location})
 
     set_target_properties(Qt5::lconvert PROPERTIES

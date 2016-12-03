@@ -2,7 +2,7 @@
 if (NOT TARGET Qt5::qmake)
     add_executable(Qt5::qmake IMPORTED)
 
-    set(imported_location "/home/saml/dev/steamlink/firmware/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/qmake")
+    set(imported_location "/home/jamesz/work/valve-ro/steamlink-fw/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/qmake")
     _qt5_Core_check_file_exists(${imported_location})
 
     set_target_properties(Qt5::qmake PROPERTIES
@@ -13,7 +13,7 @@ endif()
 if (NOT TARGET Qt5::moc)
     add_executable(Qt5::moc IMPORTED)
 
-    set(imported_location "/home/saml/dev/steamlink/firmware/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/moc")
+    set(imported_location "/home/jamesz/work/valve-ro/steamlink-fw/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/moc")
     _qt5_Core_check_file_exists(${imported_location})
 
     set_target_properties(Qt5::moc PROPERTIES
@@ -26,7 +26,7 @@ endif()
 if (NOT TARGET Qt5::rcc)
     add_executable(Qt5::rcc IMPORTED)
 
-    set(imported_location "/home/saml/dev/steamlink/firmware/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/rcc")
+    set(imported_location "/home/jamesz/work/valve-ro/steamlink-fw/external/qt-everywhere-opensource-src-5.4.1/build/host/bin/rcc")
     _qt5_Core_check_file_exists(${imported_location})
 
     set_target_properties(Qt5::rcc PROPERTIES
