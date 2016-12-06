@@ -186,6 +186,12 @@ for dir in "${DESTDIR}/home/apps/kodi"/*; do
     rm -rf "${DESTDIR}/$(basename $dir)"
     mv -v "$dir" "${DESTDIR}"
 done
+
+# Sanity check
+if [ "${DESTDIR}/home" == "/home" ]; then
+    echo "Aborting!"
+    exit 6
+fi
 rm -rf "${DESTDIR}/home"
 
 cp -a ${DEPS_INSTALL_PATH}/lib/python2.6 ${DESTDIR}/lib/
