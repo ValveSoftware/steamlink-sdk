@@ -4700,18 +4700,22 @@ static void interface_disconnect_result(const char *error,
 			result = -ECONNABORTED;
 	}
 
-	if (result < 0 && data->callback) {
-		data->callback(result, data->interface, data->user_data);
-		data->callback = NULL;
-	}
-
 	/* If we are disconnecting from previous WPS successful
 	 * association. i.e.: it did not went through AddNetwork,
 	 * and interface->network_path was never set. */
 	if (!data->interface->network_path) {
+		if (data->callback)
+			data->callback(result, data->interface,
+							data->user_data);
+
 		g_free(data->path);
 		dbus_free(data);
 		return;
+	}
+
+	if (result < 0 && data->callback) {
+		data->callback(result, data->interface, data->user_data);
+		data->callback = NULL;
 	}
 
 	if (result != -ECONNABORTED) {

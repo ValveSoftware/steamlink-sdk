@@ -2087,6 +2087,7 @@ static void disconnect_callback(int result, GSupplicantInterface *interface,
 	wifi->network = NULL;
 
 	wifi->disconnecting = false;
+	wifi->connected = false;
 
 	if (wifi->pending_network) {
 		network_connect(wifi->pending_network);
