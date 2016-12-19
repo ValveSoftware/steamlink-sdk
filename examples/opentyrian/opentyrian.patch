@@ -1,0 +1,269 @@
+diff -r 7ce6175b5064 Makefile
+--- a/Makefile	Mon Aug 01 20:31:30 2016 -0700
++++ b/Makefile	Mon Dec 19 14:50:32 2016 -0800
+@@ -1,10 +1,12 @@
+ # BUILD SETTINGS ###########################################
+ 
++ifeq ($(PLATFORM),)
+ ifneq ($(filter Msys Cygwin, $(shell uname -o)), )
+     PLATFORM := WIN32
+ else
+     PLATFORM := UNIX
+ endif
++endif
+ 
+ TARGET := opentyrian
+ WITH_NETWORK := false
+diff -r 7ce6175b5064 src/joystick.c
+--- a/src/joystick.c	Mon Aug 01 20:31:30 2016 -0700
++++ b/src/joystick.c	Mon Dec 19 14:50:32 2016 -0800
+@@ -262,7 +262,7 @@
+ 	if (ignore_joystick)
+ 		return;
+ 	
+-	if (SDL_InitSubSystem(SDL_INIT_JOYSTICK))
++	if (SDL_InitSubSystem(SDL_INIT_GAMECONTROLLER))
+ 	{
+ 		fprintf(stderr, "warning: failed to initialize joystick system: %s\n", SDL_GetError());
+ 		ignore_joystick = true;
+@@ -278,10 +278,15 @@
+ 	{
+ 		memset(&joystick[j], 0, sizeof(*joystick));
+ 		
+-		joystick[j].handle = SDL_JoystickOpen(j);
++		joystick[j].gamecontroller = SDL_GameControllerOpen(j);
++		joystick[j].handle = joystick[j].gamecontroller ? SDL_GameControllerGetJoystick(joystick[j].gamecontroller) : SDL_JoystickOpen(j);
+ 		if (joystick[j].handle != NULL)
+ 		{
+-			printf("joystick detected: %s ", SDL_JoystickName(joystick[j].handle));
++			if (joystick[j].gamecontroller)
++				printf("game controller detected: %s ", SDL_GameControllerName(joystick[j].gamecontroller));
++			else
++				printf("joystick detected: %s ", SDL_JoystickName(joystick[j].handle));
++
+ 			printf("(%d axes, %d buttons, %d hats)\n", 
+ 			       SDL_JoystickNumAxes(joystick[j].handle),
+ 			       SDL_JoystickNumButtons(joystick[j].handle),
+@@ -307,19 +312,24 @@
+ 		if (joystick[j].handle != NULL)
+ 		{
+ 			save_joystick_assignments(&opentyrian_config, j);
+-			SDL_JoystickClose(joystick[j].handle);
++			if (joystick[j].gamecontroller)
++				SDL_GameControllerClose(joystick[j].gamecontroller);
++			else
++				SDL_JoystickClose(joystick[j].handle);
+ 		}
+ 	}
+ 	
+ 	free(joystick);
+ 	
+-	SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
++	SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
+ }
+ 
+ void reset_joystick_assignments( int j )
+ {
++	SDL_GameControllerButtonBind bind;
++
+ 	assert(j < joysticks);
+-	
++
+ 	// defaults: first 2 axes, first hat, first 6 buttons
+ 	for (uint a = 0; a < COUNTOF(joystick[j].assignment); a++)
+ 	{
+@@ -331,8 +341,21 @@
+ 		{
+ 			if (SDL_JoystickNumAxes(joystick[j].handle) >= 2)
+ 			{
++				int axis_index = (a + 1) % 2;
++
++				if (joystick[j].gamecontroller)
++				{
++					if (a == 1 || a == 3)
++						bind = SDL_GameControllerGetBindForAxis(joystick[j].gamecontroller, SDL_CONTROLLER_AXIS_LEFTX);
++					else
++						bind = SDL_GameControllerGetBindForAxis(joystick[j].gamecontroller, SDL_CONTROLLER_AXIS_LEFTY);
++
++					if (bind.bindType == SDL_CONTROLLER_BINDTYPE_AXIS)
++						axis_index = bind.value.axis;
++				}
++
+ 				joystick[j].assignment[a][0].type = AXIS;
+-				joystick[j].assignment[a][0].num = (a + 1) % 2;
++				joystick[j].assignment[a][0].num = axis_index;
+ 				joystick[j].assignment[a][0].negative_axis = (a == 0 || a == 3);
+ 			}
+ 			
+@@ -348,12 +371,54 @@
+ 		{
+ 			if (a - 4 < (unsigned)SDL_JoystickNumButtons(joystick[j].handle))
+ 			{
++				int button_index = (a - 4);
++
+ 				joystick[j].assignment[a][0].type = BUTTON;
+-				joystick[j].assignment[a][0].num = a - 4;
++
++				if (joystick[j].gamecontroller)
++				{
++					switch (button_index)
++					{
++					case 0: // fire
++						bind = SDL_GameControllerGetBindForButton(joystick[j].gamecontroller, SDL_CONTROLLER_BUTTON_A);
++						if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
++							button_index = bind.value.button;
++						break;
++					case 1: // change fire
++						bind = SDL_GameControllerGetBindForButton(joystick[j].gamecontroller, SDL_CONTROLLER_BUTTON_B);
++						if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
++							button_index = bind.value.button;
++						break;
++					case 2: // left sidekick
++						bind = SDL_GameControllerGetBindForButton(joystick[j].gamecontroller, SDL_CONTROLLER_BUTTON_X);
++						if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
++							button_index = bind.value.button;
++						break;
++					case 3: // right sidekick
++						bind = SDL_GameControllerGetBindForButton(joystick[j].gamecontroller, SDL_CONTROLLER_BUTTON_Y);
++						if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
++							button_index = bind.value.button;
++						break;
++					case 4: // menu
++						bind = SDL_GameControllerGetBindForButton(joystick[j].gamecontroller, SDL_CONTROLLER_BUTTON_START);
++						if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
++							button_index = bind.value.button;
++						break;
++					case 5: // pause
++						bind = SDL_GameControllerGetBindForButton(joystick[j].gamecontroller, SDL_CONTROLLER_BUTTON_BACK);
++						if (bind.bindType == SDL_CONTROLLER_BINDTYPE_BUTTON)
++							button_index = bind.value.button;
++						break;
++					default:
++						break;
++					}
++				}
++
++				joystick[j].assignment[a][0].num = button_index;
+ 			}
+ 		}
+ 	}
+-	
++
+ 	joystick[j].analog = false;
+ 	joystick[j].sensitivity = 5;
+ 	joystick[j].threshold = 5;
+diff -r 7ce6175b5064 src/joystick.h
+--- a/src/joystick.h	Mon Aug 01 20:31:30 2016 -0700
++++ b/src/joystick.h	Mon Dec 19 14:50:32 2016 -0800
+@@ -49,6 +49,7 @@
+ typedef struct
+ {
+ 	SDL_Joystick *handle;
++	SDL_GameController *gamecontroller;
+ 	
+ 	Joystick_assignment assignment[10][2]; // 0-3: directions, 4-9: actions
+ 	
+diff -r 7ce6175b5064 src/loudness.c
+--- a/src/loudness.c	Mon Aug 01 20:31:30 2016 -0700
++++ b/src/loudness.c	Mon Dec 19 14:50:32 2016 -0800
+@@ -46,8 +46,6 @@
+ int sound_init_state = false;
+ int freq = 11025 * OUTPUT_QUALITY;
+ 
+-static SDL_AudioCVT audio_cvt; // used for format conversion
+-
+ void audio_cb( void *userdata, unsigned char *feedme, int howmuch );
+ 
+ void load_song( unsigned int song_num );
+@@ -57,27 +55,23 @@
+ 	if (audio_disabled)
+ 		return false;
+ 	
+-	SDL_AudioSpec ask, got;
++	SDL_AudioSpec spec;
+ 	
+-	ask.freq = freq;
+-	ask.format = (BYTES_PER_SAMPLE == 2) ? AUDIO_S16SYS : AUDIO_S8;
+-	ask.channels = 1;
+-	ask.samples = 2048;
+-	ask.callback = audio_cb;
++	spec.freq = freq;
++	spec.format = (BYTES_PER_SAMPLE == 2) ? AUDIO_S16SYS : AUDIO_S8;
++	spec.channels = 1;
++	spec.samples = 2048;
++	spec.callback = audio_cb;
+ 	
+-	printf("\trequested %d Hz, %d channels, %d samples\n", ask.freq, ask.channels, ask.samples);
++	//printf("\trequested %d Hz, %d channels, %d samples\n", spec.freq, spec.channels, spec.samples);
+ 	
+-	if (SDL_OpenAudio(&ask, &got) == -1)
++	if (SDL_OpenAudio(&spec, NULL) == -1)
+ 	{
+ 		fprintf(stderr, "error: failed to initialize SDL audio: %s\n", SDL_GetError());
+ 		audio_disabled = true;
+ 		return false;
+ 	}
+ 	
+-	printf("\tobtained  %d Hz, %d channels, %d samples\n", got.freq, got.channels, got.samples);
+-	
+-	SDL_BuildAudioCVT(&audio_cvt, ask.format, ask.channels, ask.freq, got.format, got.channels, got.freq);
+-	
+ 	opl_init();
+ 	
+ 	SDL_PauseAudio(0); // unpause
+@@ -89,11 +83,6 @@
+ {
+ 	(void)user_data;
+ 	
+-	// prepare for conversion
+-	howmuch /= audio_cvt.len_mult;
+-	audio_cvt.buf = sdl_buffer;
+-	audio_cvt.len = howmuch;
+-	
+ 	static long ct = 0;
+ 	
+ 	SAMPLE_TYPE *feedme = (SAMPLE_TYPE *)sdl_buffer;
+@@ -174,9 +163,6 @@
+ 			}
+ 		}
+ 	}
+-	
+-	// do conversion
+-	SDL_ConvertAudio(&audio_cvt);
+ }
+ 
+ void deinit_audio( void )
+diff -r 7ce6175b5064 src/video.c
+--- a/src/video.c	Mon Aug 01 20:31:30 2016 -0700
++++ b/src/video.c	Mon Dec 19 14:50:32 2016 -0800
+@@ -58,6 +58,13 @@
+ 
+ void init_video( void )
+ {
++	Uint32 window_flags = SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN;
++
++#ifdef TARGET_STEAMLINK
++	fullscreen_display = 0;
++	window_flags = SDL_WINDOW_FULLSCREEN_DESKTOP;
++#endif
++
+ 	if (SDL_WasInit(SDL_INIT_VIDEO))
+ 		return;
+ 
+@@ -85,7 +92,7 @@
+ 	// scaler and find the true window size
+ 	main_window = SDL_CreateWindow("OpenTyrian",
+ 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+-		vga_width, vga_height, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIDDEN);
++		vga_width, vga_height, window_flags);
+ 
+ 	if (main_window == NULL)
+ 	{
+@@ -129,6 +136,7 @@
+ 
+ 	// Destroy and re-create output texture.
+ 	SDL_DestroyTexture(main_window_texture);
++	//SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+ 	main_window_texture = SDL_CreateTexture(main_window_renderer,
+ 		format, SDL_TEXTUREACCESS_STREAMING, scaler_w, scaler_h);
+ 
