@@ -1,4 +1,4 @@
-From 13d7c4115d1dfb43c0745fb165bda03af4d9e5ba Mon Sep 17 00:00:00 2001
+From c32c4b399ae829652f559d08c7751280c41a0fbe Mon Sep 17 00:00:00 2001
 From: Garrett Brown <themagnificentmrb@gmail.com>
 Date: Fri, 28 Oct 2016 13:50:22 -0700
 Subject: [PATCH] Add Steam Link support
@@ -7,35 +7,73 @@ Subject: [PATCH] Add Steam Link support
  configure.ac                                       |  19 +-
  system/addon-manifest.xml                          |   1 -
  tools/depends/.gitignore                           |   1 +
- tools/depends/target/Makefile                      |  72 ++--
+ tools/depends/target/Makefile                      |  72 +--
  tools/depends/target/ffmpeg/Makefile               |   2 +-
  tools/depends/target/libsdl2/Makefile              |   2 +-
  tools/depends/target/openssl/Makefile              |   2 +-
  tools/depends/target/zlib/Makefile                 |   2 +-
- xbmc/cores/AudioEngine/AESinkFactory.cpp           |  25 ++
- xbmc/cores/AudioEngine/Makefile.in                 |   3 +
- xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp   | 259 +++++++++++++
- xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h     |  81 ++++
+ xbmc/Application.cpp                               |   2 +-
+ xbmc/ApplicationPlayer.cpp                         |   6 +
+ xbmc/ApplicationPlayer.h                           |   1 +
+ xbmc/cores/AudioEngine/AESinkFactory.cpp           |  25 +
+ xbmc/cores/AudioEngine/Makefile.in                 |   5 +
+ xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp   | 237 ++++++++++
+ xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h     |  68 +++
+ .../AudioEngine/Sinks/AESinkSteamLinkStream.cpp    | 279 ++++++++++++
+ .../AudioEngine/Sinks/AESinkSteamLinkStream.h      |  97 ++++
+ .../Sinks/AESinkSteamLinkTranslator.cpp            |  41 ++
+ .../AudioEngine/Sinks/AESinkSteamLinkTranslator.h  |  34 ++
+ xbmc/cores/IPlayer.h                               |   1 +
  .../VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp      |   7 +-
- xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in |   4 +
- .../VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp | 405 ++++++++++++++++++++
- .../VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h   |  85 ++++
- xbmc/cores/VideoPlayer/VideoRenderers/Makefile.in  |   4 +
+ .../VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h    |   5 +
+ xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in |   7 +
+ .../DVDCodecs/Video/SteamLinkTranslator.cpp        |  67 +++
+ .../DVDCodecs/Video/SteamLinkTranslator.h          |  39 ++
+ .../VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp | 506 +++++++++++++++++++++
+ .../VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h   | 109 +++++
+ .../DVDCodecs/Video/SteamLinkVideoBuffer.cpp       |  50 ++
+ .../DVDCodecs/Video/SteamLinkVideoBuffer.h         |  51 +++
+ .../DVDCodecs/Video/SteamLinkVideoStream.cpp       | 138 ++++++
+ .../DVDCodecs/Video/SteamLinkVideoStream.h         |  69 +++
+ xbmc/cores/VideoPlayer/IVideoPlayer.h              |   1 +
+ xbmc/cores/VideoPlayer/VideoPlayer.cpp             |   9 +
+ xbmc/cores/VideoPlayer/VideoPlayer.h               |   2 +
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp        |   5 +
+ xbmc/cores/VideoPlayer/VideoPlayerVideo.h          |   1 +
+ .../VideoPlayer/VideoRenderers/BaseRenderer.cpp    |   2 +-
+ .../VideoPlayer/VideoRenderers/BaseRenderer.h      |   1 +
+ .../VideoRenderers/HwDecRender/Makefile.in         |   4 +
+ .../HwDecRender/RendererSteamLink.cpp              |  87 ++++
+ .../VideoRenderers/HwDecRender/RendererSteamLink.h |  53 +++
+ .../VideoRenderers/LinuxRendererGLES.cpp           |   6 +-
  .../VideoPlayer/VideoRenderers/RenderFormats.h     |   1 +
- .../VideoPlayer/VideoRenderers/RenderManager.cpp   |   8 +-
+ .../VideoPlayer/VideoRenderers/RenderManager.cpp   |  19 +
+ .../VideoPlayer/VideoRenderers/RenderManager.h     |   2 +
  .../VideoRenderers/SteamLinkRenderer.cpp           |  39 ++
- .../VideoPlayer/VideoRenderers/SteamLinkRenderer.h |  49 +++
- xbmc/windowing/WinEventsSDL.cpp                    | 426 ++++++++++++++++++++-
+ .../VideoPlayer/VideoRenderers/SteamLinkRenderer.h |  49 ++
+ xbmc/windowing/WinEventsSDL.cpp                    | 426 ++++++++++++++++-
  xbmc/windowing/WinEventsSDL.h                      |   2 +-
- xbmc/windowing/egl/EGLNativeTypeSDL.cpp            | 161 ++++++++
+ xbmc/windowing/egl/EGLNativeTypeSDL.cpp            | 161 +++++++
  xbmc/windowing/egl/EGLNativeTypeSDL.h              |  60 +++
  xbmc/windowing/egl/EGLWrapper.cpp                  |   5 +
  xbmc/windowing/egl/Makefile.in                     |   1 +
- 27 files changed, 1672 insertions(+), 54 deletions(-)
+ 53 files changed, 2823 insertions(+), 58 deletions(-)
  create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp
  create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h
+ create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp
+ create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h
+ create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.cpp
+ create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.h
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.cpp
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.h
  create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp
  create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.cpp
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.h
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.cpp
+ create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.h
+ create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.cpp
+ create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.h
  create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/SteamLinkRenderer.cpp
  create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/SteamLinkRenderer.h
  create mode 100644 xbmc/windowing/egl/EGLNativeTypeSDL.cpp
@@ -243,6 +281,48 @@ index 551301c..2145116 100644
  
  LIBDYLIB=$(PLATFORM)/$(LIBNAME).a
  
+diff --git a/xbmc/Application.cpp b/xbmc/Application.cpp
+index 1570714..2610abe 100644
+--- a/xbmc/Application.cpp
++++ b/xbmc/Application.cpp
+@@ -2251,7 +2251,7 @@ bool CApplication::OnAction(const CAction &action)
+         m_pPlayer->SetPlaySpeed(1);
+       return true;
+     }
+-    if (!m_pPlayer->IsPaused())
++    if (!m_pPlayer->IsPaused() && m_pPlayer->CanFFRW())
+     {
+       if (action.GetID() == ACTION_PLAYER_FORWARD || action.GetID() == ACTION_PLAYER_REWIND)
+       {
+diff --git a/xbmc/ApplicationPlayer.cpp b/xbmc/ApplicationPlayer.cpp
+index 9163bae..13e6b79 100644
+--- a/xbmc/ApplicationPlayer.cpp
++++ b/xbmc/ApplicationPlayer.cpp
+@@ -405,6 +405,12 @@ bool CApplicationPlayer::CanPause()
+   return (player && player->CanPause());
+ }
+ 
++bool CApplicationPlayer::CanFFRW()
++{
++  std::shared_ptr<IPlayer> player = GetInternal();
++  return (player && player->CanFFRW());
++}
++
+ bool CApplicationPlayer::IsRecording() const
+ {
+   std::shared_ptr<IPlayer> player = GetInternal();
+diff --git a/xbmc/ApplicationPlayer.h b/xbmc/ApplicationPlayer.h
+index a0567a6..7d55035 100644
+--- a/xbmc/ApplicationPlayer.h
++++ b/xbmc/ApplicationPlayer.h
+@@ -106,6 +106,7 @@ public:
+   bool  CanPause();
+   bool  CanRecord();
+   bool  CanSeek();
++  bool  CanFFRW();
+   void  DoAudioWork();
+   void  GetAudioCapabilities(std::vector<int> &audioCaps);
+   int   GetAudioStream();
 diff --git a/xbmc/cores/AudioEngine/AESinkFactory.cpp b/xbmc/cores/AudioEngine/AESinkFactory.cpp
 index 952461d..4ebed1f 100644
 --- a/xbmc/cores/AudioEngine/AESinkFactory.cpp
@@ -308,25 +388,27 @@ index 952461d..4ebed1f 100644
  
  }
 diff --git a/xbmc/cores/AudioEngine/Makefile.in b/xbmc/cores/AudioEngine/Makefile.in
-index 9a4e998..183f10e 100644
+index 9a4e998..b2e18e6 100644
 --- a/xbmc/cores/AudioEngine/Makefile.in
 +++ b/xbmc/cores/AudioEngine/Makefile.in
-@@ -63,6 +63,9 @@ SRCS += Sinks/AESinkOSS.cpp
+@@ -63,6 +63,11 @@ SRCS += Sinks/AESinkOSS.cpp
  ifeq (@USE_PULSE@,1)
  SRCS += Sinks/AESinkPULSE.cpp
  endif
 +ifeq (@USE_STEAMLINK@,1)
 +SRCS += Sinks/AESinkSteamLink.cpp
++SRCS += Sinks/AESinkSteamLinkStream.cpp
++SRCS += Sinks/AESinkSteamLinkTranslator.cpp
 +endif
  endif
  
  SRCS += Engines/ActiveAE/AudioDSPAddons/ActiveAEDSP.cpp
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp
 new file mode 100644
-index 0000000..906e0ff
+index 0000000..63fc7d3
 --- /dev/null
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp
-@@ -0,0 +1,259 @@
+@@ -0,0 +1,237 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -348,6 +430,8 @@ index 0000000..906e0ff
 + */
 +
 +#include "AESinkSteamLink.h"
++#include "AESinkSteamLinkStream.h"
++#include "AESinkSteamLinkTranslator.h"
 +#include "cores/AudioEngine/Utils/AEUtil.h"
 +#include "utils/log.h"
 +#include "utils/TimeUtils.h"
@@ -358,48 +442,26 @@ index 0000000..906e0ff
 +#include <cstring>
 +#include <unistd.h>
 +
-+#define SL_SAMPLE_RATE  48000
-+#define SINK_FEED_MS    50 // Steam Link game streaming uses 10ms
-+#define CACHE_TOTAL_MS  200
-+#define INITIAL_ATTENUATION_TIME 6.0
-+#define DELAY_OFFSET_SECONDS -0.025
++#define SL_SAMPLE_RATE                 48000
++#define SINK_FEED_MS                   50 // Steam Link game streaming uses 10ms
++#define CACHE_TOTAL_MS                 200
++#define INITIAL_ATTENUATION_TIME_SECS  6.0
 +
 +using namespace STEAMLINK;
-+
-+namespace STEAMLINK
-+{
-+  extern uint32_t g_unQueuedVideoMS;
-+}
 +
 +namespace
 +{
 +  void LogFunction(void *pContext, ESLAudioLog eLogLevel, const char *pszMessage)
 +  {
-+    switch (eLogLevel)
-+    {
-+    case k_ESLAudioLogDebug:
-+      CLog::Log(LOGDEBUG, "%s", pszMessage);
-+      break;
-+    case k_ESLAudioLogInfo:
-+      CLog::Log(LOGINFO, "%s", pszMessage);
-+      break;
-+    case k_ESLAudioLogWarning:
-+      CLog::Log(LOGWARNING, "%s", pszMessage);
-+      break;
-+    case k_ESLAudioLogError:
-+      CLog::Log(LOGERROR, "%s", pszMessage);
-+      break;
-+    default:
-+      break;
-+    }
++    int level = CAESinkSteamLinkTranslator::TranslateLogLevel(eLogLevel);
++    CLog::Log(level, "%s", pszMessage);
 +  }
 +}
 +
 +CAESinkSteamLink::CAESinkSteamLink() :
-+  m_lastPackageStamp(0.0),
-+  m_delaySec(0.0),
 +  m_context(nullptr),
-+  m_stream(nullptr)
++  m_startTimeSecs(0.0),
++  m_framesSinceStart(0)
 +{
 +  SLAudio_SetLogLevel(k_ESLAudioLogDebug);
 +  SLAudio_SetLogFunction(LogFunction, nullptr);
@@ -413,53 +475,49 @@ index 0000000..906e0ff
 +
 +bool CAESinkSteamLink::Initialize(AEAudioFormat &format, std::string &device)
 +{
++  bool bSuccess = false;
++
 +  Deinitialize();
 +
-+  m_initialAttenuation = true;
-+  m_startTime = (double)CurrentHostCounter() / CurrentHostFrequency();
++  m_startTimeSecs = 0.0; // Set in first call to AddPackets()
++  m_framesSinceStart = 0;
 +  
 +  format.m_dataFormat    = AE_FMT_S16NE;
 +  format.m_sampleRate    = SL_SAMPLE_RATE;
 +  format.m_frames        = format.m_sampleRate * SINK_FEED_MS / 1000;
 +  format.m_frameSize     = format.m_channelLayout.Count() * (CAEUtil::DataFormatToBits(format.m_dataFormat) >> 3);
-+  m_format = format;
++
++  if (format.m_channelLayout.Count() == 0 || format.m_frameSize == 0)
++    return false;
 +
 +  CSLAudioContext* context = SLAudio_CreateContext();
-+  if (context)
-+  {
-+    CSLAudioStream* stream = SLAudio_CreateStream(context, m_format.m_sampleRate, m_format.m_channelLayout.Count(), format.m_frames * format.m_frameSize, false);
-+    if (stream)
-+    {
-+      // Success
-+      m_context = context;
-+      m_stream = stream;
-+    }
-+    else
-+    {
-+      CLog::Log(LOGERROR, "SteamLinkAudio: Failed to create stream");
-+      SLAudio_FreeContext(context);
-+    }
-+  }
-+  else
++  if (!context)
 +  {
 +    CLog::Log(LOGERROR, "SteamLinkAudio: Failed to create context");
 +  }
++  else
++  {
++    std::unique_ptr<CAESinkSteamLinkStream> stream(new CAESinkSteamLinkStream(context, format.m_sampleRate, format.m_channelLayout.Count(), format.m_frames * format.m_frameSize));
++    if (stream->Open())
++    {
++      m_format = format;
++      m_context = context;
++      m_stream = std::move(stream);
++      bSuccess = true;
++    }
++    else
++    {
++      SLAudio_FreeContext(context);
++    }
++  }
 +
-+  return m_context != nullptr;
++  return bSuccess;
 +}
 +
 +void CAESinkSteamLink::Deinitialize()
 +{
-+  while (m_AudioQueue.size() > 0)
-+  {
-+    delete[] m_AudioQueue.front().m_pData;
-+    m_AudioQueue.pop();
-+  }
-+  if (m_stream)
-+  {
-+    SLAudio_FreeStream(m_stream);
-+    m_stream = nullptr;
-+  }
++  m_stream.reset();
++
 +  if (m_context)
 +  {
 +    SLAudio_FreeContext(m_context);
@@ -474,101 +532,103 @@ index 0000000..906e0ff
 +
 +unsigned int CAESinkSteamLink::AddPackets(uint8_t **data, unsigned int frames, unsigned int offset)
 +{
-+  const double packetTimeSecs = 1.0 * (frames - offset) / m_format.m_sampleRate;
++  if (offset >= frames)
++    return 0;
 +
-+  // Update delay for elapsed time
-+  const double nowSecs = (double)CurrentHostCounter() / CurrentHostFrequency();
-+  if (m_lastPackageStamp > 0.0)
++  if (!m_stream)
++    return 0;
++
++  // Calculate frame count from given parameters
++  const unsigned int frameCount = frames - offset;
++
++  // Calculate start time and present time
++  const double nowSecs = static_cast<double>(CurrentHostCounter()) / CurrentHostFrequency();
++
++  if (m_startTimeSecs == 0.0)
++    m_startTimeSecs = nowSecs;
++
++  double presentTimeSecs = m_startTimeSecs + static_cast<double>(m_framesSinceStart) / m_format.m_sampleRate;
++
++  // Detect underrun
++  if (presentTimeSecs < nowSecs)
 +  {
-+    const double elapsedSecs = nowSecs - m_lastPackageStamp;
-+    m_delaySec -= elapsedSecs;
-+    if (m_delaySec < 0.0)
-+      m_delaySec = 0.0;
++    CLog::Log(LOGDEBUG, "SteamLinkAudio: Buffer underrun detected");
++    presentTimeSecs = m_startTimeSecs = nowSecs;
++    m_framesSinceStart = 0;
 +  }
-+  m_lastPackageStamp = nowSecs;
 +
 +  // Ensure space in the buffer
-+  const double availableSecs = GetCacheTotal() - GetDelaySecs();
++  const double delaySecs = presentTimeSecs - nowSecs;
 +
-+  const int sleepTimeUs = (int)((SINK_FEED_MS / 1000.0 - availableSecs) * 1000 * 1000);
++  const double availableSecs = GetCacheTotal() - delaySecs;
++
++  const int sleepTimeUs = static_cast<int>((SINK_FEED_MS - availableSecs * 1000.0) * 1000);
 +
 +  if (sleepTimeUs > 0)
 +    usleep(sleepTimeUs);
 +
-+  CAudioChunk chunk;
-+  chunk.m_nSize = (frames - offset) * m_format.m_frameSize;
-+  chunk.m_pData = new uint8_t[chunk.m_nSize];
-+  std::memcpy(chunk.m_pData, data[0] + offset * m_format.m_frameSize, chunk.m_nSize);
-+  if (m_initialAttenuation)
++  // Create buffer and copy data
++  const size_t packetSize = frameCount * m_format.m_frameSize;
++  std::unique_ptr<uint8_t[]> buffer(new uint8_t[packetSize]);
++
++  std::memcpy(buffer.get(), *data + offset * m_format.m_frameSize, packetSize);
++
++  // Attenuate if necessary
++  const double elapsedSinceStartSecs = (presentTimeSecs - m_startTimeSecs);
++  const bool bAttenuate = (elapsedSinceStartSecs < INITIAL_ATTENUATION_TIME_SECS);
++  if (bAttenuate)
 +  {
-+    double flVolume = (nowSecs - m_startTime) / INITIAL_ATTENUATION_TIME;
-+    flVolume *= flVolume;
-+    if (flVolume < 1.0)
-+      AttenuateChunk(&chunk, flVolume);
-+    else
-+      m_initialAttenuation = false;
-+  }
-+  chunk.m_nNowSecs = nowSecs + g_unQueuedVideoMS / 1000.0 + DELAY_OFFSET_SECONDS;
-+  m_AudioQueue.push( chunk );
-+
-+  while (m_AudioQueue.size() > 0)
-+  {
-+    chunk = m_AudioQueue.front();
-+    if (chunk.m_nNowSecs > nowSecs + 0.001)
-+    {
-+      break;
-+    }
-+
-+    m_AudioQueue.pop();
-+
-+    void* buffer = SLAudio_BeginFrame(m_stream);
-+    std::memcpy(buffer, chunk.m_pData, chunk.m_nSize);
-+    SLAudio_SubmitFrame(m_stream);
-+    delete[] chunk.m_pData;
++    double flVolume = elapsedSinceStartSecs / INITIAL_ATTENUATION_TIME_SECS;
++    AttenuateChunk(buffer.get(), packetSize, flVolume * flVolume);
 +  }
 +
-+  // Increase the delay for the added packet
-+  m_delaySec += packetTimeSecs;
++  // Add packet
++  if (!m_stream->AddPacket(std::move(buffer), packetSize, presentTimeSecs))
++    return 0;
 +
-+  return frames - offset;
++  m_framesSinceStart += frameCount;
++
++  return frameCount;
 +}
 +
 +void CAESinkSteamLink::GetDelay(AEDelayStatus &status)
 +{
-+  status.SetDelay(GetDelaySecs());
++  double delaySecs = 0.0;
++
++  if (m_startTimeSecs != 0.0)
++  {
++    const double nowSecs = static_cast<double>(CurrentHostCounter()) / CurrentHostFrequency();
++
++    double nextPresentTimeSecs = m_startTimeSecs + static_cast<double>(m_framesSinceStart) / m_format.m_sampleRate;
++
++    if (nextPresentTimeSecs > nowSecs)
++      delaySecs = nextPresentTimeSecs - nowSecs;
++  }
++
++  status.SetDelay(delaySecs);
 +}
 +
-+void CAESinkSteamLink::AttenuateChunk(CAudioChunk *pChunk, double flVolume)
++void CAESinkSteamLink::Drain()
 +{
-+  int16_t *pData = (int16_t*)pChunk->m_pData;
-+  int nCount = pChunk->m_nSize / sizeof(*pData);
++  if (m_stream)
++  {
++    if (!m_stream->Flush())
++      m_stream.reset();
++  }
++
++  m_startTimeSecs = 0.0;
++  m_framesSinceStart = 0;
++}
++
++void CAESinkSteamLink::AttenuateChunk(uint8_t *pChunk, unsigned int size, double flVolume)
++{
++  int16_t *pData = reinterpret_cast<int16_t*>(pChunk);
++  int nCount = size / sizeof(*pData);
 +  while (nCount--)
 +  {
 +    *pData = static_cast<int16_t>(*pData * flVolume);
 +    ++pData;
 +  }
-+}
-+
-+void CAESinkSteamLink::Drain()
-+{
-+  unsigned int usecs = (unsigned int)(GetDelaySecs() * 1000 * 1000);
-+  if (usecs > 0)
-+    usleep(usecs);
-+
-+  m_lastPackageStamp = 0.0;
-+  m_delaySec = 0.0;
-+
-+  while (m_AudioQueue.size() > 0)
-+  {
-+    delete[] m_AudioQueue.front().m_pData;
-+    m_AudioQueue.pop();
-+  }
-+  g_unQueuedVideoMS = 0;
-+}
-+
-+double CAESinkSteamLink::GetDelaySecs()
-+{
-+  return m_delaySec;
 +}
 +
 +void CAESinkSteamLink::EnumerateDevicesEx(AEDeviceInfoList &deviceInfoList, bool force /* = false */)
@@ -588,10 +648,10 @@ index 0000000..906e0ff
 +}
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h
 new file mode 100644
-index 0000000..e354fac
+index 0000000..ffe053d
 --- /dev/null
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,68 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -614,18 +674,19 @@ index 0000000..e354fac
 +#pragma once
 +
 +#include "cores/AudioEngine/Interfaces/AESink.h"
++#include "cores/AudioEngine/Utils/AEAudioFormat.h"
 +#include "cores/AudioEngine/Utils/AEDeviceInfo.h"
 +
++#include <memory>
 +#include <stdint.h>
-+#include <queue>
 +
 +#define STEAM_LINK_SINK_NAME  "SteamLinkAudio"
 +
 +struct CSLAudioContext;
-+struct CSLAudioStream;
 +
 +namespace STEAMLINK
 +{
++class CAESinkSteamLinkStream;
 +
 +class CAESinkSteamLink : public IAESink
 +{
@@ -646,33 +707,506 @@ index 0000000..e354fac
 +  static void EnumerateDevicesEx(AEDeviceInfoList &deviceInfoList, bool force = false);
 +
 +private:
-+  double GetDelaySecs();
-+
-+  // AE stuff
-+  AEAudioFormat m_format;
-+  double        m_lastPackageStamp;
-+  double        m_delaySec; // Estimated delay in seconds
++  void AttenuateChunk(uint8_t *pChunk, unsigned int size, double flVolume);
 +
 +  // Steam Link stuff
 +  CSLAudioContext *m_context;
-+  CSLAudioStream *m_stream;
++  std::unique_ptr<CAESinkSteamLinkStream> m_stream;
 +
-+  // Queued audio for video sync
-+  struct CAudioChunk
-+  {
-+    uint8_t *m_pData;
-+    unsigned int m_nSize;
-+    double m_nNowSecs;
-+  };
-+  std::queue<CAudioChunk> m_AudioQueue;
-+
-+  // Initial attenuation to cover audio sync
-+  double m_startTime;
-+  bool m_initialAttenuation;
-+  void AttenuateChunk(CAudioChunk *pChunk, double flVolume);
++  // AE stuff
++  AEAudioFormat m_format;
++  double m_startTimeSecs;
++  uint64_t m_framesSinceStart;
 +};
 +
 +}
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp
+new file mode 100644
+index 0000000..bd9e016
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp
+@@ -0,0 +1,279 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "AESinkSteamLinkStream.h"
++#include "AESinkSteamLink.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h"
++#include "interfaces/AnnouncementManager.h"
++#include "threads/SingleLock.h"
++//#include "threads/SystemClock.h"
++#include "utils/log.h"
++#include "utils/TimeUtils.h"
++
++// Steam Link audio API
++#include "SLAudio.h"
++
++#include <algorithm>
++#include <cmath>
++#include <cstring>
++
++using namespace STEAMLINK;
++
++#define MAX_AUDIO_DELAY_MS  100 // Skip packets if audio delay exceeds this value
++
++CAESinkSteamLinkStream::CAESinkSteamLinkStream(CSLAudioContext* context, unsigned int sampleRateHz, unsigned int channels, unsigned int packetSize) :
++  CThread("SteamLinkAudio"),
++  m_context(context),
++  m_sampleRateHz(sampleRateHz),
++  m_channels(channels),
++  m_packetSize(packetSize),
++  m_stream(nullptr),
++  m_bInVideo(false),
++  m_steamLinkBuffer(nullptr),
++  m_remainingBytes(0)
++{
++  ANNOUNCEMENT::CAnnouncementManager::GetInstance().AddAnnouncer(this);
++}
++
++CAESinkSteamLinkStream::~CAESinkSteamLinkStream()
++{
++  ANNOUNCEMENT::CAnnouncementManager::GetInstance().RemoveAnnouncer(this);
++
++  Close();
++}
++
++bool CAESinkSteamLinkStream::Open()
++{
++  Close();
++
++  CSingleLock lock(m_streamMutex);
++
++  bool bSuccess = false;
++
++  m_stream = SLAudio_CreateStream(m_context, m_sampleRateHz, m_channels, m_packetSize, true);
++
++  if (m_stream)
++  {
++    bSuccess = true;
++    lock.Leave();
++    Create(false);
++  }
++  else
++  {
++    CLog::Log(LOGERROR, "SteamLinkAudio: Failed to create stream");
++  }
++
++  return bSuccess;
++}
++
++void CAESinkSteamLinkStream::Close()
++{
++  StopThread();
++
++  CSingleLock lock(m_streamMutex);
++
++  if (m_stream)
++  {
++    SLAudio_FreeStream(m_stream);
++    m_stream = nullptr;
++  }
++}
++
++bool CAESinkSteamLinkStream::Flush()
++{
++  Close();
++
++  {
++    CSingleLock lock(m_queueMutex);
++    m_queue.clear();
++  }
++
++  return Open();
++}
++
++bool CAESinkSteamLinkStream::AddPacket(std::unique_ptr<uint8_t[]> data, unsigned int size, double presentTimeSecs)
++{
++  {
++    CSingleLock lock(m_streamMutex);
++    if (m_stream == nullptr)
++      return true; // This might have been called during a Flush()
++  }
++
++  const unsigned int delayMs = CSteamLinkVideo::GetDelayMs();
++
++  if (delayMs > 0)
++    presentTimeSecs += delayMs / 1000.0;
++
++  {
++    CSingleLock lock(m_queueMutex);
++    m_queue.emplace_back(std::move(AudioPacket{std::move(data), size, presentTimeSecs}));
++  }
++
++  // Notify thread that a packet is ready
++  m_queueEvent.Set();
++
++  return true;
++}
++
++void CAESinkSteamLinkStream::Process()
++{
++  AudioPacket packet;
++
++  while (!m_bStop)
++  {
++    if (packet.buffer || GetNextPacket(packet))
++    {
++      // Sleep until we're ready to show the frame
++      WaitUntilReady(packet.presentTimeSecs);
++
++      if (m_bStop)
++        break;
++
++      SendPacket(std::move(packet));
++
++      if (GetNextPacket(packet))
++        continue;
++    }
++
++    AbortableWait(m_queueEvent);
++  }
++
++  // Make sure we haven't left a Steam Link packet open
++  if (m_steamLinkBuffer != nullptr)
++    EndPacket();
++}
++
++void CAESinkSteamLinkStream::Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data)
++{
++  if (flag == ANNOUNCEMENT::Player && strcmp(sender, "xbmc") == 0)
++  {
++    if (strcmp(message, "OnPlay") == 0 ||
++        strcmp(message, "OnPause") == 0 ||
++        strcmp(message, "OnStop") == 0 ||
++        strcmp(message, "OnSpeedChanged") == 0 ||
++        strcmp(message, "OnSeek") == 0)
++    {
++      Flush();
++    }
++    else
++    {
++      CLog::Log(LOGDEBUG, "CAESinkSteamLinkStream: Unknown player announcement \"%s\"", message);
++    }
++  }
++}
++
++bool CAESinkSteamLinkStream::GetNextPacket(AudioPacket& packet)
++{
++  CSingleLock lock(m_queueMutex);
++
++  if (!m_queue.empty())
++  {
++    packet = std::move(m_queue.front());
++    m_queue.pop_front();
++    return true;
++  }
++
++  return false;
++}
++
++void CAESinkSteamLinkStream::WaitUntilReady(double targetTimeSecs)
++{
++  const double nowSecs = static_cast<double>(CurrentHostCounter()) / CurrentHostFrequency();
++
++  const int sleepTimeMs = static_cast<int>((targetTimeSecs - nowSecs) * 1000.0);
++
++  if (sleepTimeMs > 0)
++    Sleep(sleepTimeMs);
++}
++
++bool CAESinkSteamLinkStream::HasLatePacket(double nextPresentTimeSecs) const
++{
++  return std::find_if(m_queue.begin(), m_queue.end(),
++    [nextPresentTimeSecs](const AudioPacket& packet)
++    {
++      return packet.presentTimeSecs >= nextPresentTimeSecs;
++    }) != m_queue.end();
++}
++
++void CAESinkSteamLinkStream::ClearLatePackets(double nextPresentTimeSecs)
++{
++  while (HasLatePacket(nextPresentTimeSecs))
++    m_queue.pop_front();
++}
++
++void CAESinkSteamLinkStream::BeginPacket()
++{
++  m_steamLinkBuffer = static_cast<uint8_t*>(SLAudio_BeginFrame(m_stream));
++  m_remainingBytes = m_packetSize;
++}
++
++void CAESinkSteamLinkStream::EndPacket()
++{
++  SLAudio_SubmitFrame(m_stream);
++  m_steamLinkBuffer = nullptr;
++  m_remainingBytes = 0;
++}
++
++void CAESinkSteamLinkStream::SendPacket(AudioPacket packet)
++{
++  CSingleLock lock(m_streamMutex);
++
++  if (GetSLDelaySecs() > MAX_AUDIO_DELAY_MS)
++    Flush();
++
++  if (m_stream == nullptr)
++    return;
++
++  unsigned int bytesWritten = 0;
++
++  // Loop until all bytes have been written
++  while (bytesWritten < packet.size)
++  {
++    if (m_steamLinkBuffer == nullptr)
++      BeginPacket();
++
++    const unsigned int bytesToWrite = std::min(m_remainingBytes, packet.size - bytesWritten);
++
++    // Sanity check (shouldn't happen)
++    if (bytesToWrite == 0 || m_remainingBytes == 0)
++      break;
++
++    const unsigned int bufferOffset = m_packetSize - m_remainingBytes;
++    std::memcpy(m_steamLinkBuffer + bufferOffset, packet.buffer.get() + bytesWritten, bytesToWrite);
++
++    m_remainingBytes -= bytesToWrite;
++    bytesWritten += bytesToWrite;
++
++    if (m_remainingBytes == 0)
++      EndPacket();
++  }
++}
++
++double CAESinkSteamLinkStream::GetSLDelaySecs()
++{
++  CSingleLock lock(m_streamMutex);
++
++  uint32_t queuedFrames = 0;
++
++  if (m_stream)
++    queuedFrames = SLAudio_GetQueuedAudioSamples(m_stream) / m_channels;
++
++  return static_cast<double>(queuedFrames) / m_sampleRateHz;
++}
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h
+new file mode 100644
+index 0000000..536054d
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h
+@@ -0,0 +1,97 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#pragma once
++
++#include "interfaces/IAnnouncer.h"
++#include "threads/CriticalSection.h"
++#include "threads/SystemClock.h"
++#include "threads/Thread.h"
++
++#include <memory>
++#include <deque>
++#include <stdint.h>
++
++struct CSLAudioContext;
++struct CSLAudioStream;
++
++namespace STEAMLINK
++{
++
++class CAESinkSteamLinkStream : public CThread,
++                               public ANNOUNCEMENT::IAnnouncer
++{
++public:
++  CAESinkSteamLinkStream(CSLAudioContext* context, unsigned int sampleRateHz, unsigned int channels, unsigned int packetSize);
++  virtual ~CAESinkSteamLinkStream();
++
++  bool Open();
++  void Close();
++  bool Flush();
++  bool AddPacket(std::unique_ptr<uint8_t[]> data, unsigned int size, double presentTimeSecs);
++
++  // implementation of IAnnouncer
++  virtual void Announce(ANNOUNCEMENT::AnnouncementFlag flag, const char *sender, const char *message, const CVariant &data) override;
++
++protected:
++  // implementation of CThread
++  virtual void Process() override;
++
++private:
++  struct AudioPacket
++  {
++    std::unique_ptr<uint8_t[]> buffer;
++    unsigned int size;
++    double presentTimeSecs;
++  };
++
++  bool GetNextPacket(AudioPacket& packet);
++
++  void WaitUntilReady(double targetTimeSecs);
++
++  bool HasLatePacket(double nextPresentTimeSecs) const;
++
++  void ClearLatePackets(double nextPresentTimeSecs);
++
++  void BeginPacket();
++  void EndPacket();
++
++  void SendPacket(AudioPacket packet);
++
++  double GetSLDelaySecs();
++
++  // Construction parameters
++  CSLAudioContext* const m_context;
++  const unsigned int m_sampleRateHz;
++  const unsigned int m_channels;
++  const unsigned int m_packetSize;
++
++  // Stream parameters
++  CSLAudioStream* m_stream;
++  CCriticalSection m_streamMutex;
++  std::deque<AudioPacket> m_queue;
++  CCriticalSection m_queueMutex;
++  CEvent m_queueEvent;
++  bool m_bInVideo;
++  uint8_t* m_steamLinkBuffer;
++  unsigned int m_remainingBytes; // Bytes remaining in the Steam Link audio buffer
++  XbmcThreads::EndTime m_videoDelay;
++};
++
++}
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.cpp
+new file mode 100644
+index 0000000..77270c6
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.cpp
+@@ -0,0 +1,41 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "AESinkSteamLinkTranslator.h"
++#include "commons/ilog.h"
++
++using namespace STEAMLINK;
++
++int CAESinkSteamLinkTranslator::TranslateLogLevel(ESLAudioLog logLevel)
++{
++  switch (logLevel)
++  {
++  case k_ESLAudioLogDebug:   return LOGDEBUG;
++  case k_ESLAudioLogInfo:    return LOGINFO;
++  case k_ESLAudioLogWarning: return LOGWARNING;
++  case k_ESLAudioLogError:   return LOGERROR;
++    break;
++  default:
++    break;
++  }
++
++  return LOGDEBUG;
++}
+diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.h b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.h
+new file mode 100644
+index 0000000..b999858
+--- /dev/null
++++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.h
+@@ -0,0 +1,34 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#pragma once
++
++#include "SLAudio.h"
++
++namespace STEAMLINK
++{
++
++class CAESinkSteamLinkTranslator
++{
++public:
++  static int TranslateLogLevel(ESLAudioLog logLevel);
++};
++
++}
+diff --git a/xbmc/cores/IPlayer.h b/xbmc/cores/IPlayer.h
+index a1ea99f..32a5fc9 100644
+--- a/xbmc/cores/IPlayer.h
++++ b/xbmc/cores/IPlayer.h
+@@ -246,6 +246,7 @@ public:
+   virtual bool HasRDS() const { return false; }
+   virtual bool IsPassthrough() const { return false;}
+   virtual bool CanSeek() {return true;}
++  virtual bool CanFFRW() { return true; }
+   virtual void Seek(bool bPlus = true, bool bLargeStep = false, bool bChapterOverride = false) = 0;
+   virtual bool SeekScene(bool bPlus = true) {return false;}
+   virtual void SeekPercentage(float fPercent = 0){}
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
 index 9717412..cade549 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp
@@ -698,27 +1232,171 @@ index 9717412..cade549 100644
      pCodec = OpenCodec(new CDVDVideoCodecIMX(processInfo), hint, options);
  #elif defined(TARGET_ANDROID)
      pCodec = OpenCodec(new CDVDVideoCodecAndroidMediaCodec(processInfo), hint, options);
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
+index a2da9de..118ea83 100644
+--- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h
+@@ -51,6 +51,7 @@ class CDVDMediaCodecInfo;
+ class CDVDVideoCodecIMXBuffer;
+ class CMMALBuffer;
+ class CDVDAmlogicInfo;
++namespace STEAMLINK { class CSteamLinkBuffer; }
+ 
+ 
+ // should be entirely filled by all codecs
+@@ -100,6 +101,10 @@ struct DVDVideoPicture
+       CDVDAmlogicInfo *amlcodec;
+     };
+ 
++    struct {
++      STEAMLINK::CSteamLinkBuffer *steamlink;
++    };
++
+   };
+ 
+   unsigned int iFlags;
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in b/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
-index 62d44ce..50f13d7 100644
+index 62d44ce..574bf6c 100644
 --- a/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in
-@@ -34,6 +34,10 @@ ifeq (@USE_MMAL@,1)
+@@ -34,6 +34,13 @@ ifeq (@USE_MMAL@,1)
  SRCS += MMALCodec.cpp MMALFFmpeg.cpp
  endif
  
 +ifeq (@USE_STEAMLINK@,1)
++SRCS += SteamLinkTranslator.cpp
 +SRCS += SteamLinkVideo.cpp
++SRCS += SteamLinkVideoBuffer.cpp
++SRCS += SteamLinkVideoStream.cpp
 +endif
 +
  LIB=Video.a
  
  include @abs_top_srcdir@/Makefile.include
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.cpp
+new file mode 100644
+index 0000000..9a800b1
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.cpp
+@@ -0,0 +1,67 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "SteamLinkTranslator.h"
++#include "commons/ilog.h"
++
++using namespace STEAMLINK;
++
++bool CSteamLinkTranslator::TranslateFormat(AVCodecID format, ESLVideoFormat& slFormat)
++{
++  switch (format)
++  {
++  case AV_CODEC_ID_H264:
++    slFormat = k_ESLVideoFormatH264;
++    break;
++  default:
++    return false;
++  }
++
++  return true;
++}
++
++const char* CSteamLinkTranslator::TranslateFormatToString(ESLVideoFormat format)
++{
++  switch (format)
++  {
++  case k_ESLVideoFormatH264: return "h264";
++  default:
++    break;
++  }
++
++  return "";
++}
++
++int CSteamLinkTranslator::TranslateLogLevel(ESLVideoLog logLevel)
++{
++  switch (logLevel)
++  {
++  case k_ESLVideoLogDebug:   return LOGDEBUG;
++  case k_ESLVideoLogInfo:    return LOGINFO;
++  case k_ESLVideoLogWarning: return LOGWARNING;
++  case k_ESLVideoLogError:   return LOGERROR;
++    break;
++  default:
++    break;
++  }
++
++  return LOGDEBUG;
++}
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.h
+new file mode 100644
+index 0000000..1a0d5b6
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.h
+@@ -0,0 +1,39 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#pragma once
++
++#include "SLVideo.h"
++#include "libavcodec/avcodec.h"
++
++namespace STEAMLINK
++{
++
++class CSteamLinkTranslator
++{
++public:
++  static bool TranslateFormat(AVCodecID format, ESLVideoFormat& slFormat);
++
++  static const char* TranslateFormatToString(ESLVideoFormat format);
++
++  static int TranslateLogLevel(ESLVideoLog logLevel);
++};
++
++}
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp
 new file mode 100644
-index 0000000..8571eb9
+index 0000000..4776983
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp
-@@ -0,0 +1,405 @@
+@@ -0,0 +1,506 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -741,63 +1419,77 @@ index 0000000..8571eb9
 + */
 +
 +#include "SteamLinkVideo.h"
++#include "SteamLinkTranslator.h"
++#include "SteamLinkVideoStream.h"
 +#include "cores/VideoPlayer/DVDClock.h"
 +#include "cores/VideoPlayer/DVDStreamInfo.h"
++#include "cores/VideoPlayer/VideoRenderers/RenderFormats.h"
 +#include "settings/AdvancedSettings.h"
++#include "threads/SingleLock.h"
 +#include "utils/log.h"
 +
 +// Steam Link video API
 +#include "SLVideo.h"
 +
 +#include <string.h>
++#include <utility>
++#include "SteamLinkTranslator.h"
 +
 +using namespace STEAMLINK;
-+
-+namespace STEAMLINK
-+{
-+  uint32_t g_unQueuedVideoMS = 0;
-+}
 +
 +namespace
 +{
 +  void LogFunction(void *pContext, ESLVideoLog eLogLevel, const char *pszMessage)
 +  {
-+    switch (eLogLevel)
-+    {
-+    case k_ESLVideoLogDebug:
-+      CLog::Log(LOGDEBUG, "%s", pszMessage);
-+      break;
-+    case k_ESLVideoLogInfo:
-+      CLog::Log(LOGINFO, "%s", pszMessage);
-+      break;
-+    case k_ESLVideoLogWarning:
-+      CLog::Log(LOGWARNING, "%s", pszMessage);
-+      break;
-+    case k_ESLVideoLogError:
-+      CLog::Log(LOGERROR, "%s", pszMessage);
-+      break;
-+    default:
-+      break;
-+    }
++    int level = CSteamLinkTranslator::TranslateLogLevel(eLogLevel);
++    CLog::Log(level, "%s", pszMessage);
 +  }
-+
 +}
++
++CSteamLinkVideo* CSteamLinkVideo::m_globalVideo = nullptr;
++unsigned int CSteamLinkVideo::m_globalInstances = 0;
++CCriticalSection CSteamLinkVideo::m_globalLock;
 +
 +CSteamLinkVideo::CSteamLinkVideo(CProcessInfo& processInfo) :
 +  CDVDVideoCodec(processInfo),
 +  m_context(nullptr),
 +  m_stream(nullptr),
++  m_bufferSize(0),
++  m_dts(0.0),
 +  m_sps_pps_size(0),
 +  m_convert_bitstream(false)
 +{
-+  SLVideo_SetLogLevel(g_advancedSettings.CanLogComponent(LOGVIDEO) ? k_ESLVideoLogDebug : k_ESLVideoLogError);
-+  SLVideo_SetLogFunction(LogFunction, nullptr);
++  // Set global parameters
++  {
++    CSingleLock lock(m_globalLock);
++
++    if (m_globalVideo == nullptr)
++      m_globalVideo = this;
++    else
++      CLog::Log(LOGERROR, "%s: Already a global video instance!!!", GetName());
++
++    if (m_globalInstances++ == 0)
++    {
++      SLVideo_SetLogLevel(g_advancedSettings.CanLogComponent(LOGVIDEO) ? k_ESLVideoLogDebug : k_ESLVideoLogError);
++      SLVideo_SetLogFunction(LogFunction, nullptr);
++    }
++  }
 +}
 +
 +CSteamLinkVideo::~CSteamLinkVideo()
 +{
 +  Dispose();
-+  SLVideo_SetLogFunction(nullptr, nullptr);
++
++  // Unset global parameters
++  {
++    CSingleLock lock(m_globalLock);
++
++    if (m_globalVideo == this)
++      m_globalVideo = nullptr;
++
++    if (m_globalInstances > 0 && --m_globalInstances == 0)
++      SLVideo_SetLogFunction(nullptr, nullptr);
++  }
 +}
 +
 +bool CSteamLinkVideo::Open(CDVDStreamInfo &hints, CDVDCodecOptions &options)
@@ -805,45 +1497,89 @@ index 0000000..8571eb9
 +  if (hints.software)
 +    return false;
 +
++  bool bSuccess = false;
++
 +  Dispose();
 +
 +  CSLVideoContext* context = SLVideo_CreateContext();
-+  if (context)
++  if (!context)
 +  {
-+    CSLVideoStream* stream = nullptr;
++    CLog::Log(LOGERROR, "%s: Failed to create context", GetName());
++  }
++  else
++  {
++    std::unique_ptr<CSteamLinkVideoStream> stream;
 +
-+    switch (hints.codec)
++    ESLVideoFormat slFormat;
++    if (!CSteamLinkTranslator::TranslateFormat(hints.codec, slFormat))
 +    {
-+      case AV_CODEC_ID_H264:
-+        if (hints.extrasize < 7 || hints.extradata == NULL)
-+        {
-+          CLog::Log(LOGNOTICE,
-+            "%s: avcC data too small or missing", GetName());
-+          return false;
-+        }
++      if (g_advancedSettings.CanLogComponent(LOGVIDEO))
++        CLog::Log(LOGDEBUG, "%s: Codec not supported", GetName());
++    }
++    else
++    {
++      if (hints.extrasize < 7 || hints.extradata == nullptr)
++      {
++        if (g_advancedSettings.CanLogComponent(LOGVIDEO))
++          CLog::Log(LOGNOTICE, "%s: avcC data too small or missing", GetName());
++      }
++      else
++      {
 +        // valid avcC data (bitstream) always starts with the value 1 (version)
-+        if (*(char*)hints.extradata == 1)
++        if (*static_cast<char*>(hints.extradata) == 1)
 +          m_convert_bitstream = bitstream_convert_init(hints.extradata, hints.extrasize);
 +
-+        stream = SLVideo_CreateStream(context, k_ESLVideoFormatH264, false);
++        if (hints.fpsrate > 0 && hints.fpsscale > 0)
++          stream.reset(new CSteamLinkVideoStream(context, k_ESLVideoFormatH264, hints.fpsrate, hints.fpsscale));
++        else
++          stream.reset(new CSteamLinkVideoStream(context, k_ESLVideoFormatH264));
 +
-+        if (stream && hints.fpsscale > 0)
-+          SLVideo_SetStreamTargetFramerate(stream, hints.fpsrate, hints.fpsscale);
-+        break;
-+      default:
-+        if (g_advancedSettings.CanLogComponent(LOGVIDEO))
-+          CLog::Log(LOGDEBUG, "%s: Codec not supported", GetName());
-+        break;
++        if (!stream->Open())
++          stream.reset();
++      }
 +    }
 +
-+    if (stream)
++    if (!stream)
++    {
++      if (g_advancedSettings.CanLogComponent(LOGVIDEO))
++        CLog::Log(LOGNOTICE, "%s: Failed to create stream", GetName());
++      SLVideo_FreeContext(context);
++    }
++    else
 +    {
 +      // Success
 +      m_context = context;
-+      m_stream = stream;
++      {
++        CSingleLock lock(m_streamLock);
++        m_stream = std::move(stream);
++      }
++      bSuccess = true;
++
++      // Initialize buffer for DVDVideoPicture
++      memset(&m_videoPictureBuffer, 0, sizeof(m_videoPictureBuffer));
++      m_videoPictureBuffer.dts = DVD_NOPTS_VALUE;
++      m_videoPictureBuffer.pts = DVD_NOPTS_VALUE;
++      m_videoPictureBuffer.format = RENDER_FMT_STEAMLINK;
++      m_videoPictureBuffer.color_range = 0;
++      m_videoPictureBuffer.color_matrix = 4; // FCC
++      m_videoPictureBuffer.iFlags  = DVP_FLAG_ALLOCATED;
++      m_videoPictureBuffer.iWidth  = hints.width;
++      m_videoPictureBuffer.iHeight = hints.height;
++      m_videoPictureBuffer.steamlink = nullptr;
++
++      m_videoPictureBuffer.iDisplayWidth  = m_videoPictureBuffer.iWidth;
++      m_videoPictureBuffer.iDisplayHeight = m_videoPictureBuffer.iHeight;
++
++      m_processInfo.SetVideoDecoderName(GetName(), true);
++      m_processInfo.SetVideoPixelFormat(CSteamLinkTranslator::TranslateFormatToString(slFormat));
++      m_processInfo.SetVideoDimensions(hints.width, hints.height);
++      m_processInfo.SetVideoFps(static_cast<float>(hints.fpsrate) / static_cast<float>(hints.fpsscale));
++      m_processInfo.SetVideoDAR(hints.aspect);
 +
 +      if (g_advancedSettings.CanLogComponent(LOGVIDEO))
 +      {
++        CLog::Log(LOGINFO, "%s: Opened codec %s", GetName(), CSteamLinkTranslator::TranslateFormatToString(slFormat));
++
 +        int width = 0;
 +        int height = 0;
 +        SLVideo_GetDisplayResolution(m_context, &width, &height);
@@ -851,32 +1587,28 @@ index 0000000..8571eb9
 +        CLog::Log(LOGDEBUG, "%s: Display resolution = %d x %d", GetName(), width, height);
 +      }
 +    }
-+    else
-+    {
-+      CLog::Log(LOGERROR, "%s: Failed to create stream", GetName());
-+      SLVideo_FreeContext(context);
-+    }
-+  }
-+  else
-+  {
-+    CLog::Log(LOGERROR, "%s: Failed to create context", GetName());
 +  }
 +
-+  return m_context != nullptr;
++  return bSuccess;
 +}
 +
 +void CSteamLinkVideo::Dispose()
 +{
 +  if (m_stream)
 +  {
-+    SLVideo_FreeStream(m_stream);
-+    m_stream = nullptr;
++    m_stream->Close();
++    {
++      CSingleLock lock(m_streamLock);
++      m_stream.reset();
++    }
 +  }
++
 +  if (m_context)
 +  {
 +    SLVideo_FreeContext(m_context);
 +    m_context = nullptr;
 +  }
++
 +  if (m_convert_bitstream)
 +  {
 +    if (m_sps_pps_context.sps_pps_data)
@@ -886,81 +1618,121 @@ index 0000000..8571eb9
 +    }
 +    m_convert_bitstream = false;
 +  }
-+  g_unQueuedVideoMS = 0;
 +}
 +
 +int CSteamLinkVideo::Decode(uint8_t *pData, int iSize, double dts, double pts)
 +{
-+  if (!pData || iSize == 0)
++  if (pData == nullptr || iSize <= 0)
 +    return VC_BUFFER;
 +
-+  int demuxer_bytes = iSize;
-+  uint8_t *demuxer_content = pData;
-+  bool bitstream_convered  = false;
++  if (!m_stream)
++    return VC_ERROR;
++
++  m_buffer.reset();
++  m_bufferSize = 0;
++  m_dts = dts;
 +
 +  if (m_convert_bitstream)
 +  {
 +    // convert demuxer packet from bitstream to bytestream (AnnexB)
++    uint8_t *bytestream_buff = nullptr;
 +    int bytestream_size = 0;
-+    uint8_t *bytestream_buff = NULL;
 +
-+    bitstream_convert(demuxer_content, demuxer_bytes, &bytestream_buff, &bytestream_size);
-+    if (bytestream_buff && (bytestream_size > 0))
++    bitstream_convert(pData, iSize, &bytestream_buff, &bytestream_size);
++    if (bytestream_buff != nullptr && (bytestream_size > 0))
 +    {
-+      bitstream_convered = true;
-+      demuxer_bytes = bytestream_size;
-+      demuxer_content = bytestream_buff;
++      m_buffer.reset(bytestream_buff);
++      m_bufferSize = bytestream_size;
 +    }
 +  }
-+
-+  if (SLVideo_BeginFrame(m_stream, demuxer_bytes) != 0)
++  else
 +  {
-+    CLog::Log(LOGERROR, "%s: Failed to begin frame", GetName());
-+    return VC_ERROR;
++    uint8_t *bytestream_buff = static_cast<uint8_t*>(malloc(iSize));
++    if (bytestream_buff)
++    {
++      memcpy(bytestream_buff, pData, iSize);
++      m_buffer.reset(bytestream_buff);
++      m_bufferSize = iSize;
++    }
 +  }
-+
-+  if (SLVideo_WriteFrameData(m_stream, demuxer_content, demuxer_bytes) != 0)
-+  {
-+    CLog::Log(LOGERROR, "%s: Error writing data", GetName());
-+    return VC_ERROR;
-+  }
-+
-+  if (SLVideo_SubmitFrame(m_stream) != 0)
-+  {
-+    CLog::Log(LOGERROR, "%s: Error submitting frame", GetName());
-+    return VC_ERROR;
-+  }
-+
-+  if (bitstream_convered)
-+    free(demuxer_content);
-+
-+  g_unQueuedVideoMS = SLVideo_GetQueuedVideoMS(m_stream);
 +
 +  return VC_PICTURE;
 +}
 +
 +void CSteamLinkVideo::Reset(void)
 +{
-+  // TODO
++  if (!m_stream)
++    return;
++
++  if (!m_stream->Flush())
++  {
++    CSingleLock lock(m_streamLock);
++    m_stream.reset();
++    if (g_advancedSettings.CanLogComponent(LOGVIDEO))
++      CLog::Log(LOGERROR, "%s: Failed to flush stream", GetName());
++  }
 +}
 +
 +bool CSteamLinkVideo::GetPicture(DVDVideoPicture *pDvdVideoPicture)
 +{
-+  int width = 0;
-+  int height = 0;
-+  SLVideo_GetDisplayResolution(m_context, &width, &height);
++  if (!m_stream)
++    return false;
 +
-+  memset(pDvdVideoPicture, 0, sizeof(*pDvdVideoPicture));
++  *pDvdVideoPicture = m_videoPictureBuffer;
 +
-+  pDvdVideoPicture->dts = DVD_NOPTS_VALUE;
-+  pDvdVideoPicture->pts = DVD_NOPTS_VALUE;
-+  pDvdVideoPicture->iWidth = width;
-+  pDvdVideoPicture->iHeight= height;
-+  pDvdVideoPicture->iDisplayWidth = width;
-+  pDvdVideoPicture->iDisplayHeight= height;
-+  pDvdVideoPicture->format = RENDER_FMT_STEAMLINK;
++  // Steam link video accepts decode packet, so use dts for timing
++  pDvdVideoPicture->pts = m_dts;
++  pDvdVideoPicture->steamlink = new CSteamLinkBuffer(std::move(m_buffer), m_bufferSize, m_stream);
 +
 +  return true;
++}
++
++bool CSteamLinkVideo::ClearPicture(DVDVideoPicture* pDvdVideoPicture)
++{
++  delete pDvdVideoPicture->steamlink;
++  pDvdVideoPicture->steamlink = nullptr;
++
++  return true;
++}
++
++std::shared_ptr<CSteamLinkVideoStream> CSteamLinkVideo::GetStream()
++{
++  std::shared_ptr<CSteamLinkVideoStream> stream;
++
++  {
++    CSingleLock lock(m_streamLock);
++    stream = m_stream;
++  }
++
++  return stream;
++}
++
++bool CSteamLinkVideo::IsPlayingVideo()
++{
++  std::shared_ptr<CSteamLinkVideoStream> stream;
++
++  {
++    CSingleLock lock(m_globalLock);
++
++    if (m_globalVideo != nullptr)
++      stream = m_globalVideo->GetStream();
++  }
++
++  return stream.get() != nullptr;
++}
++
++unsigned int CSteamLinkVideo::GetDelayMs()
++{
++  std::shared_ptr<CSteamLinkVideoStream> stream;
++
++  {
++    CSingleLock lock(m_globalLock);
++
++    if (m_globalVideo != nullptr)
++      stream = m_globalVideo->GetStream();
++  }
++
++  return stream ? stream->GetDelayMs() : 0;
 +}
 +
 +////////////////////////////////////////////////////////////////////////////////////////////
@@ -1076,6 +1848,9 @@ index 0000000..8571eb9
 +          m_sps_pps_context.first_idr = 1;
 +    }
 +
++    if (!*poutbuf)
++      goto fail;
++
 +    buf += nal_size;
 +    cumul_size += nal_size + m_sps_pps_context.length_size;
 +  } while (cumul_size < buf_size);
@@ -1108,7 +1883,11 @@ index 0000000..8571eb9
 +  uint8_t nal_header_size = 4;//offset ? 3 : 4;
 +
 +  *poutbuf_size += sps_pps_size + nal_header_size + in_size;
-+  *poutbuf = (uint8_t*)realloc(*poutbuf, *poutbuf_size);
++  *poutbuf = static_cast<uint8_t*>(realloc(*poutbuf, *poutbuf_size));
++
++  if (!*poutbuf)
++    return;
++
 +  if (sps_pps)
 +    memcpy(*poutbuf + offset, sps_pps, sps_pps_size);
 +
@@ -1126,10 +1905,10 @@ index 0000000..8571eb9
 +}
 diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h
 new file mode 100644
-index 0000000..8465fad
+index 0000000..ebe42c7
 --- /dev/null
 +++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,109 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -1153,7 +1932,10 @@ index 0000000..8465fad
 +#pragma once
 +
 +#include "DVDVideoCodec.h"
++#include "SteamLinkVideoBuffer.h"
++#include "threads/CriticalSection.h"
 +
++#include <memory>
 +#include <stdint.h>
 +#include <string>
 +
@@ -1164,6 +1946,8 @@ index 0000000..8465fad
 +
 +namespace STEAMLINK
 +{
++
++class CSteamLinkVideoStream;
 +
 +class CSteamLinkVideo : public CDVDVideoCodec
 +{
@@ -1176,15 +1960,29 @@ index 0000000..8465fad
 +  virtual int Decode(uint8_t* pData, int iSize, double dts, double pts) override;
 +  virtual void Reset() override;
 +  virtual bool GetPicture(DVDVideoPicture* pDvdVideoPicture) override;
++  virtual bool ClearPicture(DVDVideoPicture* pDvdVideoPicture) override;
 +  virtual void SetDropState(bool bDrop) override { }
 +  virtual const char* GetName() override { return STEAMLINK_VIDEO_CODEC_NAME; }
++
++  // Access global stream instance
++  static bool IsPlayingVideo();
++  static unsigned int GetDelayMs();
 +
 +private:
 +  void Dispose();
 +
++  std::shared_ptr<CSteamLinkVideoStream> GetStream();
++
 +  // Steam Link data
 +  CSLVideoContext* m_context;
-+  CSLVideoStream* m_stream;
++  std::shared_ptr<CSteamLinkVideoStream> m_stream;
++  CCriticalSection m_streamLock;
++
++  // VideoPlayer data
++  DVDVideoPicture m_videoPictureBuffer;
++  SteamLinkUniqueBuffer m_buffer;
++  size_t m_bufferSize;
++  float m_dts;
 +
 +  // bitstream to bytestream (Annex B) conversion support.
 +  bool bitstream_convert_init(void *in_extradata, int in_extrasize);
@@ -1212,24 +2010,656 @@ index 0000000..8465fad
 +  uint32_t      m_sps_pps_size;
 +  bitstream_ctx m_sps_pps_context;
 +  bool          m_convert_bitstream;
++
++  // Global instance
++  static CSteamLinkVideo* m_globalVideo;
++  static unsigned int m_globalInstances;
++  static CCriticalSection m_globalLock;
 +};
 +
 +}
-diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/Makefile.in b/xbmc/cores/VideoPlayer/VideoRenderers/Makefile.in
-index 83547f6..0dfe8ed 100644
---- a/xbmc/cores/VideoPlayer/VideoRenderers/Makefile.in
-+++ b/xbmc/cores/VideoPlayer/VideoRenderers/Makefile.in
-@@ -24,6 +24,10 @@ SRCS += OverlayRendererGL.cpp
- SRCS += FrameBufferObject.cpp
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.cpp
+new file mode 100644
+index 0000000..08fa22f
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.cpp
+@@ -0,0 +1,50 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "SteamLinkVideoBuffer.h"
++
++#include <stdlib.h>
++
++using namespace STEAMLINK;
++
++// --- SteamLinkBufferFree -----------------------------------------------------
++
++void SteamLinkBufferFree::operator()(void* x)
++{
++  free(x);
++}
++
++// --- CSteamLinkBuffer --------------------------------------------------------
++
++CSteamLinkBuffer::CSteamLinkBuffer(SteamLinkUniqueBuffer buffer, size_t size, std::shared_ptr<CSteamLinkVideoStream> stream) :
++  buffer(std::move(buffer)),
++  size(size),
++  stream(std::move(stream))
++{
++}
++
++CSteamLinkBuffer::CSteamLinkBuffer(CSteamLinkBuffer&& other) :
++  buffer(std::move(other.buffer)),
++  size(other.size),
++  stream(std::move(other.stream))
++{
++  other.size = 0;
++}
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.h
+new file mode 100644
+index 0000000..bb1fa33
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.h
+@@ -0,0 +1,51 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#pragma once
++
++#include <memory>
++#include <stddef.h>
++#include <stdint.h>
++
++namespace STEAMLINK
++{
++
++class CSteamLinkVideoStream;
++
++struct SteamLinkBufferFree
++{
++  void operator()(void* x);
++};
++
++typedef std::unique_ptr<uint8_t[], SteamLinkBufferFree> SteamLinkUniqueBuffer;
++
++class CSteamLinkBuffer
++{
++public:
++  CSteamLinkBuffer(SteamLinkUniqueBuffer buffer, size_t size, std::shared_ptr<CSteamLinkVideoStream> stream);
++
++  CSteamLinkBuffer(CSteamLinkBuffer&& other);
++
++  SteamLinkUniqueBuffer buffer;
++  size_t size;
++  std::shared_ptr<CSteamLinkVideoStream> stream;
++};
++
++}
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.cpp b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.cpp
+new file mode 100644
+index 0000000..d140db4
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.cpp
+@@ -0,0 +1,138 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "SteamLinkVideoStream.h"
++#include "threads/SingleLock.h"
++#include "utils/log.h"
++
++using namespace STEAMLINK;
++
++CSteamLinkVideoStream::CSteamLinkVideoStream(CSLVideoContext *pContext,
++                                             ESLVideoFormat eFormat,
++                                             unsigned int fpsRate /* = 0 */,
++                                             unsigned int fpsScale /* = 0 */) :
++  m_pContext(pContext),
++  m_eFormat(eFormat),
++  m_fpsRate(fpsRate),
++  m_fpsScale(fpsScale),
++  m_stream(nullptr)
++{
++}
++
++bool CSteamLinkVideoStream::Open()
++{
++  CSingleLock lock(m_streamMutex);
++
++  m_stream = SLVideo_CreateStream(m_pContext, m_eFormat, false);
++
++  if (m_stream != nullptr)
++  {
++    if (m_fpsRate > 0 && m_fpsScale > 0)
++      SLVideo_SetStreamTargetFramerate(m_stream, m_fpsRate, m_fpsScale);
++
++    return true;
++  }
++
++  return false;
++}
++
++void CSteamLinkVideoStream::Close()
++{
++  CSingleLock lock(m_streamMutex);
++
++  if (m_stream)
++  {
++    SLVideo_FreeStream(m_stream);
++    m_stream = nullptr;
++  }
++
++  m_delay.SetExpired();
++}
++
++bool CSteamLinkVideoStream::Flush()
++{
++  CSingleLock lock(m_streamMutex);
++
++  Close();
++
++  return Open();
++}
++
++bool CSteamLinkVideoStream::WriteData(const uint8_t* data, size_t size)
++{
++  uint32_t delayMs = 0;
++
++  {
++    CSingleLock lock(m_streamMutex);
++
++    if (m_stream)
++    {
++      if (SLVideo_BeginFrame(m_stream, size) != 0)
++      {
++        CLog::Log(LOGERROR, "SteamLinkVideo: Failed to begin frame of size %u", size);
++        return false;
++      }
++
++      if (SLVideo_WriteFrameData(m_stream, const_cast<uint8_t*>(data), size) != 0)
++      {
++        CLog::Log(LOGERROR, "SteamLinkVideo: Error writing data of size %u", size);
++        return false;
++      }
++
++      if (SLVideo_SubmitFrame(m_stream) != 0)
++      {
++        CLog::Log(LOGERROR, "SteamLinkVideo: Error submitting frame of size %u", size);
++        return false;
++      }
++
++      delayMs = SLVideo_GetQueuedVideoMS(m_stream);
++    }
++  }
++
++  {
++    CSingleLock lock(m_delayMutex);
++
++    if (delayMs > 0)
++    {
++      //CLog::Log(LOGERROR, "CSteamLinkVideoStream - Delay = %u ms", delayMs);
++      m_delay.Set(delayMs);
++    }
++    else
++      ;//CLog::Log(LOGERROR, "CSteamLinkVideoStream - No delay!!!"); //! @todo
++  }
++
++  return true;
++}
++
++void CSteamLinkVideoStream::SetSpeed(float fps)
++{
++  CSingleLock lock(m_streamMutex);
++
++  //! @todo
++  CLog::Log(LOGERROR, "CSteamLinkVideoStream - SetSpeed() not implemented!");
++}
++
++unsigned int CSteamLinkVideoStream::GetDelayMs()
++{
++  CSingleLock lock(m_delayMutex);
++
++  return m_delay.MillisLeft();
++}
+diff --git a/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.h b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.h
+new file mode 100644
+index 0000000..af5b324
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.h
+@@ -0,0 +1,69 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *      http://kodi.tv
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#pragma once
++
++#include "threads/CriticalSection.h"
++#include "threads/SystemClock.h"
++
++// Steam Link video API
++#include "SLVideo.h"
++
++#include <stdint.h>
++
++namespace STEAMLINK
++{
++
++class CSteamLinkVideoStream
++{
++public:
++  CSteamLinkVideoStream(CSLVideoContext *pContext,
++                        ESLVideoFormat format,
++                        unsigned int fpsRate = 0,
++                        unsigned int fpsScale = 0);
++
++  ~CSteamLinkVideoStream() { Close(); }
++
++  bool Open();
++  void Close();
++
++  bool Flush();
++
++  bool WriteData(const uint8_t* data, size_t size);
++
++  void SetSpeed(float speed);
++
++  unsigned int GetDelayMs();
++
++private:
++  // Construction parameters
++  CSLVideoContext * const m_pContext;
++  const ESLVideoFormat m_eFormat;
++  const unsigned int m_fpsRate;
++  const unsigned int m_fpsScale;
++
++  // Stream parameters
++  CSLVideoStream *m_stream;
++  CCriticalSection m_streamMutex;
++  XbmcThreads::EndTime m_delay;;
++  CCriticalSection m_delayMutex;
++};
++
++}
+diff --git a/xbmc/cores/VideoPlayer/IVideoPlayer.h b/xbmc/cores/VideoPlayer/IVideoPlayer.h
+index 0b676c9..520131f 100644
+--- a/xbmc/cores/VideoPlayer/IVideoPlayer.h
++++ b/xbmc/cores/VideoPlayer/IVideoPlayer.h
+@@ -111,6 +111,7 @@ public:
+   virtual int  GetDecoderBufferSize() { return 0; }
+   virtual int  GetDecoderFreeSpace() = 0;
+   virtual bool IsEOS() { return false; };
++  virtual bool CanFFRW() { return true; }
+ };
+ 
+ class CDVDAudioCodec;
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+index 6d373e6..99d68cd 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
+@@ -3139,6 +3139,12 @@ bool CVideoPlayer::CanSeek()
+   return m_State.canseek;
+ }
+ 
++bool CVideoPlayer::CanFFRW()
++{
++  CSingleLock lock(m_StateSection);
++  return m_State.canffrw;
++}
++
+ void CVideoPlayer::Seek(bool bPlus, bool bLargeStep, bool bChapterOverride)
+ {
+   if (!m_State.canseek)
+@@ -5043,6 +5049,9 @@ void CVideoPlayer::UpdatePlayState(double timeout)
+     state.canseek = m_pInputStream->CanSeek();
+   }
+ 
++  state.canffrw = m_VideoPlayerVideo->CanFFRW();
++
++
+   if (m_Edl.HasCut())
+   {
+     state.time        = (double) m_Edl.RemoveCutTime(llrint(state.time));
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.h b/xbmc/cores/VideoPlayer/VideoPlayer.h
+index c82afb7..3720cfd 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayer.h
++++ b/xbmc/cores/VideoPlayer/VideoPlayer.h
+@@ -131,6 +131,7 @@ struct SPlayerState
+   bool recording;           // are we currently recording
+   bool canpause;            // pvr: can pause the current playing item
+   bool canseek;             // pvr: can seek in the current playing item
++  bool canffrw;
+   bool caching;
+ 
+   int64_t cache_bytes;   // number of bytes current's cached
+@@ -302,6 +303,7 @@ public:
+   virtual bool HasRDS() const;
+   virtual bool IsPassthrough() const;
+   virtual bool CanSeek();
++  virtual bool CanFFRW() override;
+   virtual void Seek(bool bPlus, bool bLargeStep, bool bChapterOverride);
+   virtual bool SeekScene(bool bPlus = true);
+   virtual void SeekPercentage(float iPercent);
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+index 89db27c..73315f6 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp
+@@ -654,6 +654,11 @@ void CVideoPlayerVideo::SetSpeed(int speed)
+     m_speed = speed;
+ }
+ 
++bool CVideoPlayerVideo::CanFFRW()
++{
++  return m_renderManager.CanFFRW();
++}
++
+ void CVideoPlayerVideo::Flush(bool sync)
+ {
+   /* flush using message as this get's called from VideoPlayer thread */
+diff --git a/xbmc/cores/VideoPlayer/VideoPlayerVideo.h b/xbmc/cores/VideoPlayer/VideoPlayerVideo.h
+index 0d4100e..c77c9f8 100644
+--- a/xbmc/cores/VideoPlayer/VideoPlayerVideo.h
++++ b/xbmc/cores/VideoPlayer/VideoPlayerVideo.h
+@@ -91,6 +91,7 @@ public:
+   int GetVideoBitrate();
+   std::string GetStereoMode();
+   void SetSpeed(int iSpeed);
++  virtual bool CanFFRW() override;
+ 
+   // classes
+   CDVDOverlayContainer* m_pOverlayContainer;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp
+index f9b3bfb..09df778 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.cpp
+@@ -389,7 +389,7 @@ void CBaseRenderer::ManageRenderArea()
+     else if(stereo_view == RENDER_STEREO_VIEW_RIGHT) stereo_view = RENDER_STEREO_VIEW_LEFT;
+   }
+ 
+-  if (m_format != RENDER_FMT_BYPASS)
++  if (IsGuiLayer())
+   {
+     switch(stereo_mode)
+     {
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+index c7294ce..ef8830b 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/BaseRenderer.h
+@@ -92,6 +92,7 @@ public:
+   virtual void ReleaseBuffer(int idx) { }
+   virtual bool NeedBuffer(int idx) { return false; }
+   virtual bool IsGuiLayer() { return true; }
++  virtual bool CanFFRW() { return true; }
+   // Render info, can be called before configure
+   virtual CRenderInfo GetRenderInfo() { return CRenderInfo(); }
+   virtual void Update() = 0;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in
+index 2f916de..8206720 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/Makefile.in
+@@ -26,6 +26,10 @@ ifeq ($(findstring osx,@ARCH@),osx)
+ SRCS += RendererVTBGL.cpp
  endif
  
 +ifeq (@USE_STEAMLINK@,1)
-+SRCS += SteamLinkRenderer.cpp
++SRCS += RendererSteamLink.cpp
 +endif
 +
- LIB = VideoRenderer.a
+ LIB=HwDecRender.a
  
- include @abs_top_srcdir@/Makefile.include
+ include ../../../../../Makefile.include
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.cpp
+new file mode 100644
+index 0000000..8d17599
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.cpp
+@@ -0,0 +1,87 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++
++#include "RendererSteamLink.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.h"
++#include "cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.h"
++#include "utils/log.h"
++
++// Steam Link video API
++#include "SLVideo.h"
++
++#include <GLES2/gl2.h>
++
++#include <utility>
++
++using namespace STEAMLINK;
++
++void CRendererSteamLink::AddVideoPictureHW(DVDVideoPicture &picture, int index)
++{
++  if (picture.steamlink)
++  {
++    YUVBUFFER &buf = m_buffers[index];
++    buf.hwDec = new CSteamLinkBuffer(std::move(*picture.steamlink));
++  }
++}
++
++void CRendererSteamLink::PreInit()
++{
++  CLinuxRendererGLES::PreInit();
++
++  m_formats.clear();
++  m_formats.push_back(RENDER_FMT_STEAMLINK);
++}
++
++void CRendererSteamLink::ReleaseBuffer(int idx)
++{
++  YUVBUFFER &buf = m_buffers[idx];
++
++  delete static_cast<CSteamLinkBuffer*>(buf.hwDec);
++  buf.hwDec = nullptr;
++}
++
++bool CRendererSteamLink::LoadShadersHook()
++{
++  CLog::Log(LOGNOTICE, "CRendererSteamLink: Using STEAMLINK render method");
++  m_textureTarget = GL_TEXTURE_2D;
++  m_renderMethod = RENDER_BYPASS;
++  return true;
++}
++
++bool CRendererSteamLink::RenderUpdateVideoHook(bool clear, DWORD flags /* = 0 */, DWORD alpha /* = 255 */)
++{
++  ManageRenderArea();
++
++  CSteamLinkBuffer* pBuffer = static_cast<CSteamLinkBuffer*>(m_buffers[m_iYV12RenderBuffer].hwDec);
++
++  if (pBuffer && pBuffer->buffer)
++  {
++    CSteamLinkBuffer buffer(std::move(*pBuffer));
++
++    buffer.stream->WriteData(buffer.buffer.get(), buffer.size);
++  }
++
++  return true;
++}
++
++int CRendererSteamLink::GetImageHook(YV12Image *image, int source /* = AUTOSOURCE */, bool readonly /* = false */)
++{
++  return source;
++}
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.h b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.h
+new file mode 100644
+index 0000000..58bd18d
+--- /dev/null
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.h
+@@ -0,0 +1,53 @@
++/*
++ *      Copyright (C) 2016 Team Kodi
++ *      Copyright (C) 2016 Valve Corporation
++ *
++ *  This Program is free software; you can redistribute it and/or modify
++ *  it under the terms of the GNU General Public License as published by
++ *  the Free Software Foundation; either version 2, or (at your option)
++ *  any later version.
++ *
++ *  This Program is distributed in the hope that it will be useful,
++ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
++ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ *  GNU General Public License for more details.
++ *
++ *  You should have received a copy of the GNU General Public License
++ *  along with this Program; see the file COPYING.  If not, see
++ *  <http://www.gnu.org/licenses/>.
++ *
++ */
++#pragma once
++
++#include "system.h" // for HAS_GLES, needed for LinuxRendererGLES.h
++
++#include "cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h"
++
++namespace STEAMLINK
++{
++
++class CRendererSteamLink : public CLinuxRendererGLES
++{
++public:
++  CRendererSteamLink() = default;
++  virtual ~CRendererSteamLink() = default;
++
++  // implementation of CBaseRenderer via CLinuxRendererGLES
++  virtual void AddVideoPictureHW(DVDVideoPicture &picture, int index) override;
++  virtual bool IsPictureHW(DVDVideoPicture &picture) override { return true; }
++  virtual void PreInit() override;
++  virtual void ReleaseBuffer(int idx) override;
++  virtual bool IsGuiLayer() override { return false; }
++  virtual bool CanFFRW() override { return false; }
++  virtual bool SupportsMultiPassRendering() override { return false; }
++  virtual bool Supports(ERENDERFEATURE feature) override { return false; }
++  virtual bool Supports(ESCALINGMETHOD method) override { return false; }
++
++protected:
++  // implementation of CLinuxRendererGLES
++  virtual bool LoadShadersHook() override;
++  virtual bool RenderUpdateVideoHook(bool clear, DWORD flags = 0, DWORD alpha = 255) override;
++  virtual int GetImageHook(YV12Image *image, int source = -1, bool readonly = false) override;
++};
++
++}
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index f478fb0..98a39c3 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -710,7 +710,7 @@ inline void CLinuxRendererGLES::ReorderDrawPoints()
+ 
+ bool CLinuxRendererGLES::CreateTexture(int index)
+ {
+-  if (m_format == RENDER_FMT_BYPASS)
++  if (!IsGuiLayer())
+   {
+     CreateBYPASSTexture(index);
+     return true;
+@@ -732,7 +732,7 @@ bool CLinuxRendererGLES::CreateTexture(int index)
+ 
+ void CLinuxRendererGLES::DeleteTexture(int index)
+ {
+-  if (m_format == RENDER_FMT_BYPASS)
++  if (!IsGuiLayer())
+   {
+     DeleteBYPASSTexture(index);
+   }
+@@ -750,7 +750,7 @@ void CLinuxRendererGLES::DeleteTexture(int index)
+ bool CLinuxRendererGLES::UploadTexture(int index)
+ {
+   // Now that we now the render method, setup texture function handlers
+-  if (m_format == RENDER_FMT_BYPASS)
++  if (!IsGuiLayer())
+   {
+     UploadBYPASSTexture(index);
+     return true;
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderFormats.h b/xbmc/cores/VideoPlayer/VideoRenderers/RenderFormats.h
 index 39f62fa..6d2c2d0 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderFormats.h
@@ -1243,20 +2673,21 @@ index 39f62fa..6d2c2d0 100644
  
  struct CRenderInfo
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
-index 482142e..b6ba703 100644
+index 482142e..ea68ee9 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
-@@ -63,6 +63,9 @@
- #elif defined(HAS_SDL)
-   #include "LinuxRenderer.h"
+@@ -69,6 +69,10 @@
+ #include "HwDecRender/RendererMediaCodecSurface.h"
  #endif
-+#if defined(HAS_STEAMLINK)
-+  #include "SteamLinkRenderer.h"
-+#endif
  
- #if defined(TARGET_ANDROID)
- #include "HwDecRender/RendererMediaCodec.h"
-@@ -111,6 +114,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
++#if defined(HAS_STEAMLINK)
++  #include "HwDecRender/RendererSteamLink.h"
++#endif
++
+ #if defined(TARGET_POSIX)
+ #include "linux/XTimeUtils.h"
+ #endif
+@@ -111,6 +115,7 @@ static std::string GetRenderFormatName(ERenderFormat format)
      case RENDER_FMT_IMXMAP:    return "IMXMAP";
      case RENDER_FMT_MMAL:      return "MMAL";
      case RENDER_FMT_AML:       return "AMLCODEC";
@@ -1264,17 +2695,47 @@ index 482142e..b6ba703 100644
      case RENDER_FMT_NONE:      return "NONE";
    }
    return "UNKNOWN";
-@@ -579,7 +583,9 @@ void CRenderManager::CreateRenderer()
+@@ -577,6 +582,12 @@ void CRenderManager::CreateRenderer()
+       m_pRenderer = new CRendererAML;
+ #endif
      }
++    else if (m_format == RENDER_FMT_STEAMLINK)
++    {
++#if defined(HAS_STEAMLINK)
++      m_pRenderer = new STEAMLINK::CRendererSteamLink;
++#endif
++    }
      else if (m_format != RENDER_FMT_NONE)
      {
--#if defined(HAS_MMAL)
-+#if defined(HAS_STEAMLINK)
-+      m_pRenderer = new STEAMLINK::CSteamLinkRenderer;
-+#elif defined(HAS_MMAL)
-       m_pRenderer = new CMMALRenderer;
- #elif defined(HAS_GL)
-       m_pRenderer = new CLinuxRendererGL;
+ #if defined(HAS_MMAL)
+@@ -1352,6 +1363,14 @@ void CRenderManager::DiscardBuffer()
+   m_presentevent.notifyAll();
+ }
+ 
++bool CRenderManager::CanFFRW()
++{
++  if (m_pRenderer)
++    return m_pRenderer->CanFFRW();
++
++  return true;
++}
++
+ bool CRenderManager::GetStats(int &lateframes, double &pts, int &queued, int &discard)
+ {
+   CSingleLock lock(m_presentlock);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
+index 9bb9011..d08ef90 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
+@@ -156,6 +156,8 @@ public:
+   void SetDelay(int delay) { m_videoDelay = delay; };
+   int GetDelay() { return m_videoDelay; };
+ 
++  bool CanFFRW();
++
+ protected:
+ 
+   void PresentSingle(bool clear, DWORD flags, DWORD alpha);
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/SteamLinkRenderer.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/SteamLinkRenderer.cpp
 new file mode 100644
 index 0000000..d623fac
