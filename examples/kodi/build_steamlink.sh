@@ -3,6 +3,7 @@
 
 TOP="${PWD}"
 SRC="${TOP}/kodi-src"
+NCPU=`grep -c processor /proc/cpuinfo`
 
 #
 # Download the source to Kodi
@@ -147,7 +148,11 @@ if [ ! -L "${DEPS_INSTALL_PATH}/lib/libssl.so" ]; then
 	done
 fi
 
+# Build binary add-ons
+make -C target/binary-addons PREFIX="${TOP}/steamlink/apps/kodi/home/steam/apps/kodi" -j20 || exit 3
+
 # All done!
+
 popd
 
 #
@@ -173,7 +178,7 @@ pushd "${SRC}"
 ./configure $STEAMLINK_CONFIGURE_OPTS --prefix=/home/apps/kodi --disable-x11 || exit 4
 
 make clean
-make $MAKE_J || exit 5
+make -j${NCPU} || exit 5
 
 export DESTDIR="${TOP}/steamlink/apps/kodi"
 make install
@@ -181,6 +186,12 @@ for dir in "${DESTDIR}/home/apps/kodi"/*; do
     rm -rf "${DESTDIR}/$(basename $dir)"
     mv -v "$dir" "${DESTDIR}"
 done
+
+# Sanity check
+if [ "${DESTDIR}/home" == "/home" ]; then
+    echo "Aborting!"
+    exit 6
+fi
 rm -rf "${DESTDIR}/home"
 
 cp -a ${DEPS_INSTALL_PATH}/lib/python2.6 ${DESTDIR}/lib/
