@@ -8,7 +8,7 @@ SRC="${TOP}/kodi-src"
 # Download the source to Kodi
 #
 if [ ! -d "${SRC}" ]; then
-	git clone -b "16.1-Jarvis" https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
+	git clone -b "Krypton" https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
 	rm -f "${TOP}/.patch-applied"
 fi
 
@@ -19,7 +19,7 @@ if [ "${TOP}/kodi.patch" -nt "${TOP}/.patch-applied" ]; then
 	pushd "${SRC}"
 	git clean -fxd
 	git checkout .
-	patch -p1 <"${TOP}/kodi.patch" || exit 1
+	git am <"${TOP}/kodi.patch" || exit 1
 	popd
 	touch "${TOP}/.patch-applied"
 fi
@@ -183,18 +183,16 @@ for dir in "${DESTDIR}/home/apps/kodi"/*; do
 done
 rm -rf "${DESTDIR}/home"
 
-cp -a ${DEPS_INSTALL_PATH}/lib/python2.6 ${DESTDIR}/lib/
+cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/
 
 for i in \
 	libass.so.5 \
 	libbluray.so.1 \
-	libcec.so.3.0 \
+	libcec.so.4.0.0 \
 	libcrypto.so.1.0.0 \
 	libcurl.so.4 \
-	libgif.so.7 \
-	libnfs.so.4 \
+	libnfs.so.8 \
 	libplist.so.1 \
-	librtmp.so.1 \
 	libshairplay.so.0 \
 	libsmbclient.so.0 \
 	libssl.so.1.0.0 \
