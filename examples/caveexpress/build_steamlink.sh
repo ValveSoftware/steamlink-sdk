@@ -10,7 +10,7 @@ SRC="${TOP}/caveexpress-src"
 if [ ! -d "${SRC}" ]; then
 	git clone https://github.com/mgerhardy/caveexpress.git "${SRC}"
 fi
-git checkout 2.4
+git -C "${SRC}" checkout tags/2.4
 
 #
 # Build it
