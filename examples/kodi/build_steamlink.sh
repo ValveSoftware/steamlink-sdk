@@ -149,7 +149,7 @@ if [ ! -L "${DEPS_INSTALL_PATH}/lib/libssl.so" ]; then
 fi
 
 # Build binary add-ons
-make -C target/binary-addons PREFIX="${TOP}/steamlink/apps/kodi/home/steam/apps/kodi" -j20 || exit 3
+make -C target/binary-addons PREFIX="${TOP}/steamlink/apps/kodi" -j20 || exit 3
 
 # All done!
 
@@ -183,8 +183,7 @@ make -j${NCPU} || exit 5
 export DESTDIR="${TOP}/steamlink/apps/kodi"
 make install
 for dir in "${DESTDIR}/home/apps/kodi"/*; do
-    rm -rf "${DESTDIR}/$(basename $dir)"
-    mv -v "$dir" "${DESTDIR}"
+    cp -av "$dir" "${DESTDIR}"
 done
 
 # Sanity check
