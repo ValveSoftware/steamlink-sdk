@@ -11,7 +11,7 @@ It was tested on Arch Linux and Ubuntu 16.04.
 
 Before compiling, make sure you have installed these packages:
 ```Bash
-automake autopoint build-essential cmake curl default-jre doxygen gawk git gperf libcurl4-openssl-dev libtool swig unzip zip zlib1g-dev wget
+automake autopoint build-essential cmake curl default-jre doxygen gawk git gperf libcurl4-openssl-dev libtool swig unzip zip zlib1g-dev wget pkg-config
 ```
 For non-debianish distros:
 - `build-essential` means `make`, `gcc`, etc.
