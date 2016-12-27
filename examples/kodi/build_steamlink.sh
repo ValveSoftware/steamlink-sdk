@@ -68,6 +68,7 @@ fi
 DEPS_INSTALL_PATH="${MARVELL_SDK_PATH}/kodi-deps/${SOC_BUILD}"
 DEPS_CONFIG_SITE="${DEPS_INSTALL_PATH}/share/config.site"
 DEPS_TOOLCHAIN_CMAKE="${DEPS_INSTALL_PATH}/share/Toolchain.cmake"
+DEPS_TOOLCHAIN_CMAKE_ADDONS="${SRC}/tools/depends/target/Toolchain_binaddons.cmake"
 
 if [ ! -f "${SRC}/tools/depends/Makefile.include" ]; then
 	# Run this in a subshell so we don't set CC and so forth yet
@@ -102,6 +103,13 @@ __EOF__
 			-e "s,^CXX=.*,CXX=${MARVELL_SDK_PATH}/toolchain/bin/${CXX}," \
 			-e "s,^CPP=.*,CPP=\$(CC) -E," \
 			Makefile.include
+
+		#
+		# Configure add-ons
+		#
+		echo "" >> "${DEPS_TOOLCHAIN_CMAKE_ADDONS}"
+		echo "list(APPEND CMAKE_FIND_ROOT_PATH \"${MARVELL_ROOTFS}\")" >> \
+			"${DEPS_TOOLCHAIN_CMAKE_ADDONS}"
 	) || exit $?
 fi
 
