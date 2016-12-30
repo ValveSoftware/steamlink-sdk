@@ -319,7 +319,7 @@ static bool setup_device(int fd, int index, struct btd_adapter *adapter)
 	 * Don't set LEDs in that case, hence return false */
 	device = btd_adapter_find_device(adapter, &device_bdaddr,
 							BDADDR_BREDR);
-	if (device && btd_device_is_connected(device))
+	if (device && btd_device_is_connected(device) && !btd_device_is_temporary(device))
 		return false;
 
 	adapter_bdaddr = btd_adapter_get_address(adapter);

@@ -5122,6 +5122,11 @@ gboolean device_is_temporary(struct btd_device *device)
 	return device->temporary;
 }
 
+gboolean btd_device_is_temporary(struct btd_device *device)
+{
+	return device_is_temporary(device);
+}
+
 void btd_device_set_temporary(struct btd_device *device, bool temporary)
 {
 	if (!device)
