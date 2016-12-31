@@ -1,8 +1,9 @@
 #!/bin/bash
 #
 
-TOP="${PWD}"
-SRC="${TOP}/kodi-src"
+TOP="$(dirname $0)"
+BUILD="${PWD}"
+SRC="${BUILD}/kodi-src"
 NCPU=`grep -c processor /proc/cpuinfo`
 
 #
@@ -10,19 +11,19 @@ NCPU=`grep -c processor /proc/cpuinfo`
 #
 if [ ! -d "${SRC}" ]; then
 	git clone -b "Krypton" https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
-	rm -f "${TOP}/.patch-applied"
+	rm -f "${BUILD}/.patch-applied"
 fi
 
 #
 # Apply any patches and bootstrap it
 #
-if [ "${TOP}/kodi.patch" -nt "${TOP}/.patch-applied" ]; then
+if [ "${TOP}/kodi.patch" -nt "${BUILD}/.patch-applied" ]; then
 	pushd "${SRC}"
 	git clean -fxd
 	git checkout .
 	git am <"${TOP}/kodi.patch" || exit 1
 	popd
-	touch "${TOP}/.patch-applied"
+	touch "${BUILD}/.patch-applied"
 fi
 
 if [ ! -f "${SRC}/configure" ]; then
@@ -40,9 +41,14 @@ fi
 #
 # Configure build dependencies
 #
-MARVELL_SDK_PATH=$(cd ../.. && pwd)
+MARVELL_SDK_PATH="$(cd "${TOP}/../.." && pwd)"
 MARVELL_ROOTFS="${MARVELL_SDK_PATH}/rootfs"
 SOC_BUILD=armv7a-cros-linux-gnueabi
+
+if [ ! -d "${MARVELL_ROOTFS}" ]; then
+	echo "Couldn't find Marvell SDK rootfs, is this script in the SDK examples directory?" >&2
+	exit 1
+fi
 
 DEPS_INSTALL_PATH="${MARVELL_SDK_PATH}/kodi-deps/${SOC_BUILD}"
 DEPS_CONFIG_SITE="${DEPS_INSTALL_PATH}/share/config.site"
@@ -51,7 +57,7 @@ DEPS_TOOLCHAIN_CMAKE="${DEPS_INSTALL_PATH}/share/Toolchain.cmake"
 if [ ! -f "${SRC}/tools/depends/Makefile.include" ]; then
 	# Run this in a subshell so we don't set CC and so forth yet
 	(
-		source "${TOP}/../../setenv.sh"
+		source "${MARVELL_SDK_PATH}/setenv.sh"
 
 		pushd "${SRC}/tools/depends"
 		./configure --with-toolchain="${MARVELL_SDK_PATH}/toolchain" --prefix="${MARVELL_SDK_PATH}/kodi-deps" --host=${SOC_BUILD} || exit 2
@@ -88,7 +94,7 @@ fi
 if [ -f "${MARVELL_ROOTFS}/usr/include/gmp.h" ]; then
 	# Run this in a subshell so we don't set CC and so forth yet
 	(
-		source "${TOP}/../../setenv.sh"
+		source "${MARVELL_SDK_PATH}/setenv.sh"
 		cd "${MARVELL_SDK_PATH}/external/gmp-6.0.0"
 		if [ ! -f Makefile ]; then
 			./configure $STEAMLINK_CONFIGURE_OPTS
@@ -149,7 +155,7 @@ if [ ! -L "${DEPS_INSTALL_PATH}/lib/libssl.so" ]; then
 fi
 
 # Build binary add-ons
-make -C target/binary-addons PREFIX="${TOP}/steamlink/apps/kodi" -j20 || exit 3
+make -C target/binary-addons PREFIX="${BUILD}/steamlink/apps/kodi" -j20 || exit 3
 
 # All done!
 
@@ -158,7 +164,7 @@ popd
 #
 # Finally build Kodi
 #
-source "${TOP}/../../setenv.sh"
+source "${MARVELL_SDK_PATH}/setenv.sh"
 source "${DEPS_CONFIG_SITE}"
 
 export CC="$CC -DEGL_API_FB"
@@ -180,7 +186,7 @@ pushd "${SRC}"
 make clean
 make -j${NCPU} || exit 5
 
-export DESTDIR="${TOP}/steamlink/apps/kodi"
+export DESTDIR="${BUILD}/steamlink/apps/kodi"
 make install
 for dir in "${DESTDIR}/home/apps/kodi"/*; do
     cp -av "$dir" "${DESTDIR}"
