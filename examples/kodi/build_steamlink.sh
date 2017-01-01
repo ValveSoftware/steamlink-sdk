@@ -255,6 +255,10 @@ find ${DESTDIR} -type f | while read file; do
     fi
 done
 
+# Remove version check add-on
+echo "Removing service.xbmc.versioncheck..."
+rm -rf "${DESTDIR}/share/kodi/addons/service.xbmc.versioncheck"
+
 # Add the toc
 cat >"${DESTDIR}/toc.txt" <<__EOF__
 name=Kodi
