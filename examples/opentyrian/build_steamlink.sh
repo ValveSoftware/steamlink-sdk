@@ -1,8 +1,15 @@
 #!/bin/bash
 #
 
-TOP="${PWD}"
-SRC="${TOP}/opentyrian-src"
+TOP=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
+if [ "${MARVELL_SDK_PATH}" = "" ]; then
+	MARVELL_SDK_PATH="$(cd "${TOP}/../.." && pwd)"
+fi
+if [ "${MARVELL_ROOTFS}" = "" ]; then
+	source "${MARVELL_SDK_PATH}/setenv.sh" || exit 1
+fi
+BUILD="${PWD}"
+SRC="${BUILD}/opentyrian-src"
 
 #
 # Download the source to opentyrian
@@ -10,25 +17,23 @@ SRC="${TOP}/opentyrian-src"
 if [ ! -d "${SRC}" ]; then
 	hg clone https://bitbucket.org/opentyrian/opentyrian "${SRC}"
 	(cd "${SRC}"; hg update sdl2)
-	rm -f "${TOP}/.patch-applied"
+	rm -f "${BUILD}/.patch-applied"
 fi
 
 #
 # Apply any patches
 #
-if [ "${TOP}/opentyrian.patch" -nt "${TOP}/.patch-applied" ]; then
+if [ "${TOP}/opentyrian.patch" -nt "${BUILD}/.patch-applied" ]; then
 	pushd "${SRC}"
 	hg checkout -C
 	patch -p1 <"${TOP}/opentyrian.patch" || exit 1
 	popd
-	touch "${TOP}/.patch-applied"
+	touch "${BUILD}/.patch-applied"
 fi
 
 #
 # Build it
 #
-source "${TOP}/../../setenv.sh"
-
 pushd "${SRC}"
 make PLATFORM=STEAMLINK MAKECMDGOALS=release || exit 1
 popd
@@ -40,12 +45,12 @@ if [ ! -f tyrian21.zip ]; then
 	wget http://camanis.net/tyrian/tyrian21.zip
 fi
 
-export APPSDIR="${PWD}/steamlink/apps"
+export APPSDIR="${BUILD}/steamlink/apps"
 export DESTDIR="${APPSDIR}/tyrian21"
 
 # Copy the files to the app directory
 mkdir -p "${APPSDIR}"
-(cd "${APPSDIR}"; rm -rf tyrian21; unzip ${TOP}/tyrian21.zip)
+(cd "${APPSDIR}"; rm -rf tyrian21; unzip ${BUILD}/tyrian21.zip)
 cp -v "${SRC}/opentyrian" "${DESTDIR}/opentyrian" || exit 1
 $STRIP "${DESTDIR}/opentyrian"
 
@@ -300,7 +305,7 @@ __EOF__
 # Pack it up
 name=$(basename ${DESTDIR})
 pushd "$(dirname ${DESTDIR})"
-tar zcvf $name.tgz $name
+tar zcvf $name.tgz $name || exit 3
 rm -rf $name
 popd
 

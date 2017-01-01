@@ -1,10 +1,21 @@
 #!/bin/bash
 #
 
-TOP="$(dirname $0)"
+TOP=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
+if [ "${MARVELL_SDK_PATH}" = "" ]; then
+	MARVELL_SDK_PATH="$(cd "${TOP}/../.." && pwd)"
+fi
 BUILD="${PWD}"
 SRC="${BUILD}/kodi-src"
 NCPU=`grep -c processor /proc/cpuinfo`
+
+# Make sure we don't already have the SDK build environment
+# We need to build a some dependencies with the native toolchain
+case "${CC}" in
+	armv7a-cros-linux-gnueabi-gcc*)
+		echo "Run this script from a clean shell without the Steam Link SDK environment" >&2
+		exit 1
+esac
 
 #
 # Download the source to Kodi
@@ -57,7 +68,7 @@ DEPS_TOOLCHAIN_CMAKE="${DEPS_INSTALL_PATH}/share/Toolchain.cmake"
 if [ ! -f "${SRC}/tools/depends/Makefile.include" ]; then
 	# Run this in a subshell so we don't set CC and so forth yet
 	(
-		source "${MARVELL_SDK_PATH}/setenv.sh"
+		source "${MARVELL_SDK_PATH}/setenv.sh" || exit 1
 
 		pushd "${SRC}/tools/depends"
 		./configure --with-toolchain="${MARVELL_SDK_PATH}/toolchain" --prefix="${MARVELL_SDK_PATH}/kodi-deps" --host=${SOC_BUILD} || exit 2
@@ -87,14 +98,14 @@ __EOF__
 			-e "s,^CXX=.*,CXX=${MARVELL_SDK_PATH}/toolchain/bin/${CXX}," \
 			-e "s,^CPP=.*,CPP=\$(CC) -E," \
 			Makefile.include
-	)
+	) || exit $?
 fi
 
 # GMP from the Steam Link SDK conflicts with Kodi
 if [ -f "${MARVELL_ROOTFS}/usr/include/gmp.h" ]; then
 	# Run this in a subshell so we don't set CC and so forth yet
 	(
-		source "${MARVELL_SDK_PATH}/setenv.sh"
+		source "${MARVELL_SDK_PATH}/setenv.sh" || exit 1
 		cd "${MARVELL_SDK_PATH}/external/gmp-6.0.0"
 		if [ ! -f Makefile ]; then
 			./configure $STEAMLINK_CONFIGURE_OPTS
@@ -164,7 +175,7 @@ popd
 #
 # Finally build Kodi
 #
-source "${MARVELL_SDK_PATH}/setenv.sh"
+source "${MARVELL_SDK_PATH}/setenv.sh" || exit 1
 source "${DEPS_CONFIG_SITE}"
 
 export CC="$CC -DEGL_API_FB"
@@ -354,7 +365,7 @@ __EOF__
 # Pack it up
 name=$(basename ${DESTDIR})
 pushd "$(dirname ${DESTDIR})"
-tar zcvf $name.tgz $name
+tar zcvf $name.tgz $name || exit 3
 rm -rf $name
 popd
 

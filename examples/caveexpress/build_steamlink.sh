@@ -1,8 +1,15 @@
 #!/bin/bash
 #
 
-TOP="${PWD}"
-SRC="${TOP}/caveexpress-src"
+TOP=$(cd `dirname "${BASH_SOURCE[0]}"` && pwd)
+if [ "${MARVELL_SDK_PATH}" = "" ]; then
+	MARVELL_SDK_PATH="$(cd "${TOP}/../.." && pwd)"
+fi
+if [ "${MARVELL_ROOTFS}" = "" ]; then
+	source "${MARVELL_SDK_PATH}/setenv.sh" || exit 1
+fi
+BUILD="${PWD}"
+SRC="${BUILD}/caveexpress-src"
 
 #
 # Download the source to caveexpress
@@ -15,8 +22,6 @@ git -C "${SRC}" checkout tags/2.4
 #
 # Build it
 #
-source "${TOP}/../../setenv.sh"
-
 pushd "${SRC}"
 ./contrib/scripts/steamlink.sh
 popd
@@ -24,8 +29,15 @@ popd
 #
 # Install it
 #
-mkdir -p "${TOP}/steamlink/apps"
-cp -av cp-build-steamlink/steamlink/* "${TOP}/steamlink/apps" || exit 1
+APPSDIR="${BUILD}/steamlink/apps"
+mkdir -p "${APPSDIR}"
+cp -av cp-build-steamlink/steamlink/* "${APPSDIR}" || exit 1
+pushd "${APPSDIR}"
+for app in caveexpress cavepacker; do
+	tar zcvf $app.tgz $app || exit 3
+	rm -rf $app
+done
+popd
 
 #
 # All done!
