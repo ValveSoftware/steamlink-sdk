@@ -311,6 +311,7 @@ gui_loop:
         osd_fwrite(options.record, &inp_header, sizeof(INP_HEADER));
     }
 
+#if (HAS_CYCLONE)
 	/* Replace M68000 by CYCLONE */
 	if (use_cyclone)
 	{
@@ -323,6 +324,7 @@ gui_loop:
 			}
 		}
 	}
+#endif
 
 	use_drz80_snd = use_drz80_snd_save;
 	use_drz80 = use_drz80_save;	

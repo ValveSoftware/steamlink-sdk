@@ -37,6 +37,7 @@ CFLAGS += -fsigned-char $(DEVLIBS) \
 	-I$(MARVELL_ROOTFS)/usr/include/SDL2 \
 	$(OPTIMIZE) -ffast-math -fno-builtin -fsingle-precision-constant \
 	-Wall -Wno-sign-compare -Wunused -Wpointer-arith -Wcast-align -Waggregate-return -Wshadow -Wno-write-strings -Wno-narrowing
+CFLAGS += -fpermissive # Allow precision differences in casting on x64
 ifeq ($(STEAMLINK),1)
 CFLAGS += -DSTEAMLINK
 endif

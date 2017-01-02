@@ -10,6 +10,7 @@
 extern char *dirty_new;
 #define osd_mark_vector_dirty(x,y) dirty_new[(y)/16 * DIRTY_H + (x)/16] = 1
 
+#if defined(__GNUC__) && defined(__arm__)
 #define vec_mult _vec_mult
 INLINE int _vec_mult(int x, int y)
 {
@@ -23,10 +24,12 @@ INLINE int _vec_mult(int x, int y)
 
     return res_hi;
 }
+#endif // ARM assembly
 
 #include "minimal.h"
 #define osd_cycles gp2x_timer_read
 
+#if defined(__GNUC__) && defined(__arm__)
 //dst=(src>>1)+(dst>>1);
 #define mix_sample _mix_sample
 #define _mix_sample(dst,src) \
@@ -36,5 +39,6 @@ INLINE int _vec_mult(int x, int y)
 	: "=r" (dst) \
 	: "r"  (src),"r" (dst) \
 	)
+#endif // ARM assembly
 
 #endif /* __OSINLINE__ */
