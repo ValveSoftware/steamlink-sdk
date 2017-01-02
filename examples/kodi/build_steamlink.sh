@@ -32,7 +32,11 @@ if [ "${TOP}/kodi.patch" -nt "${BUILD}/.patch-applied" ]; then
 	pushd "${SRC}"
 	git clean -fxd
 	git checkout .
-	git am <"${TOP}/kodi.patch" || exit 1
+	git am <"${TOP}/kodi.patch"
+	if [[ $? != 0 ]]; then
+		git am --abort
+		exit 1
+	fi
 	popd
 	touch "${BUILD}/.patch-applied"
 fi
