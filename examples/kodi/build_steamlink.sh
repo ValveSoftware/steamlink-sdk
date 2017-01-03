@@ -103,7 +103,13 @@ __EOF__
 		#
 		# Configure add-ons
 		#
+		sed -i \
+			-e "s,^set(CMAKE_C_FLAGS \",set(CMAKE_C_FLAGS \"--sysroot=${MARVELL_ROOTFS} -marm -mfloat-abi=hard -isystem ${DEPS_INSTALL_PATH}/include ," \
+			-e "s,^set(CMAKE_CXX_FLAGS \",set(CMAKE_CXX_FLAGS \"--sysroot=${MARVELL_ROOTFS} -marm -mfloat-abi=hard -g -O2 -std=gnu++11 -isystem ${DEPS_INSTALL_PATH}/include ," \
+			"${DEPS_TOOLCHAIN_CMAKE_ADDONS}"
+
 		echo "" >> "${DEPS_TOOLCHAIN_CMAKE_ADDONS}"
+		echo "set(STEAMLINK 1)" >>"${DEPS_TOOLCHAIN_CMAKE_ADDONS}"
 		echo "list(APPEND CMAKE_FIND_ROOT_PATH \"${MARVELL_ROOTFS}\")" >> \
 			"${DEPS_TOOLCHAIN_CMAKE_ADDONS}"
 	) || exit $?
