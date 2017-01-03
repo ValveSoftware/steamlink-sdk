@@ -8,7 +8,7 @@ This is the SDK for the Valve Steam Link
 
 The Steam Link hardware is a single core ARMv7 processor using the hard-float ABI,
 running at `1 GHz`, with neon instruction support. It has approximately `256 MB` of available
-RAM and `500 MB` of usable flash storage.
+RAM and `1 GB` of usable flash storage.
 
 
 ##Software
