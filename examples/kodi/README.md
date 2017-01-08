@@ -1,9 +1,8 @@
 
 #About
 
-This script compiles Kodi version 16.1-Jarvis ([c327c53](https://github.com/xbmc/xbmc/commit/c327c53ac5346f71219e8353fe046e43e4d4a827)).
-You can change this in `build_steamlink.sh` by providing different tag/branch or by removing `-b "16.1-Jarvis"` parameter,
-however the build script can break.
+This script compiles Kodi version Krypton.
+You can change this in `build_steamlink.sh` by providing different tag/branch or by removing `-b "Krypton"` parameter, however the build script can break.
 
 It was tested on Arch Linux and Ubuntu 16.04.
 

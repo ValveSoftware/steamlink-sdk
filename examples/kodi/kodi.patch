@@ -1,86 +1,5 @@
-From 08be7002c0a1648e9ca1396e1ef5c116adaa154b Mon Sep 17 00:00:00 2001
-From: Garrett Brown <themagnificentmrb@gmail.com>
-Date: Fri, 28 Oct 2016 13:50:22 -0700
-Subject: [PATCH] Add Steam Link support
-
----
- configure.ac                                       |  19 +-
- system/addon-manifest.xml                          |   1 -
- tools/depends/.gitignore                           |   1 +
- tools/depends/target/Makefile                      |  72 +--
- tools/depends/target/ffmpeg/Makefile               |   2 +-
- tools/depends/target/libsdl2/Makefile              |   2 +-
- tools/depends/target/openssl/Makefile              |   2 +-
- tools/depends/target/zlib/Makefile                 |   2 +-
- xbmc/Application.cpp                               |   2 +-
- xbmc/ApplicationPlayer.cpp                         |   6 +
- xbmc/ApplicationPlayer.h                           |   1 +
- xbmc/cores/AudioEngine/AESinkFactory.cpp           |  25 +
- xbmc/cores/AudioEngine/Makefile.in                 |   5 +
- xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp   | 237 ++++++++++
- xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h     |  68 +++
- .../AudioEngine/Sinks/AESinkSteamLinkStream.cpp    | 279 ++++++++++++
- .../AudioEngine/Sinks/AESinkSteamLinkStream.h      |  97 ++++
- .../Sinks/AESinkSteamLinkTranslator.cpp            |  41 ++
- .../AudioEngine/Sinks/AESinkSteamLinkTranslator.h  |  34 ++
- xbmc/cores/IPlayer.h                               |   1 +
- .../VideoPlayer/DVDCodecs/DVDFactoryCodec.cpp      |   7 +-
- .../VideoPlayer/DVDCodecs/Video/DVDVideoCodec.h    |   5 +
- xbmc/cores/VideoPlayer/DVDCodecs/Video/Makefile.in |   7 +
- .../DVDCodecs/Video/SteamLinkTranslator.cpp        |  67 +++
- .../DVDCodecs/Video/SteamLinkTranslator.h          |  39 ++
- .../VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp | 506 +++++++++++++++++++++
- .../VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h   | 109 +++++
- .../DVDCodecs/Video/SteamLinkVideoBuffer.cpp       |  50 ++
- .../DVDCodecs/Video/SteamLinkVideoBuffer.h         |  51 +++
- .../DVDCodecs/Video/SteamLinkVideoStream.cpp       | 138 ++++++
- .../DVDCodecs/Video/SteamLinkVideoStream.h         |  69 +++
- xbmc/cores/VideoPlayer/IVideoPlayer.h              |   1 +
- xbmc/cores/VideoPlayer/VideoPlayer.cpp             |   9 +
- xbmc/cores/VideoPlayer/VideoPlayer.h               |   2 +
- xbmc/cores/VideoPlayer/VideoPlayerVideo.cpp        |   5 +
- xbmc/cores/VideoPlayer/VideoPlayerVideo.h          |   1 +
- .../VideoPlayer/VideoRenderers/BaseRenderer.cpp    |   2 +-
- .../VideoPlayer/VideoRenderers/BaseRenderer.h      |   1 +
- .../VideoRenderers/HwDecRender/Makefile.in         |   4 +
- .../HwDecRender/RendererSteamLink.cpp              |  87 ++++
- .../VideoRenderers/HwDecRender/RendererSteamLink.h |  53 +++
- .../VideoRenderers/LinuxRendererGLES.cpp           |   6 +-
- .../VideoPlayer/VideoRenderers/RenderFormats.h     |   1 +
- .../VideoPlayer/VideoRenderers/RenderManager.cpp   |  19 +
- .../VideoPlayer/VideoRenderers/RenderManager.h     |   2 +
- .../VideoRenderers/SteamLinkRenderer.cpp           |  39 ++
- .../VideoPlayer/VideoRenderers/SteamLinkRenderer.h |  49 ++
- xbmc/windowing/WinEventsSDL.cpp                    | 426 ++++++++++++++++-
- xbmc/windowing/WinEventsSDL.h                      |   2 +-
- xbmc/windowing/egl/EGLNativeTypeSDL.cpp            | 161 +++++++
- xbmc/windowing/egl/EGLNativeTypeSDL.h              |  60 +++
- xbmc/windowing/egl/EGLWrapper.cpp                  |   5 +
- xbmc/windowing/egl/Makefile.in                     |   1 +
- 55 files changed, 2825 insertions(+), 58 deletions(-)
- create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.cpp
- create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLink.h
- create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp
- create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h
- create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.cpp
- create mode 100644 xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkTranslator.h
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.cpp
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkTranslator.h
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.cpp
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideo.h
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.cpp
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoBuffer.h
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.cpp
- create mode 100644 xbmc/cores/VideoPlayer/DVDCodecs/Video/SteamLinkVideoStream.h
- create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.cpp
- create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererSteamLink.h
- create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/SteamLinkRenderer.cpp
- create mode 100644 xbmc/cores/VideoPlayer/VideoRenderers/SteamLinkRenderer.h
- create mode 100644 xbmc/windowing/egl/EGLNativeTypeSDL.cpp
- create mode 100644 xbmc/windowing/egl/EGLNativeTypeSDL.h
-
 diff --git a/configure.ac b/configure.ac
-index a6d8b10..4cab403 100644
+index 7a10705..e155a34 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -1197,6 +1197,13 @@ if test "x$use_dbus" != "xno"; then
@@ -123,6 +42,20 @@ index a6d8b10..4cab403 100644
    GNUTLS_ALL_LIBS=$(${PKG_CONFIG} --static --libs-only-l --silence-errors gnutls)
  
    # check if static libs are available
+diff --git a/project/cmake/addons/addons/peripheral.joystick/peripheral.joystick.txt b/project/cmake/addons/addons/peripheral.joystick/peripheral.joystick.txt
+new file mode 100644
+index 0000000..803d8ab
+--- /dev/null
++++ b/project/cmake/addons/addons/peripheral.joystick/peripheral.joystick.txt
+@@ -0,0 +1 @@
++peripheral.joystick https://github.com/kodi-game/peripheral.joystick sdl
+diff --git a/project/cmake/addons/addons/peripheral.joystick/platforms.txt b/project/cmake/addons/addons/peripheral.joystick/platforms.txt
+new file mode 100644
+index 0000000..0702cb5
+--- /dev/null
++++ b/project/cmake/addons/addons/peripheral.joystick/platforms.txt
+@@ -0,0 +1 @@
++all
 diff --git a/system/addon-manifest.xml b/system/addon-manifest.xml
 index 04cce30..dff21e9 100644
 --- a/system/addon-manifest.xml
@@ -323,6 +256,9 @@ index a0567a6..7d55035 100644
    void  DoAudioWork();
    void  GetAudioCapabilities(std::vector<int> &audioCaps);
    int   GetAudioStream();
+diff --git a/xbmc/cores/AudioEngine/AEDefines_override.h b/xbmc/cores/AudioEngine/AEDefines_override.h
+new file mode 100644
+index 0000000..e69de29
 diff --git a/xbmc/cores/AudioEngine/AESinkFactory.cpp b/xbmc/cores/AudioEngine/AESinkFactory.cpp
 index 952461d..4ebed1f 100644
 --- a/xbmc/cores/AudioEngine/AESinkFactory.cpp
@@ -2363,10 +2299,10 @@ index 0b676c9..520131f 100644
  
  class CDVDAudioCodec;
 diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
-index 6d373e6..99d68cd 100644
+index e2b77c3..b868005 100644
 --- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
-@@ -3139,6 +3139,12 @@ bool CVideoPlayer::CanSeek()
+@@ -3140,6 +3140,12 @@ bool CVideoPlayer::CanSeek()
    return m_State.canseek;
  }
  
@@ -2379,7 +2315,7 @@ index 6d373e6..99d68cd 100644
  void CVideoPlayer::Seek(bool bPlus, bool bLargeStep, bool bChapterOverride)
  {
    if (!m_State.canseek)
-@@ -5043,6 +5049,9 @@ void CVideoPlayer::UpdatePlayState(double timeout)
+@@ -5045,6 +5051,9 @@ void CVideoPlayer::UpdatePlayState(double timeout)
      state.canseek = m_pInputStream->CanSeek();
    }
  
@@ -2390,7 +2326,7 @@ index 6d373e6..99d68cd 100644
    {
      state.time        = (double) m_Edl.RemoveCutTime(llrint(state.time));
 diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.h b/xbmc/cores/VideoPlayer/VideoPlayer.h
-index c82afb7..3720cfd 100644
+index 41ff6b4..497100e 100644
 --- a/xbmc/cores/VideoPlayer/VideoPlayer.h
 +++ b/xbmc/cores/VideoPlayer/VideoPlayer.h
 @@ -131,6 +131,7 @@ struct SPlayerState
@@ -2673,7 +2609,7 @@ index 39f62fa..6d2c2d0 100644
  
  struct CRenderInfo
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
-index 482142e..ea68ee9 100644
+index 17c428c..0790576 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.cpp
 @@ -69,6 +69,10 @@
@@ -2695,7 +2631,7 @@ index 482142e..ea68ee9 100644
      case RENDER_FMT_NONE:      return "NONE";
    }
    return "UNKNOWN";
-@@ -577,6 +582,12 @@ void CRenderManager::CreateRenderer()
+@@ -580,6 +585,12 @@ void CRenderManager::CreateRenderer()
        m_pRenderer = new CRendererAML;
  #endif
      }
@@ -2708,7 +2644,7 @@ index 482142e..ea68ee9 100644
      else if (m_format != RENDER_FMT_NONE)
      {
  #if defined(HAS_MMAL)
-@@ -1352,6 +1363,14 @@ void CRenderManager::DiscardBuffer()
+@@ -1358,6 +1369,14 @@ void CRenderManager::DiscardBuffer()
    m_presentevent.notifyAll();
  }
  
@@ -2724,7 +2660,7 @@ index 482142e..ea68ee9 100644
  {
    CSingleLock lock(m_presentlock);
 diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
-index 9bb9011..d08ef90 100644
+index d534087..d1e2117 100644
 --- a/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
 +++ b/xbmc/cores/VideoPlayer/VideoRenderers/RenderManager.h
 @@ -156,6 +156,8 @@ public:
@@ -3612,6 +3548,3 @@ index 68f7862..02a3ba5 100644
  SRCS+= EGLNativeTypeAmlogic.cpp
  ifeq (@USE_ANDROID@,1)
  SRCS+= EGLNativeTypeAndroid.cpp
--- 
-2.7.4
-

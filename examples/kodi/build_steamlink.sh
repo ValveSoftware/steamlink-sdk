@@ -21,7 +21,7 @@ esac
 # Download the source to Kodi
 #
 if [ ! -d "${SRC}" ]; then
-	git clone -b "Krypton-sdl" https://github.com/kodi-game/xbmc.git "${SRC}" || exit 1
+	git clone -b "Krypton" https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
 	rm -f "${BUILD}/.patch-applied"
 fi
 
@@ -29,10 +29,21 @@ fi
 # Apply any patches and bootstrap it
 #
 if [ "${TOP}/kodi.patch" -nt "${BUILD}/.patch-applied" ]; then
+	if [ -f "${BUILD}/.patch-applied" ]; then
+		echo "Warning, about to wipe any source code changes and re-apply the Kodi patch." >/dev/tty
+		echo -n "Do you want to continue? [y/N]: " >/dev/tty
+		read answer
+		if [ "$answer" != "y" -a "$answer" != "Y" ]; then
+			exit 1
+		fi
+	fi
 	pushd "${SRC}"
+	git reset
 	git clean -fxd
 	git checkout .
 	patch -p1 <"${TOP}/kodi.patch" || exit 1
+	git add .
+	git add -f project/cmake/addons/addons
 	popd
 	touch "${BUILD}/.patch-applied"
 fi
@@ -212,9 +223,9 @@ make clean
 make -j${NCPU} || exit 5
 
 export DESTDIR="${BUILD}/steamlink/apps/kodi"
-make install
+make install || exit 5
 for dir in "${DESTDIR}/home/apps/kodi"/*; do
-    cp -av "$dir" "${DESTDIR}"
+    cp -av "$dir" "${DESTDIR}" || exit 6
 done
 
 # Sanity check
@@ -223,9 +234,21 @@ if [ "${DESTDIR}/home" == "/home" ]; then
     exit 6
 fi
 rm -rf "${DESTDIR}/home"
+ 
+# Install game controller mapping
+BUTTONMAPS="${DESTDIR}/share/kodi/addons/peripheral.joystick/resources/buttonmaps/xml"
+mkdir "${BUTTONMAPS}/sdl"
+sed -e 's,name="Xbox 360-compatible controller",name="SDL Game Controller",' \
+    -e 's,provider="xinput",provider="sdl",' \
+    -e 's,up axis="+,up axis="-,' \
+    -e 's,down axis="-,down axis="+,' \
+<"${BUTTONMAPS}/xinput/Xbox_360-compatible_controller_15b_6a.xml" \
+>"${BUTTONMAPS}/sdl/SDL_Game_Controller_15b_6a.xml" || exit 6
 
-cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/
+# Install python
+cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/ || exit 6
 
+# Install libraries
 for i in \
 	libass.so.5 \
 	libbluray.so.1 \
@@ -242,7 +265,7 @@ do
     library="${DEPS_INSTALL_PATH}/lib/$i"
     if [ -f "${library}" ]; then
         target="${DESTDIR}/lib/$i"
-        cp -v "${library}" "${target}"
+        cp -v "${library}" "${target}" || exit 6
         chmod 755 "${target}"
     else
         echo "Warning: Couldn't find $i"
@@ -253,7 +276,7 @@ done
 find ${DESTDIR} -type f | while read file; do
     if file ${file} | grep ELF >/dev/null; then
         echo "Stripping $(basename ${file})"
-        armv7a-cros-linux-gnueabi-strip ${file}
+        armv7a-cros-linux-gnueabi-strip ${file} || exit 6
     fi
 done
 
