@@ -2773,7 +2773,7 @@ index 0000000..9f609b9
 +
 +}
 diff --git a/xbmc/windowing/WinEventsSDL.cpp b/xbmc/windowing/WinEventsSDL.cpp
-index b0658d1..30d361f 100644
+index b0658d1..22ea6ca 100644
 --- a/xbmc/windowing/WinEventsSDL.cpp
 +++ b/xbmc/windowing/WinEventsSDL.cpp
 @@ -36,7 +36,7 @@
@@ -3096,7 +3096,7 @@ index b0658d1..30d361f 100644
        case SDL_VIDEORESIZE:
        {
          // Under newer osx versions sdl is so fucked up that it even fires resize events
-@@ -372,6 +644,140 @@ bool CWinEventsSDL::MessagePump()
+@@ -372,6 +644,161 @@ bool CWinEventsSDL::MessagePump()
          g_windowManager.MarkDirty();
          break;
        }
@@ -3150,11 +3150,32 @@ index b0658d1..30d361f 100644
 +        }
 +#endif
 +
++        // See if there's a text event associated with this keypress
++        // This won't catch multi-character composed input, but it's better than nothing
++        uint16_t unicode = 0;
++        SDL_Event next_event;
++        if (SDL_PeepEvents(&next_event, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT) > 0 &&
++            next_event.type == SDL_TEXTINPUT)
++        {
++            SDL_PeepEvents(&next_event, 1, SDL_GETEVENT, SDL_TEXTINPUT, SDL_TEXTINPUT);
++            if (next_event.text.text[0] < 0xC0)
++                unicode = next_event.text.text[0];
++            else
++            {
++                Uint16 *text16 = SDL_iconv_utf8_ucs2(next_event.text.text);
++                if (text16)
++                {
++                    unicode = text16[0];
++                    SDL_free(text16);
++                }
++            }
++        }
++
 +        XBMC_Event newEvent;
 +        newEvent.type = XBMC_KEYDOWN;
 +        newEvent.key.keysym.scancode = event.key.keysym.scancode;
 +        newEvent.key.keysym.sym = LookupKeysym(event.key.keysym.sym);
-+        newEvent.key.keysym.unicode = 0;
++        newEvent.key.keysym.unicode = unicode;
 +        newEvent.key.state = event.key.state;
 +
 +        // Check if the Windows keys are down because SDL doesn't flag this.
@@ -3237,7 +3258,7 @@ index b0658d1..30d361f 100644
        case SDL_USEREVENT:
        {
          XBMC_Event newEvent;
-@@ -380,9 +786,6 @@ bool CWinEventsSDL::MessagePump()
+@@ -380,9 +807,6 @@ bool CWinEventsSDL::MessagePump()
          ret |= g_application.OnEvent(newEvent);
          break;
        }
@@ -3247,7 +3268,7 @@ index b0658d1..30d361f 100644
      }
      memset(&event, 0, sizeof(SDL_Event));
    }
-@@ -392,11 +795,16 @@ bool CWinEventsSDL::MessagePump()
+@@ -392,11 +816,16 @@ bool CWinEventsSDL::MessagePump()
  
  size_t CWinEventsSDL::GetQueueSize()
  {
@@ -3258,11 +3279,11 @@ index b0658d1..30d361f 100644
 -  if (-1 == (ret = SDL_PeepEvents(&event, 0, SDL_PEEKEVENT, ~0)))
 +#if HAVE_SDL_VERSION == 1
 +  if (-1 == (ret = SDL_PeepEvents(NULL, 0, SDL_PEEKEVENT, ~0)))
-     ret = 0;
++    ret = 0;
 +#endif
 +#if HAVE_SDL_VERSION == 2
 +  if (-1 == (ret = SDL_PeepEvents(NULL, 0, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT)))
-+    ret = 0;
+     ret = 0;
 +#endif
  
    return ret;
