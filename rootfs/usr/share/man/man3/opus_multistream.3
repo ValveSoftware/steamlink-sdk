@@ -1,0 +1,488 @@
+.TH "opus_multistream" 3 "Mon Jan 23 2017" "Version 1.1.4" "Opus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+opus_multistream \- Opus Multistream API
+.PP
+The multistream API allows individual Opus streams to be combined into a single packet, enabling support for up to 255 channels\&.  
+
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef struct \fBOpusMSEncoder\fP \fBOpusMSEncoder\fP"
+.br
+.RI "\fIOpus multistream encoder state\&. \fP"
+.ti -1c
+.RI "typedef struct \fBOpusMSDecoder\fP \fBOpusMSDecoder\fP"
+.br
+.RI "\fIOpus multistream decoder state\&. \fP"
+.in -1c
+.SS "Multistream encoder functions"
+
+.in +1c
+.ti -1c
+.RI "\fBopus_int32\fP \fBopus_multistream_encoder_get_size\fP (int streams, int coupled_streams)"
+.br
+.RI "\fIGets the size of an OpusMSEncoder structure\&. \fP"
+.ti -1c
+.RI "\fBopus_int32\fP \fBopus_multistream_surround_encoder_get_size\fP (int channels, int mapping_family)"
+.br
+.ti -1c
+.RI "\fBOpusMSEncoder\fP * \fBopus_multistream_encoder_create\fP (\fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char *mapping, int application, int *error)"
+.br
+.RI "\fIAllocates and initializes a multistream encoder state\&. \fP"
+.ti -1c
+.RI "\fBOpusMSEncoder\fP * \fBopus_multistream_surround_encoder_create\fP (\fBopus_int32\fP Fs, int channels, int mapping_family, int *streams, int *coupled_streams, unsigned char *mapping, int application, int *error)"
+.br
+.ti -1c
+.RI "int \fBopus_multistream_encoder_init\fP (\fBOpusMSEncoder\fP *st, \fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char *mapping, int application)"
+.br
+.RI "\fIInitialize a previously allocated multistream encoder state\&. \fP"
+.ti -1c
+.RI "int \fBopus_multistream_surround_encoder_init\fP (\fBOpusMSEncoder\fP *st, \fBopus_int32\fP Fs, int channels, int mapping_family, int *streams, int *coupled_streams, unsigned char *mapping, int application)"
+.br
+.ti -1c
+.RI "int \fBopus_multistream_encode\fP (\fBOpusMSEncoder\fP *st, const \fBopus_int16\fP *pcm, int frame_size, unsigned char *data, \fBopus_int32\fP max_data_bytes)"
+.br
+.RI "\fIEncodes a multistream Opus frame\&. \fP"
+.ti -1c
+.RI "int \fBopus_multistream_encode_float\fP (\fBOpusMSEncoder\fP *st, const float *pcm, int frame_size, unsigned char *data, \fBopus_int32\fP max_data_bytes)"
+.br
+.RI "\fIEncodes a multistream Opus frame from floating point input\&. \fP"
+.ti -1c
+.RI "void \fBopus_multistream_encoder_destroy\fP (\fBOpusMSEncoder\fP *st)"
+.br
+.RI "\fIFrees an \fCOpusMSEncoder\fP allocated by \fBopus_multistream_encoder_create()\fP\&. \fP"
+.ti -1c
+.RI "int \fBopus_multistream_encoder_ctl\fP (\fBOpusMSEncoder\fP *st, int request,\&.\&.\&.)"
+.br
+.RI "\fIPerform a CTL function on a multistream Opus encoder\&. \fP"
+.in -1c
+.SS "Multistream decoder functions"
+
+.in +1c
+.ti -1c
+.RI "\fBopus_int32\fP \fBopus_multistream_decoder_get_size\fP (int streams, int coupled_streams)"
+.br
+.RI "\fIGets the size of an \fCOpusMSDecoder\fP structure\&. \fP"
+.ti -1c
+.RI "\fBOpusMSDecoder\fP * \fBopus_multistream_decoder_create\fP (\fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char *mapping, int *error)"
+.br
+.RI "\fIAllocates and initializes a multistream decoder state\&. \fP"
+.ti -1c
+.RI "int \fBopus_multistream_decoder_init\fP (\fBOpusMSDecoder\fP *st, \fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char *mapping)"
+.br
+.RI "\fIIntialize a previously allocated decoder state object\&. \fP"
+.ti -1c
+.RI "int \fBopus_multistream_decode\fP (\fBOpusMSDecoder\fP *st, const unsigned char *data, \fBopus_int32\fP len, \fBopus_int16\fP *pcm, int frame_size, int decode_fec)"
+.br
+.RI "\fIDecode a multistream Opus packet\&. \fP"
+.ti -1c
+.RI "int \fBopus_multistream_decode_float\fP (\fBOpusMSDecoder\fP *st, const unsigned char *data, \fBopus_int32\fP len, float *pcm, int frame_size, int decode_fec)"
+.br
+.RI "\fIDecode a multistream Opus packet with floating point output\&. \fP"
+.ti -1c
+.RI "int \fBopus_multistream_decoder_ctl\fP (\fBOpusMSDecoder\fP *st, int request,\&.\&.\&.)"
+.br
+.RI "\fIPerform a CTL function on a multistream Opus decoder\&. \fP"
+.ti -1c
+.RI "void \fBopus_multistream_decoder_destroy\fP (\fBOpusMSDecoder\fP *st)"
+.br
+.RI "\fIFrees an \fCOpusMSDecoder\fP allocated by \fBopus_multistream_decoder_create()\fP\&. \fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+The multistream API allows individual Opus streams to be combined into a single packet, enabling support for up to 255 channels\&. 
+
+Unlike an elementary Opus stream, the encoder and decoder must negotiate the channel configuration before the decoder can successfully interpret the data in the packets produced by the encoder\&. Some basic information, such as packet duration, can be computed without any special negotiation\&.
+.PP
+The format for multistream Opus packets is defined in \fCRFC 7845\fP and is based on the self-delimited Opus framing described in Appendix B of \fCRFC 6716\fP\&. Normal Opus packets are just a degenerate case of multistream Opus packets, and can be encoded or decoded with the multistream API by setting \fCstreams\fP to \fC1\fP when initializing the encoder or decoder\&.
+.PP
+Multistream Opus streams can contain up to 255 elementary Opus streams\&. These may be either 'uncoupled' or 'coupled', indicating that the decoder is configured to decode them to either 1 or 2 channels, respectively\&. The streams are ordered so that all coupled streams appear at the beginning\&.
+.PP
+A \fCmapping\fP table defines which decoded channel \fCi\fP should be used for each input/output (I/O) channel \fCj\fP\&. This table is typically provided as an unsigned char array\&. Let \fCi = mapping[j]\fP be the index for I/O channel \fCj\fP\&. If \fCi < 2*coupled_streams\fP, then I/O channel \fCj\fP is encoded as the left channel of stream \fC(i/2)\fP if \fCi\fP is even, or as the right channel of stream \fC(i/2)\fP if \fCi\fP is odd\&. Otherwise, I/O channel \fCj\fP is encoded as mono in stream \fC(i - coupled_streams)\fP, unless it has the special value 255, in which case it is omitted from the encoding entirely (the decoder will reproduce it as silence)\&. Each value \fCi\fP must either be the special value 255 or be less than \fCstreams + coupled_streams\fP\&.
+.PP
+The output channels specified by the encoder should use the \fCVorbis channel ordering\fP\&. A decoder may wish to apply an additional permutation to the mapping the encoder used to achieve a different output channel order (e\&.g\&. for outputing in WAV order)\&.
+.PP
+Each multistream packet contains an Opus packet for each stream, and all of the Opus packets in a single multistream packet must have the same duration\&. Therefore the duration of a multistream packet can be extracted from the TOC sequence of the first stream, which is located at the beginning of the packet, just like an elementary Opus stream:
+.PP
+.PP
+.nf
+int nb_samples;
+int nb_frames;
+nb_frames = opus_packet_get_nb_frames(data, len);
+if (nb_frames < 1)
+  return nb_frames;
+nb_samples = opus_packet_get_samples_per_frame(data, 48000) * nb_frames;
+.fi
+.PP
+.PP
+The general encoding and decoding process proceeds exactly the same as in the normal \fBOpus Encoder\fP and \fBOpus Decoder\fP APIs\&. See their documentation for an overview of how to use the corresponding multistream functions\&. 
+.SH "Typedef Documentation"
+.PP 
+.SS "typedef struct \fBOpusMSDecoder\fP \fBOpusMSDecoder\fP"
+
+.PP
+Opus multistream decoder state\&. This contains the complete state of a multistream Opus decoder\&. It is position independent and can be freely copied\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBopus_multistream_decoder_create\fP 
+.PP
+\fBopus_multistream_decoder_init\fP 
+.RE
+.PP
+
+.SS "typedef struct \fBOpusMSEncoder\fP \fBOpusMSEncoder\fP"
+
+.PP
+Opus multistream encoder state\&. This contains the complete state of a multistream Opus encoder\&. It is position independent and can be freely copied\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBopus_multistream_encoder_create\fP 
+.PP
+\fBopus_multistream_encoder_init\fP 
+.RE
+.PP
+
+.SH "Function Documentation"
+.PP 
+.SS "int opus_multistream_decode (\fBOpusMSDecoder\fP * st, const unsigned char * data, \fBopus_int32\fP len, \fBopus_int16\fP * pcm, int frame_size, int decode_fec)"
+
+.PP
+Decode a multistream Opus packet\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSDecoder*\fP: Multistream decoder state\&. 
+.br
+\fIdata\fP \fCconst unsigned char*\fP: Input payload\&. Use a \fCNULL\fP pointer to indicate packet loss\&. 
+.br
+\fIlen\fP \fCopus_int32\fP: Number of bytes in payload\&. 
+.br
+\fIpcm\fP \fCopus_int16*\fP: Output signal, with interleaved samples\&. This must contain room for \fCframe_size*channels\fP samples\&. 
+.br
+\fIframe_size\fP \fCint\fP: The number of samples per channel of available space in \fIpcm\fP\&. If this is less than the maximum packet duration (120 ms; 5760 for 48kHz), this function will not be capable of decoding some packets\&. In the case of PLC (data==NULL) or FEC (decode_fec=1), then frame_size needs to be exactly the duration of audio that is missing, otherwise the decoder will not be in the optimal state to decode the next incoming packet\&. For the PLC and FEC cases, frame_size \fBmust\fP be a multiple of 2\&.5 ms\&. 
+.br
+\fIdecode_fec\fP \fCint\fP: Flag (0 or 1) to request that any in-band forward error correction data be decoded\&. If no such data is available, the frame is decoded as if it were lost\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Number of samples decoded on success or a negative error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "int opus_multistream_decode_float (\fBOpusMSDecoder\fP * st, const unsigned char * data, \fBopus_int32\fP len, float * pcm, int frame_size, int decode_fec)"
+
+.PP
+Decode a multistream Opus packet with floating point output\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSDecoder*\fP: Multistream decoder state\&. 
+.br
+\fIdata\fP \fCconst unsigned char*\fP: Input payload\&. Use a \fCNULL\fP pointer to indicate packet loss\&. 
+.br
+\fIlen\fP \fCopus_int32\fP: Number of bytes in payload\&. 
+.br
+\fIpcm\fP \fCopus_int16*\fP: Output signal, with interleaved samples\&. This must contain room for \fCframe_size*channels\fP samples\&. 
+.br
+\fIframe_size\fP \fCint\fP: The number of samples per channel of available space in \fIpcm\fP\&. If this is less than the maximum packet duration (120 ms; 5760 for 48kHz), this function will not be capable of decoding some packets\&. In the case of PLC (data==NULL) or FEC (decode_fec=1), then frame_size needs to be exactly the duration of audio that is missing, otherwise the decoder will not be in the optimal state to decode the next incoming packet\&. For the PLC and FEC cases, frame_size \fBmust\fP be a multiple of 2\&.5 ms\&. 
+.br
+\fIdecode_fec\fP \fCint\fP: Flag (0 or 1) to request that any in-band forward error correction data be decoded\&. If no such data is available, the frame is decoded as if it were lost\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Number of samples decoded on success or a negative error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "\fBOpusMSDecoder\fP* opus_multistream_decoder_create (\fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char * mapping, int * error)"
+
+.PP
+Allocates and initializes a multistream decoder state\&. Call \fBopus_multistream_decoder_destroy()\fP to release this object when finished\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIFs\fP \fCopus_int32\fP: Sampling rate to decode at (in Hz)\&. This must be one of 8000, 12000, 16000, 24000, or 48000\&. 
+.br
+\fIchannels\fP \fCint\fP: Number of channels to output\&. This must be at most 255\&. It may be different from the number of coded channels (\fCstreams + coupled_streams\fP)\&. 
+.br
+\fIstreams\fP \fCint\fP: The total number of streams coded in the input\&. This must be no more than 255\&. 
+.br
+\fIcoupled_streams\fP \fCint\fP: Number of streams to decode as coupled (2 channel) streams\&. This must be no larger than the total number of streams\&. Additionally, The total number of coded channels (\fCstreams + coupled_streams\fP) must be no more than 255\&. 
+.br
+\fImapping\fP \fCconst unsigned char[channels]\fP: Mapping from coded channels to output channels, as described in \fBOpus Multistream API\fP\&. 
+.br
+\fIerror\fP \fCint *\fP: Returns \fBOPUS_OK\fP on success, or an error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "int opus_multistream_decoder_ctl (\fBOpusMSDecoder\fP * st, int request,  \&.\&.\&.)"
+
+.PP
+Perform a CTL function on a multistream Opus decoder\&. Generally the request and subsequent arguments are generated by a convenience macro\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSDecoder*\fP: Multistream decoder state\&. 
+.br
+\fIrequest\fP This and all remaining parameters should be replaced by one of the convenience macros in \fBGeneric CTLs\fP, \fBDecoder related CTLs\fP, or \fBMultistream specific encoder and decoder CTLs\fP\&. 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBGeneric CTLs\fP 
+.PP
+\fBDecoder related CTLs\fP 
+.PP
+\fBMultistream specific encoder and decoder CTLs\fP 
+.RE
+.PP
+
+.SS "void opus_multistream_decoder_destroy (\fBOpusMSDecoder\fP * st)"
+
+.PP
+Frees an \fCOpusMSDecoder\fP allocated by \fBopus_multistream_decoder_create()\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSDecoder\fP: Multistream decoder state to be freed\&. 
+.RE
+.PP
+
+.SS "\fBopus_int32\fP opus_multistream_decoder_get_size (int streams, int coupled_streams)"
+
+.PP
+Gets the size of an \fCOpusMSDecoder\fP structure\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstreams\fP \fCint\fP: The total number of streams coded in the input\&. This must be no more than 255\&. 
+.br
+\fIcoupled_streams\fP \fCint\fP: Number streams to decode as coupled (2 channel) streams\&. This must be no larger than the total number of streams\&. Additionally, The total number of coded channels (\fCstreams + coupled_streams\fP) must be no more than 255\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The size in bytes on success, or a negative error code (see \fBError codes\fP) on error\&. 
+.RE
+.PP
+
+.SS "int opus_multistream_decoder_init (\fBOpusMSDecoder\fP * st, \fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char * mapping)"
+
+.PP
+Intialize a previously allocated decoder state object\&. The memory pointed to by \fIst\fP must be at least the size returned by \fBopus_multistream_encoder_get_size()\fP\&. This is intended for applications which use their own allocator instead of malloc\&. To reset a previously initialized state, use the \fBOPUS_RESET_STATE\fP CTL\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBopus_multistream_decoder_create\fP 
+.PP
+opus_multistream_deocder_get_size 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSEncoder*\fP: Multistream encoder state to initialize\&. 
+.br
+\fIFs\fP \fCopus_int32\fP: Sampling rate to decode at (in Hz)\&. This must be one of 8000, 12000, 16000, 24000, or 48000\&. 
+.br
+\fIchannels\fP \fCint\fP: Number of channels to output\&. This must be at most 255\&. It may be different from the number of coded channels (\fCstreams + coupled_streams\fP)\&. 
+.br
+\fIstreams\fP \fCint\fP: The total number of streams coded in the input\&. This must be no more than 255\&. 
+.br
+\fIcoupled_streams\fP \fCint\fP: Number of streams to decode as coupled (2 channel) streams\&. This must be no larger than the total number of streams\&. Additionally, The total number of coded channels (\fCstreams + coupled_streams\fP) must be no more than 255\&. 
+.br
+\fImapping\fP \fCconst unsigned char[channels]\fP: Mapping from coded channels to output channels, as described in \fBOpus Multistream API\fP\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fBOPUS_OK\fP on success, or an error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "int opus_multistream_encode (\fBOpusMSEncoder\fP * st, const \fBopus_int16\fP * pcm, int frame_size, unsigned char * data, \fBopus_int32\fP max_data_bytes)"
+
+.PP
+Encodes a multistream Opus frame\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSEncoder*\fP: Multistream encoder state\&. 
+.br
+\fIpcm\fP \fCconst opus_int16*\fP: The input signal as interleaved samples\&. This must contain \fCframe_size*channels\fP samples\&. 
+.br
+\fIframe_size\fP \fCint\fP: Number of samples per channel in the input signal\&. This must be an Opus frame size for the encoder's sampling rate\&. For example, at 48 kHz the permitted values are 120, 240, 480, 960, 1920, and 2880\&. Passing in a duration of less than 10 ms (480 samples at 48 kHz) will prevent the encoder from using the LPC or hybrid modes\&. 
+.br
+\fIdata\fP \fCunsigned char*\fP: Output payload\&. This must contain storage for at least \fImax_data_bytes\fP\&. 
+.br
+\fImax_data_bytes\fP \fCopus_int32\fP: Size of the allocated memory for the output payload\&. This may be used to impose an upper limit on the instant bitrate, but should not be used as the only bitrate control\&. Use \fBOPUS_SET_BITRATE\fP to control the bitrate\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The length of the encoded packet (in bytes) on success or a negative error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "int opus_multistream_encode_float (\fBOpusMSEncoder\fP * st, const float * pcm, int frame_size, unsigned char * data, \fBopus_int32\fP max_data_bytes)"
+
+.PP
+Encodes a multistream Opus frame from floating point input\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSEncoder*\fP: Multistream encoder state\&. 
+.br
+\fIpcm\fP \fCconst float*\fP: The input signal as interleaved samples with a normal range of +/-1\&.0\&. Samples with a range beyond +/-1\&.0 are supported but will be clipped by decoders using the integer API and should only be used if it is known that the far end supports extended dynamic range\&. This must contain \fCframe_size*channels\fP samples\&. 
+.br
+\fIframe_size\fP \fCint\fP: Number of samples per channel in the input signal\&. This must be an Opus frame size for the encoder's sampling rate\&. For example, at 48 kHz the permitted values are 120, 240, 480, 960, 1920, and 2880\&. Passing in a duration of less than 10 ms (480 samples at 48 kHz) will prevent the encoder from using the LPC or hybrid modes\&. 
+.br
+\fIdata\fP \fCunsigned char*\fP: Output payload\&. This must contain storage for at least \fImax_data_bytes\fP\&. 
+.br
+\fImax_data_bytes\fP \fCopus_int32\fP: Size of the allocated memory for the output payload\&. This may be used to impose an upper limit on the instant bitrate, but should not be used as the only bitrate control\&. Use \fBOPUS_SET_BITRATE\fP to control the bitrate\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The length of the encoded packet (in bytes) on success or a negative error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "\fBOpusMSEncoder\fP* opus_multistream_encoder_create (\fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char * mapping, int application, int * error)"
+
+.PP
+Allocates and initializes a multistream encoder state\&. Call \fBopus_multistream_encoder_destroy()\fP to release this object when finished\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIFs\fP \fCopus_int32\fP: Sampling rate of the input signal (in Hz)\&. This must be one of 8000, 12000, 16000, 24000, or 48000\&. 
+.br
+\fIchannels\fP \fCint\fP: Number of channels in the input signal\&. This must be at most 255\&. It may be greater than the number of coded channels (\fCstreams + coupled_streams\fP)\&. 
+.br
+\fIstreams\fP \fCint\fP: The total number of streams to encode from the input\&. This must be no more than the number of channels\&. 
+.br
+\fIcoupled_streams\fP \fCint\fP: Number of coupled (2 channel) streams to encode\&. This must be no larger than the total number of streams\&. Additionally, The total number of encoded channels (\fCstreams + coupled_streams\fP) must be no more than the number of input channels\&. 
+.br
+\fImapping\fP \fCconst unsigned char[channels]\fP: Mapping from encoded channels to input channels, as described in \fBOpus Multistream API\fP\&. As an extra constraint, the multistream encoder does not allow encoding coupled streams for which one channel is unused since this is never a good idea\&. 
+.br
+\fIapplication\fP \fCint\fP: The target encoder application\&. This must be one of the following: 
+.IP "\fB\fBOPUS_APPLICATION_VOIP\fP \fP" 1c
+Process signal for improved speech intelligibility\&. 
+.IP "\fB\fBOPUS_APPLICATION_AUDIO\fP \fP" 1c
+Favor faithfulness to the original input\&. 
+.IP "\fB\fBOPUS_APPLICATION_RESTRICTED_LOWDELAY\fP \fP" 1c
+Configure the minimum possible coding delay by disabling certain modes of operation\&. 
+.PP
+.br
+\fIerror\fP \fCint *\fP: Returns \fBOPUS_OK\fP on success, or an error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "int opus_multistream_encoder_ctl (\fBOpusMSEncoder\fP * st, int request,  \&.\&.\&.)"
+
+.PP
+Perform a CTL function on a multistream Opus encoder\&. Generally the request and subsequent arguments are generated by a convenience macro\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSEncoder*\fP: Multistream encoder state\&. 
+.br
+\fIrequest\fP This and all remaining parameters should be replaced by one of the convenience macros in \fBGeneric CTLs\fP, \fBEncoder related CTLs\fP, or \fBMultistream specific encoder and decoder CTLs\fP\&. 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBGeneric CTLs\fP 
+.PP
+\fBEncoder related CTLs\fP 
+.PP
+\fBMultistream specific encoder and decoder CTLs\fP 
+.RE
+.PP
+
+.SS "void opus_multistream_encoder_destroy (\fBOpusMSEncoder\fP * st)"
+
+.PP
+Frees an \fCOpusMSEncoder\fP allocated by \fBopus_multistream_encoder_create()\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSEncoder*\fP: Multistream encoder state to be freed\&. 
+.RE
+.PP
+
+.SS "\fBopus_int32\fP opus_multistream_encoder_get_size (int streams, int coupled_streams)"
+
+.PP
+Gets the size of an OpusMSEncoder structure\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIstreams\fP \fCint\fP: The total number of streams to encode from the input\&. This must be no more than 255\&. 
+.br
+\fIcoupled_streams\fP \fCint\fP: Number of coupled (2 channel) streams to encode\&. This must be no larger than the total number of streams\&. Additionally, The total number of encoded channels (\fCstreams + coupled_streams\fP) must be no more than 255\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The size in bytes on success, or a negative error code (see \fBError codes\fP) on error\&. 
+.RE
+.PP
+
+.SS "int opus_multistream_encoder_init (\fBOpusMSEncoder\fP * st, \fBopus_int32\fP Fs, int channels, int streams, int coupled_streams, const unsigned char * mapping, int application)"
+
+.PP
+Initialize a previously allocated multistream encoder state\&. The memory pointed to by \fIst\fP must be at least the size returned by \fBopus_multistream_encoder_get_size()\fP\&. This is intended for applications which use their own allocator instead of malloc\&. To reset a previously initialized state, use the \fBOPUS_RESET_STATE\fP CTL\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBopus_multistream_encoder_create\fP 
+.PP
+\fBopus_multistream_encoder_get_size\fP 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusMSEncoder*\fP: Multistream encoder state to initialize\&. 
+.br
+\fIFs\fP \fCopus_int32\fP: Sampling rate of the input signal (in Hz)\&. This must be one of 8000, 12000, 16000, 24000, or 48000\&. 
+.br
+\fIchannels\fP \fCint\fP: Number of channels in the input signal\&. This must be at most 255\&. It may be greater than the number of coded channels (\fCstreams + coupled_streams\fP)\&. 
+.br
+\fIstreams\fP \fCint\fP: The total number of streams to encode from the input\&. This must be no more than the number of channels\&. 
+.br
+\fIcoupled_streams\fP \fCint\fP: Number of coupled (2 channel) streams to encode\&. This must be no larger than the total number of streams\&. Additionally, The total number of encoded channels (\fCstreams + coupled_streams\fP) must be no more than the number of input channels\&. 
+.br
+\fImapping\fP \fCconst unsigned char[channels]\fP: Mapping from encoded channels to input channels, as described in \fBOpus Multistream API\fP\&. As an extra constraint, the multistream encoder does not allow encoding coupled streams for which one channel is unused since this is never a good idea\&. 
+.br
+\fIapplication\fP \fCint\fP: The target encoder application\&. This must be one of the following: 
+.IP "\fB\fBOPUS_APPLICATION_VOIP\fP \fP" 1c
+Process signal for improved speech intelligibility\&. 
+.IP "\fB\fBOPUS_APPLICATION_AUDIO\fP \fP" 1c
+Favor faithfulness to the original input\&. 
+.IP "\fB\fBOPUS_APPLICATION_RESTRICTED_LOWDELAY\fP \fP" 1c
+Configure the minimum possible coding delay by disabling certain modes of operation\&. 
+.PP
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+\fBOPUS_OK\fP on success, or an error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "\fBOpusMSEncoder\fP* opus_multistream_surround_encoder_create (\fBopus_int32\fP Fs, int channels, int mapping_family, int * streams, int * coupled_streams, unsigned char * mapping, int application, int * error)"
+
+.SS "\fBopus_int32\fP opus_multistream_surround_encoder_get_size (int channels, int mapping_family)"
+
+.SS "int opus_multistream_surround_encoder_init (\fBOpusMSEncoder\fP * st, \fBopus_int32\fP Fs, int channels, int mapping_family, int * streams, int * coupled_streams, unsigned char * mapping, int application)"
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for Opus from the source code\&.

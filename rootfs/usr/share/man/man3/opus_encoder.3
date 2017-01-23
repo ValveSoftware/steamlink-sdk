@@ -1,0 +1,305 @@
+.TH "opus_encoder" 3 "Mon Jan 23 2017" "Version 1.1.4" "Opus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+opus_encoder \- Opus Encoder
+.PP
+This page describes the process and functions used to encode Opus\&.  
+
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef struct \fBOpusEncoder\fP \fBOpusEncoder\fP"
+.br
+.RI "\fIOpus encoder state\&. \fP"
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "int \fBopus_encoder_get_size\fP (int channels)"
+.br
+.RI "\fIGets the size of an \fCOpusEncoder\fP structure\&. \fP"
+.ti -1c
+.RI "\fBOpusEncoder\fP * \fBopus_encoder_create\fP (\fBopus_int32\fP Fs, int channels, int application, int *error)"
+.br
+.RI "\fIAllocates and initializes an encoder state\&. \fP"
+.ti -1c
+.RI "int \fBopus_encoder_init\fP (\fBOpusEncoder\fP *st, \fBopus_int32\fP Fs, int channels, int application)"
+.br
+.RI "\fIInitializes a previously allocated encoder state The memory pointed to by st must be at least the size returned by \fBopus_encoder_get_size()\fP\&. \fP"
+.ti -1c
+.RI "\fBopus_int32\fP \fBopus_encode\fP (\fBOpusEncoder\fP *st, const \fBopus_int16\fP *pcm, int frame_size, unsigned char *data, \fBopus_int32\fP max_data_bytes)"
+.br
+.RI "\fIEncodes an Opus frame\&. \fP"
+.ti -1c
+.RI "\fBopus_int32\fP \fBopus_encode_float\fP (\fBOpusEncoder\fP *st, const float *pcm, int frame_size, unsigned char *data, \fBopus_int32\fP max_data_bytes)"
+.br
+.RI "\fIEncodes an Opus frame from floating point input\&. \fP"
+.ti -1c
+.RI "void \fBopus_encoder_destroy\fP (\fBOpusEncoder\fP *st)"
+.br
+.RI "\fIFrees an \fCOpusEncoder\fP allocated by \fBopus_encoder_create()\fP\&. \fP"
+.ti -1c
+.RI "int \fBopus_encoder_ctl\fP (\fBOpusEncoder\fP *st, int request,\&.\&.\&.)"
+.br
+.RI "\fIPerform a CTL function on an Opus encoder\&. \fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+This page describes the process and functions used to encode Opus\&. 
+
+Since Opus is a stateful codec, the encoding process starts with creating an encoder state\&. This can be done with:
+.PP
+.PP
+.nf
+int          error;
+OpusEncoder *enc;
+enc = opus_encoder_create(Fs, channels, application, &error);
+.fi
+.PP
+.PP
+From this point, \fCenc\fP can be used for encoding an audio stream\&. An encoder state \fBmust\fP \fBnot\fP be used for more than one stream at the same time\&. Similarly, the encoder state \fBmust\fP \fBnot\fP be re-initialized for each frame\&.
+.PP
+While \fBopus_encoder_create()\fP allocates memory for the state, it's also possible to initialize pre-allocated memory:
+.PP
+.PP
+.nf
+int          size;
+int          error;
+OpusEncoder *enc;
+size = opus_encoder_get_size(channels);
+enc = malloc(size);
+error = opus_encoder_init(enc, Fs, channels, application);
+.fi
+.PP
+.PP
+where \fBopus_encoder_get_size()\fP returns the required size for the encoder state\&. Note that future versions of this code may change the size, so no assuptions should be made about it\&.
+.PP
+The encoder state is always continuous in memory and only a shallow copy is sufficient to copy it (e\&.g\&. memcpy())
+.PP
+It is possible to change some of the encoder's settings using the \fBopus_encoder_ctl()\fP interface\&. All these settings already default to the recommended value, so they should only be changed when necessary\&. The most common settings one may want to change are:
+.PP
+.PP
+.nf
+opus_encoder_ctl(enc, OPUS_SET_BITRATE(bitrate));
+opus_encoder_ctl(enc, OPUS_SET_COMPLEXITY(complexity));
+opus_encoder_ctl(enc, OPUS_SET_SIGNAL(signal_type));
+.fi
+.PP
+.PP
+where
+.PP
+.PD 0
+.IP "\(bu" 2
+bitrate is in bits per second (b/s) 
+.IP "\(bu" 2
+complexity is a value from 1 to 10, where 1 is the lowest complexity and 10 is the highest 
+.IP "\(bu" 2
+signal_type is either OPUS_AUTO (default), OPUS_SIGNAL_VOICE, or OPUS_SIGNAL_MUSIC
+.PP
+See \fBEncoder related CTLs\fP and \fBGeneric CTLs\fP for a complete list of parameters that can be set or queried\&. Most parameters can be set or changed at any time during a stream\&.
+.PP
+To encode a frame, \fBopus_encode()\fP or \fBopus_encode_float()\fP must be called with exactly one frame (2\&.5, 5, 10, 20, 40 or 60 ms) of audio data: 
+.PP
+.nf
+len = opus_encode(enc, audio_frame, frame_size, packet, max_packet);
+
+.fi
+.PP
+.PP
+where 
+.PD 0
+
+.IP "\(bu" 2
+audio_frame is the audio data in opus_int16 (or float for \fBopus_encode_float()\fP) 
+.IP "\(bu" 2
+frame_size is the duration of the frame in samples (per channel) 
+.IP "\(bu" 2
+packet is the byte array to which the compressed data is written 
+.IP "\(bu" 2
+max_packet is the maximum number of bytes that can be written in the packet (4000 bytes is recommended)\&. Do not use max_packet to control VBR target bitrate, instead use the \fBOPUS_SET_BITRATE\fP CTL\&. 
+.PP
+.PP
+\fBopus_encode()\fP and \fBopus_encode_float()\fP return the number of bytes actually written to the packet\&. The return value \fBcan be negative\fP, which indicates that an error has occurred\&. If the return value is 2 bytes or less, then the packet does not need to be transmitted (DTX)\&.
+.PP
+Once the encoder state if no longer needed, it can be destroyed with
+.PP
+.PP
+.nf
+opus_encoder_destroy(enc);
+.fi
+.PP
+.PP
+If the encoder was created with \fBopus_encoder_init()\fP rather than \fBopus_encoder_create()\fP, then no action is required aside from potentially freeing the memory that was manually allocated for it (calling free(enc) for the example above) 
+.SH "Typedef Documentation"
+.PP 
+.SS "typedef struct \fBOpusEncoder\fP \fBOpusEncoder\fP"
+
+.PP
+Opus encoder state\&. This contains the complete state of an Opus encoder\&. It is position independent and can be freely copied\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBopus_encoder_create\fP,\fBopus_encoder_init\fP 
+.RE
+.PP
+
+.SH "Function Documentation"
+.PP 
+.SS "\fBopus_int32\fP opus_encode (\fBOpusEncoder\fP * st, const \fBopus_int16\fP * pcm, int frame_size, unsigned char * data, \fBopus_int32\fP max_data_bytes)"
+
+.PP
+Encodes an Opus frame\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusEncoder*\fP: Encoder state 
+.br
+\fIpcm\fP \fCopus_int16*\fP: Input signal (interleaved if 2 channels)\&. length is frame_size*channels*sizeof(opus_int16) 
+.br
+\fIframe_size\fP \fCint\fP: Number of samples per channel in the input signal\&. This must be an Opus frame size for the encoder's sampling rate\&. For example, at 48 kHz the permitted values are 120, 240, 480, 960, 1920, and 2880\&. Passing in a duration of less than 10 ms (480 samples at 48 kHz) will prevent the encoder from using the LPC or hybrid modes\&. 
+.br
+\fIdata\fP \fCunsigned char*\fP: Output payload\&. This must contain storage for at least \fImax_data_bytes\fP\&. 
+.br
+\fImax_data_bytes\fP \fCopus_int32\fP: Size of the allocated memory for the output payload\&. This may be used to impose an upper limit on the instant bitrate, but should not be used as the only bitrate control\&. Use \fBOPUS_SET_BITRATE\fP to control the bitrate\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The length of the encoded packet (in bytes) on success or a negative error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "\fBopus_int32\fP opus_encode_float (\fBOpusEncoder\fP * st, const float * pcm, int frame_size, unsigned char * data, \fBopus_int32\fP max_data_bytes)"
+
+.PP
+Encodes an Opus frame from floating point input\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusEncoder*\fP: Encoder state 
+.br
+\fIpcm\fP \fCfloat*\fP: Input in float format (interleaved if 2 channels), with a normal range of +/-1\&.0\&. Samples with a range beyond +/-1\&.0 are supported but will be clipped by decoders using the integer API and should only be used if it is known that the far end supports extended dynamic range\&. length is frame_size*channels*sizeof(float) 
+.br
+\fIframe_size\fP \fCint\fP: Number of samples per channel in the input signal\&. This must be an Opus frame size for the encoder's sampling rate\&. For example, at 48 kHz the permitted values are 120, 240, 480, 960, 1920, and 2880\&. Passing in a duration of less than 10 ms (480 samples at 48 kHz) will prevent the encoder from using the LPC or hybrid modes\&. 
+.br
+\fIdata\fP \fCunsigned char*\fP: Output payload\&. This must contain storage for at least \fImax_data_bytes\fP\&. 
+.br
+\fImax_data_bytes\fP \fCopus_int32\fP: Size of the allocated memory for the output payload\&. This may be used to impose an upper limit on the instant bitrate, but should not be used as the only bitrate control\&. Use \fBOPUS_SET_BITRATE\fP to control the bitrate\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The length of the encoded packet (in bytes) on success or a negative error code (see \fBError codes\fP) on failure\&. 
+.RE
+.PP
+
+.SS "\fBOpusEncoder\fP* opus_encoder_create (\fBopus_int32\fP Fs, int channels, int application, int * error)"
+
+.PP
+Allocates and initializes an encoder state\&. There are three coding modes:
+.PP
+\fBOPUS_APPLICATION_VOIP\fP gives best quality at a given bitrate for voice signals\&. It enhances the input signal by high-pass filtering and emphasizing formants and harmonics\&. Optionally it includes in-band forward error correction to protect against packet loss\&. Use this mode for typical VoIP applications\&. Because of the enhancement, even at high bitrates the output may sound different from the input\&.
+.PP
+\fBOPUS_APPLICATION_AUDIO\fP gives best quality at a given bitrate for most non-voice signals like music\&. Use this mode for music and mixed (music/voice) content, broadcast, and applications requiring less than 15 ms of coding delay\&.
+.PP
+\fBOPUS_APPLICATION_RESTRICTED_LOWDELAY\fP configures low-delay mode that disables the speech-optimized mode in exchange for slightly reduced delay\&. This mode can only be set on an newly initialized or freshly reset encoder because it changes the codec delay\&.
+.PP
+This is useful when the caller knows that the speech-optimized modes will not be needed (use with caution)\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIFs\fP \fCopus_int32\fP: Sampling rate of input signal (Hz) This must be one of 8000, 12000, 16000, 24000, or 48000\&. 
+.br
+\fIchannels\fP \fCint\fP: Number of channels (1 or 2) in input signal 
+.br
+\fIapplication\fP \fCint\fP: Coding mode (\fBOPUS_APPLICATION_VOIP\fP/\fBOPUS_APPLICATION_AUDIO\fP/\fBOPUS_APPLICATION_RESTRICTED_LOWDELAY\fP) 
+.br
+\fIerror\fP \fCint*\fP: \fBError codes\fP 
+.RE
+.PP
+\fBNote:\fP
+.RS 4
+Regardless of the sampling rate and number channels selected, the Opus encoder can switch to a lower audio bandwidth or number of channels if the bitrate selected is too low\&. This also means that it is safe to always use 48 kHz stereo input and let the encoder optimize the encoding\&. 
+.RE
+.PP
+
+.SS "int opus_encoder_ctl (\fBOpusEncoder\fP * st, int request,  \&.\&.\&.)"
+
+.PP
+Perform a CTL function on an Opus encoder\&. Generally the request and subsequent arguments are generated by a convenience macro\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusEncoder*\fP: Encoder state\&. 
+.br
+\fIrequest\fP This and all remaining parameters should be replaced by one of the convenience macros in \fBGeneric CTLs\fP or \fBEncoder related CTLs\fP\&. 
+.RE
+.PP
+\fBSee also:\fP
+.RS 4
+\fBGeneric CTLs\fP 
+.PP
+\fBEncoder related CTLs\fP 
+.RE
+.PP
+
+.SS "void opus_encoder_destroy (\fBOpusEncoder\fP * st)"
+
+.PP
+Frees an \fCOpusEncoder\fP allocated by \fBopus_encoder_create()\fP\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusEncoder*\fP: State to be freed\&. 
+.RE
+.PP
+
+.SS "int opus_encoder_get_size (int channels)"
+
+.PP
+Gets the size of an \fCOpusEncoder\fP structure\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIchannels\fP \fCint\fP: Number of channels\&. This must be 1 or 2\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+The size in bytes\&. 
+.RE
+.PP
+
+.SS "int opus_encoder_init (\fBOpusEncoder\fP * st, \fBopus_int32\fP Fs, int channels, int application)"
+
+.PP
+Initializes a previously allocated encoder state The memory pointed to by st must be at least the size returned by \fBopus_encoder_get_size()\fP\&. This is intended for applications which use their own allocator instead of malloc\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBopus_encoder_create()\fP,\fBopus_encoder_get_size()\fP To reset a previously initialized state, use the \fBOPUS_RESET_STATE\fP CTL\&. 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusEncoder*\fP: Encoder state 
+.br
+\fIFs\fP \fCopus_int32\fP: Sampling rate of input signal (Hz) This must be one of 8000, 12000, 16000, 24000, or 48000\&. 
+.br
+\fIchannels\fP \fCint\fP: Number of channels (1 or 2) in input signal 
+.br
+\fIapplication\fP \fCint\fP: Coding mode (OPUS_APPLICATION_VOIP/OPUS_APPLICATION_AUDIO/OPUS_APPLICATION_RESTRICTED_LOWDELAY) 
+.RE
+.PP
+\fBReturn values:\fP
+.RS 4
+\fI\fBOPUS_OK\fP\fP Success or \fBError codes\fP 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for Opus from the source code\&.

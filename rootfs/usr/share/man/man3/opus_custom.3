@@ -1,0 +1,390 @@
+.TH "opus_custom" 3 "Mon Jan 23 2017" "Version 1.1.4" "Opus" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+opus_custom \- Opus Custom
+.PP
+Opus Custom is an optional part of the Opus specification and reference implementation which uses a distinct API from the regular API and supports frame sizes that are not normally supported\&. Use of Opus Custom is discouraged for all but very special applications for which a frame size different from 2\&.5, 5, 10, or 20 ms is needed (for either complexity or latency reasons) and where interoperability is less important\&.  
+
+.SS "Typedefs"
+
+.in +1c
+.ti -1c
+.RI "typedef struct \fBOpusCustomEncoder\fP \fBOpusCustomEncoder\fP"
+.br
+.RI "\fIContains the state of an encoder\&. \fP"
+.ti -1c
+.RI "typedef struct \fBOpusCustomDecoder\fP \fBOpusCustomDecoder\fP"
+.br
+.RI "\fIState of the decoder\&. \fP"
+.ti -1c
+.RI "typedef struct \fBOpusCustomMode\fP \fBOpusCustomMode\fP"
+.br
+.RI "\fIThe mode contains all the information necessary to create an encoder\&. \fP"
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBOpusCustomMode\fP * \fBopus_custom_mode_create\fP (\fBopus_int32\fP Fs, int frame_size, int *error)"
+.br
+.RI "\fICreates a new mode struct\&. \fP"
+.ti -1c
+.RI "void \fBopus_custom_mode_destroy\fP (\fBOpusCustomMode\fP *mode)"
+.br
+.RI "\fIDestroys a mode struct\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_encoder_get_size\fP (const \fBOpusCustomMode\fP *mode, int channels)"
+.br
+.RI "\fIGets the size of an OpusCustomEncoder structure\&. \fP"
+.ti -1c
+.RI "\fBOpusCustomEncoder\fP * \fBopus_custom_encoder_create\fP (const \fBOpusCustomMode\fP *mode, int channels, int *error)"
+.br
+.RI "\fICreates a new encoder state\&. \fP"
+.ti -1c
+.RI "void \fBopus_custom_encoder_destroy\fP (\fBOpusCustomEncoder\fP *st)"
+.br
+.RI "\fIDestroys a an encoder state\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_encode_float\fP (\fBOpusCustomEncoder\fP *st, const float *pcm, int frame_size, unsigned char *compressed, int maxCompressedBytes)"
+.br
+.RI "\fIEncodes a frame of audio\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_encode\fP (\fBOpusCustomEncoder\fP *st, const \fBopus_int16\fP *pcm, int frame_size, unsigned char *compressed, int maxCompressedBytes)"
+.br
+.RI "\fIEncodes a frame of audio\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_encoder_ctl\fP (\fBOpusCustomEncoder\fP *OPUS_RESTRICT st, int request,\&.\&.\&.)"
+.br
+.RI "\fIPerform a CTL function on an Opus custom encoder\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_decoder_get_size\fP (const \fBOpusCustomMode\fP *mode, int channels)"
+.br
+.RI "\fIGets the size of an OpusCustomDecoder structure\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_decoder_init\fP (\fBOpusCustomDecoder\fP *st, const \fBOpusCustomMode\fP *mode, int channels)"
+.br
+.RI "\fIInitializes a previously allocated decoder state The memory pointed to by st must be the size returned by opus_custom_decoder_get_size\&. \fP"
+.ti -1c
+.RI "\fBOpusCustomDecoder\fP * \fBopus_custom_decoder_create\fP (const \fBOpusCustomMode\fP *mode, int channels, int *error)"
+.br
+.RI "\fICreates a new decoder state\&. \fP"
+.ti -1c
+.RI "void \fBopus_custom_decoder_destroy\fP (\fBOpusCustomDecoder\fP *st)"
+.br
+.RI "\fIDestroys a an decoder state\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_decode_float\fP (\fBOpusCustomDecoder\fP *st, const unsigned char *data, int len, float *pcm, int frame_size)"
+.br
+.RI "\fIDecode an opus custom frame with floating point output\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_decode\fP (\fBOpusCustomDecoder\fP *st, const unsigned char *data, int len, \fBopus_int16\fP *pcm, int frame_size)"
+.br
+.RI "\fIDecode an opus custom frame\&. \fP"
+.ti -1c
+.RI "int \fBopus_custom_decoder_ctl\fP (\fBOpusCustomDecoder\fP *OPUS_RESTRICT st, int request,\&.\&.\&.)"
+.br
+.RI "\fIPerform a CTL function on an Opus custom decoder\&. \fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+Opus Custom is an optional part of the Opus specification and reference implementation which uses a distinct API from the regular API and supports frame sizes that are not normally supported\&. Use of Opus Custom is discouraged for all but very special applications for which a frame size different from 2\&.5, 5, 10, or 20 ms is needed (for either complexity or latency reasons) and where interoperability is less important\&. 
+
+In addition to the interoperability limitations the use of Opus custom disables a substantial chunk of the codec and generally lowers the quality available at a given bitrate\&. Normally when an application needs a different frame size from the codec it should buffer to match the sizes but this adds a small amount of delay which may be important in some very low latency applications\&. Some transports (especially constant rate RF transports) may also work best with frames of particular durations\&.
+.PP
+Libopus only supports custom modes if they are enabled at compile time\&.
+.PP
+The Opus Custom API is similar to the regular API but the \fBopus_encoder_create\fP and \fBopus_decoder_create\fP calls take an additional mode parameter which is a structure produced by a call to \fBopus_custom_mode_create\fP\&. Both the encoder and decoder must create a mode using the same sample rate (fs) and frame size (frame size) so these parameters must either be signaled out of band or fixed in a particular implementation\&.
+.PP
+Similar to regular Opus the custom modes support on the fly frame size switching, but the sizes available depend on the particular frame size in use\&. For some initial frame sizes on a single on the fly size is available\&. 
+.SH "Typedef Documentation"
+.PP 
+.SS "typedef struct \fBOpusCustomDecoder\fP \fBOpusCustomDecoder\fP"
+
+.PP
+State of the decoder\&. One decoder state is needed for each stream\&. It is initialized once at the beginning of the stream\&. Do \fInot\fP re-initialize the state for every frame\&. Decoder state 
+.SS "typedef struct \fBOpusCustomEncoder\fP \fBOpusCustomEncoder\fP"
+
+.PP
+Contains the state of an encoder\&. One encoder state is needed for each stream\&. It is initialized once at the beginning of the stream\&. Do \fInot\fP re-initialize the state for every frame\&. Encoder state 
+.SS "typedef struct \fBOpusCustomMode\fP \fBOpusCustomMode\fP"
+
+.PP
+The mode contains all the information necessary to create an encoder\&. Both the encoder and decoder need to be initialized with exactly the same mode, otherwise the output will be corrupted\&. Mode configuration 
+.SH "Function Documentation"
+.PP 
+.SS "int opus_custom_decode (\fBOpusCustomDecoder\fP * st, const unsigned char * data, int len, \fBopus_int16\fP * pcm, int frame_size)"
+
+.PP
+Decode an opus custom frame\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusCustomDecoder*\fP: Decoder state 
+.br
+\fIdata\fP \fCchar*\fP: Input payload\&. Use a NULL pointer to indicate packet loss 
+.br
+\fIlen\fP \fCint\fP: Number of bytes in payload 
+.br
+\fIpcm\fP \fCopus_int16*\fP: Output signal (interleaved if 2 channels)\&. length is frame_size*channels*sizeof(opus_int16) 
+.br
+\fIframe_size\fP Number of samples per channel of available space in *pcm\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Number of decoded samples or \fBError codes\fP 
+.RE
+.PP
+
+.SS "int opus_custom_decode_float (\fBOpusCustomDecoder\fP * st, const unsigned char * data, int len, float * pcm, int frame_size)"
+
+.PP
+Decode an opus custom frame with floating point output\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusCustomDecoder*\fP: Decoder state 
+.br
+\fIdata\fP \fCchar*\fP: Input payload\&. Use a NULL pointer to indicate packet loss 
+.br
+\fIlen\fP \fCint\fP: Number of bytes in payload 
+.br
+\fIpcm\fP \fCfloat*\fP: Output signal (interleaved if 2 channels)\&. length is frame_size*channels*sizeof(float) 
+.br
+\fIframe_size\fP Number of samples per channel of available space in *pcm\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Number of decoded samples or \fBError codes\fP 
+.RE
+.PP
+
+.SS "\fBOpusCustomDecoder\fP* opus_custom_decoder_create (const \fBOpusCustomMode\fP * mode, int channels, int * error)"
+
+.PP
+Creates a new decoder state\&. Each stream needs its own decoder state (can't be shared across simultaneous streams)\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImode\fP \fCOpusCustomMode\fP: Contains all the information about the characteristics of the stream (must be the same characteristics as used for the encoder) 
+.br
+\fIchannels\fP \fCint\fP: Number of channels 
+.br
+\fIerror\fP \fCint*\fP: Returns an error code 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Newly created decoder state\&. 
+.RE
+.PP
+
+.SS "int opus_custom_decoder_ctl (\fBOpusCustomDecoder\fP *OPUS_RESTRICT st, int request,  \&.\&.\&.)"
+
+.PP
+Perform a CTL function on an Opus custom decoder\&. Generally the request and subsequent arguments are generated by a convenience macro\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBGeneric CTLs\fP 
+.RE
+.PP
+
+.SS "void opus_custom_decoder_destroy (\fBOpusCustomDecoder\fP * st)"
+
+.PP
+Destroys a an decoder state\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusCustomDecoder*\fP: State to be freed\&. 
+.RE
+.PP
+
+.SS "int opus_custom_decoder_get_size (const \fBOpusCustomMode\fP * mode, int channels)"
+
+.PP
+Gets the size of an OpusCustomDecoder structure\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImode\fP \fCOpusCustomMode *\fP: Mode configuration 
+.br
+\fIchannels\fP \fCint\fP: Number of channels 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+size 
+.RE
+.PP
+
+.SS "int opus_custom_decoder_init (\fBOpusCustomDecoder\fP * st, const \fBOpusCustomMode\fP * mode, int channels)"
+
+.PP
+Initializes a previously allocated decoder state The memory pointed to by st must be the size returned by opus_custom_decoder_get_size\&. This is intended for applications which use their own allocator instead of malloc\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBopus_custom_decoder_create()\fP,\fBopus_custom_decoder_get_size()\fP To reset a previously initialized state use the \fBOPUS_RESET_STATE\fP CTL\&. 
+.RE
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusCustomDecoder*\fP: Decoder state 
+.br
+\fImode\fP \fCOpusCustomMode *\fP: Contains all the information about the characteristics of the stream (must be the same characteristics as used for the encoder) 
+.br
+\fIchannels\fP \fCint\fP: Number of channels 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+OPUS_OK Success or \fBError codes\fP 
+.RE
+.PP
+
+.SS "int opus_custom_encode (\fBOpusCustomEncoder\fP * st, const \fBopus_int16\fP * pcm, int frame_size, unsigned char * compressed, int maxCompressedBytes)"
+
+.PP
+Encodes a frame of audio\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusCustomEncoder*\fP: Encoder state 
+.br
+\fIpcm\fP \fCopus_int16*\fP: PCM audio in signed 16-bit format (native endian)\&. There must be exactly frame_size samples per channel\&. 
+.br
+\fIframe_size\fP \fCint\fP: Number of samples per frame of input signal 
+.br
+\fIcompressed\fP \fCchar *\fP: The compressed data is written here\&. This may not alias pcm and must be at least maxCompressedBytes long\&. 
+.br
+\fImaxCompressedBytes\fP \fCint\fP: Maximum number of bytes to use for compressing the frame (can change from one frame to another) 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Number of bytes written to 'compressed'\&. If negative, an error has occurred (see error codes)\&. It is IMPORTANT that the length returned be somehow transmitted to the decoder\&. Otherwise, no decoding is possible\&. 
+.RE
+.PP
+
+.SS "int opus_custom_encode_float (\fBOpusCustomEncoder\fP * st, const float * pcm, int frame_size, unsigned char * compressed, int maxCompressedBytes)"
+
+.PP
+Encodes a frame of audio\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusCustomEncoder*\fP: Encoder state 
+.br
+\fIpcm\fP \fCfloat*\fP: PCM audio in float format, with a normal range of +/-1\&.0\&. Samples with a range beyond +/-1\&.0 are supported but will be clipped by decoders using the integer API and should only be used if it is known that the far end supports extended dynamic range\&. There must be exactly frame_size samples per channel\&. 
+.br
+\fIframe_size\fP \fCint\fP: Number of samples per frame of input signal 
+.br
+\fIcompressed\fP \fCchar *\fP: The compressed data is written here\&. This may not alias pcm and must be at least maxCompressedBytes long\&. 
+.br
+\fImaxCompressedBytes\fP \fCint\fP: Maximum number of bytes to use for compressing the frame (can change from one frame to another) 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Number of bytes written to 'compressed'\&. If negative, an error has occurred (see error codes)\&. It is IMPORTANT that the length returned be somehow transmitted to the decoder\&. Otherwise, no decoding is possible\&. 
+.RE
+.PP
+
+.SS "\fBOpusCustomEncoder\fP* opus_custom_encoder_create (const \fBOpusCustomMode\fP * mode, int channels, int * error)"
+
+.PP
+Creates a new encoder state\&. Each stream needs its own encoder state (can't be shared across simultaneous streams)\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImode\fP \fCOpusCustomMode*\fP: Contains all the information about the characteristics of the stream (must be the same characteristics as used for the decoder) 
+.br
+\fIchannels\fP \fCint\fP: Number of channels 
+.br
+\fIerror\fP \fCint*\fP: Returns an error code 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Newly created encoder state\&. 
+.RE
+.PP
+
+.SS "int opus_custom_encoder_ctl (\fBOpusCustomEncoder\fP *OPUS_RESTRICT st, int request,  \&.\&.\&.)"
+
+.PP
+Perform a CTL function on an Opus custom encoder\&. Generally the request and subsequent arguments are generated by a convenience macro\&. 
+.PP
+\fBSee also:\fP
+.RS 4
+\fBEncoder related CTLs\fP 
+.RE
+.PP
+
+.SS "void opus_custom_encoder_destroy (\fBOpusCustomEncoder\fP * st)"
+
+.PP
+Destroys a an encoder state\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIst\fP \fCOpusCustomEncoder*\fP: State to be freed\&. 
+.RE
+.PP
+
+.SS "int opus_custom_encoder_get_size (const \fBOpusCustomMode\fP * mode, int channels)"
+
+.PP
+Gets the size of an OpusCustomEncoder structure\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImode\fP \fCOpusCustomMode *\fP: Mode configuration 
+.br
+\fIchannels\fP \fCint\fP: Number of channels 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+size 
+.RE
+.PP
+
+.SS "\fBOpusCustomMode\fP* opus_custom_mode_create (\fBopus_int32\fP Fs, int frame_size, int * error)"
+
+.PP
+Creates a new mode struct\&. This will be passed to an encoder or decoder\&. The mode MUST NOT BE DESTROYED until the encoders and decoders that use it are destroyed as well\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIFs\fP \fCint\fP: Sampling rate (8000 to 96000 Hz) 
+.br
+\fIframe_size\fP \fCint\fP: Number of samples (per channel) to encode in each packet (64 - 1024, prime factorization must contain zero or more 2s, 3s, or 5s and no other primes) 
+.br
+\fIerror\fP \fCint*\fP: Returned error code (if NULL, no error will be returned) 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+A newly created mode 
+.RE
+.PP
+
+.SS "void opus_custom_mode_destroy (\fBOpusCustomMode\fP * mode)"
+
+.PP
+Destroys a mode struct\&. Only call this after all encoders and decoders using this mode are destroyed as well\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fImode\fP \fCOpusCustomMode*\fP: Mode to be freed\&. 
+.RE
+.PP
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for Opus from the source code\&.

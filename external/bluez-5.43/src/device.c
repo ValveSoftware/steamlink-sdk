@@ -2574,6 +2574,11 @@ uint8_t btd_device_get_bdaddr_type(struct btd_device *dev)
 	return dev->bdaddr_type;
 }
 
+const char* btd_device_get_name(struct btd_device *dev)
+{
+	return dev->name;
+}
+
 bool btd_device_is_connected(struct btd_device *dev)
 {
 	return dev->bredr_state.connected || dev->le_state.connected;

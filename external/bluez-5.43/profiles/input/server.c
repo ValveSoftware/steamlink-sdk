@@ -143,6 +143,12 @@ static bool dev_is_sixaxis(const bdaddr_t *src, const bdaddr_t *dst)
 	if (vid == 0x054c && pid == 0x042f)
 		return true;
 
+	if (vid == 0 && pid == 0 &&
+	    !strncmp(btd_device_get_name(device), "Wireless Controller", MAX_NAME_LENGTH) &&
+	    btd_device_get_class(device) == 0x2508) {
+		return true;
+	}
+
 	return false;
 }
 
