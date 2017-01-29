@@ -43,7 +43,6 @@ if [ "${TOP}/kodi.patch" -nt "${BUILD}/.patch-applied" ]; then
 	git checkout .
 	patch -p1 <"${TOP}/kodi.patch" || exit 1
 	git add .
-	git add -f project/cmake/addons/addons
 	popd
 	touch "${BUILD}/.patch-applied"
 fi
@@ -234,16 +233,6 @@ if [ "${DESTDIR}/home" == "/home" ]; then
     exit 6
 fi
 rm -rf "${DESTDIR}/home"
- 
-# Install game controller mapping
-BUTTONMAPS="${DESTDIR}/share/kodi/addons/peripheral.joystick/resources/buttonmaps/xml"
-mkdir "${BUTTONMAPS}/sdl"
-sed -e 's,name="Xbox 360-compatible controller",name="SDL Game Controller",' \
-    -e 's,provider="xinput",provider="sdl",' \
-    -e 's,up axis="+,up axis="-,' \
-    -e 's,down axis="-,down axis="+,' \
-<"${BUTTONMAPS}/xinput/Xbox_360-compatible_controller_15b_6a.xml" \
->"${BUTTONMAPS}/sdl/SDL_Game_Controller_15b_6a.xml" || exit 6
 
 # Install python
 cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/ || exit 6
