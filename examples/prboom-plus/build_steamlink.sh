@@ -79,6 +79,7 @@ echo "dir /home/apps/prboom-plus/timidity" >timidity.cfg.new
 cat timidity.cfg >>timidity.cfg.new
 mv timidity.cfg.new timidity.cfg
 popd
+rm -rf "${BUILD}/tmp"
 
 
 # Create the table of contents and icon
