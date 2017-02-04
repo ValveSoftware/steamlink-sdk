@@ -12,7 +12,7 @@ BUILD="${PWD}"
 SRC="${BUILD}/caveexpress-src"
 
 #
-# Download the source to caveexpress
+# Download the source
 #
 if [ ! -d "${SRC}" ]; then
 	git clone https://github.com/mgerhardy/caveexpress.git "${SRC}"

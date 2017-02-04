@@ -12,7 +12,7 @@ BUILD="${PWD}"
 SRC="${BUILD}/prboom-plus-src"
 
 #
-# Download the source to prboom-plus
+# Download the source
 #
 if [ ! -d "${SRC}" ]; then
 	git clone https://github.com/superna9999/prboom-plus.git "${SRC}"

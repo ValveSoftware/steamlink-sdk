@@ -12,7 +12,7 @@ BUILD="${PWD}"
 SRC="${BUILD}/opentyrian-src"
 
 #
-# Download the source to opentyrian
+# Download the source
 #
 if [ ! -d "${SRC}" ]; then
 	hg clone https://bitbucket.org/opentyrian/opentyrian "${SRC}"
