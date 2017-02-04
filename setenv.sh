@@ -26,9 +26,9 @@ export PATH=$TOOLCHAIN_PATH:$MARVELL_SDK_PATH/bin:$PATH
 export CROSS=armv7a-cros-linux-gnueabi-
 export CROSS_COMPILE=${CROSS}
 export AS=${CROSS}as
-export CC="${CROSS}gcc --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
-export CPP="${CROSS}cpp --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
-export CXX="${CROSS}g++ --sysroot=$MARVELL_ROOTFS -marm -mfloat-abi=hard"
+export CC="${CROSS}gcc --sysroot=$MARVELL_ROOTFS -marm -mfpu=neon -mfloat-abi=hard"
+export CXX="${CROSS}g++ --sysroot=$MARVELL_ROOTFS -marm -mfpu=neon -mfloat-abi=hard"
+export CPP="${CROSS}cpp --sysroot=$MARVELL_ROOTFS"
 export STRIP=${CROSS}strip
 export LC_ALL=C	# Toolchain crashes with some locales
 
