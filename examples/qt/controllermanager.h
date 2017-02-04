@@ -31,6 +31,16 @@ public:
 	CControllerManager( QObject *pParent );
 	virtual ~CControllerManager();
 
+	bool BHasUnmappedControllers();
+	void IgnoreController( const char *pszGUID, const char *pszName );
+	bool BShouldIgnoreController( const char *pszGUID );
+	bool BShouldIgnoreController( int iJoystick );
+	void SetControllerTemporarilyDisabled( int nJoystickID, bool bDisabled );
+	void ResetControllers();
+
+	bool BAnySteamControllersConnected();
+	bool EnableSteamControllerPairing( bool bEnabled );
+
 private:
 	virtual bool eventFilter( QObject *pObject, QEvent *pEvent );
 	virtual void timerEvent( QTimerEvent *pEvent );
@@ -39,14 +49,18 @@ private:
 	struct GameController_t;
 
 	bool BInitGameControllers();
-	bool BShouldIgnoreController( const char *pszGUID );
 	void CheckGameControllers();
+	void OnJoystickAdded( int iJoystick );
+	void OnJoystickRemoved( int nJoystickID );
+	void OnJoystickAxis( GameController_t *pController, int nAxis, int nValue );
+	void OnJoystickHat( GameController_t *pController, int nHat, int nValue );
+	void OnJoystickButton( GameController_t *pController, int nButton, bool bPressed );
 	void OnGameControllerAdded( int iJoystick );
 	void OnGameControllerRemoved( int nJoystickID );
 	GameController_t *GetGameController( int nJoystickID );
 	bool BIgnoreGameControllerEvent( GameController_t *pController );
-	void OnGameControllerButton( GameController_t *pController, int nButton, bool bPressed );
 	void OnGameControllerAxis( GameController_t *pController, int nAxis, int nValue );
+	void OnGameControllerButton( GameController_t *pController, int nButton, bool bPressed );
 	void SendGameControllerDPadEvent( GameController_t *pController );
 	void SendGameControllerThumbstickEvent( GameController_t *pController, QControllerEvent::EventType eEvent );
 	void SendGameControllerTriggerEvent( GameController_t *pController, QControllerEvent::EventType eEvent );
@@ -59,7 +73,8 @@ private:
 	void SendControllerEvent( QEvent *pEvent );
 
 private:
-	bool m_bInitalizedSDL;
+	bool m_bInitalizedSDLJoystick;
+	bool m_bInitalizedSDLGameController;
 	int m_nUpdateTimerID;
 
 	QVector<GameController_t*> m_vecGameControllers;

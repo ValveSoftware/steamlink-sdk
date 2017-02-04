@@ -20,11 +20,15 @@
 #include "SDL.h"
 #include "controllermanager.h"
 
+#ifdef STEAM_CONTROLLER_SUPPORT
+#include "steamcontroller_linux.h" // for EnableSteamControllerPairing
+#endif
+
 
 //--------------------------------------------------------------------------------------------------
-// The controller axis range
+// File containing controllers to ignore
 //--------------------------------------------------------------------------------------------------
-#define CONTROLLER_AXIS_MAX		32767
+#define FILE_CONTROLLER_IGNORE	"/mnt/config/system/controller_ignore.txt"
 
 
 //--------------------------------------------------------------------------------------------------
@@ -58,8 +62,10 @@ static float NormalizeAxisValue( float flValue )
 //--------------------------------------------------------------------------------------------------
 struct CControllerManager::GameController_t
 {
+	SDL_Joystick *m_pJoystick;
 	SDL_GameController *m_pController;
 	int m_nJoystickID;
+	bool m_bDisabled;
 	bool m_arrThumbstickTilted[ 2 ];
 	bool m_arrTriggerTilted[ 2 ];
 	int m_arrAxisValues[ SDL_CONTROLLER_AXIS_MAX ];
@@ -73,8 +79,17 @@ struct CControllerManager::GameController_t
 //--------------------------------------------------------------------------------------------------
 CControllerManager::CControllerManager( QObject *pParent )
 :	QObject( pParent )
-,	m_bInitalizedSDL( false )
+,	m_bInitalizedSDLJoystick( false )
+,	m_bInitalizedSDLGameController( false )
 {
+	// A Qt application won't create an SDL window, so allow background events
+	SDL_SetHint( SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1" );
+
+	if ( SDL_InitSubSystem( SDL_INIT_JOYSTICK ) == 0 )
+	{
+		m_bInitalizedSDLJoystick = true;
+	}
+
 	BInitGameControllers();
 
 	memset( m_arrArrowKeyState, 0, sizeof( m_arrArrowKeyState ) );
@@ -89,7 +104,17 @@ CControllerManager::CControllerManager( QObject *pParent )
 //--------------------------------------------------------------------------------------------------
 CControllerManager::~CControllerManager()
 {
+	// Make sure we don't leave controllers in pairing mode
+	EnableSteamControllerPairing( false );
+
 	QuitGameControllers();
+
+	if ( m_bInitalizedSDLJoystick )
+	{
+		SDL_QuitSubSystem( SDL_INIT_JOYSTICK );
+		m_bInitalizedSDLJoystick = false;
+	}
+
 }
 
 
@@ -98,16 +123,49 @@ CControllerManager::~CControllerManager()
 //--------------------------------------------------------------------------------------------------
 bool CControllerManager::BInitGameControllers()
 {
-	if ( !m_bInitalizedSDL )
+	if ( !m_bInitalizedSDLGameController )
 	{
 		if ( SDL_InitSubSystem( SDL_INIT_GAMECONTROLLER ) < 0 )
 		{
 			qWarning() << "Couldn't initialize SDL:" << SDL_GetError();
 			return false;
 		}
-		m_bInitalizedSDL = true;
+		m_bInitalizedSDLGameController = true;
 	}
 	return true;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Reinitialize game controller list when controller mappings change
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::ResetControllers()
+{
+	QuitGameControllers();
+	BInitGameControllers();
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Mark this controller as being ignored
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::IgnoreController( const char *pszGUID, const char *pszName )
+{
+	if ( BShouldIgnoreController( pszGUID ) )
+	{
+		// Already ignoring this one
+		return;
+	}
+
+	FILE *pFile = fopen( FILE_CONTROLLER_IGNORE, "a" );
+	if ( !pFile )
+	{
+		qWarning() << "Couldn't open file " FILE_CONTROLLER_IGNORE;
+		return;
+	}
+
+	fprintf( pFile, "%s %s\n", pszGUID, pszName );
+	fclose( pFile );
 }
 
 
@@ -117,12 +175,12 @@ bool CControllerManager::BInitGameControllers()
 bool CControllerManager::BShouldIgnoreController( const char *pszGUID )
 {
 	bool bIgnored = false;
-	int nGUIDLen = strlen( pszGUID );
 
-	FILE *pFile = fopen( "/etc/controller_ignore.txt", "r" );
+	FILE *pFile = fopen( FILE_CONTROLLER_IGNORE, "r" );
 	if ( pFile )
 	{
 		char line[ 1024 ];
+		int nGUIDLen = strlen( pszGUID );
 		while ( fgets( line, sizeof( line ), pFile ) )
 		{
 			if ( strncmp( line, pszGUID, nGUIDLen ) == 0 )
@@ -134,6 +192,41 @@ bool CControllerManager::BShouldIgnoreController( const char *pszGUID )
 		fclose( pFile );
 	}
 	return bIgnored;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Return true if we should ignore this controller
+//--------------------------------------------------------------------------------------------------
+bool CControllerManager::BShouldIgnoreController( int iJoystick )
+{
+	// Always ignore wheels and flight sticks
+	SDL_JoystickType eType = SDL_JoystickGetDeviceType( iJoystick );
+	if ( eType == SDL_JOYSTICK_TYPE_WHEEL || eType == SDL_JOYSTICK_TYPE_FLIGHT_STICK )
+	{
+		return true;
+	}
+
+	char pszGUID[ 33 ];
+	SDL_JoystickGUID guid = SDL_JoystickGetDeviceGUID( iJoystick );
+	SDL_JoystickGetGUIDString( guid, pszGUID, sizeof( pszGUID ) );
+	return BShouldIgnoreController( pszGUID );
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Set whether a controller is temporarily disabled from input
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::SetControllerTemporarilyDisabled( int nJoystickID, bool bDisabled )
+{
+	Q_FOREACH( GameController_t *pController, m_vecGameControllers )
+	{
+		if ( pController->m_nJoystickID == nJoystickID )
+		{
+			pController->m_bDisabled = bDisabled;
+			break;
+		}
+	}
 }
 
 
@@ -150,18 +243,22 @@ void CControllerManager::CheckGameControllers()
 		switch ( event.type )
 		{
 		case SDL_JOYDEVICEADDED:
-			// If we don't recognize it, try to use it as an XBox controller
-			if ( !SDL_IsGameController( event.jdevice.which ) )
-			{
-				char pszGUID[ 33 ];
-				SDL_JoystickGUID guid = SDL_JoystickGetDeviceGUID( event.jdevice.which );
-				SDL_JoystickGetGUIDString( guid, pszGUID, sizeof( pszGUID ) );
-				if ( !BShouldIgnoreController( pszGUID ) )
-				{
-					SDL_GameControllerAddMapping( QString( "%1,XInput Controller,a:b0,b:b1,back:b6,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,dpup:h0.1,guide:b8,leftshoulder:b4,leftstick:b9,lefttrigger:a2,leftx:a0,lefty:a1,rightshoulder:b5,rightstick:b10,righttrigger:a5,rightx:a3,righty:a4,start:b7,x:b2,y:b3," ).arg( pszGUID ).toUtf8() );
-					OnGameControllerAdded( event.jdevice.which );
-				}
-			}
+			OnJoystickAdded( event.jdevice.which );
+			break;
+		case SDL_JOYDEVICEREMOVED:
+			OnJoystickRemoved( event.jdevice.which );
+			break;
+		case SDL_JOYAXISMOTION:
+			OnJoystickAxis( GetGameController( event.jaxis.which ), event.jaxis.axis, event.jaxis.value );
+			break;
+		case SDL_JOYHATMOTION:
+			OnJoystickHat( GetGameController( event.jhat.which ), event.jhat.hat, event.jhat.value );
+			break;
+		case SDL_JOYBUTTONDOWN:
+			OnJoystickButton( GetGameController( event.jbutton.which ), event.jbutton.button, true );
+			break;
+		case SDL_JOYBUTTONUP:
+			OnJoystickButton( GetGameController( event.jbutton.which ), event.jbutton.button, false );
 			break;
 		case SDL_CONTROLLERDEVICEADDED:
 			OnGameControllerAdded( event.cdevice.which );
@@ -182,6 +279,121 @@ void CControllerManager::CheckGameControllers()
 			QApplication::quit();
 			break;
 		}
+	}
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Handle joystick hotplug insertion
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::OnJoystickAdded( int iJoystick )
+{
+	if ( SDL_IsGameController( iJoystick ) )
+	{
+		// This will be handled by the game controller code
+		return;
+	}
+
+	if ( BShouldIgnoreController( iJoystick ) )
+	{
+		return;
+	}
+
+	GameController_t *pController = new GameController_t;
+	memset( pController, 0, sizeof( *pController ) );
+	pController->m_pJoystick = SDL_JoystickOpen( iJoystick );
+	if ( !pController->m_pJoystick )
+	{
+		delete pController;
+		return;
+	}
+	pController->m_nAttachedTime = SDL_GetTicks();
+	pController->m_nJoystickID = SDL_JoystickInstanceID( pController->m_pJoystick );
+
+	m_vecGameControllers << pController;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Handle joystick hotplug removal
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::OnJoystickRemoved( int nJoystickID )
+{
+	// The game controller cleanup code works for this as well
+	OnGameControllerRemoved( nJoystickID );
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Handle joystick axis events
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::OnJoystickAxis( GameController_t *pController, int nAxis, int nValue )
+{
+	if ( !pController || pController->m_pController )
+	{
+		// This will be handled by the game controller code
+		return;
+	}
+
+	// Assume for the moment that axis 0 is LEFTX and axis 1 is LEFTY
+	switch ( nAxis )
+	{
+	case 0:
+		OnGameControllerAxis( pController, SDL_CONTROLLER_AXIS_LEFTX, nValue );
+		break;
+	case 1:
+		OnGameControllerAxis( pController, SDL_CONTROLLER_AXIS_LEFTY, nValue );
+		break;
+	default:
+		// Ignore everything else
+		break;
+	}
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Handle joystick hat events
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::OnJoystickHat( GameController_t *pController, int nHat, int nValue )
+{
+	if ( !pController || pController->m_pController )
+	{
+		// This will be handled by the game controller code
+		return;
+	}
+
+	// Translate the hat into DPAD events
+	pController->m_arrButtonStates[ SDL_CONTROLLER_BUTTON_DPAD_UP ] = ( ( nValue & SDL_HAT_UP ) != 0 );
+	pController->m_arrButtonStates[ SDL_CONTROLLER_BUTTON_DPAD_DOWN ] = ( ( nValue & SDL_HAT_DOWN ) != 0 );
+	pController->m_arrButtonStates[ SDL_CONTROLLER_BUTTON_DPAD_LEFT ] = ( ( nValue & SDL_HAT_LEFT ) != 0 );
+	pController->m_arrButtonStates[ SDL_CONTROLLER_BUTTON_DPAD_RIGHT ] = ( ( nValue & SDL_HAT_RIGHT ) != 0 );
+	SendGameControllerDPadEvent( pController );
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Handle joystick button events
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::OnJoystickButton( GameController_t *pController, int nButton, bool bPressed )
+{
+	if ( !pController || pController->m_pController )
+	{
+		// This will be handled by the game controller code
+		return;
+	}
+
+	// Assume for the moment that button 0 is A and button 1 is B
+	switch ( nButton )
+	{
+	case 0:
+		OnGameControllerButton( pController, SDL_CONTROLLER_BUTTON_A, bPressed );
+		break;
+	case 1:
+		OnGameControllerButton( pController, SDL_CONTROLLER_BUTTON_B, bPressed );
+		break;
+	default:
+		// Ignore everything else
+		break;
 	}
 }
 
@@ -224,11 +436,34 @@ void CControllerManager::OnGameControllerRemoved( int nJoystickID )
 				OnGameControllerButton( pController, iButton, false );
 			
 			m_vecGameControllers.remove( iIndex );
-			SDL_GameControllerClose( pController->m_pController );
+			if ( pController->m_pJoystick )
+			{
+				SDL_JoystickClose( pController->m_pJoystick );
+			}
+			if ( pController->m_pController )
+			{
+				SDL_GameControllerClose( pController->m_pController );
+			}
 			delete pController;
 			return;
 		}
 	}
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Return true if there are controllers without mappings available
+//--------------------------------------------------------------------------------------------------
+bool CControllerManager::BHasUnmappedControllers()
+{
+	for ( int iJoystick = 0; iJoystick < SDL_NumJoysticks(); ++iJoystick )
+	{
+		if ( !SDL_IsGameController( iJoystick ) && !BShouldIgnoreController( iJoystick ) )
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 
@@ -240,7 +475,16 @@ CControllerManager::GameController_t *CControllerManager::GetGameController( int
 	Q_FOREACH( GameController_t *pController, m_vecGameControllers )
 	{
 		if ( pController->m_nJoystickID == nJoystickID )
-			return pController;
+		{
+			if ( pController->m_bDisabled )
+			{
+				return NULL;
+			}
+			else
+			{
+				return pController;
+			}
+		}
 	}
 	return NULL;
 }
@@ -252,7 +496,9 @@ CControllerManager::GameController_t *CControllerManager::GetGameController( int
 bool CControllerManager::BIgnoreGameControllerEvent( GameController_t *pController )
 {
 	if ( !pController )
+	{
 		return true;
+	}
 
 	const int ATTACH_EVENT_DELAY = 200;
 	if ( pController->m_nAttachedTime &&
@@ -265,6 +511,38 @@ bool CControllerManager::BIgnoreGameControllerEvent( GameController_t *pControll
 	{
 		pController->m_nAttachedTime = 0;
 		return false;
+	}
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Handle game controller axis events
+//--------------------------------------------------------------------------------------------------
+void CControllerManager::OnGameControllerAxis( GameController_t *pController, int nAxis, int nValue )
+{
+	if ( BIgnoreGameControllerEvent( pController ) )
+		return;
+
+	if ( pController->m_arrAxisValues[ nAxis ] == nValue )
+		return;
+
+	pController->m_arrAxisValues[ nAxis ] = nValue;
+
+	if ( nAxis == SDL_CONTROLLER_AXIS_LEFTX || nAxis == SDL_CONTROLLER_AXIS_LEFTY )
+	{
+		SendGameControllerThumbstickEvent( pController, QControllerEvent::THUMBSTICK_LEFT );
+	}
+	else if ( nAxis == SDL_CONTROLLER_AXIS_RIGHTX || nAxis == SDL_CONTROLLER_AXIS_RIGHTY )
+	{
+		SendGameControllerThumbstickEvent( pController, QControllerEvent::THUMBSTICK_RIGHT );
+	}
+	else if ( nAxis == SDL_CONTROLLER_AXIS_TRIGGERLEFT )
+	{
+		SendGameControllerTriggerEvent( pController, QControllerEvent::TRIGGER_LEFT );
+	}
+	else if ( nAxis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT )
+	{
+		SendGameControllerTriggerEvent( pController, QControllerEvent::TRIGGER_RIGHT );
 	}
 }
 
@@ -328,38 +606,6 @@ void CControllerManager::OnGameControllerButton( GameController_t *pController, 
 
 
 //--------------------------------------------------------------------------------------------------
-// Handle game controller axis events
-//--------------------------------------------------------------------------------------------------
-void CControllerManager::OnGameControllerAxis( GameController_t *pController, int nAxis, int nValue )
-{
-	if ( BIgnoreGameControllerEvent( pController ) )
-		return;
-
-	if ( pController->m_arrAxisValues[ nAxis ] == nValue )
-		return;
-
-	pController->m_arrAxisValues[ nAxis ] = nValue;
-
-	if ( nAxis == SDL_CONTROLLER_AXIS_LEFTX || nAxis == SDL_CONTROLLER_AXIS_LEFTY )
-	{
-		SendGameControllerThumbstickEvent( pController, QControllerEvent::THUMBSTICK_LEFT );
-	}
-	else if ( nAxis == SDL_CONTROLLER_AXIS_RIGHTX || nAxis == SDL_CONTROLLER_AXIS_RIGHTY )
-	{
-		SendGameControllerThumbstickEvent( pController, QControllerEvent::THUMBSTICK_RIGHT );
-	}
-	else if ( nAxis == SDL_CONTROLLER_AXIS_TRIGGERLEFT )
-	{
-		SendGameControllerTriggerEvent( pController, QControllerEvent::TRIGGER_LEFT );
-	}
-	else if ( nAxis == SDL_CONTROLLER_AXIS_TRIGGERRIGHT )
-	{
-		SendGameControllerTriggerEvent( pController, QControllerEvent::TRIGGER_RIGHT );
-	}
-}
-
-
-//--------------------------------------------------------------------------------------------------
 // Send a game controller dpad event
 //--------------------------------------------------------------------------------------------------
 void CControllerManager::SendGameControllerDPadEvent( GameController_t *pController )
@@ -384,14 +630,14 @@ void CControllerManager::SendGameControllerThumbstickEvent( GameController_t *pC
 	if ( eEvent == QControllerEvent::THUMBSTICK_LEFT )
 	{
 		iThumbstick = 0;
-		flX = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_LEFTX ] ) / CONTROLLER_AXIS_MAX;
-		flY = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_LEFTY ] ) / CONTROLLER_AXIS_MAX;
+		flX = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_LEFTX ] ) / SDL_JOYSTICK_AXIS_MAX;
+		flY = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_LEFTY ] ) / SDL_JOYSTICK_AXIS_MAX;
 	}
 	else
 	{
 		iThumbstick = 1;
-		flX = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_RIGHTX ] ) / CONTROLLER_AXIS_MAX;
-		flY = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_RIGHTY ] ) / CONTROLLER_AXIS_MAX;
+		flX = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_RIGHTX ] ) / SDL_JOYSTICK_AXIS_MAX;
+		flY = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_RIGHTY ] ) / SDL_JOYSTICK_AXIS_MAX;
 	}
 
 	flAngle = ( flX == 0.0f && flY == 0.0f ) ? 0.0f : atan2( flX, -flY );
@@ -421,16 +667,16 @@ void CControllerManager::SendGameControllerTriggerEvent( GameController_t *pCont
 	int iTrigger;
 	float flDistance;
 
-	// The trigger range is -CONTROLLER_AXIS_MAX - 1 ... CONTROLLER_AXIS_MAX, so checking > 0 already includes a 50% dead zone
+	// The trigger range is -SDL_JOYSTICK_AXIS_MAX - 1 ... SDL_JOYSTICK_AXIS_MAX, so checking > 0 already includes a 50% dead zone
 	if ( eEvent == QControllerEvent::TRIGGER_LEFT )
 	{
 		iTrigger = 0;
-		flDistance = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_TRIGGERLEFT ] ) / CONTROLLER_AXIS_MAX;
+		flDistance = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_TRIGGERLEFT ] ) / SDL_JOYSTICK_AXIS_MAX;
 	}
 	else
 	{
 		iTrigger = 1;
-		flDistance = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_TRIGGERRIGHT ] ) / CONTROLLER_AXIS_MAX;
+		flDistance = static_cast<float>( pController->m_arrAxisValues[ SDL_CONTROLLER_AXIS_TRIGGERRIGHT ] ) / SDL_JOYSTICK_AXIS_MAX;
 	}
 
 	bool bTilted = ( flDistance > 0.0f );
@@ -451,12 +697,14 @@ void CControllerManager::SendGameControllerTriggerEvent( GameController_t *pCont
 void CControllerManager::QuitGameControllers()
 {
 	while ( m_vecGameControllers.count() > 0 )
+	{
 		OnGameControllerRemoved( m_vecGameControllers[ 0 ]->m_nJoystickID );
+	}
 
-	if ( m_bInitalizedSDL )
+	if ( m_bInitalizedSDLGameController )
 	{
 		SDL_QuitSubSystem( SDL_INIT_GAMECONTROLLER );
-		m_bInitalizedSDL = false;
+		m_bInitalizedSDLGameController = false;
 	}
 }
 
@@ -639,3 +887,78 @@ void CControllerManager::timerEvent( QTimerEvent *pEvent )
 
 	QObject::timerEvent( pEvent );
 }
+
+
+#ifdef STEAM_CONTROLLER_SUPPORT
+//--------------------------------------------------------------------------------------------------
+// Check for presence of any Steam controllers
+//--------------------------------------------------------------------------------------------------
+struct SteamControllersConnectedData_t
+{
+	bool m_bConnected;
+};
+static void SteamControllersConnectedCallback( void *pContext, SDL_JoystickID nJoystickID, int nDevice, int nFD, SDL_bool bWireless, SDL_bool bConnected )
+{
+	SteamControllersConnectedData_t *pData = static_cast<SteamControllersConnectedData_t *>( pContext );
+
+	if ( bConnected )
+	{
+		pData->m_bConnected = true;
+	}
+}
+bool CControllerManager::BAnySteamControllersConnected()
+{
+	SteamControllersConnectedData_t data = { false };
+	SDL_EnumSteamControllers( SteamControllersConnectedCallback, &data );
+	return data.m_bConnected;
+}
+
+
+//--------------------------------------------------------------------------------------------------
+// Set the pairing state on connected Steam Controller dongles
+//--------------------------------------------------------------------------------------------------
+struct SteamControllerEnablePairingData_t
+{
+	bool m_bEnabled;
+	bool m_bComplete;
+};
+
+void SteamControllerEnablePairingCallback( void *pContext, SDL_JoystickID nJoystickID, int nDevice, int nFD, SDL_bool bWireless, SDL_bool bConnected )
+{
+	SteamControllerEnablePairingData_t *pData = static_cast<SteamControllerEnablePairingData_t *>( pContext );
+
+	if ( pData->m_bComplete )
+	{
+		return;
+	}
+
+	if ( bWireless && !bConnected )
+	{
+		::EnableSteamControllerPairing( nDevice, nFD, pData->m_bEnabled, -1 );
+
+		// Only enable pairing to the first dongle (usually the internal one)
+		if ( pData->m_bEnabled )
+		{
+			pData->m_bComplete = true;
+		}
+	}
+}
+bool CControllerManager::EnableSteamControllerPairing( bool bEnabled )
+{
+	SteamControllerEnablePairingData_t data = { bEnabled, false };
+	SDL_EnumSteamControllers( SteamControllerEnablePairingCallback, &data );
+	return data.m_bComplete;
+}
+
+#else // !STEAM_CONTROLLER_SUPPORT
+
+bool CControllerManager::BAnySteamControllersConnected()
+{
+	return false;
+}
+bool CControllerManager::EnableSteamControllerPairing( bool bEnabled )
+{
+	return false;
+}
+
+#endif // STEAM_CONTROLLER_SUPPORT
