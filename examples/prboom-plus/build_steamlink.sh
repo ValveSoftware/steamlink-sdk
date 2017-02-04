@@ -441,14 +441,18 @@ es3bifE2jTDcA4a1f/D7DzsD8pBpGbbh4e186kP2fNiTGW4w9cOE9KMA/26++7AMa/btNP2w1qvb
 eGLybWy+OmR+1A+yuviDvv4/WZUJHlTHfjwAAAAASUVORK5CYII=
 __EOF__
 
+#
 # Pack it up
+#
 name=$(basename ${DESTDIR})
 pushd "$(dirname ${DESTDIR})"
 tar zcvf $name.tgz $name || exit 3
 rm -rf $name
 popd
 
+#
 # All done!
+#
 echo "Build complete!"
 echo
 echo "Put the steamlink folder onto a USB drive, insert it into your Steam Link, and cycle the power to install."
