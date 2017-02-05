@@ -18,7 +18,7 @@ export CPP="${CROSS}cpp"
 export CXX="${CROSS}g++"
 export CFLAGS="--sysroot=$MARVELL_ROOTFS -DLINUX=1 -DEGL_API_FB=1"
 export LDFLAGS="--sysroot=$MARVELL_ROOTFS -static-libgcc -static-libstdc++ -lEGL"
-export INCLUDE_DIRS="-I$MARVELL_ROOTFS/usr/include -I$MARVELL_ROOTFS/usr/include/EGL -I$MARVELL_ROOTFS/usr/include/SDL2 -I${MARVELL_ROOTFS}/include/GLES2"
+export INCLUDE_DIRS="-I$MARVELL_ROOTFS/usr/include -I$MARVELL_ROOTFS/usr/include/EGL -I$MARVELL_ROOTFS/usr/include/SDL2 -I${MARVELL_ROOTFS}/include/GLES2 -I$MARVELL_ROOTFS/usr/include/freetype2"
 export LIBRARY_DIRS="-L$MARVELL_ROOTFS/usr/lib -L$MARVELL_ROOTFS/lib"
 export PKG_CONF_PATH=pkg-config
 
@@ -33,7 +33,7 @@ fi
 # Build it
 #
 pushd "${SRC}"
-./configure --host=$SOC_BUILD --disable-threads --disable-alsa --disable-pulse --enable-neon --disable-shaderpipeline
+./configure --host=$SOC_BUILD --disable-threads --disable-alsa --disable-pulse --enable-neon --disable-shaderpipeline --enable-opengl --enable-opengles
 make $MAKE_J || exit 2
 popd
 
@@ -49,6 +49,7 @@ mkdir -p "${DESTDIR}/extra"
 mkdir -p "${DESTDIR}/.home/.config/retroarch"
 
 cp -v "${SRC}/retroarch" "${DESTDIR}"
+$STRIP "${DESTDIR}/retroarch"
 cp -v "${TOP}/retroarch.cfg" "${DESTDIR}/.home/.config/retroarch/retroarch.cfg"
 
 # You can add some roms for testing
