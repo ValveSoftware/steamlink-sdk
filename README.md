@@ -37,6 +37,10 @@ Steam Link linux kernel source code
 ###rootfs
 Steam Link root filesystem
 
+Debug symbols for binaries in the latest build are available from:
+http://media.steampowered.com/steamlink/steamlink-sdk-symbols.tar.xz
+
+
 ###toolchain
 GCC toolchain for Steam Link
 
