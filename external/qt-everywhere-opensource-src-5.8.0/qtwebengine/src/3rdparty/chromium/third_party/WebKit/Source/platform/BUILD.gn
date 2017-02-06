@@ -1,0 +1,633 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+import("//third_party/WebKit/Source/build/scripts/scripts.gni")
+import("//third_party/WebKit/Source/config.gni")
+import("//third_party/WebKit/Source/platform/platform.gni")
+import("//third_party/WebKit/Source/platform/platform_generated.gni")
+
+# Most targets in this file are private actions so use that as the default.
+visibility = [ ":*" ]
+
+heap_gypi = exec_script("//build/gypi_to_gn.py",
+                        [ rebase_path("heap/blink_heap.gypi") ],
+                        "scope",
+                        [ "heap/blink_heap.gypi" ])
+
+blink_platform_neon_files = [ "graphics/cpu/arm/WebGLImageConversionNEON.h" ]
+
+blink_platform_sse_files = [ "graphics/cpu/x86/WebGLImageConversionSSE.h" ]
+
+# blink_common in blink_platform.gyp
+component("blink_common") {
+  visibility = []  # Allow re-assignment of list.
+  visibility = [ "//third_party/WebKit/*" ]
+  sources = [
+    "../web/WebInputEvent.cpp",
+    "exported/FilePathConversion.cpp",
+    "exported/URLConversion.cpp",
+    "exported/WebCString.cpp",
+    "exported/WebString.cpp",
+    "exported/linux/WebFontRenderStyle.cpp",
+  ]
+  if (is_android) {
+    set_sources_assignment_filter([])
+    sources += [ "exported/linux/WebFontRenderStyle.cpp" ]
+  }
+
+  defines = [
+    "BLINK_COMMON_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//third_party/WebKit/Source:config",
+    "//third_party/WebKit/Source:non_test_config",
+  ]
+
+  deps = [
+    "//base",
+    "//third_party/WebKit/Source/wtf",
+    "//url",
+  ]
+
+  public_deps = [
+    "//skia",
+  ]
+}
+
+# FontFamilyNames action in make_platform_generated in
+# platform_generated.gyp
+action("font_family_names") {
+  script = "../build/scripts/make_names.py"
+
+  font_family_names_in = "fonts/FontFamilyNames.in"
+  inputs = make_names_files + [ font_family_names_in ]
+
+  outputs = [
+    "$blink_platform_output_dir/FontFamilyNames.cpp",
+    "$blink_platform_output_dir/FontFamilyNames.h",
+  ]
+
+  args = [
+    rebase_path(font_family_names_in, root_build_dir),
+    "--output_dir",
+    rebase_path(blink_platform_output_dir, root_build_dir),
+  ]
+}
+
+# HTTPNames action in make_platform_generated in
+# platform_generated.gyp
+action("http_names") {
+  script = "../build/scripts/make_names.py"
+
+  http_names_in = "network/HTTPNames.in"
+  inputs = make_names_files + [ http_names_in ]
+
+  outputs = [
+    "$blink_platform_output_dir/HTTPNames.cpp",
+    "$blink_platform_output_dir/HTTPNames.h",
+  ]
+
+  args = [
+    rebase_path(http_names_in, root_build_dir),
+    "--output_dir",
+    rebase_path(blink_platform_output_dir, root_build_dir),
+  ]
+}
+
+# RuntimeEnabledFeatures action in make_platform_generated in
+# platform_generated.gyp
+action("runtime_enabled_features") {
+  script = "../build/scripts/make_runtime_features.py"
+
+  runtime_enabled_features_in = "RuntimeEnabledFeatures.in"
+  inputs = scripts_for_in_files + [
+             runtime_enabled_features_in,
+             "../build/scripts/templates/RuntimeEnabledFeatures.cpp.tmpl",
+             "../build/scripts/templates/RuntimeEnabledFeatures.h.tmpl",
+           ]
+
+  outputs = [
+    "$blink_platform_output_dir/RuntimeEnabledFeatures.cpp",
+    "$blink_platform_output_dir/RuntimeEnabledFeatures.h",
+  ]
+
+  args = [
+    rebase_path(runtime_enabled_features_in, root_build_dir),
+    "--output_dir",
+    rebase_path(blink_platform_output_dir, root_build_dir),
+  ]
+}
+
+# ColorData action in make_platform_generated in platform_generated.gyp
+action("color_data") {
+  script = "../build/scripts/gperf.py"
+
+  color_data_gperf = "ColorData.gperf"
+  inputs = [
+    color_data_gperf,
+  ]
+
+  output_file = "$blink_platform_output_dir/ColorData.cpp"
+  outputs = [
+    output_file,
+  ]
+
+  args = [
+    gperf_exe,
+    "--key-positions=*",
+    "-D",
+    "-s",
+    "2",
+    rebase_path(color_data_gperf, root_build_dir),
+    "--output-file=" + rebase_path(output_file, root_build_dir),
+  ]
+}
+
+action("character_data") {
+  script = "../build/scripts/gperf.py"
+  deps = [
+    ":character_data_generator($host_toolchain)",
+  ]
+  output_file = "$blink_platform_output_dir/CharacterPropertyData.cpp"
+  outputs = [
+    output_file,
+  ]
+
+  # Find character_data_generator, which is generated in a different directory
+  # when cross-compile.
+  generator = "./" + rebase_path(
+                  get_label_info(":character_data_generator($host_toolchain)",
+                                 "root_out_dir") + "/character_data_generator",
+                  root_build_dir)
+  args = [
+    generator,
+    rebase_path(output_file, root_build_dir),
+  ]
+}
+
+executable("character_data_generator") {
+  sources = [
+    "text/CharacterPropertyDataGenerator.cpp",
+    "text/CharacterPropertyDataGenerator.h",
+  ]
+  configs += [ "//third_party/WebKit/Source:config" ]
+  deps = [
+    "//build/config/sanitizers:deps",
+
+    # Default manifest on Windows (a no-op elsewhere).
+    "//build/win:default_exe_manifest",
+    "//third_party/icu",
+  ]
+}
+
+# Inspector protocol
+
+action("inspector_protocol_sources") {
+  script = "inspector_protocol/CodeGenerator.py"
+  deps = [
+    ":inspector_protocol_version",
+  ]
+  sources = [
+    "inspector_protocol/CodeGenerator.py",
+    "inspector_protocol/TypeBuilder_cpp.template",
+    "inspector_protocol/TypeBuilder_h.template",
+  ]
+  inputs = [
+    "v8_inspector/js_protocol.json",
+  ]
+  outputs = [
+    "$blink_platform_output_dir/v8_inspector/protocol/Console.cpp",
+    "$blink_platform_output_dir/v8_inspector/protocol/Console.h",
+    "$blink_platform_output_dir/v8_inspector/protocol/Debugger.cpp",
+    "$blink_platform_output_dir/v8_inspector/protocol/Debugger.h",
+    "$blink_platform_output_dir/v8_inspector/protocol/HeapProfiler.cpp",
+    "$blink_platform_output_dir/v8_inspector/protocol/HeapProfiler.h",
+    "$blink_platform_output_dir/v8_inspector/protocol/Profiler.cpp",
+    "$blink_platform_output_dir/v8_inspector/protocol/Profiler.h",
+    "$blink_platform_output_dir/v8_inspector/protocol/Runtime.cpp",
+    "$blink_platform_output_dir/v8_inspector/protocol/Runtime.h",
+  ]
+
+  args = [
+    "--protocol",
+    rebase_path("v8_inspector/js_protocol.json", root_build_dir),
+    "--string_type",
+    "String16",
+    "--export_macro",
+    "PLATFORM_EXPORT",
+    "--output_dir",
+    rebase_path(blink_platform_output_dir + "/v8_inspector/protocol",
+                root_build_dir),
+    "--output_package",
+    "platform/v8_inspector/protocol",
+  ]
+}
+
+action("inspector_protocol_version") {
+  script = "inspector_protocol/generate-inspector-protocol-version"
+
+  inputs = [
+    "v8_inspector/js_protocol.json",
+  ]
+  output_file =
+      "$blink_platform_output_dir/v8_inspector/protocol/v8inspector.json"
+  outputs = [
+    output_file,
+  ]
+
+  args = [
+    "--o",
+    rebase_path(output_file, root_build_dir),
+    rebase_path("v8_inspector/js_protocol.json", root_build_dir),
+  ]
+}
+
+action("inspector_injected_script") {
+  script = "v8_inspector/build/xxd.py"
+  inputs = [
+    "v8_inspector/InjectedScriptSource.js",
+  ]
+  outputs = [
+    "$blink_platform_output_dir/v8_inspector/InjectedScriptSource.h",
+  ]
+  args = [
+    "InjectedScriptSource_js",
+    rebase_path("v8_inspector/InjectedScriptSource.js", root_build_dir),
+    rebase_path(
+        "$blink_platform_output_dir/v8_inspector/InjectedScriptSource.h",
+        root_build_dir),
+  ]
+}
+
+action("inspector_debugger_script") {
+  script = "v8_inspector/build/xxd.py"
+  inputs = [
+    "v8_inspector/DebuggerScript.js",
+  ]
+  outputs = [
+    "$blink_platform_output_dir/v8_inspector/DebuggerScript.h",
+  ]
+  args = [
+    "DebuggerScript_js",
+    rebase_path("v8_inspector/DebuggerScript.js", root_build_dir),
+    rebase_path("$blink_platform_output_dir/v8_inspector/DebuggerScript.h",
+                root_build_dir),
+  ]
+}
+
+# This isn't strictly necessary since we can just add the deps to "platform",
+# but it helps to have the targets match the GYP build.
+group("make_platform_generated") {
+  visibility = []  # Allow re-assignment of list.
+  visibility = [ "//third_party/WebKit/Source/*" ]
+  public_deps = [
+    ":blink_common",
+    ":character_data",
+    ":color_data",
+    ":font_family_names",
+    ":http_names",
+    ":inspector_debugger_script",
+    ":inspector_injected_script",
+    ":inspector_protocol_sources",
+    ":runtime_enabled_features",
+  ]
+}
+
+# TODO(brettw) Objective C Renaming postbuild steps on Mac.
+# blink_platform target in blink_platform.gyp
+component("platform") {
+  visibility = []  # Allow re-assignment of list.
+  visibility = [
+    "//third_party/WebKit/*",
+    "//url/mojo:url_mojom_origin_blink_cpp_sources",
+    "//url/mojo:url_mojom_gurl_blink_cpp_sources",
+  ]
+  output_name = "blink_platform"
+
+  sources = platform_files
+  sources -= blink_platform_neon_files
+  sources -= blink_platform_sse_files
+
+  # Add in the generated files.
+  sources += get_target_outputs(":character_data") +
+             get_target_outputs(":color_data") +
+             get_target_outputs(":font_family_names") +
+             get_target_outputs(":http_names") +
+             get_target_outputs(":inspector_debugger_script") +
+             get_target_outputs(":inspector_injected_script") +
+             get_target_outputs(":inspector_protocol_sources") +
+             get_target_outputs(":runtime_enabled_features")
+
+  configs += [
+    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+    "//build/config/compiler:no_size_t_to_int_warning",
+    "//third_party/WebKit/Source:config",
+    "//third_party/WebKit/Source:non_test_config",
+  ]
+
+  defines = [
+    "BLINK_PLATFORM_IMPLEMENTATION=1",
+    "INSIDE_BLINK",
+  ]
+
+  include_dirs = [
+    #"$angle_path/include",
+    "$root_gen_dir/blink",
+  ]
+
+  public_deps = [
+    ":make_platform_generated",
+    "//base",
+    "//cc",
+    "//gpu/command_buffer/client:gles2_c_lib",
+    "//gpu/command_buffer/client:gles2_interface",
+    "//gpu/command_buffer/common:common",
+    "//net",
+    "//skia",
+    "//third_party:jpeg",
+    "//third_party/WebKit/Source/wtf",
+    "//third_party/iccjpeg",
+    "//third_party/libpng",
+    "//third_party/libwebp",
+    "//third_party/ots",
+    "//third_party/qcms",
+    "//url",
+    "//v8",
+  ]
+  deps = [
+    ":blink_common",
+    "//components/link_header_util:link_header_util",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/bindings:wtf_support",
+    "//third_party/WebKit/Source/platform/heap",
+    "//third_party/WebKit/public:mojo_bindings_blink",
+    "//third_party/harfbuzz-ng",
+    "//third_party/icu",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (is_mac) {
+    sources -= [
+      # Uses KillRingMac.mm instead.
+      "KillRingNone.cpp",
+      "fonts/skia/FontCacheSkia.cpp",
+      "scroll/ScrollAnimator.cpp",
+      "scroll/ScrollAnimator.h",
+
+      # Uses LocaleMac instead.
+      "text/LocaleICU.cpp",
+      "text/LocaleICU.h",
+    ]
+
+    configs += [ "//third_party/WebKit/Source:mac_precompiled_headers" ]
+    libs = [
+      "AppKit.framework",
+      "Accelerate.framework",
+      "Carbon.framework",
+      "Foundation.framework",
+    ]
+  } else {
+    sources -= [
+      "geometry/cg/FloatPointCG.cpp",
+      "geometry/cg/FloatRectCG.cpp",
+      "geometry/cg/FloatSizeCG.cpp",
+      "geometry/cg/IntPointCG.cpp",
+      "geometry/cg/IntRectCG.cpp",
+      "geometry/cg/IntSizeCG.cpp",
+    ]
+  }
+
+  if (is_win) {
+    sources -= [
+      "clipboard/ClipboardUtilitiesPosix.cpp",
+
+      # Uses LocaleWin instead.
+      "text/LocaleICU.cpp",
+      "text/LocaleICU.h",
+    ]
+    cflags = [
+      "/wd4334",  # Result of 32-bit shift implicitly converted to 64 bits.
+      "/wd4724",  # Modulo by 0.
+    ]
+  } else {
+    sources -= [
+      "clipboard/ClipboardUtilitiesWin.cpp",
+      "text/LocaleWin.cpp",
+    ]
+  }
+
+  if (is_android) {
+    # Add in some Linux files also shared with Android.
+    set_sources_assignment_filter([])
+    sources += [
+      "fonts/linux/FontPlatformDataLinux.cpp",
+      "fonts/linux/FontRenderStyle.cpp",
+      "fonts/linux/FontRenderStyle.h",
+    ]
+    set_sources_assignment_filter(sources_assignment_filter)
+  } else {
+    sources -= [ "scroll/ScrollbarThemeAndroid.cpp" ]
+  }
+
+  if (!use_default_render_theme) {
+    sources -= [
+      "scroll/ScrollbarThemeAura.cpp",
+      "scroll/ScrollbarThemeAura.h",
+    ]
+  }
+
+  if (current_cpu == "arm") {
+    deps += [ ":blink_arm_neon" ]
+  }
+
+  if (current_cpu == "x86" || current_cpu == "x64") {
+    deps += [ ":blink_x86_sse" ]
+  }
+
+  if (use_webaudio_ffmpeg) {
+    include_dirs += [ "//third_party/ffmpeg" ]
+    deps += [ "//third_party/ffmpeg" ]
+  }
+  if (use_openmax_dl_fft) {
+    include_dirs += [ "//third_party/openmax_dl" ]
+    deps += [ "//third_party/openmax_dl/dl" ]
+  }
+
+  if (remove_webcore_debug_symbols) {
+    configs -= [ "//build/config/compiler:default_symbols" ]
+    configs += [ "//build/config/compiler:no_symbols" ]
+  }
+}
+
+source_set("test_support") {
+  sources = platform_test_support_files
+  visibility += [ "//third_party/WebKit/*" ]
+  testonly = true
+
+  configs += [
+    "//third_party/WebKit/Source:config",
+    "//third_party/WebKit/Source:inside_blink",
+    "//third_party/WebKit/Source:non_test_config",
+  ]
+
+  public_deps = [
+    ":platform",
+    "//cc",
+    "//cc:test_support",
+    "//cc/blink",
+    "//testing/gmock",
+    "//testing/gtest:gtest",
+  ]
+
+  deps = [
+    "//base/test:test_support",
+    "//mojo/edk/system",
+    "//third_party/qcms",
+  ]
+
+  if (is_win) {
+    cflags = [ "/wd4267" ]  # Truncation from size_t to int.
+  }
+}
+
+# GYP: blink_heap_unittests
+test("blink_heap_unittests") {
+  visibility = []  # Allow re-assignment of list.
+  visibility = [ "*" ]
+
+  sources = rebase_path(heap_gypi.platform_heap_test_files, ".", "heap")
+  sources += [ "heap/RunAllTests.cpp" ]
+
+  configs += [
+    "//third_party/WebKit/Source/wtf:wtf_config",
+    "//third_party/WebKit/Source:config",
+  ]
+
+  defines = [ "INSIDE_BLINK" ]
+
+  deps = [
+    ":platform",
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/WebKit/Source/wtf",
+  ]
+  if (is_android) {
+    deps += [
+      "//base:base_java",
+      "//content/shell/android:content_shell_assets",
+      "//net/android:net_java",
+    ]
+  }
+}
+
+test("blink_platform_unittests") {
+  visibility = []  # Allow re-assignment of list.
+  visibility = [ "*" ]
+
+  sources = platform_test_files
+
+  if (is_win) {
+    sources += [ "text/LocaleWinTest.cpp" ]
+  } else if (is_mac) {
+    sources += [ "text/LocaleMacTest.cpp" ]
+  } else if (is_posix) {
+    sources += [ "text/LocaleICUTest.cpp" ]
+  }
+
+  if (!is_mac) {
+    sources += [ "scroll/ScrollAnimatorTest.cpp" ]
+  }
+
+  if (use_default_render_theme) {
+    sources += [ "scroll/ScrollbarThemeAuraTest.cpp" ]
+  }
+
+  sources += [ "testing/RunAllTests.cpp" ]
+
+  configs += [
+    "//third_party/WebKit/Source/wtf:wtf_config",
+    "//third_party/WebKit/Source:config",
+  ]
+
+  deps = [
+    ":blink_common",
+    ":platform",
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//cc",
+    "//cc:test_support",
+    "//cc/blink",
+    "//mojo/edk/embedder:headers",
+    "//mojo/edk/test:test_support",
+    "//mojo/public/cpp/bindings/tests:for_blink_tests",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/WebKit/Source/wtf",
+    "//third_party/harfbuzz-ng",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//url",
+    "//url/mojo:test_url_mojom_gurl_blink",
+  ]
+
+  data_deps = [
+    ":blink_platform_unittests_data",
+  ]
+
+  defines = [ "INSIDE_BLINK" ]
+
+  include_dirs = [ "$root_gen_dir/blink" ]
+}
+
+group("blink_platform_unittests_data") {
+  data = [
+    "testing/data/",
+
+    # Required by some image decoder tests.
+    "image-decoders/testing/",
+    "../../LayoutTests/fast/images/resources/",
+  ]
+}
+
+if (current_cpu == "arm") {
+  source_set("blink_arm_neon") {
+    sources = blink_platform_neon_files
+
+    # The *NEON.cpp files fail to compile when -mthumb is passed. Force
+    # them to build in ARM mode.
+    # See https://bugs.webkit.org/show_bug.cgi?id=62916.
+    # TODO(GYP)
+    #'cflags': ['-marm'],
+    #    'conditions': [
+    #      ['OS=="android"', {
+    #        'cflags!': ['-mthumb'],
+    #      }],
+    #    ],
+
+    deps = [
+      ":blink_common",
+    ]
+  }
+}
+
+if (current_cpu == "x86" || current_cpu == "x64") {
+  source_set("blink_x86_sse") {
+    sources = blink_platform_sse_files
+    deps = [
+      ":blink_common",
+    ]
+  }
+}

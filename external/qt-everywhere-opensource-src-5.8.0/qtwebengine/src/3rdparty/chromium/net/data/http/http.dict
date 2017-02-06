@@ -1,0 +1,163 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Fuzzer dictionary targetting HTTP/1.x responses.
+
+# Entries that are generally useful in headers
+":"
+"\x0A"
+"\x0D"
+"0"
+"50"
+"500"
+# Horizontal whitespace. Matters mostly in status line.
+" "
+"\x09"
+# Header continuation
+"\x0D\x0A\x09"
+# Used in a lot of individual headers
+";"
+"="
+","
+"\""
+"-"
+
+# Status line components
+"HTTP"
+"/1.1"
+"/1.0"
+# More interesting status codes.  Leading space so can be inserted into
+# other status lines.
+" 100"
+" 200"
+" 206"
+" 301"
+" 302"
+" 303"
+" 304"
+" 307"
+" 308"
+" 401"
+" 403"
+" 404"
+" 500"
+" 501"
+" 403"
+
+# Full status lines (Some with relevant following headers)
+"HTTP/1.1 200 OK\x0A\x0A"
+"HTTP/1.1 100 Continue\x0A\x0A"
+"HTTP/1.1 401 Unauthorized\x0AWWW-Authenticate: Basic realm=\"Middle-Earth\"\x0A\xA0"
+"HTTP/1.1 407 Proxy Authentication Required\x0AProxy-Authenticate: Digest realm=\"Middle-Earth\", nonce=\"aaaaaaaaaa\"\x0A\x0A"
+"HTTP/1.0 301 Moved Permanently\x0ALocation: /a\x0A\x0A"
+"HTTP/1.1 302 Found\x0ALocation: http://lost/\x0A\x0A"
+
+# Proxy authentication headers. Note that fuzzers don't support NTLM or
+# negotiate.
+"WWW-Authenticate:"
+"Proxy-Authenticate:"
+"Basic"
+"Digest"
+"realm"
+"nonce"
+
+"Connection:"
+"Proxy-Connection:"
+"Keep-Alive"
+"Close"
+"Upgrade"
+"\x0AConnection: Keep-Alive"
+"\x0AConnection: Close"
+"\x0AProxy-Connection: Keep-Alive"
+"\x0AProxy-Connection: Close"
+
+"Content-Length:"
+"Transfer-Encoding:"
+"chunked"
+"\x0AContent-Length: 0"
+"\x0AContent-Length: 500"
+"\x0ATransfer-Encoding: chunked\x0A\x0A5\x0A12345\x0A0\x0A\x0A"
+
+"Location:"
+"\x0ALocation: http://foo/"
+"\x0ALocation: http://bar/"
+"\x0ALocation: https://foo/"
+"\x0ALocation: https://bar/"
+
+"Accept-Ranges:"
+"bytes"
+"\x0AAccept-Ranges: bytes"
+
+"Content-Range:"
+
+"Age:"
+"\x0AAge: 0"
+"\x0AAge: 3153600000"
+
+"Cache-Control:"
+"max-age"
+"no-cache"
+"no-store"
+"must-revalidate"
+"\x0ACache-Control: max-age=3153600000"
+"\x0ACache-Control: max-age=0"
+"\x0ACache-Control: no-cache"
+"\x0ACache-Control: no-store"
+"\x0ACache-Control: must-revalidate"
+
+"Content-Disposition:"
+"attachment"
+"filename"
+
+"Content-Encoding:"
+"gzip"
+"deflate"
+"sdch"
+"br"
+"\x0AContent-Encoding: gzip"
+"\x0AContent-Encoding: deflate"
+"\x0AContent-Encoding: sdch"
+"\x0AContent-Encoding: br"
+
+"Date:"
+"Fri, 01 Apr, 2050 14:14:14 GMT"
+"Mon, 28 Mar, 2016 04:04:04 GMT"
+"\x0ADate: Fri, 01 Apr, 2050 14:14:14 GMT"
+"\x0ADate: Mon, 28 Mar, 2016 04:04:04 GMT"
+
+"Last-Modified:"
+"\x0ALast-Modified: Fri, 01 Apr, 2050 14:14:14 GMT"
+"\x0ALast-Modified: Mon, 28 Mar, 2016 04:04:04 GMT"
+
+"Expires:"
+"\x0AExpires: Fri, 01 Apr, 2050 14:14:14 GMT"
+"\x0AExpires: Mon, 28 Mar, 2016 04:04:04 GMT"
+
+"Set-Cookie:"
+"Expires"
+"Max-Age"
+"Domain"
+"Path"
+"Secure"
+"HttpOnly"
+"Priority"
+"Low"
+"Medium"
+"High"
+"SameSite"
+"Strict"
+"Lax"
+"\x0ASet-Cookie: foo=bar"
+"\x0ASet-Cookie: foo2=bar2;HttpOnly;Priority=Low;SameSite=Strict;Path=/"
+"\x0ASet-Cookie: foo=chicken;SameSite=Lax"
+
+"Strict-Transport-Security:"
+"includeSubDomains"
+
+"Vary:"
+"\x0AVary: Cookie"
+"\x0AVary: Age"
+
+"ETag:"
+"\x0AETag: jumboshrimp"

@@ -1,0 +1,603 @@
+/*
+ * Copyright 2013 Google Inc.
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+#include "gm.h"
+#include "SkBlurMask.h"
+#include "SkBlurMaskFilter.h"
+#include "SkCanvas.h"
+#include "SkGradientShader.h"
+#include "SkImage.h"
+#include "SkUtils.h"
+
+#if SK_SUPPORT_GPU
+#include "GrContext.h"
+#include "GrContextOptions.h"
+#include "SkGr.h"
+#endif
+
+/** Holds either a bitmap or image to be rendered and a rect that indicates what part of the bitmap
+    or image should be tested by the GM. The area outside of the rect is present to check
+    for bleed due to filtering/blurring. */
+struct TestPixels {
+    enum Type {
+        kBitmap,
+        kImage
+    };
+    Type            fType;
+    SkBitmap        fBitmap;
+    sk_sp<SkImage>  fImage;
+    SkIRect         fRect;  // The region of the bitmap/image that should be rendered.
+};
+
+/** Creates a bitmap with two one-pixel rings around a checkerboard. The checkerboard is 2x2
+    logically where each check has as many pixels as is necessary to fill the interior. The rect
+    to draw is set to the checkerboard portion. */
+template<typename PIXEL_TYPE>
+bool make_ringed_bitmap(GrContext*, TestPixels* result, int width, int height,
+                        SkColorType ct, SkAlphaType at,
+                        PIXEL_TYPE outerRingColor, PIXEL_TYPE innerRingColor,
+                        PIXEL_TYPE checkColor1, PIXEL_TYPE checkColor2) {
+    SkASSERT(0 == width % 2 && 0 == height % 2);
+    SkASSERT(width >= 6 && height >= 6);
+
+    result->fType = TestPixels::kBitmap;
+    SkImageInfo info = SkImageInfo::Make(width, height, ct, at);
+    size_t rowBytes = SkAlign4(info.minRowBytes());
+    result->fBitmap.allocPixels(info, rowBytes);
+
+    PIXEL_TYPE* scanline = (PIXEL_TYPE*)result->fBitmap.getAddr(0, 0);
+    for (int x = 0; x < width; ++x) {
+        scanline[x] = outerRingColor;
+    }
+    scanline = (PIXEL_TYPE*)result->fBitmap.getAddr(0, 1);
+    scanline[0] = outerRingColor;
+    for (int x = 1; x < width - 1; ++x) {
+        scanline[x] = innerRingColor;
+    }
+    scanline[width - 1] = outerRingColor;
+
+    for (int y = 2; y < height / 2; ++y) {
+        scanline = (PIXEL_TYPE*)result->fBitmap.getAddr(0, y);
+        scanline[0] = outerRingColor;
+        scanline[1] = innerRingColor;
+        for (int x = 2; x < width / 2; ++x) {
+            scanline[x] = checkColor1;
+        }
+        for (int x = width / 2; x < width - 2; ++x) {
+            scanline[x] = checkColor2;
+        }
+        scanline[width - 2] = innerRingColor;
+        scanline[width - 1] = outerRingColor;
+    }
+
+    for (int y = height / 2; y < height - 2; ++y) {
+        scanline = (PIXEL_TYPE*)result->fBitmap.getAddr(0, y);
+        scanline[0] = outerRingColor;
+        scanline[1] = innerRingColor;
+        for (int x = 2; x < width / 2; ++x) {
+            scanline[x] = checkColor2;
+        }
+        for (int x = width / 2; x < width - 2; ++x) {
+            scanline[x] = checkColor1;
+        }
+        scanline[width - 2] = innerRingColor;
+        scanline[width - 1] = outerRingColor;
+    }
+
+    scanline = (PIXEL_TYPE*)result->fBitmap.getAddr(0, height - 2);
+    scanline[0] = outerRingColor;
+    for (int x = 1; x < width - 1; ++x) {
+        scanline[x] = innerRingColor;
+    }
+    scanline[width - 1] = outerRingColor;
+
+    scanline = (PIXEL_TYPE*)result->fBitmap.getAddr(0, height - 1);
+    for (int x = 0; x < width; ++x) {
+        scanline[x] = outerRingColor;
+    }
+    result->fBitmap.setImmutable();
+    result->fRect.set(2, 2, width - 2, height - 2);
+    return true;
+}
+
+/** Create a black and white checked texture with 2 1-pixel rings around the outside edge.
+    The inner ring is red and the outer ring is blue. */
+static bool make_ringed_color_bitmap(GrContext* ctx, TestPixels* result, int width, int height) {
+    static const SkPMColor kBlue  = SkPreMultiplyColor(SK_ColorBLUE);
+    static const SkPMColor kRed   = SkPreMultiplyColor(SK_ColorRED);
+    static const SkPMColor kBlack = SkPreMultiplyColor(SK_ColorBLACK);
+    static const SkPMColor kWhite = SkPreMultiplyColor(SK_ColorWHITE);
+    return make_ringed_bitmap<SkPMColor>(ctx, result, width, height, kBGRA_8888_SkColorType,
+                                         kPremul_SkAlphaType, kBlue, kRed, kBlack, kWhite);
+}
+
+/** Makes a alpha bitmap with 1 wide rect/ring of 0s, an inset of 1s, and the interior is a 2x2
+    checker board of 3/4 and 1/2. The inner checkers are large enough to fill the interior with
+    the 2x2 checker grid. */
+static bool make_ringed_alpha_bitmap(GrContext* ctx, TestPixels* result, int width, int height) {
+    static const uint8_t kZero = 0x00;
+    static const uint8_t kHalf = 0x80;
+    static const uint8_t k3Q   = 0xC0;
+    static const uint8_t kOne  = 0xFF;
+    return make_ringed_bitmap<uint8_t>(ctx, result, width, height, kAlpha_8_SkColorType,
+                                       kPremul_SkAlphaType, kZero, kOne, k3Q, kHalf);
+}
+
+/** Helper to reuse above functions to produce images rather than bmps */
+static void bmp_to_image(TestPixels* result) {
+    SkASSERT(TestPixels::kBitmap == result->fType);
+    result->fImage = SkImage::MakeFromBitmap(result->fBitmap);
+    SkASSERT(result->fImage);
+    result->fType = TestPixels::kImage;
+    result->fBitmap.reset();
+}
+
+/** Color image case. */
+bool make_ringed_color_image(GrContext* ctx, TestPixels* result, int width, int height) {
+    if (make_ringed_color_bitmap(ctx, result, width, height)) {
+        bmp_to_image(result);
+        return true;
+    }
+    return false;
+}
+
+/** Alpha image case. */
+bool make_ringed_alpha_image(GrContext* ctx, TestPixels* result, int width, int height) {
+    if (make_ringed_alpha_bitmap(ctx, result, width, height)) {
+        bmp_to_image(result);
+        return true;
+    }
+    return false;
+}
+
+/** Similar to make_ringed_bitmap with these modifications:
+        - The backing store is a texture.
+        - The texture is larger than the bitmap dimensions (it is surrounded by non-content
+          padding on the right/bottom of the contents.)
+        - The right/bottom sides of the rings are omitted so that the rect to draw is adjacent to
+          the texture padding.
+ */
+template <typename PIXEL_TYPE>
+bool make_oversized_texture_bitmap(GrContext* ctx, TestPixels* result, int width, int height,
+                                   GrPixelConfig config, PIXEL_TYPE outerRingColor,
+                                   PIXEL_TYPE innerRingColor, PIXEL_TYPE checkColor1,
+                                   PIXEL_TYPE checkColor2, PIXEL_TYPE padColor) {
+    SkASSERT(0 == width % 2 && 0 == height % 2);
+    SkASSERT(width >= 6 && height >= 6);
+#if SK_SUPPORT_GPU
+    if (!ctx) {
+        return false;
+    }
+    /** Put arbitrary pad to the right and below the bitmap content. */
+    static const int kXPad = 10;
+    static const int kYPad = 17;
+    size_t rowBytes = (width + kXPad) * sizeof(PIXEL_TYPE);
+    SkAutoTMalloc<PIXEL_TYPE> pixels(rowBytes*(height + kYPad));
+
+    PIXEL_TYPE* scanline = pixels.get();
+    for (int x = 0; x < width; ++x) {
+        scanline[x] = outerRingColor;
+    }
+    for (int x = width; x < width + kXPad; ++x) {
+        scanline[x] = padColor;
+    }
+
+    scanline = (PIXEL_TYPE*)((char*)scanline + rowBytes);
+    scanline[0] = outerRingColor;
+    for (int x = 1; x < width; ++x) {
+        scanline[x] = innerRingColor;
+    }
+    for (int x = width; x < width + kXPad; ++x) {
+        scanline[x] = padColor;
+    }
+
+    for (int y = 2; y < height / 2 + 1; ++y) {
+        scanline = (PIXEL_TYPE*)((char*)scanline + rowBytes);
+        scanline[0] = outerRingColor;
+        scanline[1] = innerRingColor;
+        for (int x = 2; x < width / 2 + 1; ++x) {
+            scanline[x] = checkColor1;
+        }
+        for (int x = width / 2 + 1; x < width; ++x) {
+            scanline[x] = checkColor2;
+        }
+        for (int x = width; x < width + kXPad; ++x) {
+            scanline[x] = padColor;
+        }
+    }
+
+    for (int y = height / 2 + 1; y < height; ++y) {
+        scanline = (PIXEL_TYPE*)((char*)scanline + rowBytes);
+        scanline[0] = outerRingColor;
+        scanline[1] = innerRingColor;
+        for (int x = 2; x < width / 2 + 1; ++x) {
+            scanline[x] = checkColor2;
+        }
+        for (int x = width / 2 + 1; x < width; ++x) {
+            scanline[x] = checkColor1;
+        }
+        for (int x = width; x < width + kXPad; ++x) {
+            scanline[x] = padColor;
+        }
+    }
+
+    for (int y = height; y < height + kYPad; ++y) {
+        scanline = (PIXEL_TYPE*)((char*)scanline + rowBytes);
+        for (int x = 0; x < width + kXPad; ++x) {
+            scanline[x] = padColor;
+        }
+    }
+
+    GrSurfaceDesc desc;
+    desc.fConfig = config;
+    desc.fWidth = width + kXPad;
+    desc.fHeight = height + kYPad;
+    SkAutoTUnref<GrTexture> texture(ctx->textureProvider()->createTexture(
+            desc, SkBudgeted::kYes, pixels.get(), rowBytes));
+
+    if (!texture) {
+        return false;
+    }
+
+    GrWrapTextureInBitmap(texture, width, height, true, &result->fBitmap);
+    result->fType = TestPixels::kBitmap;
+    result->fBitmap.setImmutable();
+    result->fRect.set(2, 2, width, height);
+    return true;
+#else
+    return false;
+#endif
+}
+
+/** Make the color version of the oversized texture-backed bitmap */
+static bool make_ringed_oversized_color_texture_bitmap(GrContext* ctx, TestPixels* result,
+                                                       int width, int height) {
+    static const SkPMColor kBlue = SkPreMultiplyColor(SK_ColorBLUE);
+    static const SkPMColor kRed = SkPreMultiplyColor(SK_ColorRED);
+    static const SkPMColor kBlack = SkPreMultiplyColor(SK_ColorBLACK);
+    static const SkPMColor kWhite = SkPreMultiplyColor(SK_ColorWHITE);
+    static const SkPMColor kGreen = SkPreMultiplyColor(SK_ColorGREEN);
+    return make_oversized_texture_bitmap<SkPMColor>(
+        ctx, result, width, height, kSkia8888_GrPixelConfig, kBlue, kRed, kBlack, kWhite, kGreen);
+}
+
+/** Make the alpha version of the oversized texture-backed bitmap */
+static bool make_ringed_oversized_alpha_texture_bitmap(GrContext* ctx, TestPixels* result,
+                                                       int width, int height) {
+    static const uint8_t kZero = 0x00;
+    static const uint8_t kHalf = 0x80;
+    static const uint8_t k3Q   = 0xC0;
+    static const uint8_t kOne  = 0xFF;
+    static const uint8_t k1Q   = 0x40;
+    return make_oversized_texture_bitmap<uint8_t>(
+        ctx, result, width, height, kAlpha_8_GrPixelConfig, kZero, kOne, k3Q, kHalf, k1Q);
+}
+
+static sk_sp<SkShader> make_shader() {
+    static const SkPoint pts[] = { {0, 0}, {20, 20} };
+    static const SkColor colors[] = { SK_ColorGREEN, SK_ColorYELLOW };
+    return SkGradientShader::MakeLinear(pts, colors, nullptr, 2, SkShader::kMirror_TileMode);
+}
+
+static sk_sp<SkShader> make_null_shader() { return nullptr; }
+
+enum BleedTest {
+    kUseBitmap_BleedTest,
+    kUseTextureBitmap_BleedTest,
+    kUseImage_BleedTest,
+    kUseAlphaBitmap_BleedTest,
+    kUseAlphaTextureBitmap_BleedTest,
+    kUseAlphaImage_BleedTest,
+    kUseAlphaBitmapShader_BleedTest,
+    kUseAlphaTextureBitmapShader_BleedTest,
+    kUseAlphaImageShader_BleedTest,
+};
+
+const struct {
+    const char* fName;
+    bool (*fPixelMaker)(GrContext*, TestPixels* result, int width, int height);
+    sk_sp<SkShader> (*fShaderMaker)();
+} gBleedRec[] = {
+    { "bleed",                          make_ringed_color_bitmap,                   make_null_shader },
+    { "bleed_texture_bmp",              make_ringed_oversized_color_texture_bitmap, make_null_shader },
+    { "bleed_image",                    make_ringed_color_image,                    make_null_shader },
+    { "bleed_alpha_bmp",                make_ringed_alpha_bitmap,                   make_null_shader },
+    { "bleed_alpha_texture_bmp",        make_ringed_oversized_alpha_texture_bitmap, make_null_shader },
+    { "bleed_alpha_image",              make_ringed_alpha_image,                    make_null_shader },
+    { "bleed_alpha_bmp_shader",         make_ringed_alpha_bitmap,                   make_shader      },
+    { "bleed_alpha_texture_bmp_shader", make_ringed_oversized_alpha_texture_bitmap, make_shader      },
+    { "bleed_alpha_image_shader",       make_ringed_alpha_image,                    make_shader      },
+};
+
+/** This GM exercises the behavior of the drawBitmapRect & drawImageRect calls. Specifically their
+    handling of :
+     - SrcRectConstraint(bleed vs.no - bleed)
+     - handling of the sub - region feature(area - of - interest) of drawBitmap*
+     - handling of 8888 vs. A8 (including presence of a shader in the A8 case).
+     - (gpu - only) handling of tiled vs.non - tiled drawing)
+     - (gpu - only) texture's backing a bmp where the texture is larger than the bmp.
+    In particular, we should never see the padding outside of an SkBitmap's sub - region (green for
+    8888, 1/4 for alpha). In some instances we can see the two outer rings outside of the area o
+    interest (i.e., the inner four checks) due to AA or filtering if allowed by the
+    SrcRectConstraint.
+*/
+class BleedGM : public skiagm::GM {
+public:
+    BleedGM(BleedTest bt) : fCreatedPixels(false), fBT(bt){}
+
+protected:
+
+    SkString onShortName() override {
+        return SkString(gBleedRec[fBT].fName);
+    }
+
+    SkISize onISize() override {
+        return SkISize::Make(1200, 1080);
+    }
+
+    void drawPixels(SkCanvas* canvas, const TestPixels& pixels, const SkRect& src,
+                    const SkRect& dst, const SkPaint* paint,
+                    SkCanvas::SrcRectConstraint constraint) {
+        if (TestPixels::kBitmap == pixels.fType) {
+            canvas->drawBitmapRect(pixels.fBitmap, src, dst, paint, constraint);
+        } else {
+            canvas->drawImageRect(pixels.fImage.get(), src, dst, paint, constraint);
+        }
+    }
+
+    // Draw the area of interest of the small image
+    void drawCase1(SkCanvas* canvas, int transX, int transY, bool aa,
+                   SkCanvas::SrcRectConstraint constraint, SkFilterQuality filter) {
+
+        SkRect src = SkRect::Make(fSmallTestPixels.fRect);
+        SkRect dst = SkRect::MakeXYWH(SkIntToScalar(transX), SkIntToScalar(transY),
+                                      SkIntToScalar(kBlockSize), SkIntToScalar(kBlockSize));
+
+        SkPaint paint;
+        paint.setFilterQuality(filter);
+        paint.setShader(fShader);
+        paint.setColor(SK_ColorBLUE);
+        paint.setAntiAlias(aa);
+
+        this->drawPixels(canvas, fSmallTestPixels, src, dst, &paint, constraint);
+    }
+
+    // Draw the area of interest of the large image
+    void drawCase2(SkCanvas* canvas, int transX, int transY, bool aa,
+                   SkCanvas::SrcRectConstraint constraint, SkFilterQuality filter) {
+        SkRect src = SkRect::Make(fBigTestPixels.fRect);
+        SkRect dst = SkRect::MakeXYWH(SkIntToScalar(transX), SkIntToScalar(transY),
+                                      SkIntToScalar(kBlockSize), SkIntToScalar(kBlockSize));
+
+        SkPaint paint;
+        paint.setFilterQuality(filter);
+        paint.setShader(fShader);
+        paint.setColor(SK_ColorBLUE);
+        paint.setAntiAlias(aa);
+
+        this->drawPixels(canvas, fBigTestPixels, src, dst, &paint, constraint);
+    }
+
+    // Draw upper-left 1/4 of the area of interest of the large image
+    void drawCase3(SkCanvas* canvas, int transX, int transY, bool aa,
+                   SkCanvas::SrcRectConstraint constraint, SkFilterQuality filter) {
+        SkRect src = SkRect::MakeXYWH(SkIntToScalar(fBigTestPixels.fRect.fLeft),
+                                      SkIntToScalar(fBigTestPixels.fRect.fTop),
+                                      fBigTestPixels.fRect.width()/2.f,
+                                      fBigTestPixels.fRect.height()/2.f);
+        SkRect dst = SkRect::MakeXYWH(SkIntToScalar(transX), SkIntToScalar(transY),
+                                      SkIntToScalar(kBlockSize), SkIntToScalar(kBlockSize));
+
+        SkPaint paint;
+        paint.setFilterQuality(filter);
+        paint.setShader(fShader);
+        paint.setColor(SK_ColorBLUE);
+        paint.setAntiAlias(aa);
+
+        this->drawPixels(canvas, fBigTestPixels, src, dst, &paint, constraint);
+    }
+
+    // Draw the area of interest of the small image with a normal blur
+    void drawCase4(SkCanvas* canvas, int transX, int transY, bool aa,
+                   SkCanvas::SrcRectConstraint constraint, SkFilterQuality filter) {
+        SkRect src = SkRect::Make(fSmallTestPixels.fRect);
+        SkRect dst = SkRect::MakeXYWH(SkIntToScalar(transX), SkIntToScalar(transY),
+                                      SkIntToScalar(kBlockSize), SkIntToScalar(kBlockSize));
+
+        SkPaint paint;
+        paint.setFilterQuality(filter);
+        paint.setMaskFilter(SkBlurMaskFilter::Make(kNormal_SkBlurStyle,
+                                                   SkBlurMask::ConvertRadiusToSigma(3)));
+        paint.setShader(fShader);
+        paint.setColor(SK_ColorBLUE);
+        paint.setAntiAlias(aa);
+
+        this->drawPixels(canvas, fSmallTestPixels, src, dst, &paint, constraint);
+    }
+
+    // Draw the area of interest of the small image with a outer blur
+    void drawCase5(SkCanvas* canvas, int transX, int transY, bool aa,
+                   SkCanvas::SrcRectConstraint constraint, SkFilterQuality filter) {
+        SkRect src = SkRect::Make(fSmallTestPixels.fRect);
+        SkRect dst = SkRect::MakeXYWH(SkIntToScalar(transX), SkIntToScalar(transY),
+                                      SkIntToScalar(kBlockSize), SkIntToScalar(kBlockSize));
+
+        SkPaint paint;
+        paint.setFilterQuality(filter);
+        paint.setMaskFilter(SkBlurMaskFilter::Make(kOuter_SkBlurStyle,
+                                                   SkBlurMask::ConvertRadiusToSigma(7)));
+        paint.setShader(fShader);
+        paint.setColor(SK_ColorBLUE);
+        paint.setAntiAlias(aa);
+
+        this->drawPixels(canvas, fSmallTestPixels, src, dst, &paint, constraint);
+    }
+
+    void onDraw(SkCanvas* canvas) override {
+        // We don't create pixels in an onOnceBeforeDraw() override because we want access to
+        // GrContext.
+        GrContext* context = canvas->getGrContext();
+#if SK_SUPPORT_GPU
+        // Workaround for SampleApp.
+        if (GrTexture* tex = fBigTestPixels.fBitmap.getTexture()) {
+            if (tex->wasDestroyed()) {
+                fCreatedPixels = false;
+            }
+        }
+#endif
+        bool madePixels = fCreatedPixels;
+
+        if (!madePixels) {
+            madePixels =  gBleedRec[fBT].fPixelMaker(context, &fSmallTestPixels, kSmallTextureSize,
+                                                     kSmallTextureSize);
+            madePixels &= gBleedRec[fBT].fPixelMaker(context, &fBigTestPixels, 2 * kMaxTileSize,
+                                                     2 * kMaxTileSize);
+            fCreatedPixels = madePixels;
+        }
+
+        // Assume that if we coulnd't make the bitmap/image it's because it's a GPU test on a
+        // non-GPU backend.
+        if (!madePixels) {
+            skiagm::GM::DrawGpuOnlyMessage(canvas);
+            return;
+        }
+
+        fShader = gBleedRec[fBT].fShaderMaker();
+
+        canvas->clear(SK_ColorGRAY);
+        SkTDArray<SkMatrix> matrices;
+        // Draw with identity
+        *matrices.append() = SkMatrix::I();
+
+        // Draw with rotation and scale down in x, up in y.
+        SkMatrix m;
+        static const SkScalar kBottom = SkIntToScalar(kRow4Y + kBlockSize + kBlockSpacing);
+        m.setTranslate(0, kBottom);
+        m.preRotate(15.f, 0, kBottom + kBlockSpacing);
+        m.preScale(0.71f, 1.22f);
+        *matrices.append() = m;
+
+        // Align the next set with the middle of the previous in y, translated to the right in x.
+        SkPoint corners[] = {{0, 0}, { 0, kBottom }, { kWidth, kBottom }, {kWidth, 0} };
+        matrices[matrices.count()-1].mapPoints(corners, 4);
+        SkScalar y = (corners[0].fY + corners[1].fY + corners[2].fY + corners[3].fY) / 4;
+        SkScalar x = SkTMax(SkTMax(corners[0].fX, corners[1].fX),
+                            SkTMax(corners[2].fX, corners[3].fX));
+        m.setTranslate(x, y);
+        m.preScale(0.2f, 0.2f);
+        *matrices.append() = m;
+
+        SkScalar maxX = 0;
+        for (int antiAlias = 0; antiAlias < 2; ++antiAlias) {
+            canvas->save();
+            canvas->translate(maxX, 0);
+            for (int m = 0; m < matrices.count(); ++m) {
+                canvas->save();
+                canvas->concat(matrices[m]);
+                bool aa = SkToBool(antiAlias);
+
+                // First draw a column with no bleeding and no filtering
+                this->drawCase1(canvas, kCol0X, kRow0Y, aa, SkCanvas::kStrict_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase2(canvas, kCol0X, kRow1Y, aa, SkCanvas::kStrict_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase3(canvas, kCol0X, kRow2Y, aa, SkCanvas::kStrict_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase4(canvas, kCol0X, kRow3Y, aa, SkCanvas::kStrict_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase5(canvas, kCol0X, kRow4Y, aa, SkCanvas::kStrict_SrcRectConstraint, kNone_SkFilterQuality);
+
+                // Then draw a column with no bleeding and low filtering
+                this->drawCase1(canvas, kCol1X, kRow0Y, aa, SkCanvas::kStrict_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase2(canvas, kCol1X, kRow1Y, aa, SkCanvas::kStrict_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase3(canvas, kCol1X, kRow2Y, aa, SkCanvas::kStrict_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase4(canvas, kCol1X, kRow3Y, aa, SkCanvas::kStrict_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase5(canvas, kCol1X, kRow4Y, aa, SkCanvas::kStrict_SrcRectConstraint, kLow_SkFilterQuality);
+
+                // Then draw a column with no bleeding and high filtering
+                this->drawCase1(canvas, kCol2X, kRow0Y, aa, SkCanvas::kStrict_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase2(canvas, kCol2X, kRow1Y, aa, SkCanvas::kStrict_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase3(canvas, kCol2X, kRow2Y, aa, SkCanvas::kStrict_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase4(canvas, kCol2X, kRow3Y, aa, SkCanvas::kStrict_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase5(canvas, kCol2X, kRow4Y, aa, SkCanvas::kStrict_SrcRectConstraint, kHigh_SkFilterQuality);
+
+                // Then draw a column with bleeding and no filtering (bleed should have no effect w/out blur)
+                this->drawCase1(canvas, kCol3X, kRow0Y, aa, SkCanvas::kFast_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase2(canvas, kCol3X, kRow1Y, aa, SkCanvas::kFast_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase3(canvas, kCol3X, kRow2Y, aa, SkCanvas::kFast_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase4(canvas, kCol3X, kRow3Y, aa, SkCanvas::kFast_SrcRectConstraint, kNone_SkFilterQuality);
+                this->drawCase5(canvas, kCol3X, kRow4Y, aa, SkCanvas::kFast_SrcRectConstraint, kNone_SkFilterQuality);
+
+                // Then draw a column with bleeding and low filtering
+                this->drawCase1(canvas, kCol4X, kRow0Y, aa, SkCanvas::kFast_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase2(canvas, kCol4X, kRow1Y, aa, SkCanvas::kFast_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase3(canvas, kCol4X, kRow2Y, aa, SkCanvas::kFast_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase4(canvas, kCol4X, kRow3Y, aa, SkCanvas::kFast_SrcRectConstraint, kLow_SkFilterQuality);
+                this->drawCase5(canvas, kCol4X, kRow4Y, aa, SkCanvas::kFast_SrcRectConstraint, kLow_SkFilterQuality);
+
+                // Finally draw a column with bleeding and high filtering
+                this->drawCase1(canvas, kCol5X, kRow0Y, aa, SkCanvas::kFast_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase2(canvas, kCol5X, kRow1Y, aa, SkCanvas::kFast_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase3(canvas, kCol5X, kRow2Y, aa, SkCanvas::kFast_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase4(canvas, kCol5X, kRow3Y, aa, SkCanvas::kFast_SrcRectConstraint, kHigh_SkFilterQuality);
+                this->drawCase5(canvas, kCol5X, kRow4Y, aa, SkCanvas::kFast_SrcRectConstraint, kHigh_SkFilterQuality);
+
+                SkPoint corners[] = { { 0, 0 },{ 0, kBottom },{ kWidth, kBottom },{ kWidth, 0 } };
+                matrices[m].mapPoints(corners, 4);
+                SkScalar x = kBlockSize + SkTMax(SkTMax(corners[0].fX, corners[1].fX),
+                                                 SkTMax(corners[2].fX, corners[3].fX));
+                maxX = SkTMax(maxX, x);
+                canvas->restore();
+            }
+            canvas->restore();
+        }
+    }
+
+#if SK_SUPPORT_GPU
+    void modifyGrContextOptions(GrContextOptions* options) override {
+        options->fMaxTileSizeOverride = kMaxTileSize;
+    }
+#endif
+
+private:
+    static const int kBlockSize = 70;
+    static const int kBlockSpacing = 12;
+
+    static const int kCol0X = kBlockSpacing;
+    static const int kCol1X = 2*kBlockSpacing + kBlockSize;
+    static const int kCol2X = 3*kBlockSpacing + 2*kBlockSize;
+    static const int kCol3X = 4*kBlockSpacing + 3*kBlockSize;
+    static const int kCol4X = 5*kBlockSpacing + 4*kBlockSize;
+    static const int kCol5X = 6*kBlockSpacing + 5*kBlockSize;
+    static const int kWidth = 7*kBlockSpacing + 6*kBlockSize;
+
+    static const int kRow0Y = kBlockSpacing;
+    static const int kRow1Y = 2*kBlockSpacing + kBlockSize;
+    static const int kRow2Y = 3*kBlockSpacing + 2*kBlockSize;
+    static const int kRow3Y = 4*kBlockSpacing + 3*kBlockSize;
+    static const int kRow4Y = 5*kBlockSpacing + 4*kBlockSize;
+
+    static const int kSmallTextureSize = 6;
+    static const int kMaxTileSize = 32;
+
+    bool            fCreatedPixels;
+    TestPixels      fBigTestPixels;
+    TestPixels      fSmallTestPixels;
+
+    sk_sp<SkShader> fShader;
+
+    const BleedTest fBT;
+
+    typedef GM INHERITED;
+};
+
+
+DEF_GM( return new BleedGM(kUseBitmap_BleedTest); )
+DEF_GM( return new BleedGM(kUseTextureBitmap_BleedTest); )
+DEF_GM( return new BleedGM(kUseImage_BleedTest); )
+DEF_GM( return new BleedGM(kUseAlphaBitmap_BleedTest); )
+DEF_GM( return new BleedGM(kUseAlphaTextureBitmap_BleedTest); )
+DEF_GM( return new BleedGM(kUseAlphaImage_BleedTest); )
+DEF_GM( return new BleedGM(kUseAlphaBitmapShader_BleedTest); )
+DEF_GM( return new BleedGM(kUseAlphaTextureBitmapShader_BleedTest); )
+DEF_GM( return new BleedGM(kUseAlphaImageShader_BleedTest); )

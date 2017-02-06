@@ -1,0 +1,134 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/WebKit/Source/bindings/bindings.gni")
+import("//third_party/WebKit/Source/core/core.gni")
+
+action("instrumentation_sources") {
+  script = "CodeGeneratorInstrumentation.py"
+
+  inputs = [
+    # Input file for the script.
+    "InspectorInstrumentation.idl",
+  ]
+
+  outputs = [
+    "$blink_core_output_dir/InspectorInstrumentationInl.h",
+    "$blink_core_output_dir/InspectorOverridesInl.h",
+    "$blink_core_output_dir/InstrumentingAgents.h",
+    "$blink_core_output_dir/InspectorInstrumentationImpl.cpp",
+  ]
+
+  args = [
+    rebase_path("InspectorInstrumentation.idl", root_build_dir),
+    "--output_dir",
+    rebase_path(blink_core_output_dir, root_build_dir),
+  ]
+}
+
+# inspector protocol -----------------------------------------------------------
+
+action("protocol_sources") {
+  script = "../../platform/inspector_protocol/CodeGenerator.py"
+  deps = [
+    ":protocol_version",
+  ]
+  sources = [
+    "../../platform/inspector_protocol/CodeGenerator.py",
+    "../../platform/inspector_protocol/TypeBuilder_cpp.template",
+    "../../platform/inspector_protocol/TypeBuilder_h.template",
+  ]
+  inputs = [
+    "browser_protocol.json",
+    "../../platform/v8_inspector/js_protocol.json",
+  ]
+  outputs = [
+    "$blink_core_output_dir/inspector/protocol/Accessibility.cpp",
+    "$blink_core_output_dir/inspector/protocol/Accessibility.h",
+    "$blink_core_output_dir/inspector/protocol/Animation.cpp",
+    "$blink_core_output_dir/inspector/protocol/Animation.h",
+    "$blink_core_output_dir/inspector/protocol/ApplicationCache.cpp",
+    "$blink_core_output_dir/inspector/protocol/ApplicationCache.h",
+    "$blink_core_output_dir/inspector/protocol/CacheStorage.cpp",
+    "$blink_core_output_dir/inspector/protocol/CacheStorage.h",
+    "$blink_core_output_dir/inspector/protocol/CSS.cpp",
+    "$blink_core_output_dir/inspector/protocol/CSS.h",
+    "$blink_core_output_dir/inspector/protocol/Database.cpp",
+    "$blink_core_output_dir/inspector/protocol/Database.h",
+    "$blink_core_output_dir/inspector/protocol/DeviceOrientation.cpp",
+    "$blink_core_output_dir/inspector/protocol/DeviceOrientation.h",
+    "$blink_core_output_dir/inspector/protocol/DOM.cpp",
+    "$blink_core_output_dir/inspector/protocol/DOMDebugger.cpp",
+    "$blink_core_output_dir/inspector/protocol/DOMDebugger.h",
+    "$blink_core_output_dir/inspector/protocol/DOM.h",
+    "$blink_core_output_dir/inspector/protocol/DOMStorage.cpp",
+    "$blink_core_output_dir/inspector/protocol/DOMStorage.h",
+    "$blink_core_output_dir/inspector/protocol/Emulation.cpp",
+    "$blink_core_output_dir/inspector/protocol/Emulation.h",
+    "$blink_core_output_dir/inspector/protocol/IndexedDB.cpp",
+    "$blink_core_output_dir/inspector/protocol/IndexedDB.h",
+    "$blink_core_output_dir/inspector/protocol/Input.cpp",
+    "$blink_core_output_dir/inspector/protocol/Input.h",
+    "$blink_core_output_dir/inspector/protocol/Inspector.cpp",
+    "$blink_core_output_dir/inspector/protocol/Inspector.h",
+    "$blink_core_output_dir/inspector/protocol/IO.cpp",
+    "$blink_core_output_dir/inspector/protocol/IO.h",
+    "$blink_core_output_dir/inspector/protocol/LayerTree.cpp",
+    "$blink_core_output_dir/inspector/protocol/LayerTree.h",
+    "$blink_core_output_dir/inspector/protocol/Memory.cpp",
+    "$blink_core_output_dir/inspector/protocol/Memory.h",
+    "$blink_core_output_dir/inspector/protocol/Network.cpp",
+    "$blink_core_output_dir/inspector/protocol/Network.h",
+    "$blink_core_output_dir/inspector/protocol/Page.cpp",
+    "$blink_core_output_dir/inspector/protocol/Page.h",
+    "$blink_core_output_dir/inspector/protocol/Rendering.cpp",
+    "$blink_core_output_dir/inspector/protocol/Rendering.h",
+    "$blink_core_output_dir/inspector/protocol/Security.cpp",
+    "$blink_core_output_dir/inspector/protocol/Security.h",
+    "$blink_core_output_dir/inspector/protocol/ServiceWorker.cpp",
+    "$blink_core_output_dir/inspector/protocol/ServiceWorker.h",
+    "$blink_core_output_dir/inspector/protocol/Storage.cpp",
+    "$blink_core_output_dir/inspector/protocol/Storage.h",
+    "$blink_core_output_dir/inspector/protocol/Tracing.cpp",
+    "$blink_core_output_dir/inspector/protocol/Tracing.h",
+    "$blink_core_output_dir/inspector/protocol/Worker.cpp",
+    "$blink_core_output_dir/inspector/protocol/Worker.h",
+  ]
+
+  args = [
+    "--protocol",
+    rebase_path("browser_protocol.json", root_build_dir),
+    "--include",
+    rebase_path("../../platform/v8_inspector/js_protocol.json", root_build_dir),
+    "--string_type",
+    "String",
+    "--export_macro",
+    "CORE_EXPORT",
+    "--output_dir",
+    rebase_path(blink_core_output_dir + "/inspector/protocol", root_build_dir),
+    "--output_package",
+    "core/inspector/protocol",
+  ]
+}
+
+action("protocol_version") {
+  script =
+      "../../platform/inspector_protocol/generate-inspector-protocol-version"
+
+  inputs = [
+    "browser_protocol.json",
+    "../../platform/v8_inspector/js_protocol.json",
+  ]
+  output_file = "$blink_core_output_dir/inspector/protocol.json"
+  outputs = [
+    output_file,
+  ]
+
+  args = [
+    "--o",
+    rebase_path(output_file, root_build_dir),
+    rebase_path("browser_protocol.json", root_build_dir),
+    rebase_path("../../platform/v8_inspector/js_protocol.json", root_build_dir),
+  ]
+}

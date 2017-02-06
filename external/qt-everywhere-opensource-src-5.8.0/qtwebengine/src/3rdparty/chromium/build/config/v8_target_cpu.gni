@@ -1,0 +1,33 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/sanitizers/sanitizers.gni")
+
+declare_args() {
+  # This arg is used when we want to tell the JIT-generating v8 code
+  # that we want to have it generate for an architecture that is different
+  # than the architecture that v8 will actually run on; we then run the
+  # code under an emulator. For example, we might run v8 on x86, but
+  # generate arm code and run that under emulation.
+  #
+  # This arg is defined here rather than in the v8 project because we want
+  # some of the common architecture-specific args (like arm_float_abi or
+  # mips_arch_variant) to be set to their defaults either if the current_cpu
+  # applies *or* if the v8_target_cpu applies.
+  #
+  # TODO(crbug.com/620527) - rework this whole approach so that it isn't
+  # v8-specific.
+  v8_target_cpu = ""
+}
+
+if (v8_target_cpu == "") {
+  if (is_msan) {
+    # Running the V8-generated code on an ARM simulator is a powerful hack that
+    # allows the tool to see the memory accesses from JITted code. Without this
+    # flag, JS code causes false positive reports from MSan.
+    v8_target_cpu = "arm64"
+  } else {
+    v8_target_cpu = target_cpu
+  }
+}

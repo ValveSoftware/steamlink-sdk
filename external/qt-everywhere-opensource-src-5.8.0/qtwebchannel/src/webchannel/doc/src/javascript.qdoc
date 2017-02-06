@@ -1,0 +1,100 @@
+/****************************************************************************
+**
+** Copyright (C) 2014 Klarälvdalens Datakonsult AB, a KDAB Group company, info@kdab.com, author Milian Wolff <milian.wolff@kdab.com>
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \title Qt WebChannel JavaScript API
+    \page qtwebchannel-javascript.html
+
+    \brief This page explains how to use the JavaScript QWebChannel API in HTML clients.
+
+    \section1 Setting up the JavaScript API
+
+    To communicate with a QWebChannel or \l [QML] WebChannel, a client must use and set up the
+    JavaScript API provided by \c qwebchannel.js. For clients run inside \l{Qt WebEngine}, you
+    can load the file via \c qrc:///qtwebchannel/qwebchannel.js. For external clients, you
+    need to copy the file to your web server. Then instantiate a QWebChannel object and pass
+    it a transport object and a callback function, which will be invoked once the
+    initialization of the channel finishes and the published objects become available.
+
+    The transport object implements a minimal message passing interface. It should be an object
+    with a \c send() function, which takes a stringified JSON message and transmits it to the
+    server-side QWebChannelAbstractTransport object. Furthermore, its \c onmessage property should
+    be called when a message from the server was received. Alternatively, you can use a
+    \l{Qt WebSockets}{WebSocket} to implement the interface.
+
+    Note that the JavaScript QWebChannel object should be constructed once the transport object is
+    fully operational. In case of a WebSocket, that means you should create the QWebChannel in the
+    socket's \c onopen handler. Take a look at the \l{Qt WebChannel Standalone Example} to see how
+    this is done.
+
+    \section1 Interacting with QObjects
+
+    Once the callback passed to the QWebChannel object is invoked, the channel has finished
+    initialization and all published objects are accessible to the HTML client via the \c channel.objects
+    property. Thus, assuming an object was published with the identifier "foo", then we can interact with it
+    as shown in the example below. Note that all communication between the HTML client and
+    the QML/C++ server is asynchronous. Properties are cached on the HTML side. Furthermore
+    keep in mind that only QML/C++ data types which can be converted to JSON will be (de-)serialized
+    properly and thus accessible to HTML clients.
+
+    \code
+new QWebChannel(yourTransport, function(channel) {
+
+    // Connect to a signal:
+    channel.objects.foo.mySignal.connect(function() {
+        // This callback will be invoked whenever the signal is emitted on the C++/QML side.
+        console.log(arguments);
+    });
+
+    // To make the object known globally, assign it to the window object, i.e.:
+    window.foo = channel.objects.foo;
+
+    // Invoke a method:
+    foo.myMethod(arg1, arg2, function(returnValue) {
+        // This callback will be invoked when myMethod has a return value. Keep in mind that
+        // the communication is asynchronous, hence the need for this callback.
+        console.log(returnValue);
+    });
+
+    // Read a property value, which is cached on the client side:
+    console.log(foo.myProperty);
+
+    // Writing a property will instantly update the client side cache.
+    // The remote end will be notified about the change asynchronously
+    foo.myProperty = "Hello World!";
+
+    // To get notified about remote property changes,
+    // simply connect to the corresponding notify signal:
+    foo.onMyPropertyChanged.connect(function(newValue) {
+        console.log(newValue);
+    });
+
+    // One can also access enums that are marked with Q_ENUM:
+    console.log(foo.MyEnum.MyEnumerator);
+});
+    \endcode
+*/

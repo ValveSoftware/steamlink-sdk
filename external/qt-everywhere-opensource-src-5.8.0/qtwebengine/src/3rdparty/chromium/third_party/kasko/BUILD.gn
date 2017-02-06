@@ -1,0 +1,54 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/buildflag_header.gni")
+import("//build/config/chrome_build.gni")
+import("//third_party/kasko/kasko.gni")
+
+# GYP version: target 'kasko_features' in third_party/kasko/kasko.gyp
+buildflag_header("kasko_features") {
+  header = "kasko_features.h"
+  flags = [ "ENABLE_KASKO=$enable_kasko" ]
+}
+
+if (enable_kasko) {
+  assert(is_win, "Kasko only support Windows.")
+  assert(target_cpu == "x86", "Kasko only support 32 bits.")
+  assert(is_chrome_branded,
+         "The Kasko client is only initialized in Chrome-branded builds.")
+
+  config("kasko_config") {
+    visibility = [ ":*" ]
+    include_dirs = [ "//third_party/kasko/binaries/include" ]
+    lib_dirs = [ "//third_party/kasko/binaries" ]
+    libs = [ "kasko.dll.lib" ]
+  }
+
+  # GYP version: target 'copy_kasko_dll' in third_party/kasko/kasko.gyp
+  copy("copy_kasko_dll") {
+    visibility = [ ":*" ]
+    sources = [
+      "//third_party/kasko/binaries/kasko.dll",
+      "//third_party/kasko/binaries/kasko.dll.pdb",
+    ]
+    outputs = [
+      "$root_out_dir/{{source_file_part}}",
+    ]
+  }
+
+  # GYP version: target 'kasko' in third_party/kasko/kasko.gyp
+  group("kasko") {
+    public_deps = [
+      ":copy_kasko_dll",
+      ":kasko_features",
+    ]
+    public_configs = [ ":kasko_config" ]
+  }
+} else {
+  group("kasko") {
+    public_deps = [
+      ":kasko_features",
+    ]
+  }
+}

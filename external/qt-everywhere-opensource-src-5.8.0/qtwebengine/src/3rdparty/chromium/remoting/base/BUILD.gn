@@ -1,0 +1,96 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//remoting/remoting_srcs.gni")
+
+source_set("base") {
+  sources = rebase_path(remoting_srcs_gypi_values.remoting_base_sources,
+                        ".",
+                        "//remoting")
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  public_deps = [
+    "//base",
+    "//net",
+    "//remoting/proto",
+    "//third_party/protobuf:protobuf_lite",
+  ]
+  deps = [
+    "//base/third_party/dynamic_annotations",
+    "//third_party/libvpx",
+    "//third_party/libyuv",
+    "//third_party/webrtc/modules/desktop_capture:primitives",
+    "//url",
+  ]
+  if (is_nacl) {
+    sources -= [
+      "chromium_url_request.cc",
+      "chromoting_event.cc",
+      "telemetry_log_writer.cc",
+      "url_request_context_getter.cc",
+    ]
+  }
+}
+
+source_set("breakpad") {
+  sources = [
+    "breakpad.h",
+    "breakpad_linux.cc",
+    "breakpad_mac.mm",
+    "breakpad_win.cc",
+  ]
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  deps = [
+    "//base",
+  ]
+
+  if (is_mac) {
+    deps += [ "//breakpad" ]
+  } else if (is_win) {
+    deps += [ "//breakpad:breakpad_handler" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "auto_thread_task_runner_unittest.cc",
+    "auto_thread_unittest.cc",
+    "breakpad_win_unittest.cc",
+    "buffered_socket_writer_unittest.cc",
+    "capabilities_unittest.cc",
+    "compound_buffer_unittest.cc",
+    "rate_counter_unittest.cc",
+    "rsa_key_pair_unittest.cc",
+    "run_all_unittests.cc",
+    "running_samples_unittest.cc",
+    "telemetry_log_writer_unittest.cc",
+    "test_rsa_key_pair.h",
+    "typed_buffer_unittest.cc",
+    "util_unittest.cc",
+  ]
+
+  deps = [
+    ":base",
+    ":breakpad",
+    "//base",
+    "//net:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/libyuv",
+    "//third_party/webrtc/modules/desktop_capture:primitives",
+  ]
+
+  if (is_win || is_mac || is_chromeos) {
+    deps += [ "//breakpad:client" ]
+  }
+
+  if (is_win) {
+    libs = [ "rpcrt4.lib" ]  # For UuidCreate in breakpad_win_unittest.cc.
+  }
+}

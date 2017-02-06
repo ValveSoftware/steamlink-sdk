@@ -1,0 +1,153 @@
+{#  TODO(yzshen): Make these templates more readable. #}
+
+{#  Computes the serialized size for the specified struct.
+    |struct| is the struct definition.
+    |input_field_pattern| should be a pattern that contains one string
+    placeholder, for example, "input->%s", "p_%s". The placeholder will be
+    substituted with struct field names to refer to the input fields.
+    |context| is the name of the serialization context.
+    |input_may_be_temp| indicates whether any input may be temporary obejcts.
+    We need to assign temporary objects to local variables before passing it to
+    Serializer, because it is illegal to pass temporary objects as non-const
+    references.
+    This macro is expanded to compute seriailized size for both:
+    - user-defined structs: the input is an instance of the corresponding struct
+      wrapper class.
+    - method parameters/response parameters: the input is a list of
+      arguments.
+    It declares |size| of type size_t to store the resulting size. #}
+{%- macro get_serialized_size(struct, input_field_pattern, context,
+                              input_may_be_temp=False) -%}
+  size_t size = sizeof({{struct|get_qualified_name_for_kind(internal=True)}});
+{%-   for pf in struct.packed.packed_fields_in_ordinal_order if pf.field.kind|is_object_kind %}
+{%-     set name = pf.field.name -%}
+{%-     set kind = pf.field.kind -%}
+{%-     set original_input_field = input_field_pattern|format(name) %}
+{%-     set input_field = "in_%s"|format(name) if input_may_be_temp
+                                               else original_input_field %}
+{%-     if input_may_be_temp %}
+  decltype({{original_input_field}}) in_{{name}} = {{original_input_field}};
+{%-     endif %}
+
+{%-     set serializer_type = kind|unmapped_type_for_serializer %}
+{%-     if kind|is_union_kind %}
+  size += mojo::internal::PrepareToSerialize<{{serializer_type}}>(
+      {{input_field}}, true, {{context}});
+{%-     else %}
+  size += mojo::internal::PrepareToSerialize<{{serializer_type}}>(
+      {{input_field}}, {{context}});
+{%-     endif %}
+{%-   endfor %}
+{%- endmacro -%}
+
+{#  Serializes the specified struct.
+    |struct| is the struct definition.
+    |struct_display_name| is the display name for the struct that can be showed
+    in error/log messages, for example, "FooStruct", "FooMethod request".
+    |input_field_pattern| should be a pattern that contains one string
+    placeholder, for example, "input->%s", "p_%s". The placeholder will be
+    substituted with struct field names to refer to the input fields.
+    |output| is the name of the output struct instance.
+    |buffer| is the name of the Buffer instance used.
+    |context| is the name of the serialization context.
+    |input_may_be_temp|: please see the comments of get_serialized_size.
+    This macro is expanded to do serialization for both:
+    - user-defined structs: the input is an instance of the corresponding struct
+      wrapper class.
+    - method parameters/response parameters: the input is a list of
+      arguments. #}
+{%- macro serialize(struct, struct_display_name, input_field_pattern, output,
+                    buffer, context, input_may_be_temp=False) -%}
+  auto {{output}} =
+      {{struct|get_qualified_name_for_kind(internal=True)}}::New({{buffer}});
+{%- for pf in struct.packed.packed_fields_in_ordinal_order %}
+{%-   set input_field = input_field_pattern|format(pf.field.name) %}
+{%-   set name = pf.field.name %}
+{%-   set kind = pf.field.kind %}
+{%-   set serializer_type = kind|unmapped_type_for_serializer %}
+{%-   if kind|is_object_kind %}
+{%-     set original_input_field = input_field_pattern|format(name) %}
+{%-     set input_field = "in_%s"|format(name) if input_may_be_temp
+                                               else original_input_field %}
+{%-     if input_may_be_temp %}
+  decltype({{original_input_field}}) in_{{name}} = {{original_input_field}};
+{%-     endif %}
+
+{%-     if kind|is_array_kind or kind|is_map_kind %}
+  const mojo::internal::ContainerValidateParams {{name}}_validate_params(
+      {{kind|get_container_validate_params_ctor_args|indent(10)}});
+  mojo::internal::Serialize<{{serializer_type}}>(
+      {{input_field}}, {{buffer}}, &{{output}}->{{name}}.ptr,
+      &{{name}}_validate_params, {{context}});
+{%-     elif kind|is_union_kind %}
+  auto {{name}}_ptr = &{{output}}->{{name}};
+  mojo::internal::Serialize<{{serializer_type}}>(
+      {{input_field}}, {{buffer}}, &{{name}}_ptr, true, {{context}});
+{%-     else %}
+  mojo::internal::Serialize<{{serializer_type}}>(
+      {{input_field}}, {{buffer}}, &{{output}}->{{name}}.ptr, {{context}});
+{%-     endif %}
+{%-     if not kind|is_nullable_kind %}
+  MOJO_INTERNAL_DLOG_SERIALIZATION_WARNING(
+{%-       if kind|is_union_kind %}
+      {{output}}->{{name}}.is_null(),
+{%-       else %}
+      !{{output}}->{{name}}.ptr,
+{%-       endif %}
+      mojo::internal::VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
+      "null {{name}} in {{struct_display_name}}");
+{%-     endif %}
+
+{%-   elif kind|is_any_handle_or_interface_kind %}
+  mojo::internal::Serialize<{{serializer_type}}>(
+      {{input_field}}, &{{output}}->{{name}}, {{context}});
+{%-     if not kind|is_nullable_kind %}
+  MOJO_INTERNAL_DLOG_SERIALIZATION_WARNING(
+      !mojo::internal::IsHandleOrInterfaceValid({{output}}->{{name}}),
+{%-       if kind|is_associated_kind %}
+      mojo::internal::VALIDATION_ERROR_UNEXPECTED_INVALID_INTERFACE_ID,
+{%-       else %}
+      mojo::internal::VALIDATION_ERROR_UNEXPECTED_INVALID_HANDLE,
+{%-       endif %}
+      "invalid {{name}} in {{struct_display_name}}");
+{%-     endif %}
+
+{%-   elif kind|is_enum_kind %}
+  mojo::internal::Serialize<{{serializer_type}}>(
+      {{input_field}}, &{{output}}->{{name}});
+
+{%-   else %}
+  {{output}}->{{name}} = {{input_field}};
+{%-   endif %}
+{%- endfor %}
+{%- endmacro -%}
+
+{#  Deserializes the specified struct.
+    |struct| is the struct definition.
+    |input| is the name of the input struct data view. It is expected to be
+    non-null.
+    |output_field_pattern| should be a pattern that contains one string
+    placeholder, for example, "result->%s", "p_%s". The placeholder will be
+    substituted with struct field names to refer to the output fields.
+    |context| is the name of the serialization context.
+    |success| is the name of a bool variable to track success of the operation.
+    This macro is expanded to do deserialization for both:
+    - user-defined structs: the output is an instance of the corresponding
+      struct wrapper class.
+    - method parameters/response parameters: the output is a list of
+      arguments. #}
+{%- macro deserialize(struct, input, output_field_pattern, success) -%}
+{%-   for pf in struct.packed.packed_fields_in_ordinal_order %}
+{%-     set output_field = output_field_pattern|format(pf.field.name) %}
+{%-     set name = pf.field.name %}
+{%-     set kind = pf.field.kind %}
+{%-     if kind|is_object_kind or kind|is_enum_kind %}
+  if (!{{input}}.Read{{name|under_to_camel}}(&{{output_field}}))
+    {{success}} = false;
+{%-     elif kind|is_any_handle_or_interface_kind %}
+  {{output_field}} = {{input}}.Take{{name|under_to_camel}}();
+{%-     else %}
+  {{output_field}} = {{input}}.{{name}}();
+{%-     endif %}
+{%-   endfor %}
+{%- endmacro %}

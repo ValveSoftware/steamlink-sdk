@@ -1,0 +1,568 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/test.gni")
+
+declare_args() {
+  internal_khronos_glcts_tests = false
+}
+
+if (internal_khronos_glcts_tests) {
+  khronos_glcts_gypi =
+      exec_script("//build/gypi_to_gn.py",
+                  [
+                    rebase_path("khronos_glcts.gypi"),
+                    "--replace=<(DEPTH)=../..",
+                    "--replace=<(SHARED_INTERMEDIATE_DIR)=$target_gen_dir",
+                  ],
+                  "scope",
+                  [ "khronos_glcts.gypi" ])
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_test.gyp:khronos_glcts_test_windowless
+  copy("glcts_resources") {
+    sources = khronos_glcts_gypi.glcts_data_dirs
+    outputs = [
+      "$root_out_dir/khronos_glcts_data/gl_cts/{{source_file_part}}",
+    ]
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_test.gyp:khronos_glcts_test_windowless
+  copy("glcts_gtf_resources") {
+    sources = khronos_glcts_gypi.glcts_gtf_data_dirs +
+              khronos_glcts_gypi.glcts_gtf_runfiles
+    outputs = [
+      "$root_out_dir/khronos_glcts_data/gl_cts/GTF/{{source_file_part}}",
+    ]
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_test.gyp:khronos_glcts_test
+  action("generate_khronos_glcts_tests") {
+    script = "generate_khronos_glcts_tests.py"
+    sources = [ "khronos_glcts_test.h" ] + khronos_glcts_gypi.glcts_gtf_runfiles
+    outputs = [
+      "$target_gen_dir/khronos_glcts_test_autogen.cc",
+    ]
+    args = [ "--outdir=" + rebase_path("$target_gen_dir") ] +
+           khronos_glcts_gypi.glcts_gtf_runfiles
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_defaults.gypi:target_defaults
+  config("defaults_config") {
+    defines = [
+      "DEQP_TARGET_NAME=\"chrome-gpu-command-buffer\"",
+      "DEQP_SUPPORT_GLES2=1",
+      "DEQP_SUPPORT_EGL=1",
+      "GTF_API=GTF_GLES20",
+    ]
+
+    if (is_linux) {
+      defines += [ "_XOPEN_SOURCE=500" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:debase
+  config("debase_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/delibs/debase" ]
+  }
+  source_set("debase") {
+    sources = khronos_glcts_gypi.debase_srcs
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":debase_config" ]
+
+    if (is_linux) {
+      cflags_c = [ "-Wno-implicit-function-declaration" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:depool
+  config("depool_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/delibs/depool" ]
+  }
+  source_set("depool") {
+    sources = khronos_glcts_gypi.depool_srcs
+
+    deps = [
+      ":debase",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":depool_config" ]
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:dethread
+  config("dethread_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/delibs/dethread" ]
+  }
+  source_set("dethread") {
+    sources = khronos_glcts_gypi.dethread_srcs
+
+    deps = [
+      ":debase",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":dethread_config" ]
+
+    if (is_linux) {
+      sources += khronos_glcts_gypi.dethread_unix_srcs
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:deutil
+  config("deutil_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/delibs/deutil" ]
+  }
+  source_set("deutil") {
+    sources = khronos_glcts_gypi.deutil_srcs
+
+    deps = [
+      ":debase",
+      ":depool",
+      ":dethread",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":deutil_config" ]
+
+    if (is_linux) {
+      cflags_c = [ "-Wno-string-conversion" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:decpp
+  config("decpp_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/delibs/decpp" ]
+  }
+  source_set("decpp") {
+    sources = khronos_glcts_gypi.decpp_srcs
+
+    deps = [
+      ":debase",
+      ":depool",
+      ":dethread",
+      ":deutil",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":decpp_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:delibs
+  group("delibs") {
+    public_deps = [
+      ":debase",
+      ":decpp",
+      ":depool",
+      ":dethread",
+      ":deutil",
+    ]
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:qphelper
+  config("qphelper_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/qphelper" ]
+  }
+  source_set("qphelper") {
+    sources = khronos_glcts_gypi.qphelper_srcs
+
+    defines = [ "QP_SUPPORT_PNG" ]
+
+    deps = [
+      ":delibs",
+      "//third_party/libpng:libpng",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":qphelper_config" ]
+
+    if (is_linux) {
+      cflags_c = [ "-Wno-string-conversion" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:tcutil
+  config("tcutil_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/common" ]
+  }
+  source_set("tcutil") {
+    sources = khronos_glcts_gypi.tcutil_srcs
+
+    deps = [
+      ":delibs",
+      "//third_party/libpng:libpng",
+    ]
+
+    public_deps = [
+      ":qphelper",
+    ]
+
+    include_dirs = [ "//third_party/khronos_glcts/framework/delibs/libpng" ]  #png.hpp
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":tcutil_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+      cflags_cc = [ "-Wno-int-to-pointer-cast" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:glwrapper
+  config("glwrapper_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/opengl/wrapper" ]
+  }
+  source_set("glwrapper") {
+    sources = khronos_glcts_gypi.glwrapper_srcs
+
+    deps = [
+      ":delibs",
+      "//gpu/command_buffer/client:gles2_c_lib_nocheck",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":glwrapper_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:glutil
+  config("glutil_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/opengl" ]
+  }
+  source_set("glutil") {
+    sources = khronos_glcts_gypi.glutil_srcs
+
+    public_deps = [
+      ":glwrapper",
+    ]
+
+    deps = [
+      ":delibs",
+      ":tcutil",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":glutil_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:tcutil_egl
+  config("tcutil_egl_config") {
+    include_dirs = [ "//third_party/khronos_glcts/framework/egl" ]
+  }
+  source_set("tcutil_egl") {
+    sources = khronos_glcts_gypi.tcutil_egl_srcs
+
+    deps = [
+      ":delibs",
+      ":glwrapper",
+      ":tcutil",
+      "//gpu/gles2_conform_support/egl",
+    ]
+
+    include_dirs = [ "//third_party/khronos_glcts/framework/opengl" ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [
+      ":tcutil_egl_config",
+      "//third_party/khronos:khronos_headers",
+    ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+      cflags_cc = [ "-Wno-int-to-void-pointer-cast" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_framework.gyp:khronos_glcts_framework
+  group("khronos_glcts_framework") {
+    public_deps = [
+      ":delibs",
+      ":glutil",
+      ":qphelper",
+      ":tcutil",
+      ":tcutil_egl",
+    ]
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_cts.gyp:glcts_common
+  config("glcts_common_config") {
+    include_dirs = [ "//third_party/khronos_glcts/cts/common" ]
+  }
+  source_set("glcts_common") {
+    sources = khronos_glcts_gypi.glcts_common_sources
+
+    deps = [
+      ":delibs",
+      ":glutil",
+      ":tcutil",
+      ":tcutil_egl",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":glcts_common_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+      cflags_cc = [ "-Wno-string-conversion" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_cts.gyp:glcts_gtf_wrapper
+  config("glcts_gtf_wrapper_config") {
+    include_dirs = [ "//third_party/khronos_glcts/cts/gtf" ]
+  }
+  source_set("glcts_gtf_wrapper") {
+    sources = khronos_glcts_gypi.glcts_gtf_wrapper_srcs
+
+    deps = [
+      ":delibs",
+      ":glcts_common",
+      ":glutil",
+      ":tcutil",
+      ":tcutil_egl",
+    ]
+
+    include_dirs = [ "//third_party/khronos_glcts/GTF_ES/glsl/GTF/Source" ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":glcts_gtf_wrapper_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_gtf.gyp:gtf_es
+  config("gtf_es_config") {
+    include_dirs = [ "//third_party/khronos_glcts/GTF_ES/glsl/GTF/Source" ]
+  }
+  source_set("gtf_es") {
+    sources =
+        khronos_glcts_gypi.gtf_core_srcs + khronos_glcts_gypi.gtf_gl_core_srcs +
+        khronos_glcts_gypi.gtf_gles2_srcs +
+        khronos_glcts_gypi.gtf_gles2_es_only_srcs
+
+    deps = [
+      ":debase",
+      ":glcts_gtf_wrapper",
+      "//third_party/expat",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":gtf_es_config" ]
+
+    if (is_linux) {
+      cflags_c = [
+        "-Wno-pointer-sign",
+        "-Wno-incompatible-pointer-types",
+        "-Wno-return-type",
+        "-Wno-parentheses-equality",
+        "-Wno-tautological-compare",
+      ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_cts.gyp:glcts_gtf
+  config("glcts_gtf_config") {
+    include_dirs = [ "//third_party/khronos_glcts/cts/gtf" ]
+  }
+  source_set("glcts_gtf") {
+    sources = khronos_glcts_gypi.glcts_gtf_srcs
+
+    deps = [
+      ":delibs",
+      ":glcts_common",
+      ":glcts_gtf_wrapper",
+      ":glutil",
+      ":gtf_es",
+      ":tcutil",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":glcts_gtf_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_cts.gyp:glcts_es2
+  config("glcts_es2_config") {
+    include_dirs = [ "//third_party/khronos_glcts/cts/gles2" ]
+  }
+  source_set("glcts_es2") {
+    sources = khronos_glcts_gypi.glcts_es2_srcs
+
+    public_deps = [
+      ":glcts_common",
+    ]
+
+    deps = [
+      ":delibs",
+      ":glcts_gtf",
+      ":glutil",
+      ":tcutil",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+
+    public_configs = [ ":glcts_es2_config" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+    }
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_test.gyp:tcutil_platform_windowless
+  source_set("tcutil_platform_windowless") {
+    sources = [
+      "native/egl_native_windowless.cc",
+    ]
+
+    deps = [
+      ":khronos_glcts_framework",
+    ]
+
+    configs -= [ "//build/config/compiler:no_rtti" ]
+    configs += [ "//build/config/compiler:rtti" ]
+  }
+
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_test.gyp:khronos_glcts_test_windowless
+  executable("khronos_glcts_test_windowless") {
+    sources = [
+      "//third_party/khronos_glcts/cts/glcTestPackageEntry.cpp",
+      "//third_party/khronos_glcts/cts/glcTestPackageRegistry.cpp",
+      "//third_party/khronos_glcts/cts/glcTestPackageRegistry.hpp",
+      "native/main.cc",
+    ]
+
+    deps = [
+      ":glcts_es2",
+      ":glcts_gtf_resources",
+      ":glcts_resources",
+      ":khronos_glcts_framework",
+      ":tcutil_platform_windowless",
+    ]
+
+    configs += [ ":defaults_config" ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+
+    if (is_linux) {
+      configs -= [ "//build/config/gcc:no_exceptions" ]
+    }
+  }
+}
+
+if (!is_android) {
+  # GYP version: gpu/khronos_glcts_support/khronos_glcts_test.gyp:khronos_glcts_test
+  test("khronos_glcts_test") {
+    sources = [
+      "khronos_glcts_test.cc",
+    ]
+
+    deps = [
+      "//base",
+      "//gpu",
+      "//testing/gtest",
+    ]
+
+    data = [
+      "khronos_glcts_test_expectations.txt",
+    ]
+
+    if (internal_khronos_glcts_tests) {
+      sources += [ "$target_gen_dir/khronos_glcts_test_autogen.cc" ]
+      deps += [
+        ":generate_khronos_glcts_tests",
+        ":khronos_glcts_test_windowless",
+      ]
+    }
+  }
+}

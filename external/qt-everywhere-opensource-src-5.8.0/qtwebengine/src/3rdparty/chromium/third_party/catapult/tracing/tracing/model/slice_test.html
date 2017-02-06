@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2013 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/core/test_utils.html">
+<link rel="import" href="/tracing/model/slice_group.html">
+
+<script>
+'use strict';
+
+tr.b.unittest.testSuite(function() {
+  var Slice = tr.model.Slice;
+  var SliceGroup = tr.model.SliceGroup;
+  var newSliceEx = tr.c.TestUtils.newSliceEx;
+  var newFakeThread = tr.c.TestUtils.newFakeThread;
+
+  test('findDescendentSlice', function() {
+    var group = new SliceGroup(newFakeThread());
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 0.0, duration: 4.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 0.0, duration: 2.0 }));
+
+    group.createSubSlices();
+
+    assert.deepEqual(sB, sA.findDescendentSlice('sB'));
+    assert.deepEqual(sC, sA.findDescendentSlice('sC'));
+    assert.isUndefined(sA.findDescendentSlice('sD'));
+  });
+
+  test('findTopmostSlicesRelativeToThisSliceBaseCase', function() {
+    var PREDICATE = slice => slice.title.startsWith('sC');
+
+    var group = new SliceGroup(newFakeThread());
+
+    var sC1 = group.pushSlice(newSliceEx(
+        { title: 'sC1', start: 0.0, duration: 10.0 }));
+    var sC2 = group.pushSlice(newSliceEx(
+        { title: 'sC2', start: 0.0, duration: 4.0 }));
+
+    group.createSubSlices();
+
+    var foundSlices = [];
+    for (var slice of sC1.findTopmostSlicesRelativeToThisSlice(PREDICATE))
+      foundSlices.push(slice);
+
+    assert.deepEqual([sC1], foundSlices);
+  });
+
+  test('findTopmostSlicesRelativeToThisSliceRecursive', function() {
+    var PREDICATE = slice => slice.title.startsWith('sC');
+
+    var group = new SliceGroup(newFakeThread());
+
+    var sD = group.pushSlice(newSliceEx(
+        { title: 'sD', start: 0.0, duration: 10.0 }));
+    var sC1 = group.pushSlice(newSliceEx(
+        { title: 'sC1', start: 0.0, duration: 4.0 }));
+    var sC2 = group.pushSlice(newSliceEx(
+        { title: 'sC2', start: 6.0, duration: 3.0 }));
+
+    group.createSubSlices();
+
+    var foundSlices = [];
+    for (var slice of sD.findTopmostSlicesRelativeToThisSlice(PREDICATE))
+      foundSlices.push(slice);
+    assert.deepEqual([sC1, sC2], foundSlices);
+  });
+
+  test('iterateAllDescendents', function() {
+    var group = new SliceGroup(newFakeThread());
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 0.0, duration: 4.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 0.0, duration: 2.0 }));
+
+    group.createSubSlices();
+
+    assert.deepEqual(sA.descendentSlices, [sB, sC]);
+    assert.deepEqual(sC.descendentSlices, []);
+  });
+
+  test('mostTopLevelSlice', function() {
+    var group = new SliceGroup(newFakeThread());
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 0.0, duration: 4.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 0.0, duration: 2.0 }));
+
+    group.createSubSlices();
+
+    assert.equal(sA.mostTopLevelSlice, sA);
+    assert.equal(sB.mostTopLevelSlice, sA);
+    assert.equal(sC.mostTopLevelSlice, sA);
+  });
+
+  test('iterateAllAncestors', function() {
+    var group = new SliceGroup(newFakeThread());
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 0.0, duration: 4.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 0.0, duration: 2.0 }));
+
+    group.createSubSlices();
+
+    // Note that we iterate ancestors from the leaves to the root
+    assert.deepEqual(sC.ancestorSlices, [sB, sA]);
+    assert.deepEqual(sA.ancestorSlices, []);
+  });
+
+  test('iterateAllSubsequentSlices', function() {
+    var group = new SliceGroup(newFakeThread());
+
+    // [     A     ]
+    // [ B ][ D ][F]
+    // [C]  [E]
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 0.0, duration: 4.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 0.0, duration: 2.0 }));
+    var sD = group.pushSlice(newSliceEx(
+        { title: 'sD', start: 5.0, duration: 2.0 }));
+    var sE = group.pushSlice(newSliceEx(
+        { title: 'sE', start: 5.0, duration: 1.0 }));
+    var sF = group.pushSlice(newSliceEx(
+        { title: 'sF', start: 8.0, duration: 2.0 }));
+
+    group.createSubSlices();
+
+    assert.deepEqual(sA.subsequentSlices, [sB, sC, sD, sE, sF]);
+    assert.deepEqual(sD.subsequentSlices, [sE, sF]);
+    assert.deepEqual(sF.subsequentSlices, []);
+  });
+
+  test('ancestorAndSubsequentSlices', function() {
+    var group = new SliceGroup(newFakeThread());
+
+    // [     A     ]
+    // [ B ][ D ][F]
+    // [C]  [E]
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 0.0, duration: 4.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 0.0, duration: 2.0 }));
+    var sD = group.pushSlice(newSliceEx(
+        { title: 'sD', start: 5.0, duration: 2.0 }));
+    var sE = group.pushSlice(newSliceEx(
+        { title: 'sE', start: 5.0, duration: 1.0 }));
+    var sF = group.pushSlice(newSliceEx(
+        { title: 'sF', start: 8.0, duration: 2.0 }));
+
+    group.createSubSlices();
+
+    assert.deepEqual(sD.ancestorAndSubsequentSlices, [sD, sA, sE, sF]);
+  });
+
+  test('entireHierarchy', function() {
+    var group = new SliceGroup(newFakeThread());
+
+    // [     A     ]
+    // [ B ][ D ][F]
+    // [C]  [E]
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 0.0, duration: 4.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 0.0, duration: 2.0 }));
+    var sD = group.pushSlice(newSliceEx(
+        { title: 'sD', start: 5.0, duration: 2.0 }));
+    var sE = group.pushSlice(newSliceEx(
+        { title: 'sE', start: 5.0, duration: 1.0 }));
+    var sF = group.pushSlice(newSliceEx(
+        { title: 'sF', start: 8.0, duration: 2.0 }));
+
+    group.createSubSlices();
+
+    assert.deepEqual(sD.entireHierarchy, [sA, sB, sC, sD, sE, sF]);
+  });
+
+  test('stableId', function() {
+    var thread = newFakeThread();
+    var group = thread.sliceGroup;
+
+    var sA = group.pushSlice(newSliceEx(
+        { title: 'sA', start: 0.0, duration: 10.0 }));
+    var sB = group.pushSlice(newSliceEx(
+        { title: 'sB', start: 10.0, duration: 20.0 }));
+    var sC = group.pushSlice(newSliceEx(
+        { title: 'sC', start: 20.0, duration: 30.0 }));
+
+    assert.equal(group.stableId + '.0', sA.stableId);
+    assert.equal(group.stableId + '.1', sB.stableId);
+    assert.equal(group.stableId + '.2', sC.stableId);
+  });
+});
+</script>

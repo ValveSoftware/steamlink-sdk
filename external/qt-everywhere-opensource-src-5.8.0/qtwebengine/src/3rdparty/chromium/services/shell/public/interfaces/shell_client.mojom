@@ -1,0 +1,78 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module shell.mojom;
+
+import "services/shell/public/interfaces/capabilities.mojom";
+import "services/shell/public/interfaces/connector.mojom";
+import "services/shell/public/interfaces/interface_provider.mojom";
+
+// Implemented by something "known to" the Mojo Shell (e.g. an application or
+// service), for which an instance is tracked. It allows the implementor to
+// receive lifecycle events and service inbound connection attempts.
+interface ShellClient {
+  // Called by the shell once an instance for this application has been created.
+  // This method will be called exactly once before any other method is called.
+  //
+  // Parameters:
+  //
+  //  identity
+  //    The identity of this instance in the shell. Includes:
+  //    * The resolved name used in the connection request that resulted in this
+  //      instance being initialized.
+  //    * The user associated with this instance in the shell. This will never
+  //      be kInheritUserID.
+  //    * The instance group this instance belongs to.
+  //
+  //  id
+  //    A unique identifier used by the shell to identify this instance.
+  //
+  //
+  // Response parameters:
+  //
+  //  connector_request
+  //    An optional Connector request for the shell to bind, allowing the
+  //    initialized client to connect to others.
+  //
+  Initialize(Identity identity, uint32 id) => (Connector&? connector_request);
+
+  // Called when another application attempts to open a connection to this
+  // application. An application implements this method to complete the exchange
+  // of interface implementations with the remote application. See also
+  // documentation in shell.mojom for Connect(). The application originating
+  // the request is referred to as the "source" and the one receiving the
+  // "target".
+  //
+  // Parameters:
+  //
+  //  source
+  //    The identity of the instance originating the connection.
+  //
+  //  source_id
+  //    A unique identifier used by the shell to identify the source instance.
+  //
+  //  local_interfaces
+  //    A request for an InterfaceProvider by which the source application may
+  //    seek to bind interface implementations exported by the target.
+  //
+  //  remote_interfaces
+  //    An InterfaceProvider by which the target application may bind interface
+  //    implementations exported by the source.
+  //
+  //  allowed_interfaces
+  //    A whitelist of interface names that should be exported to the source,
+  //    according to the security policy described by the source and target's
+  //    manifests. Attempts to bind interfaces not in this whitelist must not be
+  //    fulfilled.
+  //
+  //  resolved_name
+  //    The resolved name used to complete this connection.
+  //
+  AcceptConnection(Identity source,
+                   uint32 source_id,
+                   InterfaceProvider&? local_interfaces,
+                   InterfaceProvider? remote_interfaces,
+                   CapabilityRequest allowed_capabilities,
+                   string resolved_name);
+};

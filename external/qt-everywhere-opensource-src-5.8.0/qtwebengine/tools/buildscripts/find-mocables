@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+import re, sys, os
+
+mocables = set()
+dir = sys.argv[1]
+files = sys.argv[2:]
+for f in filter(os.path.isfile, [os.path.join(dir, f) for f in files]):
+    inBlockComment = False
+    for line in open(f).readlines():
+        # Block comments handling
+        if "/*" in line:
+            inBlockComment = True
+        if inBlockComment and "*/" in line:
+            inBlockComment = False
+            if line.find("*/") != len(line) - 3:
+                line = line[line.find("*/")+2:]
+            else:
+                continue
+        if inBlockComment:
+            continue
+        #simple comments handling
+        if "//" in line:
+            line = line.partition("//")[0]
+        if re.match(".*Q_OBJECT", line):
+            mocables.add(f)
+for mocable in mocables:
+    print mocable

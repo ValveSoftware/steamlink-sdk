@@ -1,0 +1,21 @@
+template <typename StructPtrType>
+{{struct.name}}Ptr {{struct.name}}::Clone() const {
+  // Use StructPtrType to prevent the compiler from trying to compile this
+  // without being asked.
+  StructPtrType rv(New());
+{%- for field in struct.fields %}
+  rv->{{field.name}} = mojo::internal::Clone({{field.name}});
+{%- endfor %}
+  return rv;
+}
+
+template <typename T,
+          typename std::enable_if<std::is_same<
+              T, {{struct.name}}>::value>::type*>
+bool {{struct.name}}::Equals(const T& other) const {
+{%- for field in struct.fields %}
+  if (!mojo::internal::Equals(this->{{field.name}}, other.{{field.name}}))
+    return false;
+{%- endfor %}
+  return true;
+}

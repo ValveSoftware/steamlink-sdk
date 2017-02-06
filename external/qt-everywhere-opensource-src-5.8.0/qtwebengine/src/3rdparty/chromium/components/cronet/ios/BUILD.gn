@@ -1,0 +1,170 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/buildflag_header.gni")
+import("//build/config/ios/rules.gni")
+import("//build/util/version.gni")
+import("//chrome/version.gni")
+import("//testing/test.gni")
+import("//url/features.gni")
+
+assert(!is_component_build, "Cronet requires static library build.")
+
+declare_args() {
+  cronet_enable_data_reduction_proxy_support = false
+}
+
+process_version("cronet_version_header") {
+  template_file = "//components/cronet/version.h.in"
+  output = "$target_gen_dir/version.h"
+  extra_args = [
+    "-e",
+    "VERSION_FULL=\"%s.%s.%s.%s\" % (MAJOR,MINOR,BUILD,PATCH)",
+  ]
+}
+
+source_set("cronet_sources") {
+  deps = [
+    ":cronet_version_header",
+    "//base:base",
+    "//components/metrics:metrics",
+    "//components/metrics/proto:proto",
+    "//components/prefs:prefs",
+    "//net",
+    "//url",
+  ]
+
+  sources = [
+    "../histogram_manager.cc",
+    "../histogram_manager.h",
+    "../url_request_context_config.cc",
+    "../url_request_context_config.h",
+    "cronet_bidirectional_stream.cc",
+    "cronet_bidirectional_stream.h",
+    "cronet_c_for_grpc.cc",
+    "cronet_c_for_grpc.h",
+    "cronet_environment.cc",
+    "cronet_environment.h",
+  ]
+
+  if (!use_platform_icu_alternatives) {
+    deps += [ "//base:i18n" ]
+  }
+}
+
+ios_framework_bundle("cronet_framework") {
+  output_name = "Cronet"
+
+  deps = [
+    ":cronet_sources",
+    "//base",
+    "//net:net",
+  ]
+
+  info_plist = "Info.plist"
+
+  libs = [ "UIKit.Framework" ]
+
+  public_headers = [
+    "Cronet.h",
+    "cronet_c_for_grpc.h",
+  ]
+
+  sources = [
+    "Cronet.h",
+    "Cronet.mm",
+  ]
+}
+
+bundle_data("cronet_test_bundle_data") {
+  testonly = true
+  sources = [
+    "//net/data/ssl/certificates/quic_test.example.com.crt",
+    "//net/data/ssl/certificates/quic_test.example.com.key",
+    "//net/data/ssl/certificates/quic_test.example.com.key.pkcs8",
+    "//net/data/ssl/certificates/quic_test.example.com.key.sct",
+  ]
+  outputs = [
+    "{{bundle_resources_dir}}/{{source_file_part}}",
+  ]
+}
+
+test("cronet_test") {
+  testonly = true
+  sources = [
+    "test/cronet_bidirectional_stream_test.mm",
+    "test/cronet_test_runner.mm",
+    "test/quic_test_server.cc",
+    "test/quic_test_server.h",
+  ]
+
+  deps = [
+    ":cronet_sources",
+    ":cronet_test_bundle_data",
+    ":cronet_version_header",
+    "//base",
+    "//base:i18n",
+    "//net",
+    "//net:simple_quic_tools",
+    "//net:test_support",
+    "//third_party/icu",
+  ]
+}
+
+test("cronet_unittests") {
+  sources = [
+    "//components/cronet/histogram_manager_unittest.cc",
+    "//components/cronet/run_all_unittests.cc",
+    "//components/cronet/url_request_context_config_unittest.cc",
+  ]
+
+  deps = [
+    ":cronet_sources",
+    "//base",
+    "//base/test:test_support",
+    "//components/metrics",
+    "//net",
+    "//testing/gtest",
+  ]
+}
+
+_package_dir = "$root_out_dir/cronet"
+
+action("generate_license") {
+  _license_path = "$_package_dir/LICENSE"
+
+  script = "//components/cronet/tools/cronet_licenses.py"
+  outputs = [
+    _license_path,
+  ]
+  args = [
+    "license",
+    rebase_path(_license_path, root_build_dir),
+    "--gn",
+  ]
+}
+
+copy("cronet_package_copy") {
+  sources = [
+    "$root_out_dir/Cronet.framework",
+    "//AUTHORS",
+    "//chrome/VERSION",
+    "//components/cronet/ios/Cronet.h",
+    "//components/cronet/ios/cronet_c_for_grpc.h",
+  ]
+  outputs = [
+    "$_package_dir/{{source_file_part}}",
+  ]
+
+  deps = [
+    ":cronet_framework",
+  ]
+}
+
+group("cronet_package") {
+  deps = [
+    ":cronet_package_copy",
+    ":generate_license",
+  ]
+}

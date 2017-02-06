@@ -1,0 +1,112 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module device.serial;
+
+import "data_stream.mojom";
+
+struct DeviceInfo {
+  string path;
+  uint16 vendor_id;
+  bool has_vendor_id = false;
+  uint16 product_id;
+  bool has_product_id = false;
+  string? display_name;
+};
+
+enum SendError {
+  NONE,
+  DISCONNECTED,
+  PENDING,
+  TIMEOUT,
+  SYSTEM_ERROR,
+};
+
+enum ReceiveError {
+  NONE,
+  DISCONNECTED,
+  TIMEOUT,
+  DEVICE_LOST,
+  BREAK,
+  FRAME_ERROR,
+  OVERRUN,
+  BUFFER_OVERFLOW,
+  PARITY_ERROR,
+  SYSTEM_ERROR,
+};
+
+enum DataBits {
+  NONE,
+  SEVEN,
+  EIGHT,
+};
+
+enum ParityBit {
+  NONE,
+  NO,
+  ODD,
+  EVEN,
+};
+
+enum StopBits {
+  NONE,
+  ONE,
+  TWO,
+};
+
+struct ConnectionOptions {
+  uint32 bitrate = 0;
+  DataBits data_bits = NONE;
+  ParityBit parity_bit = NONE;
+  StopBits stop_bits = NONE;
+  bool cts_flow_control;
+  bool has_cts_flow_control = false;
+};
+
+struct ConnectionInfo {
+  uint32 bitrate = 0;
+  DataBits data_bits = NONE;
+  ParityBit parity_bit = NONE;
+  StopBits stop_bits = NONE;
+  bool cts_flow_control;
+};
+
+struct HostControlSignals {
+  bool dtr;
+  bool has_dtr = false;
+  bool rts;
+  bool has_rts = false;
+};
+
+struct DeviceControlSignals {
+  bool dcd;
+  bool cts;
+  bool ri;
+  bool dsr;
+};
+
+interface SerialService {
+  GetDevices() => (array<DeviceInfo> devices);
+
+  // Creates a |Connection| to |path| with options specified by |options|,
+  // returning it via |connection|. Sending and receiving data over this
+  // connection is handled by |sink| and |source|, respectively. This will fail
+  // and |connection| will not be usable if |path| does not specify a valid
+  // serial device or there is an error connecting to or configuring the
+  // connection.
+  Connect(string path,
+          ConnectionOptions? options,
+          Connection& connection,
+          DataSink& sink,
+          DataSource& source,
+          DataSourceClient source_client);
+};
+
+interface Connection {
+  GetInfo() => (ConnectionInfo? info);
+  SetOptions(ConnectionOptions options) => (bool success);
+  SetControlSignals(HostControlSignals signals) => (bool success);
+  GetControlSignals() => (DeviceControlSignals? signals);
+  Flush() => (bool success);
+};

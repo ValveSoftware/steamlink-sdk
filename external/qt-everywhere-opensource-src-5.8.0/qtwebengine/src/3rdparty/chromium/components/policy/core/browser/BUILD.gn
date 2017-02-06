@@ -1,0 +1,112 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+
+# GYP version: components/policy.gypi:policy_component_core_browser
+source_set("browser") {
+  visibility = [ "//components/policy/*" ]
+  sources = [
+    # Note that these sources are always included, even for builds that disable
+    # policy. Most source files should go in the conditional sources list
+    # below. url_blacklist_manager.h is used by managed mode.
+    "url_blacklist_manager.cc",
+    "url_blacklist_manager.h",
+  ]
+
+  defines = [ "POLICY_COMPONENT_IMPLEMENTATION" ]
+
+  deps = [
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//components/bookmarks/managed",
+    "//components/keyed_service/core",
+    "//components/policy/core/common",
+    "//components/pref_registry",
+    "//components/prefs",
+    "//components/strings",
+    "//components/url_matcher",
+    "//net",
+    "//ui/base",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/android_combined_policy_provider.cc",
+      "android/android_combined_policy_provider.h",
+      "android/component_jni_registrar.cc",
+      "android/component_jni_registrar.h",
+      "android/policy_converter.cc",
+      "android/policy_converter.h",
+    ]
+    deps += [ "//components/policy/android:jni_headers" ]
+  }
+
+  if (enable_configuration_policy) {
+    sources += [
+      "autofill_policy_handler.cc",
+      "autofill_policy_handler.h",
+      "browser_policy_connector.cc",
+      "browser_policy_connector.h",
+      "browser_policy_connector_base.cc",
+      "browser_policy_connector_base.h",
+      "browser_policy_connector_ios.h",
+      "browser_policy_connector_ios.mm",
+      "cloud/message_util.cc",
+      "cloud/message_util.h",
+      "configuration_policy_handler.cc",
+      "configuration_policy_handler.h",
+      "configuration_policy_handler_list.cc",
+      "configuration_policy_handler_list.h",
+      "configuration_policy_pref_store.cc",
+      "configuration_policy_pref_store.h",
+      "policy_error_map.cc",
+      "policy_error_map.h",
+      "proxy_policy_handler.cc",
+      "proxy_policy_handler.h",
+      "url_blacklist_policy_handler.cc",
+      "url_blacklist_policy_handler.h",
+    ]
+
+    deps += [
+      "//components/autofill/core/common",
+      "//components/policy",
+      "//components/policy/proto",
+      "//components/proxy_config",
+      "//google_apis",
+      "//net",
+      "//third_party/icu",
+    ]
+  }
+}
+
+if (enable_configuration_policy) {
+  source_set("unit_tests") {
+    testonly = true
+    sources = [
+      "android/android_combined_policy_provider_unittest.cc",
+      "android/policy_converter_unittest.cc",
+      "autofill_policy_handler_unittest.cc",
+      "browser_policy_connector_unittest.cc",
+      "configuration_policy_handler_unittest.cc",
+      "configuration_policy_pref_store_unittest.cc",
+      "proxy_policy_handler_unittest.cc",
+      "url_blacklist_manager_unittest.cc",
+      "url_blacklist_policy_handler_unittest.cc",
+    ]
+    deps = [
+      "//base",
+      "//components/autofill/core/common",
+      "//components/policy",
+      "//components/policy:policy_component_test_support",
+      "//components/prefs:test_support",
+      "//components/proxy_config",
+      "//components/url_formatter",
+      "//google_apis",
+      "//net",
+      "//testing/gmock",
+      "//testing/gtest",
+    ]
+  }
+}

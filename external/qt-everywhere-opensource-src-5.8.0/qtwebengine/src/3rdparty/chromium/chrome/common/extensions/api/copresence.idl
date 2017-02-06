@@ -1,0 +1,148 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.copresence</code> API to communicate with other nearby
+// devices using Google's copresence service.
+namespace copresence {
+  // Suggestions to copresence on how to do the publication and subscription.
+  // Note: These are only suggestions. Actual behavior may not always match
+  // what is requested.
+  dictionary Strategy {
+    // Attempt to use low power mode. Defaults to false.
+    boolean? lowPower;
+    // Attempt to only broadcast. Using this with onlyScan can result in both
+    // being ignored. Defaults to false.
+    boolean? onlyBroadcast;
+    // Attempt to only scan. Using this with onlyBroadcast can result in both
+    // being ignored. Defaults to false.
+    boolean? onlyScan;
+    // Attempt to use audible audio. Defaults to false.
+    boolean? audible;
+  };
+
+  dictionary Message {
+    // The type of message being published. Cannot be empty.
+    DOMString type;
+    // The message payload, in raw bytes.
+    ArrayBuffer payload;
+  };
+
+  dictionary MessageFilter {
+    // The type of messages to subscribe to. Cannot be empty.
+    DOMString type;
+  };
+
+  [noinline_doc] dictionary AccessPolicy {
+    // Only send this message to devices within hearing range.
+    // Defaults to false.
+    boolean? onlyEarshot;
+  };
+
+  [noinline_doc] dictionary PublishOperation {
+    // A unique ID that identifies this publish.
+    DOMString id;
+    // The message to publish.
+    Message message;
+    // The number of milliseconds for which this publication will be active.
+    // This is capped at 24 hours. If not provided, a default of 5 minutes is
+    // used.
+    long? timeToLiveMillis;
+    // A policy specifying who can get the message.
+    AccessPolicy? policy;
+    // A set of strategies to use when publishing the message. These
+    // strategies are suggestions to copresence that may or may not be followed.
+    Strategy? strategies;
+  };
+
+  [noinline_doc] dictionary SubscribeOperation {
+    // A unique ID that identifies this subscription.
+    DOMString id;
+    // Filter that defines which messages we want to subscribe to.
+    MessageFilter filter;
+    // The number of milliseconds for which this subscription will be active.
+    // This is capped at 24 hours. If not provided, a default of 5 minutes is
+    // used.
+    long? timeToLiveMillis;
+    // A set of strategies to use when subscribing with this filter. These
+    // strategies are suggestions to copresence that may or may not be followed.
+    Strategy? strategies;
+  };
+
+  [noinline_doc] dictionary UnpublishOperation {
+    // The ID of a message to unpublish. Required if the operation type
+    // is 'unpublish'.
+    DOMString unpublishId;
+  };
+
+  [noinline_doc] dictionary UnsubscribeOperation {
+    // The ID of a subscription to cancel. Required if the operation type
+    // is 'unsubscribe'.
+    DOMString unsubscribeId;
+  };
+
+  // Only one of these can be set.
+  [noinline_doc] dictionary Operation {
+    // Publication details. Required if the operation type is 'publish'.
+    PublishOperation? publish;
+    // Subscription details. Required if the operation type is 'subscribe'.
+    SubscribeOperation? subscribe;
+    // Unpublish details. Required if the operation type is 'unpublish'.
+    UnpublishOperation? unpublish;
+    // Unsubscribe details. Required if the operation type is 'unsubscribe'.
+    UnsubscribeOperation? unsubscribe;
+  };
+
+  // Indicates whether a batchExecute() call succeeded or encountered errors.
+  enum ExecuteStatus {
+    // All operations sent to batchExecute succeeded.
+    success,
+    // One of the operations sent to batchExecute failed.
+    failed,
+    // Contacting the Copresence server failed.
+    serverError,
+    // Initializing Copresence failed.
+    initFailed
+  };
+
+  // Specifies an asynchronous status event sent to the app.
+  enum Status {
+    // We attempted to broadcast audio but weren't able to.
+    audioFailed,
+    // Contacting the Copresence server failed.
+    serverError
+  };
+
+  // Callback to return the status of a completed batchExecute() call.
+  callback ExecuteCallback = void(ExecuteStatus status);
+
+  interface Functions {
+    // Sets the API key to use with the app. This parameter only needs to be
+    // set to communicate with apps on other platforms. Once the API key is set,
+    // apps on any platform that are using this API key can publish/subscribe to
+    // each other.
+    [nodoc] static void setApiKey(DOMString apiKey);
+
+    // Temporary call to enable authenticated copresence
+    // with an externally provided OAuth token.
+    // TODO(ckehoe): Replace this with a proper API.
+    [nodoc] static void setAuthToken(DOMString token);
+    
+    // Executes a set of copresence operations in one batch. They will either
+    // all be executed, or none will be executed (due to an error in one or
+    // more of them). Publish/Subscribe operations are executed in the order
+    // that they exist in the array. Unpublish and Unsubscribe are processsed
+    // at the end, again, in the order that they exist in the array.
+    static void execute(Operation[] operations, ExecuteCallback callback);
+  };
+
+  interface Events {
+    // Fired when new messages arrive.
+    static void onMessagesReceived(DOMString subscriptionId,
+                                   Message[] messages);
+                                   
+    // Fired when a new copresence status update is available.
+    static void onStatusUpdated(Status status);
+  };
+};
+

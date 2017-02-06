@@ -1,0 +1,31 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "components/sessions/content/content_platform_specific_tab_data.h"
+
+#include "base/memory/ptr_util.h"
+#include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/web_contents.h"
+
+namespace sessions {
+
+ContentPlatformSpecificTabData::ContentPlatformSpecificTabData(
+    content::WebContents* web_contents)
+    :  // TODO(ajwong): This does not correctly handle storage for isolated
+       // apps.
+      session_storage_namespace_(web_contents->GetController()
+                                     .GetDefaultSessionStorageNamespace()) {}
+
+ContentPlatformSpecificTabData::ContentPlatformSpecificTabData() {}
+
+ContentPlatformSpecificTabData::~ContentPlatformSpecificTabData() {}
+
+std::unique_ptr<PlatformSpecificTabData>
+ContentPlatformSpecificTabData::Clone() {
+  ContentPlatformSpecificTabData* clone = new ContentPlatformSpecificTabData();
+  clone->session_storage_namespace_ = session_storage_namespace_;
+  return base::WrapUnique(clone);
+}
+
+}  // namespace sessions

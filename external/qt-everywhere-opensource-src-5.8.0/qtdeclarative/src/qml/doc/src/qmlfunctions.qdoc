@@ -1,0 +1,546 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+  \macro QML_DECLARE_TYPE()
+  \relates QQmlEngine
+
+  Equivalent to \c Q_DECLARE_METATYPE(TYPE *) and \c Q_DECLARE_METATYPE(QQmlListProperty<TYPE>)
+*/
+
+/*!
+  \macro QML_DECLARE_TYPEINFO(Type,Flags)
+  \relates QQmlEngine
+
+  Declares additional properties of the given \a Type as described by the
+  specified \a Flags.
+
+  Current the only supported type info is \c QML_HAS_ATTACHED_PROPERTIES which
+  declares that the \a Type supports \l {Attached Properties and Attached Signal Handlers}
+  {attached properties}.
+*/
+
+/*!
+  \fn void qmlClearTypeRegistrations()
+  \relates QQmlEngine
+
+  Clears all stored type registrations, such as those produced with \l qmlRegisterType().
+
+  Do not call this function while a QQmlEngine exists or behavior will be undefined.
+  Any existing QQmlEngines must be deleted before calling this function.  This function
+  only affects the application global cache. Delete the QQmlEngine to clear all cached
+  data relating to that engine.
+*/
+
+
+/*!
+  \fn int qmlRegisterType(const char *uri, int versionMajor, int versionMinor, const char *qmlName)
+  \relates QQmlEngine
+
+  This template function registers the C++ type in the QML system with
+  the name \a qmlName, in the library imported from \a uri having the
+  version number composed from \a versionMajor and \a versionMinor.
+
+  Returns the QML type id.
+
+  There are two forms of this template function:
+
+  \code
+  template<typename T>
+  int qmlRegisterType(const char *uri, int versionMajor, int versionMinor, const char *qmlName);
+
+  template<typename T, int metaObjectRevision>
+  int qmlRegisterType(const char *uri, int versionMajor, int versionMinor, const char *qmlName);
+  \endcode
+
+  The former is the standard form which registers the type \e T as a new type.
+  The latter allows a particular revision of a class to be registered in
+  a specified version (see \l {Type Revisions and Versions}).
+
+
+  For example, this registers a C++ class \c MySliderItem as a QML type
+  named \c Slider for version 1.0 of a type namespace called
+  "com.mycompany.qmlcomponents":
+
+  \code
+  qmlRegisterType<MySliderItem>("com.mycompany.qmlcomponents", 1, 0, "Slider");
+  \endcode
+
+  Once this is registered, the type can be used in QML by importing the
+  specified type namespace and version number:
+
+  \qml
+  import com.mycompany.qmlcomponents 1.0
+
+  Slider {
+      // ...
+  }
+  \endqml
+
+  Note that it's perfectly reasonable for a library to register types to older versions
+  than the actual version of the library. Indeed, it is normal for the new library to allow
+  QML written to previous versions to continue to work, even if more advanced versions of
+  some of its types are available.
+*/
+
+/*!
+  \fn int qmlRegisterRevision(const char *uri, int versionMajor, int versionMinor)
+  \relates QQmlEngine
+
+  This template function registers the specified revision of a C++ type in the QML system with
+  the library imported from \a uri having the version number composed
+  from \a versionMajor and \a versionMinor.
+
+  Returns the QML type id.
+
+  \code
+  template<typename T, int metaObjectRevision>
+  int qmlRegisterRevision(const char *uri, int versionMajor, int versionMinor);
+  \endcode
+
+  This function is typically used to register the revision of a base class to
+  use for the specified version of the type (see \l {Type Revisions and Versions}).
+*/
+
+/*!
+  \fn int qmlRegisterUncreatableType(const char *uri, int versionMajor, int versionMinor, const char *qmlName, const QString& message)
+  \relates QQmlEngine
+
+  This template function registers the C++ type in the QML system with
+  the name \a qmlName, in the library imported from \a uri having the
+  version number composed from \a versionMajor and \a versionMinor.
+
+  While the type has a name and a type, it cannot be created, and the
+  given error \a message will result if creation is attempted.
+
+  This is useful where the type is only intended for providing attached properties or enum values.
+
+  Returns the QML type id.
+
+  \sa qmlRegisterTypeNotAvailable()
+*/
+
+/*!
+  \fn int qmlRegisterExtendedType(const char *uri, int versionMajor, int versionMinor, const char *qmlName)
+  \relates QQmlEngine
+
+  This template function registers the C++ type and its extension object in the
+  QML system with the name \a qmlName in the library imported from \a uri having
+  version number composed from \a versionMajor and \a versionMinor. Properties
+  not available in the main type will be searched for in the extension object.
+
+  Returns the QML type id.
+
+  \sa qmlRegisterType(), {Registering Extension Objects}
+*/
+
+
+/*!
+  \fn int qmlRegisterExtendedUncreatableType(const char *uri, int versionMajor, int versionMinor, const char *qmlName, const QString& reason)
+  \relates QQmlEngine
+
+  This template function registers the C++ type and its extension
+  in the QML system with the name \a qmlName in the library imported
+  from \a uri having version number composed from \a versionMajor and
+  \a versionMinor.
+
+  While the type has a name and a type, it cannot be created, and the
+  given error \a reason will result if creation is attempted.
+
+  This is useful where the type is only intended for providing attached
+  properties, enum values or an abstract base class with its extension.
+
+  Returns the QML type id.
+
+  \sa qmlRegisterUncreatableType()
+*/
+
+/*!
+  \fn static inline int qmlRegisterUncreatableMetaObject(const QMetaObject &staticMetaObject, const char *uri, int versionMajor, int versionMinor, const char *qmlName, const QString& reason)
+  \relates QQmlEngine
+  \since 5.8
+
+  This function registers the \a staticMetaObject and its extension
+  in the QML system with the name \a qmlName in the library imported
+  from \a uri having version number composed from \a versionMajor and
+  \a versionMinor.
+
+  This function is useful to register Q_NAMESPACE namespaces.
+
+  Returns the QML type id.
+
+  Example:
+
+  \code
+  namespace MyNamespace {
+    Q_NAMESPACE
+    enum MyEnum {
+        Key1,
+        Key2,
+    };
+    Q_ENUMS(MyEnum)
+  }
+
+  //...
+  qmlRegisterUncreatableMetaObject(MyNamespace::staticMetaObject, "io.qt", 1, 0, "MyNamespace", "Access to enums & flags only");
+  \endcode
+
+  Now on QML side you can use the registered enums:
+  \code
+  Component.onCompleted: console.log(MyNamespace.Key2)
+  \endcode
+*/
+
+/*!
+  \fn int qmlRegisterCustomExtendedType(const char *uri, int versionMajor, int versionMinor, const char *qmlName, QQmlCustomParser *parser)
+  \relates QQmlEngine
+  \internal
+
+  This template function registers the C++ type and its extension
+  in the QML system with the name \a qmlName in the library imported
+  from \a uri having version number composed from \a versionMajor and
+  \a versionMinor. Properties from the C++ type or its extension that
+  cannot be resolved directly by the QML system will be resolved using
+  the \a parser provided.
+
+  Returns the QML type id.
+*/
+
+/*!
+  \fn int qmlRegisterTypeNotAvailable(const char *uri, int versionMajor, int versionMinor, const char *qmlName, const QString& message)
+  \relates QQmlEngine
+
+  This function registers a type in the QML system with the name \a qmlName, in the type namespace imported from \a uri having the
+  version number composed from \a versionMajor and \a versionMinor, but any attempt to instantiate the type
+  will produce the given error \a message.
+
+  Normally, the types exported by a plugin should be fixed. However, if a C++ type is not available, you should
+  at least "reserve" the QML type name, and give the user of the unavailable type a meaningful error message.
+
+  Returns the QML type id.
+
+  Example:
+
+  \code
+  #ifdef NO_GAMES_ALLOWED
+  qmlRegisterTypeNotAvailable("MinehuntCore", 0, 1, "Game", "Get back to work, slacker!");
+  #else
+  qmlRegisterType<MinehuntGame>("MinehuntCore", 0, 1, "Game");
+  #endif
+  \endcode
+
+  This will cause any QML which imports the "MinehuntCore" type namespace and attempts to use the type to produce an error message:
+  \code
+  fun.qml: Get back to work, slacker!
+     Game {
+     ^
+  \endcode
+
+  Without this, a generic "Game is not a type" message would be given.
+
+  \sa qmlRegisterUncreatableType()
+*/
+
+/*!
+  \fn int qmlRegisterType()
+  \relates QQmlEngine
+  \overload
+
+  This template function registers the C++ type in the QML
+  system. Instances of this type cannot be created from the QML
+  system.
+
+  Returns the QML type id.
+*/
+
+/*!
+  \fn int qmlRegisterInterface(const char *typeName)
+  \relates QQmlEngine
+
+  This template function registers the C++ type in the QML system
+  under the name \a typeName.
+
+  Returns the QML type id.
+*/
+
+/*!
+   \fn int qmlRegisterSingletonType(const char *uri, int versionMajor, int versionMinor, const char *typeName, QJSValue (*callback)(QQmlEngine *, QJSEngine *))
+   \relates QQmlEngine
+
+   This function may be used to register a singleton type provider \a callback in a particular \a uri
+   and \a typeName with a version specified in \a versionMajor and \a versionMinor.
+
+   Installing a singleton type allows developers to provide arbitrary functionality
+   (methods and properties) to a client without requiring individual instances of the type to
+   be instantiated by the client.
+
+   A singleton type may be either a QObject or a QJSValue.
+   This function should be used to register a singleton type provider function which returns a QJSValue as a singleton type.
+
+   \b{NOTE:} QJSValue singleton type properties will \b{not} trigger binding re-evaluation if changed.
+
+   Usage:
+   \code
+   // First, define the singleton type provider function (callback).
+   static QJSValue example_qjsvalue_singletontype_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
+   {
+       Q_UNUSED(engine)
+
+       static int seedValue = 5;
+       QJSValue example = scriptEngine->newObject();
+       example.setProperty("someProperty", seedValue++);
+       return example;
+   }
+
+   // Second, register the singleton type provider with QML by calling this function in an initialization function.
+   qmlRegisterSingletonType("Qt.example.qjsvalueApi", 1, 0, "MyApi", example_qjsvalue_singletontype_provider);
+   \endcode
+
+   In order to use the registered singleton type in QML, you must import the singleton type.
+   \qml
+   import QtQuick 2.0
+   import Qt.example.qjsvalueApi 1.0 as ExampleApi
+   Item {
+       id: root
+       property int someValue: ExampleApi.MyApi.someProperty
+   }
+   \endqml
+  */
+
+/*!
+    \fn Object *qmlAttachedPropertiesObject(const QObject *attachee, bool create = true)
+    \relates QQmlEngine
+
+    The form of this template function is:
+
+    \code
+    template<typename T> QObject *qmlAttachedPropertiesObject(const QObject *attachee, bool create = true)
+    \endcode
+
+    This returns the attached object instance that has been attached to the specified
+    \a attachee by the attaching type \e T.
+
+    If \a create is true and type \e T is a valid attaching type, this creates and returns a new
+    attached object instance.
+
+    Returns 0 if type \e T is not a valid attaching type, or if \a create is false and no
+    attachment object instance has previously been created for \a attachee.
+
+    \sa {Providing Attached Objects for Data Annotations}
+
+*/
+
+/*!
+   \fn int qmlRegisterSingletonType(const char *uri, int versionMajor, int versionMinor, const char *typeName, QObject *(*callback)(QQmlEngine *, QJSEngine *))
+   \relates QQmlEngine
+
+   This function may be used to register a singleton type provider \a callback in a particular \a uri
+   and \a typeName with a version specified in \a versionMajor and \a versionMinor.
+
+   Installing a singleton type into a uri allows developers to provide arbitrary functionality
+   (methods and properties) to clients without requiring individual instances ot the type to be
+   instantiated by the client.
+
+   A singleton type may be either a QObject or a QJSValue.
+   This function should be used to register a singleton type provider function which returns a QObject
+   of the given type T as a singleton type.
+
+   A QObject singleton type may be referenced via the type name with which it was registered, and this
+   typename may be used as the target in a \l Connections type or otherwise used as any other type id would.
+   One exception to this is that a QObject singleton type property may not be aliased (because the
+   singleton type name does not identify an object within the same component as any other item).
+
+   \b{NOTE:} A QObject singleton type instance returned from a singleton type provider is owned by
+   the QML engine unless the object has explicit QQmlEngine::CppOwnership flag set.
+
+   Usage:
+   \code
+   // First, define your QObject which provides the functionality.
+   class SingletonTypeExample : public QObject
+   {
+       Q_OBJECT
+       Q_PROPERTY (int someProperty READ someProperty WRITE setSomeProperty NOTIFY somePropertyChanged)
+
+   public:
+       SingletonTypeExample(QObject* parent = 0)
+           : QObject(parent), m_someProperty(0)
+       {
+       }
+
+       ~SingletonTypeExample() {}
+
+       Q_INVOKABLE int doSomething() { setSomeProperty(5); return m_someProperty; }
+
+       int someProperty() const { return m_someProperty; }
+       void setSomeProperty(int val) { m_someProperty = val; emit somePropertyChanged(val); }
+
+   signals:
+       void somePropertyChanged(int newValue);
+
+   private:
+       int m_someProperty;
+   };
+
+   // Second, define the singleton type provider function (callback).
+   static QObject *example_qobject_singletontype_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
+   {
+       Q_UNUSED(engine)
+       Q_UNUSED(scriptEngine)
+
+       SingletonTypeExample *example = new SingletonTypeExample();
+       return example;
+   }
+
+   // Third, register the singleton type provider with QML by calling this function in an initialization function.
+   qmlRegisterSingletonType<SingletonTypeExample>("Qt.example.qobjectSingleton", 1, 0, "MyApi", example_qobject_singletontype_provider);
+   \endcode
+
+   In order to use the registered singleton type in QML, you must import the singleton type.
+   \qml
+   import QtQuick 2.0
+   import Qt.example.qobjectSingleton 1.0
+   Item {
+       id: root
+       property int someValue: MyApi.someProperty
+
+       Component.onCompleted: {
+           someValue = MyApi.doSomething()
+       }
+   }
+   \endqml
+
+   Since singleton types do not have an associated QQmlContext object, then within the functions of a QObject-derived
+   type that is registered as a singleton type implementation the QML context and engine information is not available.
+   The QQmlEngine::contextForObject() function returns NULL when supplied with a pointer to an QObject that
+   implements a singleton type.
+
+   Extending the above example:
+
+   \code
+   class SingletonTypeExample : public QObject
+   {
+       ...
+
+       Q_INVOKABLE void doSomethingElse()
+       {
+           // QML Engine/Context information is not accessible here:
+           Q_ASSERT(QQmlEngine::contextForObject(this) == 0);
+           Q_ASSERT(qmlContext(this) == 0);
+           Q_ASSERT(qmlEngine(this) == 0);
+       }
+
+       ...
+   }
+   \endcode
+
+  */
+
+/*!
+   \fn int qmlRegisterSingletonType(const QUrl &url, const char *uri, int versionMajor, int versionMinor, const char *qmlName)
+   \relates QQmlEngine
+
+   This function may be used to register a singleton type with the name \a qmlName, in the library imported from \a uri having
+   the version number composed from \a versionMajor and \a versionMinor. The type is defined by the QML file located at \a url.
+   The url must be an absolute URL, i.e. url.isRelative() == false.
+
+   In addition the type's QML file must have pragma Singleton statement among its import statements.
+
+   A singleton type may be referenced via the type name with which it was registered, and this typename may be used as the
+   target in a \l Connections type or otherwise used as any other type id would. One exception to this is that a singleton
+   type property may not be aliased (because the singleton type name does not identify an object within the same component
+   as any other item).
+
+   Usage:
+   \qml
+   // First, define your QML singleton type which provides the functionality.
+   pragma Singleton
+   import QtQuick 2.0
+   Item {
+       property int testProp1: 125
+   }
+   \endqml
+
+   \code
+   // Second, register the QML singleton type by calling this function in an initialization function.
+   qmlRegisterSingletonType(QUrl("file:///absolute/path/SingletonType.qml"), "Qt.example.qobjectSingleton", 1, 0, "RegisteredSingleton");
+   \endcode
+
+   In order to use the registered singleton type in QML, you must import the singleton type.
+   \qml
+   import QtQuick 2.0
+   import Qt.example.qobjectSingleton 1.0
+   Item {
+       id: root
+       property int someValue: RegisteredSingleton.testProp1
+   }
+   \endqml
+
+   It is also possible to have QML singleton types registered without using the qmlRegisterSingletonType function.
+   That can be done by adding a pragma Singleton statement among the imports of the type's QML file. In addition
+   the type must be defined in a qmldir file with a singleton keyword and the qmldir must be imported by the QML
+   files using the singleton.
+*/
+
+/*!
+  \fn int qmlRegisterType(const QUrl &url, const char *uri, int versionMajor, int versionMinor, const char *qmlName);
+  \relates QQmlEngine
+
+  This function registers a type in the QML system with the name \a qmlName, in the library imported from \a uri having the
+  version number composed from \a versionMajor and \a versionMinor. The type is defined by the QML file located at \a url. The
+  url must be an absolute URL, i.e. url.isRelative() == false.
+
+  Normally QML files can be loaded as types directly from other QML files, or using a qmldir file. This function allows
+  registration of files to types from C++ code, such as when the type mapping needs to be procedurally determined at startup.
+
+  Returns -1 if the registration was not successful.
+*/
+
+/*!
+  \fn bool qmlProtectModule(const char* uri, int majVersion);
+  \relates QQmlEngine
+
+  This function protects a module from having types registered into it. This
+  can be used to prevent other plugins from injecting types into your module.
+  It can also be a performance improvement, as it allows the engine to skip
+  checking for the possibility of new types or plugins when this import is
+  reached.
+
+  The performance benefit is primarily seen when registering application
+  specific types from within the application instead of through a plugin.
+  Using qmlProtectModule allows the engine to skip checking for a plugin when
+  that uri is imported, which can be noticeable with slow file systems.
+
+  After this function is called, any attempt to register C++ types into this
+  uri, major version combination will lead to a runtime error. Call this after
+  you have registered all of your types with the engine.
+
+  Returns true if the module with \a uri as a \l{Identified Modules}
+  {module identifier} and \a majVersion as a major version number was found
+  and locked, otherwise returns false. The module must contain exported types
+  in order to be found.
+*/
+

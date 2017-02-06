@@ -33,6 +33,10 @@ CHelloWidget::CHelloWidget()
 	pLabel->setAlignment( Qt::AlignCenter );
 	pLayout->addWidget( pLabel );
 
+	QWebEngineView *pWebView = new QWebEngineView;
+	pWebView->setUrl( QUrl( "http://www.valvesoftware.com/" ) );
+	pLayout->addWidget( pWebView );
+
 	m_pButton = new QPushButton;
 	m_pButton->setText( tr( "Quit" ) );
 	connect( m_pButton, SIGNAL( released() ), this, SLOT( OnQuit() ) );

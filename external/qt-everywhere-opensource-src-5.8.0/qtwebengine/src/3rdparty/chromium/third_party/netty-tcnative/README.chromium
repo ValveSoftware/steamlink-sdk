@@ -1,0 +1,180 @@
+Name: Tomcat Native Fork for Netty
+Short Name: netty-tcnative
+URL: https://github.com/netty/netty-tcnative
+SHA: 856865181ca38c07b7d2be619903ee98f6f77a23 netty-tcnative-1.1.33.zip
+Version: 1.1.33
+Date: October 13, 2015
+Revision: 2aa47be27783ec31086ca9881402f845543de4e6
+License: Apache 2.0
+License File: NOT_SHIPPED
+Security Critical: no
+The library is not security critical because it is used for tests only.
+Do not link it into production code.
+
+Description:
+    netty-tcnative is a fork of Tomcat Native. It includes a set of changes contributed
+    by Twitter, Inc, such as:
+
+    Simplified distribution and linkage of native library
+    Complete mavenization of the project
+    Improved OpenSSL support
+
+Local Modifications:
+
+diff -ruN ./original/src/main/c/ssl.c ./src/third_party/netty-tcnative/src/c/ssl.c
+--- ./original/src/main/c/ssl.c	2015-10-13 08:36:59.000000000 -0400
++++ ./src/third_party/netty-tcnative/src/c/ssl.c	2016-01-04 10:18:31.729765992 -0500
+@@ -1821,7 +1821,7 @@
+     verify = SSL_VERIFY_NONE;
+
+     UNREFERENCED(o);
+-    TCN_ASSERT(ctx != 0);
++    TCN_ASSERT(c->ctx != 0);
+     c->verify_mode = level;
+
+     if (c->verify_mode == SSL_CVERIFY_UNSET)
+
+diff --git a/c/ssl.c b/c/ssl.c
+index 89e6cad..97c7982 100644
+--- a/c/ssl.c
++++ b/c/ssl.c
+@@ -231,26 +231,38 @@ static const jint supported_ssl_opts = 0
+
+ static int ssl_tmp_key_init_rsa(int bits, int idx)
+ {
+-#if (OPENSSL_VERSION_NUMBER < 0x10100000L) || defined(OPENSSL_USE_DEPRECATED)
+-    if (!(SSL_temp_keys[idx] =
+-          RSA_generate_key(bits, RSA_F4, NULL, NULL))) {
++#if (OPENSSL_VERSION_NUMBER >= 0x10100000L)
++    return 0;
++#else
++
+ #ifdef OPENSSL_FIPS
+-        /**
+-         * With FIPS mode short RSA keys cannot be
+-         * generated.
+-         */
+-        if (bits < 1024)
+-            return 0;
+-        else
+-#endif
+-        return 1;
+-    }
+-    else {
++    /**
++     * Short RSA keys cannot be generated in FIPS mode.
++     */
++    if (bits < 1024)
+         return 0;
+-    }
+-#else
+-    return 0;
+ #endif
++
++    BIGNUM *e = BN_new();
++    RSA *rsa = RSA_new();
++    int ret = 1;
++
++    if (e == NULL ||
++        rsa == NULL ||
++        !BN_set_word(e, RSA_F4) ||
++        RSA_generate_key_ex(rsa, bits, e, NULL) != 1) {
++        goto err;
++    }
++
++    SSL_temp_keys[idx] = rsa;
++    rsa = NULL;
++    ret = 0;
++
++err:
++    BN_free(e);
++    RSA_free(rsa);
++    return ret;
++#endif  /* OPENSSL_VERSION_NUMBER >= 0x10100000L */
+ }
+
+ static int ssl_tmp_key_init_dh(int bits, int idx)
+@@ -610,45 +622,6 @@ int SSL_rand_seed(const char *file)
+     return RAND_status();
+ }
+
+-static int ssl_rand_make(const char *file, int len, int base64)
+-{
+-    int r;
+-    int num = len;
+-    BIO *out = NULL;
+-
+-    out = BIO_new(BIO_s_file());
+-    if (out == NULL)
+-        return 0;
+-    if ((r = BIO_write_filename(out, (char *)file)) < 0) {
+-        BIO_free_all(out);
+-        return 0;
+-    }
+-    if (base64) {
+-        BIO *b64 = BIO_new(BIO_f_base64());
+-        if (b64 == NULL) {
+-            BIO_free_all(out);
+-            return 0;
+-        }
+-        out = BIO_push(b64, out);
+-    }
+-    while (num > 0) {
+-        unsigned char buf[4096];
+-        int len = num;
+-        if (len > sizeof(buf))
+-            len = sizeof(buf);
+-        r = RAND_bytes(buf, len);
+-        if (r <= 0) {
+-            BIO_free_all(out);
+-            return 0;
+-        }
+-        BIO_write(out, buf, len);
+-        num -= len;
+-    }
+-    r = BIO_flush(out);
+-    BIO_free_all(out);
+-    return r > 0 ? 1 : 0;
+-}
+-
+ TCN_IMPLEMENT_CALL(jint, SSL, initialize)(TCN_STDARGS, jstring engine)
+ {
+     int r = 0;
+@@ -785,17 +758,6 @@ TCN_IMPLEMENT_CALL(jboolean, SSL, randSave)(TCN_STDARGS, jstring file)
+     return r ? JNI_TRUE : JNI_FALSE;
+ }
+
+-TCN_IMPLEMENT_CALL(jboolean, SSL, randMake)(TCN_STDARGS, jstring file,
+-                                            jint length, jboolean base64)
+-{
+-    TCN_ALLOC_CSTRING(file);
+-    int r;
+-    UNREFERENCED(o);
+-    r = ssl_rand_make(J2S(file), length, base64);
+-    TCN_FREE_CSTRING(file);
+-    return r ? JNI_TRUE : JNI_FALSE;
+-}
+-
+ TCN_IMPLEMENT_CALL(void, SSL, randSet)(TCN_STDARGS, jstring file)
+ {
+     TCN_ALLOC_CSTRING(file);
+
+diff --git a/c/sslcontext.c b/c/sslcontext.c
+index 925ca2a..78afe61 100644
+--- a/c/sslcontext.c
++++ b/c/sslcontext.c
+@@ -1464,7 +1464,11 @@ static const char* authentication_method(const SSL* ssl) {
+         case SSL2_VERSION:
+             return SSL_TXT_RSA;
+         default:
++#if defined(OPENSSL_IS_BORINGSSL)
++            return cipher_authentication_method(SSL_get_pending_cipher(ssl));
++#else
+             return cipher_authentication_method(ssl->s3->tmp.new_cipher);
++#endif
+         }
+     }
+ }
+
+
+

@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<!--
+Copyright (c) 2011 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+  <head>
+    <title></title>
+    <script src="https://cdn.rawgit.com/google/closure-library/master/closure/goog/base.js"></script>
+    <script src="../../../../ui/webui/resources/js/cr.js"></script>
+    <script src="disjoint_range_set.js"></script>
+    <script>
+      goog.require('goog.testing.jsunit');
+    </script>
+  </head>
+  <body>
+    <script>
+
+      var range;
+
+      function assertRangeEquals(ranges) {
+        assertArrayEquals(
+        ranges, range.map(function(start, end) { return [start, end]; }));
+      };
+
+      function setUp() {
+        range = new media.DisjointRangeSet;
+      };
+
+      function testAdd() {
+        range.add(1, 6);
+        assertRangeEquals([[1, 6]]);
+        range.add(-5, -3);
+        assertRangeEquals([[-5, -3], [1, 6]]);
+      };
+
+      function testAddAdjacent() {
+        range.add(3, 6);
+        assertRangeEquals([[3, 6]]);
+        range.add(1, 2);
+        assertRangeEquals([[1, 6]]);
+        range.add(7, 9);
+        assertRangeEquals([[1, 9]]);
+      };
+
+      function testAddNotQuiteAdjacent() {
+        range.add(3, 6);
+        assertRangeEquals([[3, 6]]);
+        range.add(0, 1);
+        assertRangeEquals([[0, 1], [3, 6]]);
+        range.add(8, 9);
+        assertRangeEquals([[0, 1], [3, 6], [8, 9]]);
+      };
+
+      function testAddOverlapping() {
+        range.add(1, 6);
+        assertRangeEquals([[1, 6]]);
+        range.add(5, 8);
+        assertRangeEquals([[1, 8]]);
+        range.add(0, 1);
+        assertRangeEquals([[0, 8]]);
+      };
+
+      function testMax() {
+        assertNull(range.max());
+        range.add(1, 6);
+        assertEquals(range.max(), 6);
+        range.add(3, 8);
+        assertEquals(range.max(), 8);
+        range.remove(2, 3);
+        assertEquals(range.max(), 8);
+        range.remove(4, 10);
+        assertEquals(range.max(), 1);
+        range.remove(1, 1);
+        assertNull(range.max());
+      };
+
+      function testRemove() {
+        range.add(1, 20);
+        assertRangeEquals([[1, 20]]);
+        range.remove(0, 3);
+        assertRangeEquals([[4, 20]]);
+        range.remove(18, 20);
+        assertRangeEquals([[4, 17]]);
+        range.remove(5, 16);
+        assertRangeEquals([[4, 4], [17, 17]]);
+      };
+
+      function testStartsEmpty() {
+        assertRangeEquals([]);
+      };
+
+    </script>
+  </body>
+</html>

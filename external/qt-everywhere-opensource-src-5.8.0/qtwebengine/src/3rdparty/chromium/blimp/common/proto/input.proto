@@ -1,0 +1,116 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Message definitions for the input subprotocol.
+//
+// The InputMessage protobuf generally carries web gesture events.  Currently we
+// just serialize the blink::WebGestureEvent POD struct.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+package blimp;
+
+message GestureCommon {
+  optional int64 x = 1;
+  optional int64 y = 2;
+  optional int64 global_x = 3;
+  optional int64 global_y = 4;
+}
+
+message GestureScrollBegin {
+  optional float delta_x_hint = 1;
+  optional float delta_y_hint = 2;
+  optional bool target_viewport = 3;
+}
+
+message GestureScrollUpdate {
+  optional float delta_x = 1;
+  optional float delta_y = 2;
+  optional float velocity_x = 3;
+  optional float velocity_y = 4;
+  optional bool previous_update_in_sequence_prevented = 5;
+  optional bool prevent_propagation = 6;
+  optional bool inertial = 7;
+}
+
+message GestureFlingStart {
+  optional float velocity_x = 1;
+  optional float velocity_y = 2;
+  optional bool target_viewport = 3;
+}
+
+message GestureFlingCancel {
+  optional bool prevent_boosting = 1;
+}
+
+message GestureTap {
+  optional int32 tap_count = 1;
+  optional float width = 2;
+  optional float height = 3;
+}
+
+message GesturePinchUpdate {
+  optional bool zoom_disabled = 1;
+  optional float scale = 2;
+}
+
+message GestureTapDown {
+  optional float width = 1;
+  optional float height = 2;
+}
+
+message GestureShowPress {
+  optional float width = 1;
+  optional float height = 2;
+}
+
+message InputMessage {
+  enum Type {
+    UNKNOWN = 0;
+
+    // This is a subset of WebGestureType events.  We only support a small set
+    // of these with the existing protocol.
+    // TODO(dtrainor): Modify these enum values to be consistent with the rest
+    // of BlimpMessage subtype enums.
+    Type_GestureScrollBegin = 1;
+    Type_GestureScrollEnd = 2;
+    Type_GestureScrollUpdate = 3;
+    Type_GestureFlingStart = 4;
+    Type_GestureFlingCancel = 5;
+    Type_GestureTap = 6;
+    Type_GesturePinchBegin = 7;
+    Type_GesturePinchEnd = 8;
+    Type_GesturePinchUpdate = 9;
+    Type_GestureTapDown = 10;
+    Type_GestureTapCancel = 11;
+    Type_GestureTapUnconfirmed = 12;
+    Type_GestureShowPress = 13;
+  }
+
+  optional Type type = 1;
+
+  // An ID that corresponds to RenderWidgetMessage.render_widget_id.
+  optional int32 render_widget_id = 2;
+
+  // Seconds since client platform start (boot) with millisecond resolution.
+  // On Android, this is based off of the client's SystemClock#uptimeMillis().
+  optional double timestamp_seconds = 3;
+
+  optional GestureCommon gesture_common = 4;
+
+  // Input event specific messages follow.
+  // Only one of these fields may be set per InputMessage.
+  // TODO(dtrainor): use a 'oneof' union when it's supported in Chromium.  See
+  // crbug.com/570371.
+  optional GestureScrollBegin gesture_scroll_begin = 5;
+  optional GestureScrollUpdate gesture_scroll_update = 6;
+  optional GestureFlingStart gesture_fling_start = 7;
+  optional GestureFlingCancel gesture_fling_cancel = 8;
+  optional GestureTap gesture_tap = 9;
+  optional GesturePinchUpdate gesture_pinch_update = 10;
+  optional GestureTapDown gesture_tap_down = 11;
+  optional GestureShowPress gesture_show_press = 12;
+}

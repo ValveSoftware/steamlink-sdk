@@ -1,0 +1,55 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module media.mojom;
+
+import "media/mojo/interfaces/media_types.mojom";
+
+interface VideoDecoder {
+  // Initialize the decoder. This must be called before any other method.
+  //
+  // |decoder_buffer_pipe| will be used to transfer encoded data for each
+  // DecoderBuffer.
+  //
+  // TODO(sandersd): Rename to Initialize() if/when
+  // media::VideoDecoder::Initialize() is renamed to Configure().
+  Construct(VideoDecoderClient client,
+            handle<data_pipe_consumer> decoder_buffer_pipe);
+
+  // Configure (or reconfigure) the decoder. This must be called before decoding
+  // any frames, and must not be called while there are pending Initialize(),
+  // Decode(), or Reset() requests.
+  //
+  // If |low_delay| is true, the decoder must output frames as soon as possible;
+  // in particular, it must not wait for another Decode() request, except as
+  // required for frame reordering.
+  Initialize(VideoDecoderConfig config, bool low_delay) => (bool success);
+
+  // Request decoding of exactly one frame or an EOS buffer. This must not be
+  // called while there are pending Configure(), Reset(), or Decode() requests.
+  //
+  // Implementations must eventually execute the callback, even if Decode() is
+  // not called again. It is not required that the decode status match the
+  // actual result of decoding a frame; only that decode errors are eventually
+  // reported (such as at EOS). The purpose of the callback is primarily for
+  // Decode() rate control.
+  //
+  // If |buffer| is an EOS buffer, implementations execute all other pending
+  // Decode() callbacks and output all pending frames before executing the EOS
+  // buffer Decode() callback. (That is, they must flush.)
+  //
+  // TODO(sandersd): Plumb GetMaxDecodeRequests() so that parallel Decode()
+  // requests can be allowed.
+  Decode(DecoderBuffer buffer) => (DecodeStatus status);
+
+  // Reset the decoder. All ongoing Decode() requests must be completed or
+  // aborted before executing the callback. This must not be called while there
+  // is a pending Initialize() request.
+  Reset() => ();
+};
+
+interface VideoDecoderClient {
+  // Output a decoded frame. Frames must be output in presentation order.
+  OnVideoFrameDecoded(VideoFrame frame);
+};

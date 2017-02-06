@@ -1,0 +1,96 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Given a framework, generates a header file declaring the classes from that
+# framework using class-dump tool.
+#
+# Arguments:
+#
+#   framework_name
+#       string, short name of the framework.
+#
+#   framework_path
+#       string, location of the framework, usually a sub-directory of
+#       Xcode application bundle.
+#
+#   framework_version
+#       (optional) string, version of the framework to dump class for,
+#       defaults to "Current" if omitted.
+#
+#   class_dump_filter
+#       regexp, only display classes matching this regular expression.
+#
+#   topological_sort
+#       (optional) boolean, sort classes, categories, and protocols by
+#       inheritance, defaults to false if omitted.
+#
+# All common target arugments ("visibility", "deps", ...) are forwarded by
+# the template.
+template("class_dump") {
+  assert(defined(invoker.framework_name),
+         "framework_name must be defined for $target_name")
+  assert(defined(invoker.framework_path),
+         "framework_path must be defined for $target_name")
+  assert(defined(invoker.class_dump_filter),
+         "class_dump_filter must be defined for $target_name")
+
+  framework_version = "Current"
+  if (defined(invoker.framework_version)) {
+    framework_version = invoker.framework_version
+  }
+
+  sort_args = []
+  if (defined(invoker.topological_sort) && invoker.topological_sort) {
+    sort_args = [ "-I" ]
+  }
+
+  class_dump = "//third_party/class-dump(${host_toolchain})"
+  class_dump_bin = get_label_info(class_dump, "root_out_dir") + "/class-dump"
+  framework = "${invoker.framework_path}/${invoker.framework_name}.framework"
+
+  _config_name = target_name + "_config"
+
+  config(_config_name) {
+    visibility = [ ":$target_name" ]
+    include_dirs = [ "$target_gen_dir" ]
+  }
+
+  action(target_name) {
+    forward_variables_from(invoker,
+                           "*",
+                           [
+                             "args",
+                             "class_dump_filter",
+                             "framework_name",
+                             "framework_path",
+                             "framework_version",
+                             "script",
+                             "sources",
+                           ])
+    if (!defined(deps)) {
+      deps = []
+    }
+    deps += [ class_dump ]
+    public_configs = [ ":$_config_name" ]
+
+    script = "//third_party/class-dump/class-dump.py"
+    inputs = [
+      class_dump_bin,
+    ]
+    sources = [
+      "${framework}/Versions/${framework_version}/${invoker.framework_name}",
+    ]
+    outputs = [
+      "$target_gen_dir/${invoker.framework_name}.h",
+    ]
+    args = [
+      "-t=" + rebase_path(class_dump_bin, root_build_dir),
+      "-o=" + rebase_path(outputs[0], root_build_dir),
+      "--",
+      "-C${invoker.class_dump_filter}",
+      "${framework}",
+    ]
+    args += sort_args
+  }
+}

@@ -1,0 +1,90 @@
+This is the QtWayland module.
+
+The QtWayland module consists of two parts:
+
+Wayland platform plugin:
+    Enables Qt applications to be run as Wayland clients.
+
+QtWaylandCompositor API:
+    Enables the creation of Wayland compositors using Qt and QtQuick.
+
+To build the QtWayland module you need the external dependencies:
+xkbcommon 0.2.0 - http://xkbcommon.org/
+wayland 1.6.0 - http://wayland.freedesktop.org/
+
+QtWaylandCompositor supports loading client buffer integrations that don't use
+the wayland-egl interfaces. These client buffer integrations are picked up by
+QtWaylandCompositor as plugins. To specify what plugin to load use the environment
+variable QT_WAYLAND_CLIENT_BUFFER_INTEGRATION in the environment where the
+compositor is started. The compositor will broadcast to the clients which
+hardware integration to load when using the generic platformplugin "wayland". If
+no client buffer integration is specified, then the wayland-egl plugin will be
+loaded. Please note that no Weston clients will work if the non standard
+wayland-egl client buffer integration is used.
+
+To start the qwindow-compositor with the xcomposite-glx integration then start
+the compositor as follows:
+QT_WAYLAND_CLIENT_BUFFER_INTEGRATION=xcomposite-glx ./qwindow-compositor
+
+Now it should be possible to start an application in a separate terminal. ie:
+$QTBASEDIR/examples/opengl/hellowindow/hellowindow -platform wayland --single
+
+Available client buffer integrations are:
+wayland-egl (this is the default)
+brcm
+xcomposite-egl
+xcomposite-glx
+
+Testing a Qt-based compositor on X11:
+
+Most QWidget-based applications will use shared memory buffers, which work on
+all hardware. OpenGL and Qt Quick applications need a way to send graphics
+memory buffers from client to server. There are many options, and not all
+options work on all hardware.
+
+The X Composite buffer integration should work on all modern X servers. It
+can be used with either EGL or GLX as the OpenGL backend. This must match the
+backend used by the xcb platform plugin. (Normally GLX is the default for Qt
+applications running on X11.) To use the X Composite buffer sharing with EGL,
+start the compositor as follows:
+
+QT_XCB_GL_INTEGRATION=xcb_egl QT_WAYLAND_CLIENT_BUFFER_INTEGRATION=xcomposite-egl ./pure-qml
+
+Using wayland-egl requires support from the driver. Intel integrated graphics
+are supported through the standard Mesa drivers. For NVidia, driver version
+364.12 or newer is required, and Qt must be configured with "-opengl es2".
+Run the compositor as follows:
+
+QT_XCB_GL_INTEGRATION=xcb_egl QT_WAYLAND_CLIENT_BUFFER_INTEGRATION=wayland-egl ./minimal-qml
+
+Please note that some NVidia drivers may require early EGL initialization. Qt
+clients normally use the buffer integration communicated by the compositor.
+To set the client-side buffer integration manually, run clients with
+"-platform wayland-egl".
+
+Shell Integration:
+
+Some platforms, especially non-desktop ones, use a custom Wayland shell
+extension. These are tailored to the specific embedded form factor better than
+the generic wl_shell or xdg_shell extensions that target desktop systems.
+
+Instead of adding multiple protocol implementations into the QPA plugin,
+a plugin architecture is used for selecting the shell integration;
+when creating a shell surface, the protocol to use is taken from
+the QT_WAYLAND_SHELL_INTEGRATION environment variable. If one is not provided or
+not pointing to a valid plugin, wl_shell or xdg_shell will be used as fallbacks.
+
+Example Usage:
+
+Starting the hellowindow example application (one of the examples for qtbase)
+with ivi-shell integration:
+
+    QT_WAYLAND_SHELL_INTEGRATION=ivi-shell ./hellowindow -platform wayland
+
+Available Shell Integrations:
+
+    * ivi-shell
+
+
+We hang out at #qt-labs and #qt-lighthouse on freenode if you have any questions
+

@@ -1,0 +1,65 @@
+class {{union.name}} {
+ public:
+  using Data_ = internal::{{union.name}}_Data;
+  using Tag = Data_::{{union.name}}_Tag;
+
+  static {{union.name}}Ptr New();
+
+  template <typename U>
+  static {{union.name}}Ptr From(const U& u) {
+    return mojo::TypeConverter<{{union.name}}Ptr, U>::Convert(u);
+  }
+
+  template <typename U>
+  U To() const {
+    return mojo::TypeConverter<U, {{union.name}}>::Convert(*this);
+  }
+
+  {{union.name}}();
+  ~{{union.name}}();
+
+  // Clone() is a template so it is only instantiated if it is used. Thus, the
+  // bindings generator does not need to know whether Clone() or copy
+  // constructor/assignment are available for members.
+  template <typename UnionPtrType = {{union.name}}Ptr>
+  {{union.name}}Ptr Clone() const;
+
+  // Equals() is a template so it is only instantiated if it is used. Thus, the
+  // bindings generator does not need to know whether Equals() or == operator
+  // are available for members.
+  template <typename T,
+            typename std::enable_if<std::is_same<
+                T, {{union.name}}>::value>::type* = nullptr>
+  bool Equals(const T& other) const;
+
+  Tag which() const {
+    return tag_;
+  }
+
+{%  for field in union.fields %}
+  bool is_{{field.name}}() const;
+  {{field.kind|cpp_union_getter_return_type}} get_{{field.name}}() const;
+  void set_{{field.name}}({{field.kind|cpp_wrapper_param_type}} {{field.name}});
+{%- endfor %}
+
+ private:
+  friend class mojo::internal::UnionAccessor<{{union.name}}>;
+  union Union_ {
+    Union_() {}
+    ~Union_() {}
+
+{%- for field in union.fields %}
+{%-   if field.kind|is_object_kind or
+         field.kind|is_any_handle_or_interface_kind %}
+    {{field.kind|cpp_wrapper_type}}* {{field.name}};
+{%-   else %}
+    {{field.kind|cpp_wrapper_type}} {{field.name}};
+{%-   endif %}
+{%- endfor %}
+  };
+  void SwitchActive(Tag new_active);
+  void SetActive(Tag new_active);
+  void DestroyActive();
+  Tag tag_;
+  Union_ data_;
+};

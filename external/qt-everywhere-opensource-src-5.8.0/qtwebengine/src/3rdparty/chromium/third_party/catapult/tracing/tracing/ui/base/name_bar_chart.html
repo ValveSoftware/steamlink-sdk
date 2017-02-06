@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2014 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/base/range.html">
+<link rel="import" href="/tracing/ui/base/d3.html">
+<link rel="import" href="/tracing/ui/base/bar_chart.html">
+
+<script>
+'use strict';
+
+tr.exportTo('tr.ui.b', function() {
+  var BarChart = tr.ui.b.BarChart;
+
+  // @constructor
+  var NameBarChart = tr.ui.b.define('name-bar-chart', BarChart);
+
+  NameBarChart.prototype = {
+    __proto__: BarChart.prototype,
+
+    decorate: function() {
+      BarChart.prototype.decorate.call(this);
+      this.classList.remove('bar-chart');
+      this.classList.add('name-bar-chart');
+      this.bottomMargin_ = 40;
+    },
+
+    isDatumFieldSeries_: function(fieldName) {
+      return fieldName != 'x';
+    },
+
+    getXForDatum_: function(datum, index) {
+      return index;
+    },
+
+    getMargin_: function() {
+      var margin = BarChart.prototype.getMargin_.call(this);
+      margin.bottom = this.bottomMargin_;
+      return margin;
+    },
+
+    updateXAxis_: function(xAxis) {
+      xAxis.selectAll('*').remove();
+      var y = this.chartAreaSize.height + 10;
+      var nameTexts = xAxis.selectAll('text')
+        .data(this.data_);
+      nameTexts
+        .enter()
+        .append('text')
+        .attr('transform', function(d, index) {
+            var cx = this.xScale_(index);
+            // If you change the angle, then check the Math.cos() below.
+            return 'rotate(45 ' + cx + ' ' + y + ')';
+          }.bind(this))
+        .attr('x', function(d, index) {
+            return this.xScale_(index);
+          }.bind(this))
+        .attr('y', function(d) {
+            return y;
+          }.bind(this))
+        .text(function(d, index) {
+            return d.x;
+          }.bind(this));
+      nameTexts.exit().remove();
+
+      // If the nameTexts extend past the bottom of the chart, then increase
+      // this.bottomMargin_ and re-render.
+      var bottomMargin = this.bottomMargin_;
+      window.requestAnimationFrame(function() {
+        nameTexts[0].forEach(function(t) {
+          var box = t.getBBox();
+          // When the text is rotated, its height is the hypotenuse
+          // of a small triangle H, and its width is the hypotenuse of a larger
+          // triangle W. The bottomMargin must be equal to a side of H plus a
+          // side of W.
+          var h = Math.cos(Math.PI / 4) * (box.height + box.width);
+          bottomMargin = Math.max(this.bottomMargin_, h);
+        }, this);
+
+        if (Math.round(bottomMargin) !== Math.round(this.bottomMargin_)) {
+          this.bottomMargin_ = bottomMargin;
+          this.updateContents_();
+        }
+      }.bind(this));
+    }
+  };
+
+  return {
+    NameBarChart: NameBarChart
+  };
+});
+</script>

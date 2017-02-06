@@ -1,0 +1,90 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/test.gni")
+import("//third_party/flatbuffers/flatbuffer.gni")
+
+config("flatbuffers_config") {
+  include_dirs = [ "src/include" ]
+}
+
+source_set("flatbuffers") {
+  sources = [
+    "src/include/flatbuffers/flatbuffers.h",
+    "src/include/flatbuffers/hash.h",
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+  public_configs = [ ":flatbuffers_config" ]
+}
+
+source_set("compiler_files") {
+  sources = [
+    "src/include/flatbuffers/code_generators.h",
+    "src/include/flatbuffers/idl.h",
+    "src/include/flatbuffers/util.h",
+    "src/src/idl_gen_cpp.cpp",
+    "src/src/idl_gen_fbs.cpp",
+    "src/src/idl_gen_general.cpp",
+    "src/src/idl_gen_go.cpp",
+    "src/src/idl_gen_js.cpp",
+    "src/src/idl_gen_php.cpp",
+    "src/src/idl_gen_python.cpp",
+    "src/src/idl_gen_text.cpp",
+    "src/src/idl_parser.cpp",
+    "src/src/reflection.cpp",
+    "src/src/util.cpp",
+  ]
+  visibility = [ ":*" ]
+  deps = [
+    ":flatbuffers",
+  ]
+}
+
+executable("flatc") {
+  sources = [
+    "src/src/flatc.cpp",
+  ]
+  deps = [
+    ":compiler_files",
+    ":flatbuffers",
+    "//build/config/sanitizers:deps",
+  ]
+}
+
+# The following is just for testing.
+
+flatbuffer("flatbuffers_samplebuffer") {
+  testonly = true
+  sources = [
+    # Disabled as workaround for crbug.com/611351
+    # "src/tests/include_test1.fbs",
+    # "src/tests/include_test2.fbs",
+    "src/tests/monster_test.fbs",
+    "src/tests/namespace_test/namespace_test1.fbs",
+    "src/tests/namespace_test/namespace_test2.fbs",
+  ]
+}
+
+test("flatbuffers_unittest") {
+  sources = [
+    # The following files are not included in :flatbuffers
+    # but are listed here because test.cpp tests more than what will
+    # get included into Chrome (reflection and generation).
+    "src/include/reflection.h",
+    "src/include/reflection_generated.h",
+
+    # This is the actual test.
+    "src/tests/test.cpp",
+  ]
+  deps = [
+    ":compiler_files",
+    ":flatbuffers",
+    ":flatbuffers_samplebuffer",
+  ]
+  data = [
+    "src/tests/",
+  ]
+}

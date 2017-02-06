@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+Copyright 2015 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/value/numeric.html">
+<link rel="import" href="/tracing/value/time_display_mode.html">
+<link rel="import" href="/tracing/value/ui/scalar_span.html">
+<link rel="import" href="/tracing/value/unit.html">
+<link rel="import" href="/tracing/value/unit_scale.html">
+
+<script>
+'use strict';
+
+tr.b.unittest.testSuite(function() {
+  var ScalarNumeric = tr.v.ScalarNumeric;
+  var Unit = tr.v.Unit;
+  var THIS_DOC = document._currentScript.ownerDocument;
+
+  function checkScalarSpan(
+      test, value, unit, expectedTextContent, opt_expectedColor) {
+    var span = tr.v.ui.createScalarSpan(new tr.v.ScalarNumeric(unit, value));
+    assert.strictEqual(span.$.content.textContent, expectedTextContent);
+    assert.strictEqual(span.$.content.style.color, opt_expectedColor || '');
+    test.addHTMLOutput(span);
+  }
+
+  test('instantiate', function() {
+    checkScalarSpan(this, 123.456789, Unit.byName.timeDurationInMs,
+        '123.457 ms');
+    checkScalarSpan(this, 0, Unit.byName.normalizedPercentage, '0.000%');
+    checkScalarSpan(this, -2560, Unit.byName.sizeInBytes, '-2.5 KiB');
+  });
+
+  test('instantiate_smallerIsBetter', function() {
+    checkScalarSpan(this, 45097156608, Unit.byName.sizeInBytes_smallerIsBetter,
+        '42.0 GiB');
+    checkScalarSpan(this, 0, Unit.byName.energyInJoules_smallerIsBetter,
+        '0.000 J');
+    checkScalarSpan(this, -0.25, Unit.byName.unitlessNumber_smallerIsBetter,
+        '-0.250');
+  });
+
+  test('instantiate_biggerIsBetter', function() {
+    checkScalarSpan(this, 0.07, Unit.byName.powerInWatts_smallerIsBetter,
+        '0.070 W');
+    checkScalarSpan(this, 0, Unit.byName.timeStampInMs_biggerIsBetter,
+        '0.000 ms');
+    checkScalarSpan(this, -0.00003,
+        Unit.byName.normalizedPercentage_biggerIsBetter, '-0.003%');
+  });
+
+  test('instantiate_delta', function() {
+    checkScalarSpan(this, 123.456789, Unit.byName.timeDurationInMsDelta,
+        '+123.457 ms');
+    checkScalarSpan(this, 0, Unit.byName.normalizedPercentageDelta,
+        '\u00B10.000%');
+    checkScalarSpan(this, -2560, Unit.byName.sizeInBytesDelta,
+        '-2.5 KiB');
+  });
+
+  test('instantiate_delta_smallerIsBetter', function() {
+    checkScalarSpan(this, 45097156608,
+        Unit.byName.sizeInBytesDelta_smallerIsBetter, '+42.0 GiB', 'red');
+    checkScalarSpan(this, 0, Unit.byName.energyInJoulesDelta_smallerIsBetter,
+        '\u00B10.000 J');
+    checkScalarSpan(this, -0.25,
+        Unit.byName.unitlessNumberDelta_smallerIsBetter, '-0.250', 'green');
+  });
+
+  test('instantiate_delta_biggerIsBetter', function() {
+    checkScalarSpan(this, 0.07, Unit.byName.powerInWattsDelta_biggerIsBetter,
+        '+0.070 W', 'green');
+    checkScalarSpan(this, 0, Unit.byName.timeStampInMsDelta_biggerIsBetter,
+        '\u00B10.000 ms');
+    checkScalarSpan(this, -0.00003,
+        Unit.byName.normalizedPercentageDelta_biggerIsBetter, '-0.003%', 'red');
+  });
+
+  test('createScalarSpan', function() {
+    // No config.
+    var span = tr.v.ui.createScalarSpan(
+        new ScalarNumeric(Unit.byName.powerInWatts, 3.14));
+    assert.strictEqual(span.$.content.textContent, '3.140 W');
+    assert.strictEqual(span.ownerDocument, document);
+    assert.strictEqual(span.tagName, 'TR-V-UI-SCALAR-SPAN');
+    assert.strictEqual(span.value, 3.14);
+    assert.strictEqual(span.unit, Unit.byName.powerInWatts);
+    assert.isUndefined(span.context);
+    assert.isUndefined(span.percentage);
+    assert.isUndefined(span.warning);
+    assert.isFalse(span.rightAlign);
+    this.addHTMLOutput(span);
+
+    // Custom owner document and right align.
+    var span = tr.v.ui.createScalarSpan(
+        new ScalarNumeric(Unit.byName.energyInJoules, 2.72),
+        { ownerDocument: THIS_DOC, rightAlign: true });
+    assert.strictEqual(span.$.content.textContent, '2.720 J');
+    assert.strictEqual(span.ownerDocument, THIS_DOC);
+    assert.strictEqual(span.tagName, 'TR-V-UI-SCALAR-SPAN');
+    assert.strictEqual(span.value, 2.72);
+    assert.strictEqual(span.unit, Unit.byName.energyInJoules);
+    assert.isUndefined(span.context);
+    assert.isUndefined(span.percentage);
+    assert.isUndefined(span.warning);
+    assert.isTrue(span.rightAlign);
+    this.addHTMLOutput(span);
+
+    // Unit and sparkline set via config.
+    var span = tr.v.ui.createScalarSpan(1.62,
+        { unit: Unit.byName.timeStampInMs, total: 3.24 });
+    assert.strictEqual(span.$.content.textContent, '1.620 ms');
+    assert.strictEqual(span.ownerDocument, document);
+    assert.strictEqual(span.tagName, 'TR-V-UI-SCALAR-SPAN');
+    assert.strictEqual(span.value, 1.62);
+    assert.strictEqual(span.unit, Unit.byName.timeStampInMs);
+    assert.isUndefined(span.context);
+    assert.strictEqual(span.percentage, 0.5);
+    assert.isUndefined(span.warning);
+    assert.isFalse(span.rightAlign);
+    this.addHTMLOutput(span);
+
+    // Custom context.
+    var span = tr.v.ui.createScalarSpan(
+        new ScalarNumeric(Unit.byName.sizeInBytesDelta_smallerIsBetter,
+            256 * 1024 * 1024), { context: {
+              unitPrefix: tr.v.UnitScale.Binary.KIBI,
+              minimumFractionDigits: 2
+            } });
+    assert.strictEqual(span.$.content.textContent, '+262,144.00 KiB');
+    assert.strictEqual(span.ownerDocument, document);
+    assert.strictEqual(span.tagName, 'TR-V-UI-SCALAR-SPAN');
+    assert.strictEqual(span.value, 256 * 1024 * 1024);
+    assert.strictEqual(span.unit, Unit.byName.sizeInBytesDelta_smallerIsBetter);
+    assert.deepEqual(span.context,
+        { unitPrefix: tr.v.UnitScale.Binary.KIBI, minimumFractionDigits: 2 });
+    assert.isUndefined(span.percentage);
+    assert.isUndefined(span.warning);
+    assert.isFalse(span.rightAlign);
+    this.addHTMLOutput(span);
+  });
+
+  test('instantiate_withWarning', function() {
+    var span = document.createElement('tr-v-ui-scalar-span');
+    span.value = 400000000;
+    span.unit = Unit.byName.sizeInBytes;
+    span.warning = 'There is a problem with this size';
+    this.addHTMLOutput(span);
+  });
+
+  test('instantiate_withPercentage', function() {
+    var span = document.createElement('tr-v-ui-scalar-span');
+    span.value = new ScalarNumeric(Unit.byName.unitlessNumber, 99);
+    span.percentage = 0.66;
+    this.addHTMLOutput(span);
+  });
+
+  test('instantiate_withRightAlign', function() {
+    var span = document.createElement('tr-v-ui-scalar-span');
+    span.value = new ScalarNumeric(Unit.byName.timeStampInMs, 5.777);
+    span.rightAlign = true;
+    this.addHTMLOutput(span);
+  });
+
+  test('instantiate_withContext', function() {
+    var span = document.createElement('tr-v-ui-scalar-span');
+    span.value = new ScalarNumeric(
+        Unit.byName.unitlessNumberDelta_smallerIsBetter, 42);
+    span.context = { maximumFractionDigits: 2 };
+    assert.strictEqual(span.$.content.textContent, '+42.00');
+    this.addHTMLOutput(span);
+  });
+
+  test('warningAndNonWarningHaveSimilarHeights', function() {
+    var spanA = document.createElement('tr-v-ui-scalar-span');
+    spanA.setValueAndUnit(400, Unit.byName.timeDurationInMs);
+
+    var spanB = document.createElement('tr-v-ui-scalar-span');
+    spanB.setValueAndUnit(400, Unit.byName.timeDurationInMs);
+    spanB.warning = 'There is a problem with this time';
+
+    var overall = document.createElement('div');
+    overall.style.display = 'flex';
+    overall.appendChild(spanA);
+    spanB.style.marginLeft = '4px';
+    overall.appendChild(spanB);
+    this.addHTMLOutput(overall);
+  });
+
+  test('respectCurrentDisplayUnit', function() {
+    try {
+      Unit.currentTimeDisplayMode = tr.v.TimeDisplayModes.ns;
+
+      var span = document.createElement('tr-v-ui-scalar-span');
+      span.setValueAndUnit(73, Unit.byName.timeStampInMs);
+      this.addHTMLOutput(span);
+
+      assert.isTrue(span.$.content.textContent.indexOf('ns') > 0);
+      Unit.currentTimeDisplayMode = tr.v.TimeDisplayModes.ms;
+      assert.isTrue(span.$.content.textContent.indexOf('ms') > 0);
+    } finally {
+      Unit.reset();
+    }
+  });
+
+  test('displaySparkline', function() {
+    var div = document.createElement('div');
+    div.style.width = '100px';
+    this.addHTMLOutput(div);
+
+    function addAndCheckScalarSpan(percentage, expectedDisplay, expectedWidth) {
+      var span = tr.v.ui.createScalarSpan(new ScalarNumeric(
+          Unit.byName.timeDurationInMs, 10 * div.children.length));
+      if (percentage !== null)
+        span.percentage = percentage;
+
+      div.appendChild(span);
+
+      var computedStyle = getComputedStyle(span.$.sparkline);
+      assert.equal(computedStyle.display, expectedDisplay);
+      assert.equal(parseInt(computedStyle.width), expectedWidth);
+    }
+
+    addAndCheckScalarSpan(null /* no percentage set */, 'none', 0);
+    addAndCheckScalarSpan(undefined, 'none', 0);
+    addAndCheckScalarSpan(0, 'block', 1);
+    addAndCheckScalarSpan(0.05, 'block', 5);
+    addAndCheckScalarSpan(0.5, 'block', 50);
+    addAndCheckScalarSpan(0.95, 'block', 95);
+    addAndCheckScalarSpan(1, 'block', 100);
+  });
+});
+</script>

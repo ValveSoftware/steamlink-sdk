@@ -1,0 +1,928 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+  \page embedded-linux.html
+  \title Qt for Embedded Linux
+  \brief Provides information about Embedded Linux support in Qt.
+  \ingroup supportedplatform
+
+  Since the Qt 5.0 release, Qt no longer contains its own window system (QWS)
+  implementation. For single-process use cases, the \l{Qt Platform Abstraction}
+  is a superior solution. Multiple graphical processes can be supported
+  through Wayland.
+
+  There are multiple platform plugins that are potentially usable on
+  Embedded Linux systems: EGLFS, LinuxFB, KMS, DirectFB, Wayland. The
+  availability of these depend on the configuration of Qt.  On many
+  boards \e eglfs is chosen as the default one. If the default is not
+  suitable, the \c QT_QPA_PLATFORM environment variable parameter can
+  be used to request another plugin. Alternatively, for quick tests,
+  the \c -platform command-line can be used with the same syntax.
+
+  \section1 Configuring a Specific Device
+
+  Building Qt for a given device requires a toolchain and a sysroot.
+  Additionally, some devices require vendor-specific adaptation code for EGL
+  and OpenGL ES 2.0 support. This is not relevant for non-accelerated
+  platforms, for example the ones using the LinuxFB plugin, which is meant for
+  software-based rendering only.
+
+  The directory \e qtbase/mkspecs/devices contains configuration and graphics
+  adaptation code for a number of devices. For example, the
+  \c linux-rasp-pi2-g++ mkspec contains build settings such as the optimal
+  compiler and linker flags for the
+  \l{http://www.raspberrypi.org}{Raspberry Pi 2} device. The mkspec also
+  contains information about either an implementation of the \e eglfs hooks
+  (vendor-specific adaptation code), or a reference to the suitable \e eglfs
+  device integration plugin. The device is selected through the
+  \l{Qt Configure Options}{configure} tool's \c -device parameter. The name
+  that follows after this argument must, at least partially,
+  match one of the subdirectories under \e devices.
+
+  The following is an example configuration for the Raspberry Pi 2. For most
+  Embedded Linux boards, the configure command looks similar:
+
+  \badcode
+    ./configure -release -opengl es2 -device linux-rasp-pi2-g++ -device-option CROSS_COMPILE=$TOOLCHAIN/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian/bin/arm-linux-gnueabihf- -sysroot $ROOTFS -prefix /usr/local/qt5
+  \endcode
+
+  The most important parameters are \c -device and \c -sysroot. By specifying
+  \c -sysroot, the include files and libraries used by \c {configure}'s feature
+  detection tests, as well as Qt itself, is taken from the specified
+  location, instead of the host PC's standard locations. This means that
+  installing development packages on the host machine has no relevance. For
+  example, to get \c libinput support it is not sufficient or necessary to have
+  the \c libinput development headers and libraries installed on the host
+  environment. Instead, the headers and the libraries for the target
+  architecture (e.g. ARM) must be present in the \c sysroot.
+
+  \c pkg-config is supported also when performing cross-compilation.
+  \c configure automatically sets \c PKG_CONFIG_LIBDIR to make \c pkg-config
+  report compiler and linker settings based on the \c sysroot instead of the host
+  machine. This usually functions well without any further adjustments. However,
+  environment variables such as \c PKG_CONFIG_PATH must be unset for the host
+  machine before running \c configure. Otherwise, the Qt build may attempt to
+  use inappropriate headers and libraries from the host system.
+
+  Specifying \c -sysroot results in automatically setting the \c --sysroot
+  argument when invoking the compiler. In some cases this is not desirable and
+  can be disabled by passing \c -no-gcc-sysroot to \c configure.
+
+  \c -prefix, \c -extprefix and \c -hostprefix control the intended destination
+  directory of the Qt build. In the above example the ARM build of Qt is
+  expected to be placed in \c{/usr/local/qt5} on the target device. Note that
+  running \c{make install} does not deploy anything to the device. Instead, the
+  \c install step targets the directory specified by \c extprefix which defaults
+  to \c sysroot + \c prefix and is therefore optional. However, in many cases
+  "polluting" the sysroot is not desirable and thus specifying \c -extprefix
+  becomes important. Finally, \c -hostprefix allows separating host tools like
+  qmake, rcc, uic from the binaries for the target. When given, such tools will
+  be installed under the specified directory instead of \c extprefix.
+
+  See \l {Qt Configure Options} for more information.
+
+  \section1 Platform Plugins for Embedded Linux Devices
+
+  \section2 EGLFS
+
+  \l {http://www.khronos.org/egl}{EGL} is an interface between OpenGL and the
+  native windowing system. Qt can use EGL for context and surface management,
+  however the API contains no platform-specifics: The creation of a \e {native
+  window} (which will not necessarily be an actual window on the screen) must
+  still be done by platform-specific means. Hence the need for the board or
+  GPU-specific adaptation code. Such adaptations are provided either as
+  \e {eglfs hooks}, which can be a single source file compiled into the
+  platform plugin, or as dynamically loaded \e {EGL device integration}
+  plugins.
+
+  \e EGLFS is a platform plugin for running Qt5 applications on top of EGL
+  and OpenGL ES 2.0 without an actual windowing system (like X11 or Wayland).
+  In addition to Qt Quick 2 and native OpenGL applications, it supports
+  software-rendered windows (for example QWidget) too. In the latter case the
+  widgets' contents are rendered using the CPU into images, which are then
+  uploaded into textures and composited by the plugin.
+
+  This is the recommended plugin for modern Embedded Linux devices that include
+  a GPU.
+
+  \e EGLFS forces the first top-level window (be it either a QWidget or a
+  QQuickView) to become fullscreen. This window is also chosen to be the \e root
+  widget window into which all other top-level widgets (for example dialogs,
+  popup menus or combobox dropdowns) are composited. This is necessary because
+  with \e EGLFS there is always exactly one native window and EGL window surface,
+  and these belong to the widget or window that is created first. This approach
+  works well when there is a main window that exists for the entire lifetime of
+  the application and all other widgets are either non top-levels or are created
+  afterwards, once the main window is shown.
+
+  There are further restrictions for OpenGL-based windows. As of Qt 5.3, \c eglfs
+  supports a single fullscreen GL window (for example, an OpenGL-based QWindow,
+  a QQuickView or a QGLWidget). Opening additional OpenGL windows or mixing such
+  windows with QWidget-based content is not supported and terminates the
+  application with an error message.
+
+  If necessary, \c eglfs can be configured using the following environment
+  variables:
+
+  \list
+
+  \li \c {QT_QPA_EGLFS_INTEGRATION} - In addition to the compiled-in \e hooks,
+  it is also possible to provide device or vendor-specific adaptation in the
+  form of dynamically loaded plugins. This environment variable enforces a
+  specific plugin. For example, setting it to \e{eglfs_kms} uses the KMS/DRM
+  backend. This is only an option when no static or compiled-in hooks were
+  specified in the device makespecs. In practice, the traditional compiled-in
+  hooks are rarely used, almost all backends are now migrated to plugins. The
+  device makespecs still contain a relevant \c EGLFS_DEVICE_INTEGRATION entry:
+  the name of the preferred backend for that particular device. This is
+  optional, but very useful to avoid the need to set this environment variable
+  in case there are more than one plugins present in the target system. In a
+  desktop environment the KMS or X11 backends are prioritized, depending on
+  the presence of the \c DISPLAY environment variable. Note that on some boards
+  the special value of \c none is used instead of an actual plugin. This
+  indicates that no special integration is necessary to use EGL with the
+  framebuffer and so no plugins must be loaded.
+
+  \li \c {QT_QPA_EGLFS_PHYSICAL_WIDTH} and \c
+  {QT_QPA_EGLFS_PHYSICAL_HEIGHT} - Physical screen width and height in
+  millimeters. On platforms where the value cannot be queried from the
+  framebuffer device \e{/dev/fb0} or via other means, a default DPI of
+  100 is used. This variable can be used to override any such
+  defaults. Setting this is important because QWidget or Qt Quick
+  Controls based applications rely on these values. Running with the
+  hard-coded settings may result in user interface element sizes
+  unsuitable for the display in use.
+
+  \li \c {QT_QPA_EGLFS_ROTATION} - Specifies the rotation applied to
+  software-rendered content in QWidget-based applications. Supported values are
+  180, 90, and -90. This does not apply to OpenGL-based windows, including Qt
+  Quick. Qt Quick applications can apply transformations in their QML scene
+  instead. The standard eglfs mouse cursor always takes the value into account,
+  with appropriately positioned and rotated pointer image, regardless of the
+  application type. The special cursor implementations, such as the KMS/DRM
+  backend's hardware cursor, may not support rotation.
+
+  \li \c {QT_QPA_EGLFS_FORCEVSYNC} - When set, \c eglfs requests
+  \c FBIO_WAITFORVSYNC on the framebuffer device after each call to
+  eglSwapBuffers(). This is only relevant for backends relying on the legacy
+  \c fbdev subsystem of Linux. Normally, with a default swap interval of 1, Qt
+  assumes that calling eglSwapBuffers() takes care of vsync; if it doesn't (for
+  example, due to driver bugs), try setting \c QT_QPA_EGLFS_FORCEVSYNC to a
+  non-zero value.
+
+  \li \c {QT_QPA_EGLFS_FORCE888} - When set, the red, green, and blue color
+  channel sizes are ignored whenever creating a new context, window or offscreen
+  surface. Instead, the plugin requests a configuration with 8 bits per
+  channel. This can be helpful on devices where configurations with less than 32
+  or 24 bits per pixel (for example, 5-6-5 or 4-4-4) are chosen by default but
+  are known not to be ideal, for example, due to banding effects. Instead of
+  changing application code, this variable provides an easier shortcut to force
+  24 or 32 bpp configurations.
+
+  \endlist
+
+  In addition, the following - less commonly used - variables are
+  available as well:
+
+  \list
+
+  \li \c {QT_QPA_EGLFS_FB} - Overrides the framebuffer device. The default is
+  \c /dev/fb0. On most embedded platforms this is not very relevant because the
+  framebuffer is used only for querying settings like the display dimensions.
+  On certain devices however, this parameter provides the ability to specify
+  the display to be used in multiple display setups, similarly to the \c fb
+  parameter in LinuxFB.
+
+  \li \c {QT_QPA_EGLFS_WIDTH} and \c {QT_QPA_EGLFS_HEIGHT} - Contain the screen
+  width and height in pixels. While \c eglfs tries to determine the dimensions
+  from the framebuffer device \e{/dev/fb0}, but this does not work always and
+  manually specifying the sizes may become necessary.
+
+  \li \c {QT_QPA_EGLFS_DEPTH} - Overrides the color depth for the screen. On
+  platforms where the framebuffer device \e{/dev/fb0} is not available or the
+  query is not successful, the default of \c 32 is used. This variable can be used
+  to override any such defaults. Note that this affects only the color depth
+  value reported by QScreen. It has no connection to EGL configurations and the
+  color depth used for OpenGL rendering.
+
+  \li \c {QT_QPA_EGLFS_SWAPINTERVAL} - By default a swap interval of \c 1 will
+  be requested. This enables synchronizing to the displays vertical refresh. The
+  value can be overridden with this environment variable. For instance, passing
+  0 will disable blocking on swap, resulting in running as fast as possible
+  without any synchronization.
+
+  \li \c {QT_QPA_EGLFS_DEBUG} - When set, some debugging information is printed
+  on the debug output. For example, the input QSurfaceFormat and the properties
+  of the chosen EGL configuration are printed while creating a new
+  context. Together with Qt Quick's \c {QSG_INFO} variable, this can provide
+  useful information for troubleshooting issues related to the EGL
+  configuration.
+
+  \endlist
+
+  In addition to \c {QT_QPA_EGLFS_DEBUG}, \c eglfs also supports the more modern
+  categorized logging system of Qt. The following logging categories are
+  available:
+
+  \list
+
+    \li \c qt.qpa.egldeviceintegration – Enables logging for dynamically loaded
+    backends. Very useful to check what backend is in use.
+
+    \li \c qt.qpa.input – Enables debug output both from the \c evdev and
+    \c libinput input handlers. Very useful to check if a given input device was
+    recognized and opened.
+
+    \li \c qt.qpa.eglfs.kms – Enables verbose logging in the KMS/DRM backend.
+
+  \endlist
+
+  After running \c configure, make sure to inspect the output of
+  it. Not having the necessary eglfs backend, libudev, or libinput
+  enabled due to the corresponding configure tests failing are fairly
+  common issues that can be easily and quickly recognized this
+  way. When there is an undesired "no" result, run \c configure with
+  \c{-v} to turn on verbose output in order to see the compiler and
+  linker invocations for each configure test.
+
+  \note Errors about missing headers, libraries or seemingly cryptic
+  linker failures are often a sign of an incomplete or broken sysroot
+  and have nothing to do with and cannot be solved by Qt.
+
+  As an example, when targeting the Raspberry Pi with the Broadcom
+  proprietary graphics drivers, the output should contain something
+  like the following. If this is not the case, there is no point in
+  proceeding further with the build since accelerated graphics will
+  not be functional without the Raspberry Pi-specific backend, even if
+  the rest of Qt compiles successfully.
+
+  \badcode
+    QPA backends:
+    EGLFS ................................ yes
+    EGLFS details:
+      EGLFS i.Mx6 ........................ no
+      EGLFS i.Mx6 Wayland ................ no
+      EGLFS EGLDevice .................... no
+      EGLFS GBM .......................... no
+      EGLFS Mali ......................... no
+      EGLFS Rasberry Pi .................. yes
+      EGL on X11 ......................... no
+  \endcode
+
+  \section2 LinuxFB
+
+  This plugin writes directly to the framebuffer. Only software-rendered content
+  is supported. Note that on some setups the display performance is expected to
+  be limited.
+
+  The \c linuxfb plugin allows specifying additional settings by passing them
+  in the \c QT_QPA_PLATFORM environment variable or \c -platform command-line
+  option. For example, \c {QT_QPA_PLATFORM=linuxfb:fb=/dev/fb1} specifies that
+  the framebuffer device \c /dev/fb1 must be used instead of the default
+  \c fb0. Multiple settings can be specified by separating them with a colon.
+
+  \list
+
+  \li \c {fb=/dev/fbN} - Specifies the framebuffer devices. On multiple display
+  setups this typically allows running the application on different
+  displays. For the time being there is no way to use multiple framebuffers from
+  one Qt application.
+
+  \li \c{size=}\e{<width>}\c{x}\e{<height>} - Specifies the screen size in
+  pixels. The plugin tries to query the display dimensions, both physical and
+  logical, from the framebuffer device. This may not always lead to proper
+  results however, and therefore it may become necessary to explicitly specify
+  the values.
+
+  \li \c{mmsize=}\e{<width>}\c{x}\e{<height>} - Physical width and height in
+  millimeters.
+
+  \li \c{offset=}\e{<width>}\c{x}\e{<height>} - Offset in pixels specifying the
+  top-left corner of the screen. The default position is at \c{(0, 0)}.
+
+  \li \c {nographicsmodeswitch} - Do not switch the virtual terminal to graphics
+  mode (\c KD_GRAPHICS). In addition to switching to graphics mode, the blinking
+  cursor and screen blanking are normally disabled too. When this parameter is
+  set, these are also skipped.
+
+  \li \c {tty=/dev/ttyN} - Overrides the virtual console. Only used when
+  \c{nographicsmodeswitch} is not set.
+
+  \endlist
+
+  \section1 Input
+
+  When no windowing system is present, the mouse, keyboard, and touch input are
+  read directly via \c evdev or using helper libraries such as \c libinput or
+  \c tslib.  Note that this requires that device nodes \c {/dev/input/event*} are
+  readable by the user. \c eglfs and \c linuxfb have all the input handling code
+  compiled-in.
+
+  \section2 Using libinput
+
+  \l{http://www.freedesktop.org/wiki/Software/libinput}{libinput} is a library
+  to handle input devices. It offers an alternative to the Qt's own \c evdev
+  input support. To enable using \c libinput, make sure the development files
+  for \c libudev and \c libinput are available when configuring and building
+  Qt. \c xkbcommon is also necessary if keyboard support is desired. With
+  \c eglfs and \c linuxfb no further actions are necessary as these plugins use
+  \c libinput by default. If \c libinput support is not available or the
+  environment variable \c QT_QPA_EGLFS_NO_LIBINPUT is set, Qt's own evdev
+  handlers come in to play.
+
+  \section2 Input on eglfs and linuxfb without libinput
+
+  Parameters like the device node name can be set in the environment variables
+  \c QT_QPA_EVDEV_MOUSE_PARAMETERS, \c QT_QPA_EVDEV_KEYBOARD_PARAMETERS and
+  \c QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS. Separate the entries with colons.  These
+  parameters act as an alternative to passing the settings in the \c{-plugin}
+  command-line argument, and with some backends they are essential: eglfs and
+  linuxfb use built-in input handlers so there is no separate \c {-plugin}
+  argument in use.
+
+  Additionally, the built-in input handlers can be disabled by setting
+  \c QT_QPA_EGLFS_DISABLE_INPUT or \c QT_QPA_FB_DISABLE_INPUT to \c 1.
+
+  \section2 Mouse
+
+  The mouse cursor shows up whenever \c QT_QPA_EGLFS_HIDECURSOR (for eglfs)
+  or \c QT_QPA_FB_HIDECURSOR (for linuxfb) is not set and Qt's libudev-based
+  device discovery reports that at least one mouse is available. When \c libudev
+  support is not present, the mouse cursor always show up unless explicitly
+  disabled via the environment variable.
+
+  Hot plugging is supported, but only if Qt was configured with \c libudev support
+  (that is, if the \e libudev development headers are present in the sysroot at
+  configure time). This allows connecting or disconnecting an input device while
+  the application is running.
+
+  The \e evdev mouse handler supports the following extra parameters:
+
+  \list
+
+  \li \c {/dev/input/...} - Specifies the name of the input device. When not
+  given, Qt looks for a suitable device either via \e libudev or by walking
+  through the available nodes.
+
+  \li \c nocompress - By default, input events that do not lead to changing the
+  position compared to the last Qt mouse event are compressed; a new Qt mouse
+  event is sent only after a change in the position or button state.  This can
+  be disabled by setting the \c nocompress parameter.
+
+  \li \c dejitter - Specifies a jitter limit. By default dejittering is disabled.
+
+  \li \c grab - When 1, Qt will grab the device for exclusive use.
+
+  \li \c abs - Some touchscreens report absolute coordinates and cannot be
+  differentiated from touchpads.  In this special situation pass \c abs to
+  indicate that the device is using absolute events.
+
+  \endlist
+
+  \section2 Keyboard
+
+  The \e evdev keyboard handler supports the following extra parameters:
+
+  \list
+
+  \li \c {/dev/input/...} - Specifies the name of the input device. When not
+  given, Qt looks for a suitable device either via \e libudev or by walking
+  through the available nodes.
+  \li \c {grab} - Enables grabbing the input device.
+  \li \c {keymap} - Specifies the name of a custom keyboard map file.
+  \li \c {enable-compose} - Enables compositing.
+  \li \c {repeat-delay} - Sets a custom key repeat delay.
+  \li \c {repeat-rate} - Sets a custom key repeat rate.
+  \endlist
+
+  On Embedded Linux systems that do not have their terminal sessions disabled,
+  the behavior on a key press can be confusing as input event is processed by
+  the Qt application and the tty. To overcome this, the following options are
+  available:
+
+  \list
+
+  \li \e EGLFS and \e LinuxFB attempt to disable the terminal keyboard on
+  application startup by setting the tty's keyboard mode to \c K_OFF. This
+  prevents keystrokes from going to the terminal. If the standard behavior needs
+  to be restored for some reason, set the environment variable
+  \c QT_QPA_ENABLE_TERMINAL_KEYBOARD to \c 1. Note that this works only when the
+  application is launched from a remote console (for example, via \c ssh) and
+  the terminal keyboard input remains enabled.
+
+  \li An alternative approach is to use the \e evdev keyboard handler's \c grab
+  parameter by passing \e{grab=1} in \c QT_QPA_EVDEV_KEYBOARD_PARAMETERS. This
+  results in trying to get a grab on the input device. If the \c grab is
+  successful, no other components in the system receive events from it as long as
+  the Qt application is running. This approach is more suitable for applications
+  started remotely as it does not need access to the tty device.
+
+  \li Finally, for many specialized Embedded Linux images it does not make sense
+  to have the standard terminal sessions enabled in the first place. Refer to
+  your build environment's documentation on how to disable them. For example,
+  when generating images using the \l {http://www.yoctoproject.org}{Yocto
+  Project}, unsetting \c SYSVINIT_ENABLED_GETTYS results in having no
+  \c getty process running, and thus no input, on any of the virtual terminals.
+
+  \endlist
+
+  If the default built-in keymap is not sufficient, a different one can be
+  specified either via the \c keymap parameter or by using the eglfs-specific
+  \l{QEglFSFunctions::loadKeymap()}{loadKeymap()} function. The latter allows
+  switching the keymap at runtime. Note however that this requires using eglfs'
+  built-in keyboard handler; it is not supported when the keyboard handler is
+  loaded via the \c -plugin command-line parameter.
+
+  \note Special system key combinations, such as console switching
+  (\e{Ctrl+Alt+Fx}) or zap (\e{Ctrl+Alt+Backspace}) are not currently supported
+  and are ignored.
+
+  To generate a custom keymap, the \e kmap2qmap utility can be used. This can be
+  found in the \e qttools module. The source files have to be in standard Linux
+  \c kmap format, which is understood by the kernel's \c loadkeys command.
+  This means one can use the following sources to generate \c qmap files:
+
+  \list
+  \li The \l {http://lct.sourceforge.net/}{Linux Console Tools (LCT)} project.
+  \li \l {http://www.x.org/}{Xorg} X11 keymaps can be converted to the
+  \c kmap format with the \c ckbcomp utility.
+  \li As \c kmap files are plain-text files, they can also be hand crafted.
+  \endlist
+
+  \c kmap2qmap is a command line program, that needs at least 2 files as
+  parameters.  The last one is the generated \c .qmap file, while all the
+  others are parsed as input \c .kmap files.  For example:
+
+  \badcode
+  kmap2qmap i386/qwertz/de-latin1-nodeadkeys.kmap include/compose.latin1.inc de-latin1-nodeadkeys.qmap
+  \endcode
+
+  \note \c kmap2qmap does not support all the (pseudo) symbols that the Linux
+  kernel supports.  When converting a standard keymap, a number of warnings will
+  be shown regarding \c Show_Registers, \c Hex_A, and so on; these messages can
+  safely be ignored.
+
+  \section2 Touch
+
+  For some resistive, single-touch touch screens it may be necessary to fall
+  back to using \c tslib instead of relying on the Linux multi-touch protocol and
+  the event devices. For modern touch screens this is not necessary. \c tslib
+  support can be enabled by setting the environment variable
+  \c QT_QPA_EGLFS_TSLIB or \c QT_QPA_FB_TSLIB to 1. To change the device, set the
+  environment variable \c TSLIB_TSDEVICE or pass the device name on the
+  command-line. Note that the \c tslib input handler generates mouse events and
+  supports single touch only, as opposed to \c evdevtouch which generates true
+  multi-touch QTouchEvent events too.
+
+  The \e evdev touch handler supports the following extra parameters:
+
+  \list
+
+  \li \c {/dev/input/...} - Specifies the name of the input device. When not
+  given, Qt looks for a suitable device either via \e libudev or by walking
+  through the available nodes.
+
+  \li \c rotate - On some touch screens the coordinates must be rotated, which
+  is done by setting \c rotate to 90, 180, or 270.
+
+  \li \c invertx and \c inverty - To invert the X or Y coordinates in the input
+  events, pass \c invertx or \c inverty.
+
+  \endlist
+
+  For example, doing \c{export
+  QT_QPA_EVDEV_TOUCHSCREEN_PARAMETERS=/dev/input/event5:rotate=180} before
+  launching applications results in an explicitly specified touch device and
+  flipping the coordinates - useful when the orientation of the actual
+  screen and the touch screen do not match.
+
+  \section2 Pen-based tablets
+
+  The \c evdevtablet plugin provides basic support for Wacom and similar,
+  pen-based tablets. It generates QTabletEvent events only. To enable it,
+  pass \c {QT_QPA_GENERIC_PLUGINS=evdevtablet} in the environment or,
+  alternatively, pass \c {-plugin evdevtablet} argument on the command-line.
+  The plugin can take a device node parameter, for example
+  \c{QT_QPA_GENERIC_PLUGINS=evdevtablet:/dev/event1}, in case the Qt's automatic
+  device discovery (based either on \e libudev or a walkthrough of
+  \c{/dev/input/event*}) is not functional or misbehaving.
+
+  \section2 Debugging Input Devices
+
+  It is possible to print some information to the debug output by enabling
+  the \c qt.qpa.input logging rule, for example by setting the \c QT_LOGGING_RULES
+  environment variable to \c{qt.qpa.input=true}. This is useful for detecting
+  which device is being used, or to troubleshoot device discovery issues.
+
+  \section2 Using Custom Mouse Cursor Images
+
+  \c eglfs comes with its own set of 32x32 sized mouse cursor images. If these are
+  not sufficient, a custom cursor atlas can be provided by setting the \c
+  QT_QPA_EGLFS_CURSOR environment variable to the name of a JSON file. The file
+  can also be embedded into the application via Qt's resource system.
+
+  For example, an embedded cursor atlas with 8 cursor images per row can be
+  specified like the following:
+
+  \badcode
+    {
+      "image": ":/cursor-atlas.png",
+      "cursorsPerRow": 8,
+      "hotSpots": [
+          [7, 2],
+          [12, 3],
+          [12, 12],
+          ...
+      ]
+    }
+  \endcode
+
+  Note that the images are expected to be tightly packed in the atlas: the
+  width and height of the cursors are decided based on the total image size and
+  the \c cursorsPerRow setting. Atlases have to provide an image for all the
+  supported cursors.
+
+  \section1 Display Output
+
+  When having multiple displays connected, the level of support for targeting
+  one or more of these from one single Qt application varies between the
+  platform plugins and often depends on the device and its graphics stack.
+
+  \section2 eglfs with eglfs_kms backend
+
+  When the KMS/DRM backend is in use, eglfs reports all available screens in
+  QGuiApplication::screens(). Applications can target different screens with
+  different windows via QWindow::setScreen(). Note however that the restriction
+  of one single fullscreen window per screen still applies.
+
+  When getting started with developing on a given embedded device, it is often
+  necessary to verify the behavior of the device and drivers, and that the
+  connected displays are working as they should. One easy way is to use the
+  hellowindow example. Launching it with \c{-platform eglfs --multiscreen
+  --timeout} arguments shows a rotating Qt logo on each connected screen for a few
+  seconds.
+
+  \note Most of the configuration options described below apply to all
+  KMS/DRM-based backends, regardless of the buffer management technology (GBM or
+  EGLStreams).
+
+  The KMS/DRM backend also supports custom configurations via a JSON file.  Set
+  the environment variable \c QT_QPA_EGLFS_KMS_CONFIG to the name of the file to
+  enable this. The file can also be embedded into the application via the Qt
+  resource system. An example configuration is below:
+
+  \badcode
+    {
+      "device": "/dev/dri/card1",
+      "hwcursor": false,
+      "pbuffers": true,
+      "outputs": [
+        {
+          "name": "VGA1",
+          "mode": "off"
+        },
+        {
+          "name": "HDMI1",
+          "mode": "1024x768"
+        }
+      ]
+    }
+  \endcode
+
+  Here we configure the specified device so that
+
+  \list
+
+  \li it will not use the hardware cursor (falls back to rendering the mouse
+  cursor via OpenGL; by default hardware cursors are enabled as they are more
+  efficient),
+
+  \li it will back QOffscreenSurface with standard EGL pbuffer surfaces (by
+  default this is disabled and a gbm surface is used instead),
+
+  \li output on the VGA connector is disabled, while HDMI is active with a
+  resolution of 1024x768.
+
+  \endlist
+
+  Additionally, such a configuration also disables looking for a device via
+  \c libudev and instead the specified device is used.
+
+  When \c mode is not defined, the mode that is reported as preferred by the
+  system is chosen. The accepted values for \c mode are: \c off, \c current,
+  \c preferred, width\c{x}height, or a modeline string.
+
+  All screens reported by the DRM layer will be treated as one big virtual
+  desktop by default. The mouse cursor implementation will take this into
+  account and move across the screens as expected. Although not recommended, the
+  virtual desktop mode can be disabled by setting \c separateScreens to \c false
+  in the configuration, if desired.
+
+  By default, the virtual desktop is formed left to right, based on the order of
+  connectors as reported by the system. This can be changed by setting
+  \c virtualIndex to a value starting from 0. For example, the following
+  configuration uses the preferred resolution but ensures that the left side in
+  the virtual desktop is the screen connected to the HDMI port, while the right
+  side is the screen connected to the DisplayPort:
+
+  \badcode
+    {
+      "device": "drm-nvdc",
+      "outputs": [
+        {
+          "name": "HDMI1",
+          "virtualIndex": 0
+        },
+        {
+          "name": "DP1",
+          "virtualIndex": 1
+        }
+      ]
+    }
+  \endcode
+
+  The order of elements in the array is not relevant. Outputs with unspecified
+  virtual indices will be placed after the others, with the original order in
+  the DRM connector list preserved.
+
+  To create a vertical desktop space (that is, to stack top to bottom instead of
+  left to right), add a \c virtualDesktopLayout property after \c device
+  with the value of \c vertical.
+
+  \note It is recommended that all screens in the virtual desktop use the same
+  resolution, otherwise elements like the mouse cursor may behave in unexpected
+  ways when entering areas that only exist on one given screen.
+
+  When \c virtualIndex is not sufficient, the property \c virtualPos can be used
+  to explicitly specify the top-left position of the screen in question. Taking
+  the previous example and assuming a resolution of 1080p for HDMI1, the
+  following places a second HDMI-based screen below the first one:
+
+  \badcode
+    {
+       ...
+      "outputs": [
+        ...
+        {
+          "name": "HDMI2",
+          "virtualPos": "0, 1080"
+        }
+      ]
+    }
+  \endcode
+
+  \note Avoid such configurations when mouse support is desired. The mouse
+  cursor's behavior may be unexpected with non-linear layouts. Touch should
+  present no issues however.
+
+  In some cases the automatic querying of the physical screen size via DRM may
+  fail. Normally the \c QT_QPA_EGLFS_PHYSICAL_WIDTH and
+  \c QT_QPA_EGLFS_PHYSICAL_HEIGHT environment variable would be used to provide the
+  missing values, however this is not suitable anymore when multiple screens are
+  present. Instead, use the \c physicalWidth and \c physicalHeight properties
+  in the \c outputs list to specify the sizes in millimeters.
+
+  \note Different physical sizes and thus differing logical DPIs are discouraged
+  because it may lead to unexpected issues due to some graphics stack components
+  not knowing about multiple screens and relying solely on the first screen's
+  values.
+
+  For troubleshooting it might be useful to enable debug logs from the KMS/DRM
+  backend. To do this, enable the categorized logging rule, \c qt.qpa.eglfs.kms.
+
+  \note In an embedded environment virtual desktops are more limited than with a
+  full windowing system. Windows overlapping multiple screens, non-fullscreen
+  windows and moving windows between screens should be avoided and may not
+  function as expected.
+
+  The most common and best supported use case for a multi-screen setup is to
+  open a dedicated QQuickWindow or QQuickView for each screen. With the default
+  \c threaded render loop of the Qt Quick scenegraph, each of these windows will
+  get its own dedicated render thread. This is good because the threads can be
+  throttled independently based on vsync, and will not interfere with each
+  other. With the \c basic loop this can get problematic and animations may
+  degrade as a result.
+
+  As an example, discovering all connected screens and creating a QQuickView for
+  each of them can be done like this:
+
+  \badcode
+    int main(int argc, char **argv)
+    {
+        QGuiApplication app(argc, argv);
+
+        QVector<QQuickView *> views;
+        for (QScreen *screen : app.screens()) {
+            QQuickView *view = new QQuickView;
+            view->setScreen(screen);
+            view->setResizeMode(QQuickView::SizeRootObjectToView);
+            view->setSource(QUrl("qrc:/main.qml"));
+            QObject::connect(view->engine(), &QQmlEngine::quit, qGuiApp, &QCoreApplication::quit);
+            views.append(view);
+            view->showFullScreen();
+        }
+
+        int result = app.exec();
+
+        qDeleteAll(views);
+        return result;
+    }
+  \endcode
+
+  \section2 eglfs with eglfs_kms_egldevice backend
+
+  This backend, typically used on Tegra devices, is similar to the KMS/DRM
+  backend mentioned above, except that it relies on the EGLDevice and EGLStream
+  extensions instead of GBM.
+
+  For technical details about this approach, check out
+  \l {https://wiki.qt.io/Qt_for_Embedded_Linux/XDC2014RitgerEGLNonMesa}{this presentation}.
+
+  As of Qt 5.7 this backend shares many of its internal implementation with the
+  GBM-based backend. This means that multiple screens and the advanced
+  configuration via \c QT_QPA_EGLFS_KMS_CONFIG are supported. Some settings,
+  such as \c hwcursor and \c pbuffers are not applicable however.
+
+  By default the backend will find the first available display and pick the EGL
+  layer that corresponds to it. When necessary, this can be overridden by
+  setting the \c QT_QPA_EGLFS_LAYER_INDEX environment variable to the index of
+  the desired layer. To see which layers are available, and to debug potential
+  startup issues, enable the logging category \c qt.qpa.eglfs.kms. In some cases
+  it may be necessary to perform a video mode set on application startup even
+  when the screen reports that the desired resolution is already set. This is
+  normally optimized away, but if the screen stays powered down, try setting the
+  environment variable \c QT_QPA_EGLFS_ALWAYS_SET_MODE to a non-zero value and
+  relaunch the application.
+
+  \section2 Touch input in systems with multiple screens on KMS/DRM
+
+  Touchscreens require additional considerations in multi-display systems
+  because touch events have to be routed to the correct virtual screen, and this
+  requires a correct mapping between touchscreens and display outputs.
+
+  The mapping is done via the JSON configuration file specified in
+  \c QT_QPA_EGLFS_KMS_CONFIG and described in the previous sections. When a
+  \c touchDevice property is present in an element of the \c outputs array, the
+  value is treated as a device node and the touch device is associated with the
+  display output in question.
+
+  For example, assuming our touchscreen has a device node of /dev/input/event5
+  and is a touchscreen integrated into the monitor connected via HDMI as the
+  secondary screen, the following configuration ensures correct touch (and
+  synthesized mouse) event translation:
+
+  \badcode
+     {
+        "device": "drm-nvdc",
+        "outputs": [
+          {
+            "name": "HDMI1",
+            "touchDevice": "/dev/input/event5",
+            "virtualIndex": 1
+          },
+          {
+            "name": "DP1",
+            "virtualIndex": 0
+          }
+        ]
+    }
+  \endcode
+
+  \note When in doubt, enable logging from both the graphics and input
+  subsystems by setting the environment variable
+  \c{QT_LOGGING_RULES=qt.qpa.*=true} before launching the application. This will
+  help identifying the correct input device nodes and may uncover output
+  configuration issues that can be difficult to debug otherwise.
+
+  \note As of Qt 5.8, the above is only supported for the evdevtouch input
+  backend. Other variants, such as the libinput-based one, will continue to
+  route events to the primary screen. To force the usage of evdevtouch on
+  systems where multiple input backends are available, set the environment
+  variable \c QT_QPA_EGLFS_NO_LIBINPUT to \c 1.
+
+  \section2 eglfs with other backends
+
+  Other backends, that are typically based on targeting the framebuffer or a
+  composition API directly via the vendor's EGL implementation, usually provide
+  limited or no support for multiple displays. On i.MX6-based boards with
+  Vivante GPUs the \c{QT_QPA_EGLFS_FB} environment variable can be used to
+  specify the framebuffer to target, similarly to linuxfb. On the Raspberry Pi
+  the \c{QT_QPA_EGLFS_DISPMANX_ID} environment variable can be used to specify
+  the screen to output to. The value corresponds to one of the \c{DISPMANX_ID_}
+  constants, refer to the Dispmanx documentation. Note that these approaches,
+  unlike KMS/DRM, will not typically allow to output to multiple screens from
+  the same application. Alternatively, driver-specific environment variables or
+  kernel parameters may also be available as well to control the used
+  framebuffer. Refer to the embedded board's documentation.
+
+  \section2 Video Memory
+
+  Systems with a fixed amount of dedicated video memory may need extra care
+  before running Qt application based on Qt Quick or classes like
+  QOpenGLWidget. The default setting may be insufficient for such applications,
+  especially when they are displayed on a high resolution (for example, full HD)
+  screen. In this case, they may start failing in unexpected ways. It is
+  recommended to ensure that there is at least 128 MB of GPU memory available.
+  For systems that do not have a fixed amount of memory reserved for
+  the GPU this is not an issue.
+
+  \section2 linuxfb
+
+  Use the \c fb plugin parameter to specify the framebuffer device to use.
+
+  \section1 Unix Signal Handlers
+
+  The console-oriented platform plugins like eglfs and linuxfb install signal
+  handlers by default to capture interrupt (\c SIGINT), suspend and continue
+  (\c SIGTSTP, \c SIGCONT) and termination (\c SIGTERM). This way the keyboard,
+  terminal cursor, and possibly other graphics state can be restored when the
+  application terminates or gets suspended due to \c kill, or \c{Ctrl+C} or
+  \c{Ctrl+Z}. (although terminating or suspending via the keyboard is only
+  possible when \c{QT_QPA_ENABLE_TERMINAL_KEYBOARD} is set, as outlined above in
+  the Input section). However, in some cases capturing \c SIGINT can be
+  undesirable as it may conflict with remote debugging for instance. Therefore,
+  the environment variable \c{QT_QPA_NO_SIGNAL_HANDLER} is provided to opt out
+  from all built-in signal handling.
+
+  \section1 Fonts
+
+  Qt normally uses \c fontconfig to provide access to system fonts. If
+  \c fontconfig is not available, Qt will fall back to using
+  \c QBasicFontDatabase. In this case, Qt applications will look for fonts in Qt's
+  \c lib/fonts directory. Qt will automatically detect pre-rendered fonts and
+  TrueType fonts. This directory can be overridden by setting the \c
+  QT_QPA_FONTDIR environment variable.
+
+  For more information on the supported formats, see \l{Qt for Embedded Linux Fonts}.
+
+  \note Qt no longer ships any fonts in the \c lib/fonts directory. This
+  means that it is up to the platform (the system image) to provide the
+  necessary fonts.
+
+  \section1 Platform Plugins for Windowing Systems on Embedded Linux Devices
+
+  \section2 XCB
+
+  This is the X11 plugin used on regular desktop Linux platforms. In some
+  embedded environments, that provide X and the necessary development files for
+  \l {http://xcb.freedesktop.org}{xcb}, this plugin functions just like it
+  does on a regular PC desktop.
+
+  \note On some devices there is no EGL and OpenGL support available under X
+  because the EGL implementation is not compatible with Xlib. In this case the
+  XCB plugin is built without EGL support, meaning that Qt Quick 2 or other
+  OpenGL-based applications does not work with this platform plugin. It can
+  still be used however to run software-rendered applications (based on QWidget
+  for example).
+
+  As a general rule, the usage of XCB on embedded devices is not
+  advisable. Plugins like eglfs are likely to provide better performance, and
+  hardware acceleration.
+
+  \section2 Wayland
+
+  \l{http://wayland.freedesktop.org/}{Wayland} is a light-weight windowing
+  system; or more precisely, it is a protocol for clients to talk to a display
+  server.
+
+  The Qt Wayland module provides a \c wayland platform plugin that allows Qt
+  application to connect to a Wayland compositor.
+
+  \note You may experience issues with touch screen input while using
+  the \l{http://wayland.freedesktop.org/}{Weston} reference compositor.
+  Refer to the \l{https://wiki.qt.io/WestonTouchScreenIssues}{Qt Wiki} for
+  further information.
+
+  \section1 Related Topics
+
+  \list
+   \li \l{Qt for Device Creation}
+   \li \l Emulator
+   \li \l{Qt Virtual Keyboard}
+  \endlist
+*/

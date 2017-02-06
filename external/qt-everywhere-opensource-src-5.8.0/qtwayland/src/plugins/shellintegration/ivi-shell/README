@@ -1,0 +1,33 @@
+IVI-shell
+=========
+
+IVI-shell provides a shell interface for Weston, which maps the GENIVI
+API (http://www.genivi.org) for In-Vehicle Infotainment as Wayland-Ivi-Extension
+(http://wiki.projects.genivi.org/index.php/Wayland_IVI_Extension_Design).
+
+This module includes two protocols: ivi-application (provided by weston), and
+ivi-controller (provided by GENIVI's wayland-ivi-extension).
+In IVI use case, the client creates and destroys a surface using a
+unique ID acquired from the ivi-application protocol.
+On the other hand, a controller (such as the HMI Controller) manages a set of
+properties (visibility, position, size, etc.),
+created using unique IDs provided by the ivi-controller protocol.
+A Unique ID is necessary to create and control both the ivi-surface and
+the ivi-layer, however Qt has no API for setting these IDs.
+
+The ivi-shell plugin works around this limitation by setting the unique ID via
+the environment variable QT_IVI_SURFACE_ID, used for both ivi-surface and
+ivi-layer. If an application needs more than two surfaces,
+ivi-surface IDs will be incremented automatically. If QT_IVI_SURFACE_ID is
+not set, ivi-surface and ivi-layer IDs will be generated internally.
+QT_IVI_SURFACE_ID is a 32 bit value composed of the process ID and the
+surface ID. Bits 0 to 22 represent the process ID, and bits 23 to 32 represent
+the surface ID in a process.
+For example, when the process ID is 0x765 and there are two surfaces,
+ivi-layer ID is 0x765 and ivi-surface IDs are 0x765 and 0x00400765.
+  +------------+---------------------------+
+  |31        23|22                        0|
+  +------------+---------------------------+
+  |0000 0000 00|00 0000 0000 0000 0000 0000|
+  |<- ID     ->|<- process ID            ->|
+  +------------+---------------------------+

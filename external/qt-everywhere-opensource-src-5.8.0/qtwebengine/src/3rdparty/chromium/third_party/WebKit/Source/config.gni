@@ -1,0 +1,91 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//third_party/WebKit/public/features.gni")
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+}
+if (current_cpu == "arm") {
+  import("//build/config/arm.gni")
+}
+
+declare_args() {
+  # If true, doesn't compile debug symbols into webcore reducing the
+  # size of the binary and increasing the speed of gdb.
+  remove_webcore_debug_symbols = false
+
+  # If true, enables blink logging macros (WTF_LOG and friends) unconditionally.
+  # When false, blink logging macros are enabled only if assertions are enabled.
+  blink_logging_always_on = false
+
+  # If true, defaults image interpolation to low quality.
+  use_low_quality_image_interpolation = is_android
+}
+
+# Whether Android build uses OpenMAX DL FFT. Currently supported only on
+# ARMv7+, ARM64, x86 or x64 without webview. Also enables WebAudio support.
+# Whether WebAudio is actually available depends on runtime settings and flags.
+use_openmax_dl_fft =
+    is_android && (current_cpu == "x86" || current_cpu == "x64" ||
+                   (current_cpu == "arm" && arm_version >= 7) ||
+                   current_cpu == "arm64" || current_cpu == "mipsel")
+
+use_webaudio_ffmpeg = !is_mac && !is_android
+
+# Set this to true to enable use of concatenated impulse responses for the HRTF
+# panner in WebAudio.
+# TODO(brettw) do we need this or can we assume its always on?
+use_concatenated_impulse_responses = true
+
+# feature_defines_list ---------------------------------------------------------
+
+feature_defines_list = [
+  "ENABLE_LAYOUT_UNIT_IN_INLINE_BOXES=0",
+  "ENABLE_OILPAN=1",
+]
+
+if (is_debug) {
+  feature_defines_list += [ "WTF_USE_DYNAMIC_ANNOTATIONS=1" ]
+}
+
+if (use_concatenated_impulse_responses) {
+  feature_defines_list += [ "WTF_USE_CONCATENATED_IMPULSE_RESPONSES=1" ]
+}
+
+if (use_low_quality_image_interpolation) {
+  feature_defines_list += [ "WTF_USE_LOW_QUALITY_IMAGE_INTERPOLATION=1" ]
+}
+
+if (!is_android) {
+  feature_defines_list += [
+    "WTF_USE_ICCJPEG=1",
+    "WTF_USE_QCMSLIB=1",
+  ]
+}
+
+if (use_webaudio_ffmpeg) {
+  feature_defines_list += [ "WTF_USE_WEBAUDIO_FFMPEG=1" ]
+}
+
+if (use_openmax_dl_fft) {
+  feature_defines_list += [ "WTF_USE_WEBAUDIO_OPENMAX_DL_FFT=1" ]
+}
+
+if (use_default_render_theme) {
+  feature_defines_list += [ "WTF_USE_DEFAULT_RENDER_THEME=1" ]
+}
+if (blink_logging_always_on) {
+  feature_defines_list += [ "LOG_DISABLED=0" ]
+}
+
+# feature_defines_string -------------------------------------------------------
+
+# Convert the list to a space-separated string for passing to scripts.
+# This would be the equivalent of passing '<(feature_defines)' in GYP.
+feature_defines_string =
+    exec_script("build/gn_list_to_space_separated_string.py",
+                feature_defines_list,
+                "trim string")

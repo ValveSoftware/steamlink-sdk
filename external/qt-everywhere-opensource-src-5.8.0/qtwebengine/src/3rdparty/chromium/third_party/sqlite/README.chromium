@@ -1,0 +1,259 @@
+Name: sqlite
+URL: http://sqlite.org/
+Version: 3.8.7.4
+Included In Release: Yes
+Security Critical: Yes
+License: Public domain
+
+1) Managing differences between SQLite core and Chromium's version.
+2) Making changes to Chromium SQLite.
+3) Import new release of SQLite.
+4) Running SQLite's test suite within the Chromium checkout.
+
+---
+
+1) Managing differences between SQLite core and Chromium's version.
+
+Chromium maintains some differences WRT SQLite, for reasons beyond this
+document's remit.  Some differences are bugs we have found and fixed (and
+hopefully upstreamed), some are fixes we've backported from a later version of
+SQLite, and some our local changes unlikely to ever be upstreamed.  New versions
+of SQLite are imported every year or two, at which point the changes need to be
+reviewed for continued applicability, and sometimes adjusted to reflect upstream
+code changes.
+
+To this end, the repository contains a reference copy of the SQLite source code
+as of the last import, plus a series of patches which can be applied to
+re-create the current trunk code.  These patches are generated and processed by
+git, with the intention of re-creating a changelist series so that importers can
+use their regular revision-control knowledge to manage import merges.
+
+---
+
+2) Making changes to Chromium SQLite.
+
+third_party/sqlite/src is the patched source from SQLite.  This is used to
+generate the amalgamation, a concatenation of all of the files into a giant
+sqlite3.c.  To prototype, edit in src/, then call
+  ./google_generate_amalgamation.sh
+to regenerate sqlite3.c.  The code in src/ is much easier to edit, and the
+SQLite test framework can easily be run.  During development it may be
+convenient to modify sqlite.gyp (or BUILD.gn) based on src/main.mk to just pull
+in the src/ files rather than sqlite3.c.
+
+Once your patch is complete, squash it down into a reasonable CL, then
+re-generate the patches.  This is a truncated version of the import flow.  The
+following is written like a shell script to allow copy/paste to a shell, ignore
+comments and change the obvious lines.  These instructions should work on Linux
+or OSX.  They may assume a modern version of git (I'm using 2.2.1).
+
+# Everything based in sqlite subdir.
+cd third_party/sqlite
+
+BASE=3080704
+
+#### Create a reference branch.
+git checkout -b sqlite_${BASE} master
+git rm -rf src
+cp -a sqlite-src-${BASE} src
+# -f includes ignored files, of which there are a couple.
+git add -f src/
+git commit -m "Reset to sqlite-src-${BASE}"
+# This branch is unlikely to build.
+
+#### Create a reference branch with patches applied.
+git checkout -b sqlite_${BASE}_patched master
+git rebase sqlite_${BASE}
+git am --keep-non-patch patches/*.patch
+git diff master
+# This branch should be identical to master, unless someone forgot to export
+# their changes into a patch.  If so, do that as a separate CL and start over.
+
+#### Cherry-pick your change.
+git cherry-pick <your change>
+# This branch should be identical to your development branch, except
+# amalgamation.
+
+# Rebuild the patch set.
+git rm patches/*
+git format-patch --output-directory=patches sqlite_${BASE}..HEAD
+git add patches/*.patch
+git commit -m "Rebuild patches for sqlite_${BASE}"
+
+# Re-generate the amalgamation.
+./google_generate_amalgamation.sh
+git commit -m 'google_generate_amalgamation.sh' amalgamation/
+# At this point everything should build and work.
+
+# Do a squash upload.  This should add your single patch to patches/, and apply
+# the changes your patch represents to src/ and amalgamation/.  Other patches
+# will have hash changes.  A sensible check-in comment would be something like
+# the patch's checkin comment, plus "regenerate amalgamation and generate patch
+# file."
+# TODO(shess): Should hash changes be checked in, or backed out?
+
+# Find a sucker.  Send review.
+
+---
+
+3) Import new release of SQLite.
+
+Importing a new SQLite involves merging our local changes with SQLite's changes.
+Like any other merge, this may involve dropping some CLs while modifying others.
+The basic idea below is to generate git branches to work with:
+  sqlite_${BASE} - current version without patches
+  sqlite_${BASE}_patched - current version with patches applied via git CLs
+  sqlite_${VERSION} - new version without patches
+  sqlite_${VERSION}_patched - new version with patches applied via git CLs
+At this point, squashing sqlite_${VERSION}_patched to master gives exactly a CL
+suitable for committing.
+
+# Everything based in sqlite subdir.
+cd third_party/sqlite
+
+BASE=3070603
+VERSION=3080704
+
+#### Create current-SQLite reference branch.
+git checkout -b sqlite_${BASE} master
+git rm -rf src
+cp -a sqlite-src-${BASE} src
+# -f includes ignored files, of which there are a couple.
+git add -f src/
+git commit -m "Reset to sqlite-src-${BASE}"
+# This branch is unlikely to build.
+
+#### Convert patches into CLs.
+git checkout -b sqlite_${BASE}_patched master
+git rebase sqlite_${BASE}
+git am --keep-non-patch patches/*.patch
+git diff master
+# This branch should be identical to master.
+
+#### Create new-SQLite reference branch.
+git checkout -b sqlite_${VERSION} master
+git rebase sqlite_${BASE}
+# SQLite's download page is at <http://www.sqlite.org/download.html>.  Scroll to
+# "Legacy Source Code Distribution Formats", and grab sqlite-src-<VERSION>.zip.
+# Unzip it and pull it into the repo.
+wget http://www.sqlite.org/2016/sqlite-src-${VERSION}.zip
+unzip sqlite-src-${VERSION}.zip
+rm sqlite-src-${VERSION}.zip
+# -f includes ignored files, of which there are a couple.
+git add -f sqlite-src-${VERSION}/
+git commit -m "Begin import of sqlite-src-${VERSION}"
+# Sometimes DOS line endings sneak into the source code.  This command works on
+# OSX and Linux and fixes those files, but double-check the results before
+# committing:
+egrep --exclude="*.eps" --exclude="*.ico" --exclude="*.jpg" \
+      --exclude="*.gif" --exclude="*.tiff" --exclude="*.vsix" \
+      --exclude="*.db" -URl '\r' \
+      sqlite-src-${VERSION}/ | LANG=C xargs sed -i~ -e $'s/\r$//'
+# This might fail for lack of changes.
+git commit -a -m "Fix line endings for sqlite-src-${VERSION}"
+git rm -rf src
+cp -a sqlite-src-${VERSION} src
+# -f includes ignored files, of which there are a couple.
+git add -f src/
+git commit -m "Update src to sqlite-src-${VERSION}" src/
+# This branch is unlikely to build.
+
+#### Create a branch for merging the CLs to the new SQLite.
+git checkout -b sqlite_${VERSION}_patched master
+git rebase sqlite_${VERSION}
+
+# Replay the  patches onto this branch.   There will be merge  conflicts to fix.
+# My approach is  generally to just accept them prefering  the patch's change in
+# case of conflicts, and then resolve the conflicts as a second pass.
+git rebase --onto zsqlite_${VERSION}_patched zsqlite_${BASE} zsqlite_${BASE}_patched
+# Once everything is resolved, re-generate the amalgamation.
+./google_generate_amalgamation.sh
+git commit -a -m "google_generate_amalgamation.sh"
+
+# The goal is to have a set of reasonably-independent CLs which can be
+# understood separately, so that future importers can sensibly determine how to
+# handle conflicts.  So use git-rebase and slipstream fixups back into their
+# original CL until things are relatively clean.
+
+# Rebuild the patch set.
+git rm patches/*
+# This assumes that HEAD is still the google_generate_amalgamation.sh checkin.
+git format-patch --output-directory=patches sqlite_${VERSION}..HEAD^
+git add patches/*.patch
+git commit -m "Rebuild patches for sqlite_${VERSION}"
+
+# Drop the old version of SQLite.
+git rm -r sqlite_${BASE}
+git commit -m 'Remove sqlite_${BASE}' -- sqlite_${BASE}
+
+# Do a squash upload.  Edit the commit message appropriately to reflect anything
+# from <http://www.sqlite.org/changes.html> which might be deemed important.
+# Don't enumerate all of the patch messages, those are assumed, but do reference
+# any material changes made.
+# TODO(shess) Describe an appropriate comment style.  Seems like it should at
+# least include the SQLite version number.  Meanwhile, look in the logs for past
+# commits to model things on.
+
+Find a sucker.  Send review.
+
+TODO(shess): It is basically impossible to trybot the entire change, it takes
+forever to upload and sqlite3.c breaks things because it's too large.  I have a
+nasty Perl script to break up sqlite3.c into pieces which are then included by a
+single .c file, but there must be a better way.  Perhaps just have sqlite.gyp
+include all the .c files directly?
+
+Note that things can be broken down differently, if you prefer.  For instance,
+adding the new version of the SQLite distro and removing the old one can be
+distinct CLs.
+
+--------------------------------------------
+
+4) Running SQLite's test suite within the Chromium checkout.
+
+Prerequisites: The test suite requires tcl-dev and libicu-dev.  Install those on
+Ubuntu like:
+  sudo apt-get install tcl8.6-dev libicu-dev
+On OSX, I use MacPorts:
+  sudo port install tcl
+
+cd third_party/sqlite/src
+mkdir build
+cd build
+# This sometimes gives integer-size warnings on the differences between
+# Tcl_WideInt and sqlite3_int64 and int64.  Usually this is easily fixed by
+# changing a variable to Tcl_WideInt.
+make -j -f ../Makefile.linux-gcc testfixture sqlite3 sqlite3_analyzer sqldiff
+make -f ../Makefile.linux-gcc test > /tmp/test.log
+egrep 'errors out of' /tmp/test.log 
+# Show broken tests:
+egrep 'Failures on these tests:' /tmp/test.log
+# Broken tests will also show lines ending in "..." instead of "... Ok".
+
+In version 3.10.2 on OSX 10.11.2, I see:
+   6 errors out of 139819 tests
+The failed tests are:
+   pager4-1.3 pager4-1.4 pager4-1.5 pager4-1.9 pager4-1.10 pager4-1.11
+This is due to the change in os_unix.c fileHasMoved() to support WebDatabase.
+Commenting out the early return allows them to succeed.
+
+In version 3.10.2 on Ubuntu 14.04.3 I see:
+   9 errors out of 140309 tests
+The failed tests are:
+   oserror-1.1.1 oserror-1.1.2 oserror-1.1.3
+   pager4-1.3 pager4-1.4 pager4-1.5 pager4-1.9 pager4-1.10 pager4-1.11
+The oserror tests fail because there are too many fds available, and can be
+fixed by running "ulimit -n 1024" before the test.  The pager4 tests are failing
+for the same reason as for OSX.
+
+--
+
+NOTE(shess): On Ubuntu it is possible to run the tests in a tmpfs something
+like:
+
+TMPFS=/dev/shm/sqlite_build
+BUILD=$PWD
+mkdir $TMPFS
+(cd $TMPFS ; $BUILD/testfixture $BUILD/../test/veryquick.test >/tmp/test.log)
+
+This is faster, but it is plausible that different things are being tested than
+real-world use.

@@ -1,0 +1,146 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (!is_android) {
+  import("//build/config/features.gni")
+  import("//tools/grit/grit_rule.gni")
+}
+
+action("devtools_protocol_constants") {
+  script = "devtools_protocol_constants_generator.py"
+  deps = [
+    "//third_party/WebKit/Source/core/inspector:protocol_version",
+  ]
+  blink_protocol = "$root_gen_dir/blink/core/inspector/protocol.json"
+  browser_protocol = "//content/browser/devtools/browser_protocol.json"
+  inputs = [
+    blink_protocol,
+    browser_protocol,
+  ]
+  outputs = [
+    "$target_gen_dir/devtools_protocol_constants.cc",
+    "$target_gen_dir/devtools_protocol_constants.h",
+  ]
+
+  args = [ "chrome" ]
+  args += rebase_path(outputs, root_build_dir)
+  args += [ rebase_path(blink_protocol, root_build_dir) ]
+  args += [ rebase_path(browser_protocol, root_build_dir) ]
+}
+
+# GYP version: chrome/chrome_debugger.gypi:debugger
+static_library("devtools") {
+  # Note: new sources and deps should be generally added in (!is_android) below.
+  sources = [
+    "chrome_devtools_manager_delegate.cc",
+    "chrome_devtools_manager_delegate.h",
+    "devtools_network_conditions.cc",
+    "devtools_network_conditions.h",
+    "devtools_network_controller.cc",
+    "devtools_network_controller.h",
+    "devtools_network_controller_handle.cc",
+    "devtools_network_controller_handle.h",
+    "devtools_network_interceptor.cc",
+    "devtools_network_interceptor.h",
+    "devtools_network_protocol_handler.cc",
+    "devtools_network_protocol_handler.h",
+    "devtools_network_transaction.cc",
+    "devtools_network_transaction.h",
+    "devtools_network_transaction_factory.cc",
+    "devtools_network_transaction_factory.h",
+    "devtools_network_upload_data_stream.cc",
+    "devtools_network_upload_data_stream.h",
+    "devtools_protocol.cc",
+    "devtools_protocol.h",
+  ]
+  sources += get_target_outputs(":devtools_protocol_constants")
+
+  configs += [
+    "//build/config/compiler:no_size_t_to_int_warning",
+    "//build/config/compiler:wexit_time_destructors",
+    "//build/config:precompiled_headers",
+    "//third_party/WebKit/public:debug_devtools",
+  ]
+
+  deps = [
+    ":devtools_protocol_constants",
+    "//base",
+    "//content/public/browser",
+    "//net",
+    "//ui/events:dom_keycode_converter",
+  ]
+
+  if (!is_android) {
+    deps += [
+      "//chrome:extra_resources",
+      "//chrome:resources",
+      "//chrome:strings",
+      "//chrome/app/theme:theme_resources",
+      "//chrome/common/extensions/api",
+      "//components/devtools_http_handler",
+      "//net:http_server",
+      "//skia",
+      "//third_party/icu",
+      "//third_party/leveldatabase",
+    ]
+    sources += [
+      "chrome_devtools_discovery_provider.cc",
+      "chrome_devtools_discovery_provider.h",
+      "device/adb/adb_client_socket.cc",
+      "device/adb/adb_client_socket.h",
+      "device/adb/adb_device_provider.cc",
+      "device/adb/adb_device_provider.h",
+      "device/android_device_info_query.cc",
+      "device/android_device_manager.cc",
+      "device/android_device_manager.h",
+      "device/android_web_socket.cc",
+      "device/devtools_android_bridge.cc",
+      "device/devtools_android_bridge.h",
+      "device/port_forwarding_controller.cc",
+      "device/port_forwarding_controller.h",
+      "device/tcp_device_provider.cc",
+      "device/tcp_device_provider.h",
+      "device/usb/android_rsa.cc",
+      "device/usb/android_rsa.h",
+      "device/usb/android_usb_device.cc",
+      "device/usb/android_usb_device.h",
+      "device/usb/android_usb_socket.cc",
+      "device/usb/android_usb_socket.h",
+      "device/usb/usb_device_provider.cc",
+      "device/usb/usb_device_provider.h",
+      "devtools_auto_opener.cc",
+      "devtools_auto_opener.h",
+      "devtools_contents_resizing_strategy.cc",
+      "devtools_contents_resizing_strategy.h",
+      "devtools_embedder_message_dispatcher.cc",
+      "devtools_embedder_message_dispatcher.h",
+      "devtools_file_helper.cc",
+      "devtools_file_helper.h",
+      "devtools_file_system_indexer.cc",
+      "devtools_file_system_indexer.h",
+      "devtools_file_watcher.cc",
+      "devtools_file_watcher.h",
+      "devtools_target_impl.cc",
+      "devtools_target_impl.h",
+      "devtools_targets_ui.cc",
+      "devtools_targets_ui.h",
+      "devtools_toggle_action.cc",
+      "devtools_toggle_action.h",
+      "devtools_ui_bindings.cc",
+      "devtools_ui_bindings.h",
+      "devtools_window.cc",
+      "devtools_window.h",
+      "global_confirm_info_bar.cc",
+      "global_confirm_info_bar.h",
+      "remote_debugging_server.cc",
+      "remote_debugging_server.h",
+    ]
+    if (enable_service_discovery) {
+      sources += [
+        "device/cast_device_provider.cc",
+        "device/cast_device_provider.h",
+      ]
+    }
+  }
+}

@@ -1,0 +1,219 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+import "element_id.proto";
+import "rectf.proto";
+import "scroll_offset.proto";
+import "size.proto";
+import "synced_property.proto";
+import "transform.proto";
+import "vector2df.proto";
+
+option optimize_for = LITE_RUNTIME;
+
+package cc.proto;
+
+// The messages declared in this file correspond to the classes declared in
+// cc/trees/property_tree.h
+
+// Proto for struct TransformNodeData.
+// NEXT ID: 43
+message TranformNodeData {
+  optional Transform pre_local = 1;
+  optional Transform local = 2;
+  optional Transform post_local = 3;
+  optional Transform to_parent = 4;
+
+  optional int64 source_node_id = 11;
+  optional bool needs_local_transform_update = 12;
+  optional bool node_and_ancestors_are_animated_or_invertible = 41;
+  optional bool is_invertible = 13;
+  optional bool ancestors_are_invertible = 14;
+  optional bool has_potential_animation = 15;
+  optional bool is_currently_animating = 42;
+  optional bool to_screen_is_potentially_animated = 16;
+  optional bool has_only_translation_animations = 17;
+  optional bool flattens_inherited_transform = 19;
+  optional bool node_and_ancestors_are_flat = 20;
+  optional bool node_and_ancestors_have_only_integer_translation = 21;
+  optional bool scrolls = 22;
+  optional bool needs_sublayer_scale = 23;
+  optional bool affected_by_inner_viewport_bounds_delta_x = 24;
+  optional bool affected_by_inner_viewport_bounds_delta_y = 25;
+  optional bool affected_by_outer_viewport_bounds_delta_x = 26;
+  optional bool affected_by_outer_viewport_bounds_delta_y = 27;
+  optional bool in_subtree_of_page_scale_layer = 28;
+  optional bool transform_changed = 40;
+  optional float post_local_scale_factor = 29;
+
+  optional Vector2dF sublayer_scale = 34;
+  optional ScrollOffset scroll_offset = 35;
+  optional Vector2dF scroll_snap = 36;
+  optional Vector2dF source_offset = 37;
+  optional Vector2dF source_to_parent = 38;
+  optional int64 sorting_context_id = 39;
+}
+
+// Proto for TransformCachedNodeData
+message TransformCachedNodeData {
+  optional Transform from_target = 1;
+  optional Transform to_target = 2;
+  optional Transform from_screen = 3;
+  optional Transform to_screen = 4;
+  optional int64 target_id = 5;
+  optional int64 content_target_id = 6;
+}
+
+// Proto for struct ClipNodeData.
+// NEXT ID: 12
+message ClipNodeData {
+  optional RectF clip = 1;
+  optional RectF combined_clip_in_target_space = 2;
+  optional RectF clip_in_target_space = 3;
+
+  optional int64 transform_id = 4;
+  optional int64 target_id = 5;
+  optional bool applies_local_clip = 6;
+  optional bool layer_clipping_uses_only_local_clip = 7;
+  optional bool target_is_clipped = 8;
+  optional bool layers_are_clipped = 9;
+  optional bool layers_are_clipped_when_surfaces_disabled = 10;
+  optional bool resets_clip = 11;
+}
+
+// Proto for struct EffectNodeData.
+// NEXT ID: 20
+message EffectNodeData {
+  optional float opacity = 1;
+  optional float screen_space_opacity = 2;
+  optional bool has_render_surface = 3;
+  optional bool has_copy_request = 4;
+  optional bool hidden_by_backface_visibility = 14;
+  optional bool double_sided = 13;
+  optional bool is_drawn = 6;
+  optional bool subtree_hidden = 15;
+  optional bool has_potential_opacity_animation = 7;
+  optional bool is_currently_animating_opacity = 16;
+  optional bool effect_changed = 11;
+  optional int64 num_copy_requests_in_subtree = 8;
+  optional int64 transform_id = 9;
+  optional int64 clip_id = 10;
+  optional int64 target_id = 12;
+  optional int64 mask_layer_id = 17;
+  optional int64 replica_layer_id = 18;
+  optional int64 replica_mask_layer_id = 19;
+}
+
+// Proto for struct ScrollNodeData
+// NEXT ID: 16
+message ScrollNodeData {
+  optional bool scrollable = 1;
+  optional int32 main_thread_scrolling_reasons = 2;
+  optional bool contains_non_fast_scrollable_region = 3;
+  optional Size scroll_clip_layer_bounds = 4;
+  optional Size bounds = 5;
+  optional bool max_scroll_offset_affected_by_page_scale = 6;
+  optional bool is_inner_viewport_scroll_layer = 7;
+  optional bool is_outer_viewport_scroll_layer = 8;
+  optional Vector2dF offset_to_transform_parent = 9;
+  optional bool should_flatten = 10;
+  optional bool user_scrollable_horizontal = 13;
+  optional bool user_scrollable_vertical = 14;
+  optional ElementId element_id = 15;
+  optional int64 transform_id = 11;
+}
+
+// This defines the proto used for all types of struct TreeNode.
+message TreeNode {
+  // The following fields are the base TreeNode properties. This list
+  // corresponds to the data members from struct TreeNode.
+  optional int64 id = 1;
+  optional int64 parent_id = 2;
+  optional int64 owner_id = 3;
+
+  // The following fields correspond to the possible values for TreeNode::data.
+  // Only one of these fields should be set, based on the type of property tree
+  // this node belongs to.
+  optional TranformNodeData transform_node_data = 1000;
+  optional ClipNodeData clip_node_data = 1001;
+  optional EffectNodeData effect_node_data = 1002;
+  optional ScrollNodeData scroll_node_data = 1003;
+}
+
+// This defines the proto used for all property trees. PropertyType denotes the
+// type of this tree.
+message PropertyTree {
+  enum PropertyType {
+    Transform = 1;
+    Clip = 2;
+    Effect = 3;
+    Scroll = 4;
+  }
+
+  // The following fields are the base PropertyTree properties. This list
+  // corresponds to the data members from class PropertyTree.
+  optional PropertyType property_type = 1;
+  repeated TreeNode nodes = 2;
+  optional bool needs_update = 3;
+
+  // The following fields denote the data members for each subclass of
+  // PropertyTree. Only one of these fields should be set, depending on the type
+  // of this property tree.
+  optional TransformTreeData transform_tree_data = 1000;
+  optional ScrollTreeData scroll_tree_data = 1001;
+  optional EffectTreeData effect_tree_data = 1002;
+}
+
+message ScrollOffsetMapEntry {
+  required int64 layer_id = 1;
+  optional SyncedProperty scroll_offset = 2;
+}
+
+// Proto for data members of class ScrollTree
+message ScrollTreeData {
+  optional int64 currently_scrolling_node_id = 1;
+  repeated ScrollOffsetMapEntry layer_id_to_scroll_offset_map = 2;
+}
+
+// Proto for data members of class TransformTree.
+message TransformTreeData {
+  optional bool source_to_parent_updates_allowed = 1;
+  optional float page_scale_factor = 2;
+  optional float device_scale_factor = 3;
+  optional float device_transform_scale_factor = 4;
+  repeated int64 nodes_affected_by_inner_viewport_bounds_delta = 7
+      [packed = true];
+  repeated int64 nodes_affected_by_outer_viewport_bounds_delta = 8
+      [packed = true];
+  repeated TransformCachedNodeData cached_data = 9;
+}
+
+// Proto for data members of class EffectTree.
+message EffectTreeData {
+  repeated int64 mask_replica_layer_ids = 1 [packed = true];
+}
+
+// Proto for class PropertyTrees.
+// NEXT ID: 16
+message PropertyTrees {
+  optional PropertyTree transform_tree = 1;
+  optional PropertyTree effect_tree = 2;
+  optional PropertyTree clip_tree = 3;
+  optional PropertyTree scroll_tree = 7;
+
+  optional bool needs_rebuild = 4;
+  optional bool non_root_surfaces_enabled = 5;
+  optional bool changed = 11;
+  optional bool full_tree_damaged = 12;
+  optional int64 sequence_number = 6;
+  optional bool is_main_thread = 13;
+  optional bool is_active = 14;
+
+  optional Vector2dF inner_viewport_container_bounds_delta = 8;
+  optional Vector2dF outer_viewport_container_bounds_delta = 9;
+  optional Vector2dF inner_viewport_scroll_bounds_delta = 10;
+  repeated int64 always_use_active_tree_opacity_effect_ids = 15 [packed = true];
+}

@@ -1,0 +1,89 @@
+#!/usr/bin/perl -w
+####################################################################################################
+#
+# Helper script for Qt 5
+#
+# Copyright (C) 2015 The Qt Company Ltd.
+# Contact: http://www.qt.io/licensing/
+#
+####################################################################################################
+
+############################################################################################
+#
+# Generates the source files ui4.cpp, ui4.h used in the uic tool, the QtUiTools library and
+# Qt Designer from the XML schema used for .ui files.
+#
+############################################################################################
+
+use strict;
+
+use File::Spec;
+use File::Copy;
+use IO::File;
+use File::Path;
+
+my $USAGE=<<EOF;
+Usage: generate_ui
+
+Generates the source files ui4.cpp, ui4.h used in the uic tool, the QtUiTools library and
+Qt Designer from the XML schema used for .ui files.
+
+Requires the environment variable QTDIR to point to qtbase and xalan.
+EOF
+
+my $qtDir = $ENV{'QTDIR'};
+die ('QTDIR not set') unless defined $qtDir && -d $qtDir;
+
+print 'Generating ui4.cpp/ui4.h ',$qtDir,"\n";
+
+my $uicDir =  File::Spec->catfile($qtDir, 'src', 'tools', 'uic');
+my $toolsDir = File::Spec->catfile($qtDir, '..', 'qttools');
+my $designerDir = File::Spec->catfile($toolsDir, 'src', 'designer');
+my $uiLibDir = File::Spec->catfile($designerDir, 'src', 'lib', 'uilib');
+my $xmlDir = File::Spec->catfile($designerDir, 'data');
+my $qtXmlPatterns = File::Spec->catfile($qtDir, 'bin', 'xmlpatterns');
+
+print 'uic at: ',$uicDir, ' Designer at: ',$designerDir, ' uilib at: ',$uiLibDir,' XML at ',$xmlDir,"\n";
+die ('Invalid folder structure') unless -d $xmlDir && -d $uicDir && -d $uiLibDir;
+
+# Run xalan. Note: xmlpatterns currently reports a syntax error on the sheets
+sub runXSLT
+{
+   my ($source, $sheet, $target) = @_;
+   my $rc = system('xalan', '-in', $source, '-xsl',  $sheet, '-out', $target);
+#   my $rc = system($qtXmlPatterns, '-output', $target, $sheet, $source);
+   die ('Xalan failed on ' . $source . ' ' . $sheet) unless $rc == 0;
+}
+
+# Generate uilib header and source.
+
+my $uiLibImpl = File::Spec->catfile($uiLibDir, 'ui4.cpp');
+my $uiLibHeader = File::Spec->catfile($uiLibDir, 'ui4_p.h');
+
+print "Running XSLT processor for header...\n";
+runXSLT(File::Spec->catfile($xmlDir, 'ui4.xsd'),
+        File::Spec->catfile($xmlDir, 'generate_header.xsl'),
+        $uiLibHeader);
+print "Running XSLT processor for source...\n";
+runXSLT(File::Spec->catfile($xmlDir, 'ui4.xsd'),
+        File::Spec->catfile($xmlDir, 'generate_impl.xsl'),
+        $uiLibImpl);
+
+# uic: Header is called 'ui4.h' instead of 'ui4_p.h'. Use header as is, fix include in source.
+
+my $uicImpl = File::Spec->catfile($uicDir, 'ui4.cpp');
+my $uicHeader = File::Spec->catfile($uicDir, 'ui4.h');
+
+File::Copy::copy($uiLibHeader, $uicHeader) or die ('Unable to copy ' . $uiLibHeader . ' ' . $uicHeader . ' ' . $!);
+
+my $uiLibImplHandle = new IO::File('<' . $uiLibImpl) or die ('Unable to read ' . $uiLibImpl  . ':' . $!);
+my $uicImplHandle = new IO::File('>' . $uicImpl) or die ('Unable to write ' . $uicImpl . ':' . $!);
+while (my $line = <$uiLibImplHandle>) {
+    $line =~ s/ui4_p\.h/ui4.h/;
+    print $uicImplHandle $line;
+}
+
+$uiLibImplHandle->close();
+$uicImplHandle->close();
+
+system('git', 'diff');

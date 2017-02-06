@@ -1,0 +1,63 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// The <code>chrome.cast.devicesPrivate</code> API manages starting and stopping
+// casts based on receiver names. It also provides a list of available
+// receivers.
+namespace cast.devicesPrivate {
+  // A cast receiver is an actual cast device. It has a unique |id| and a
+  // non-unique |name| which is how people identify it.
+  dictionary Receiver {
+    // The unique id of a receiver.
+    DOMString id;
+
+    // The human-readable name of the receiver.
+    DOMString name;
+  };
+
+  // An activity represents what a receiver is currently doing.
+  dictionary Activity {
+    // The unique id for the activity.
+    DOMString id;
+
+    // The human-readable title of the activity.
+    DOMString title;
+
+    // Where did this activity originate from? For >=0 values, then this is the
+    // tab identifier. For <0 values, each value has a special meaning. If the
+    // cast was started on another device, there is no tabId.
+    long? tabId;
+  };
+
+  // A receiver with its associated activity. This is a 1-1 mapping.
+  dictionary ReceiverActivity {
+    // The current receiver.
+    Receiver receiver;
+
+    // Its associated activity, if any.
+    Activity? activity;
+  };
+
+  interface Functions {
+    // Update the state of all of the cast devices and their associated
+    // activities.
+    //
+    // |devices|: Every single receivers with its associated activities, if any.
+    static void updateDevices(ReceiverActivity[] devices);
+  };
+
+  interface Events {
+    // Request a refresh of the device states.
+    [maxListeners=1] static void updateDevicesRequested();
+
+    // Stops a cast. This should always be a user-initiated stop.
+    static void stopCast(DOMString reason);
+
+    // Starts a new cast.
+    //
+    // |receiverId|: The receiver ID to initiate a cast on. The implementation
+    // will handle selecting an appropriate activity.
+    static void startCast(DOMString receiverId);
+  };
+};

@@ -1,0 +1,177 @@
+<link rel="import" href="chrome://resources/cr_elements/cr_dialog/cr_dialog.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-spinner/paper-spinner.html">
+<link rel="import" href="/i18n_setup.html">
+<link rel="import" href="/clear_browsing_data_dialog/clear_browsing_data_browser_proxy.html">
+<link rel="import" href="/clear_browsing_data_dialog/history_deletion_dialog.html">
+<link rel="import" href="/controls/settings_checkbox.html">
+<link rel="import" href="/controls/settings_dropdown_menu.html">
+<link rel="import" href="/icons.html">
+<link rel="import" href="/settings_shared_css.html">
+
+<dom-module id="settings-clear-browsing-data-dialog">
+  <template>
+    <style include="settings-shared">
+      #dialog {
+        max-width: 600px;
+      }
+
+      #dialog:not(.fully-rendered) {
+        visibility: hidden;
+      }
+
+      .row {
+        align-items: center;
+        display: flex;
+        min-height: 40px;
+      }
+
+      .row .start {
+        flex: 1;
+      }
+
+      paper-spinner {
+        -webkit-margin-end: 16px;
+        margin-bottom: auto;
+        margin-top: auto;
+      }
+
+      #generalFooter {
+        margin: 0;
+        min-height: 18px;
+      }
+
+      #generalFooter iron-icon {
+        height: 18px;
+        padding: 1px;
+        width: 18px;
+      }
+
+      #googleFooter {
+        margin: 0 0 0.8em 0;
+        min-height: 16px;
+      }
+
+      #googleFooter iron-icon {
+        height: 16px;
+        padding: 2px;
+        width: 16px;
+      }
+
+      .clear-browsing-data-footer {
+        padding-left: 4px;
+      }
+
+      .clear-browsing-data-footer .footer-text {
+        -webkit-margin-start: 36px;
+      }
+
+      .clear-browsing-data-footer iron-icon {
+        float: left;
+      }
+
+      html[dir='rtl'] .clear-browsing-data-footer iron-icon {
+        float: right;
+      }
+
+      .clear-browsing-data-footer a {
+        text-decoration: none;
+      }
+
+      :host {
+        --settings-secondary-unchecked: {
+          display: none;
+        };
+      }
+    </style>
+
+    <!-- #notice correctly places its own backdrop above #dialog and under
+         itself, so when it is shown, #dialog should not use backdrop. -->
+    <cr-dialog id="dialog" with-backdrop="[[!showHistoryDeletionDialog_]]">
+      <div class="title">$i18n{clearBrowsingData}</div>
+      <div class="body">
+        <div class="row">
+          <span class="start">$i18n{clearFollowingItemsFrom}</span>
+          <settings-dropdown-menu id="clearFrom"
+              pref="{{prefs.browser.clear_data.time_period}}"
+              menu-options="[[clearFromOptions_]]" no-label-float>
+          </settings-dropdown-menu>
+        </div>
+        <settings-checkbox id="browsingCheckbox"
+            pref="{{prefs.browser.clear_data.browsing_history}}"
+            label="$i18n{clearBrowsingHistory}"
+            sub-label="[[counters_.browsing_history]]">
+        </settings-checkbox>
+        <settings-checkbox id="downloadCheckbox"
+            pref="{{prefs.browser.clear_data.download_history}}"
+            label="$i18n{clearDownloadHistory}"
+            sub-label="[[counters_.download_history]]">
+        </settings-checkbox>
+        <settings-checkbox
+            pref="{{prefs.browser.clear_data.cache}}"
+            label="$i18n{clearCache}"
+            sub-label="[[counters_.cache]]">
+        </settings-checkbox>
+        <settings-checkbox
+            pref="{{prefs.browser.clear_data.cookies}}"
+            label="$i18n{clearCookies}"
+            sub-label="$i18n{clearCookiesCounter}">
+        </settings-checkbox>
+        <settings-checkbox
+            pref="{{prefs.browser.clear_data.passwords}}"
+            label="$i18n{clearPasswords}"
+            sub-label="[[counters_.passwords]]">
+        </settings-checkbox>
+        <settings-checkbox
+            pref="{{prefs.browser.clear_data.form_data}}"
+            label="$i18n{clearFormData}"
+            sub-label="[[counters_.form_data]]">
+        </settings-checkbox>
+        <settings-checkbox
+            pref="{{prefs.browser.clear_data.hosted_apps_data}}"
+            label="$i18n{clearHostedAppData}"
+            sub-label="[[counters_.hosted_apps_data]]">
+        </settings-checkbox>
+        <settings-checkbox
+            pref="{{prefs.browser.clear_data.media_licenses}}"
+            label="$i18n{clearMediaLicenses}"
+            sub-label="[[counters_.media_licenses]]">
+        </settings-checkbox>
+      </div>
+      <div class="button-container">
+        <paper-spinner active="[[clearingInProgress_]]"></paper-spinner>
+        <paper-button class="cancel-button" disabled="[[clearingInProgress_]]"
+            dialog-dismiss>$i18n{cancel}</paper-button>
+        <paper-button class="action-button" disabled="[[clearingInProgress_]]"
+            on-tap="onClearBrowsingDataTap_">
+          $i18n{clearBrowsingData}
+        </paper-button>
+      </div>
+      <div class="footer">
+        <div id="googleFooter" class="clear-browsing-data-footer">
+          <iron-icon icon="settings:googleg"></iron-icon>
+          <div class="footer-text">$i18nRaw{otherFormsOfBrowsingHistory}</div>
+        </div>
+        <div id="generalFooter" class="clear-browsing-data-footer">
+          <iron-icon icon="settings:info"></iron-icon>
+          <div class="footer-text">
+            <span id="syncedDataSentence">$i18n{clearsSyncedData}</span>
+            <span>$i18n{warnAboutNonClearedData}</span>
+            <a id="clear-browser-data-old-learn-more-link"
+                href="$i18n{clearBrowsingDataLearnMoreUrl}"
+                target="_blank">$i18n{learnMore}</a>
+          </div>
+        </div>
+      </div>
+    </cr-dialog>
+
+    <template is="dom-if" if="[[showHistoryDeletionDialog_]]" restamp>
+      <settings-history-deletion-dialog id="notice"
+          on-iron-overlay-closed="onHistoryDeletionDialogClose_">
+      </settings-history-deletion-dialog>
+    </template>
+  </template>
+  <script src="clear_browsing_data_dialog.js"></script>
+</dom-module>

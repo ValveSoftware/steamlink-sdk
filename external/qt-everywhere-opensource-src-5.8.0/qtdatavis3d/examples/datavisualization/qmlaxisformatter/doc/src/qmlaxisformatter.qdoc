@@ -1,0 +1,128 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example qmlaxisformatter
+    \title Qt Quick 2 Axis Formatter Example
+    \ingroup qtdatavisualization_examples
+    \brief Example of a hybrid C++ and QML application demonstrating different axis formatters.
+    \since QtDataVisualization 1.1
+
+    The Qt Quick axis formatter example shows how to use predefined axis formatters and how to
+    create a custom one.
+
+    \image qmlaxisformatter-example.png
+
+    The interesting thing about this example is axis formatters, so we'll concentrate on
+    that and skip explaining the basic functionality - for
+    more detailed QML example documentation, see \l{Qt Quick 2 Scatter Example}.
+
+    \include examples-run.qdocinc
+
+    \section1 Custom Axis Formatter
+
+    Customizing axis formatters requires subclassing the QValue3DAxisFormatter, which cannot be
+    done in QML code alone. In this example we want an axis that interprets the float values as
+    a timestamp and shows the date in the axis labels. To achieve this, we introduce a new class
+    called \c CustomFormatter, which subclasses the QValue3DAxisFormatter:
+
+    \snippet qmlaxisformatter/customformatter.h 2
+    \dots 0
+
+    Since float values of a QScatter3DSeries cannot be directly cast into QDateTime values due to
+    difference in data width, we need some sort of mapping between the two. We chose to do the
+    mapping by specifying an origin date for the formatter and interpreting the float values
+    from the QScatter3DSeries as date offsets to that origin value. The origin date is given as
+    a property:
+
+    \snippet qmlaxisformatter/customformatter.h 1
+
+    The mapping from value to QDateTime is done using \c valueToDateTime() method:
+
+    \snippet qmlaxisformatter/customformatter.cpp 0
+
+    To function as an axis formatter, our \c CustomFormatter needs to reimplement some virtual
+    methods:
+
+    \snippet qmlaxisformatter/customformatter.h 0
+
+    The first two are simple, we just create a new instance of \c CustomFormatter and copy the
+    necessary data over to it. These two methods are used to create and update a cache of formatter for
+    rendering purposes. It is important to remember to call the superclass implementation
+    of \c populateCopy():
+
+    \snippet qmlaxisformatter/customformatter.cpp 1
+
+    Bulk of the work done by \c CustomFormatter is done in the \c recalculate() method, where
+    our formatter calculates the grid, subgrid, and label positions, as well as formats the label
+    strings.
+    In our custom formatter we ignore the segment count of the axis and draw a grid line always at
+    midnight. Subsegment count and label positioning is handled normally:
+
+    \snippet qmlaxisformatter/customformatter.cpp 2
+
+    The axis labels are formatted to show only the date, but for selection label we want little more
+    resolution for the timestamp, so we specify another property for our custom formatter to allow
+    user to customize it:
+
+    \snippet qmlaxisformatter/customformatter.h 3
+
+    This selection format property is used in the reimplemented \c stringToValue method, where we
+    ignore the submitted format and substitute the custom selection format for it:
+
+    \snippet qmlaxisformatter/customformatter.cpp 3
+
+    To expose our new custom formatter to the QML, we must declare and register it:
+
+    \snippet qmlaxisformatter/main.cpp 0
+    \dots 0
+    \snippet qmlaxisformatter/main.cpp 1
+
+    \section1 QML
+
+    In the QML codes, we define a different axis for each dimension:
+
+    \snippet qmlaxisformatter/qml/qmlaxisformatter/main.qml 3
+
+    Z-axis is just a regular ValueAxis3D:
+
+    \snippet qmlaxisformatter/qml/qmlaxisformatter/main.qml 0
+
+    For the Y-axis we define a logarithmic axis. ValueAxis3D can be made to show logarithmic scale
+    by specifying LogValueAxis3DFormatter for \c formatter property of the axis:
+
+    \snippet qmlaxisformatter/qml/qmlaxisformatter/main.qml 2
+
+    And finally, for the X-axis we use our new \c CustomFormatter:
+
+    \snippet qmlaxisformatter/qml/qmlaxisformatter/main.qml 1
+
+    Rest of the application consists of fairly self-explanatory logic for modifying the axes and
+    showing the graph.
+*/

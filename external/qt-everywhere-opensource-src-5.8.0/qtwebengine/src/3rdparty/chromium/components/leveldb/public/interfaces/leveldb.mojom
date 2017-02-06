@@ -1,0 +1,142 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module leveldb.mojom;
+
+import "components/filesystem/public/interfaces/directory.mojom";
+
+enum DatabaseError {
+  OK,
+  NOT_FOUND,
+  CORRUPTION,
+  NOT_SUPPORTED,
+  INVALID_ARGUMENT,
+  IO_ERROR
+};
+
+enum BatchOperationType {
+  PUT_KEY,
+  DELETE_KEY,
+  DELETE_PREFIXED_KEY
+};
+
+struct BatchedOperation {
+  BatchOperationType type;
+  array<uint8> key;
+  array<uint8>? value;
+};
+
+struct KeyValue {
+  array<uint8> key;
+  array<uint8> value;
+};
+
+// Options which control the behavior of a database. (This struct corresponds
+// with the struct in leveldb's options.h.)
+struct OpenOptions {
+  // TODO(erg): Find all comparators and copy them into the service.
+
+  // If true, the database will be created if it is missing.
+  bool create_if_missing = false;
+
+  // If true, an error is raised if the database already exists.
+  bool error_if_exists = false;
+
+  // If true, the implementation will do aggressive checking of the
+  // data it is processing and will stop early if it detects any
+  // errors.
+  bool paranoid_checks = false;
+
+  // Default size is 4 megabytes.
+  uint64 write_buffer_size = 4194304;
+
+  // Number of open files that can be used by the DB. (Note: we globally set
+  // the default here to 80 instead of leveldb's default 1000 because we don't
+  // want to consume all file descriptors. See
+  // https://code.google.com/p/chromium/issues/detail?id=227313#c11 for
+  // details.)
+  int32 max_open_files = 80;
+};
+
+// Service which hands out databases.
+interface LevelDBService {
+  Open(filesystem.mojom.Directory directory,
+       string dbname,
+       LevelDBDatabase& database) => (DatabaseError status);
+  OpenWithOptions(OpenOptions options,
+                  filesystem.mojom.Directory directory,
+                  string dbname,
+                  LevelDBDatabase& database) => (DatabaseError status);
+
+  OpenInMemory(LevelDBDatabase& database) => (DatabaseError status);
+};
+
+// A leveldb database.
+interface LevelDBDatabase {
+  // Basic Interface -------------------------------------------------------
+
+  // Sets the database entry for "key" to "value". Returns OK on success.
+  Put(array<uint8> key, array<uint8> value) => (DatabaseError status);
+
+  // Remove the database entry (if any) for "key".  Returns OK on
+  // success, and a non-OK status on error.  It is not an error if "key"
+  // did not exist in the database.
+  Delete(array<uint8> key) => (DatabaseError status);
+
+  DeletePrefixed(array<uint8> key_prefix) => (DatabaseError status);
+
+  // Atomically performs all |operations|.
+  Write(array<BatchedOperation> operations) => (DatabaseError status);
+
+  Get(array<uint8> key) => (DatabaseError status, array<uint8> value);
+
+  GetPrefixed(array<uint8> key_prefix)
+      => (DatabaseError status, array<KeyValue> data);
+
+  // Snapshots -------------------------------------------------------------
+
+  // Returns a handle to the current database state.
+  GetSnapshot() => (uint64 snapshot_id);
+
+  // Releases a previously acquired snapshot.
+  ReleaseSnapshot(uint64 snapshot_id);
+
+  // If |key| exists at the time |snapshot_id| was taken, return OK and the
+  // value. Otherwise return NOT_FOUND.
+  GetFromSnapshot(uint64 snapshot_id, array<uint8> key)
+      => (DatabaseError status, array<uint8> value);
+
+  // Iteartors -------------------------------------------------------------
+
+  // Creates an iterator, either from the current view or from a snapshot.
+  NewIterator() => (uint64 iterator_id);
+  NewIteratorFromSnapshot(uint64 snapshot_id) => (uint64 iterator_id);
+
+  ReleaseIterator(uint64 iterator_id);
+
+  // Positions the iterator at the first key, last key, or the first key after
+  // |target|.
+  [Sync]
+  IteratorSeekToFirst(uint64 iterator_id)
+      => (bool valid, DatabaseError status, array<uint8>? key,
+          array<uint8>? value);
+  [Sync]
+  IteratorSeekToLast(uint64 iterator_id)
+      => (bool valid, DatabaseError status, array<uint8>? key,
+          array<uint8>? value);
+  [Sync]
+  IteratorSeek(uint64 iterator_id, array<uint8> target)
+      => (bool valid, DatabaseError status, array<uint8>? key,
+          array<uint8>? value);
+
+  // Moves forward or backwards in iterator space.
+  [Sync]
+  IteratorNext(uint64 iterator_id)
+      => (bool valid, DatabaseError status, array<uint8>? key,
+          array<uint8>? value);
+  [Sync]
+  IteratorPrev(uint64 iterator_id)
+      => (bool valid, DatabaseError status, array<uint8>? key,
+          array<uint8>? value);
+};

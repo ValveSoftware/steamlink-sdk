@@ -1,0 +1,244 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//chrome/chrome_tests.gni")
+import("//testing/test.gni")
+
+# GYP version: chrome/chrome_tests.gypi:automation_client_lib
+#              (embed_js_in_cpp action)
+action("embed_js_in_cpp") {
+  script = "embed_js_in_cpp.py"
+
+  js_files = [
+    "js/add_cookie.js",
+    "js/call_function.js",
+    "js/execute_async_script.js",
+    "js/focus.js",
+    "js/get_element_region.js",
+    "js/is_option_element_toggleable.js",
+  ]
+
+  inputs = [ "cpp_source.py" ] + js_files
+
+  outputs = [
+    "$target_gen_dir/chrome/js.cc",
+    "$target_gen_dir/chrome/js.h",
+  ]
+  args = [
+    "--directory",
+    rebase_path("$target_gen_dir/chrome", root_build_dir),
+  ]
+  args += rebase_path(js_files, root_build_dir)
+}
+
+# GYP version: chrome/chrome_tests.gypi:automation_client_lib
+#              (embed_user_data_dir_in_cpp action)
+action("embed_user_data_dir_in_cpp") {
+  script = "embed_user_data_dir_in_cpp.py"
+
+  files = [
+    "chrome/preferences.txt",
+    "chrome/local_state.txt",
+  ]
+
+  inputs = [ "cpp_source.py" ] + files
+  outputs = [
+    "$target_gen_dir/chrome/user_data_dir.cc",
+    "$target_gen_dir/chrome/user_data_dir.h",
+  ]
+
+  args = [
+    "--directory",
+    rebase_path("$target_gen_dir/chrome", root_build_dir),
+  ]
+  args += rebase_path(files, root_build_dir)
+}
+
+# GYP version: chrome/chrome_tests.gypi:automation_client_lib
+#              (embed_extension_in_cpp action)
+action("embed_extension_in_cpp") {
+  script = "embed_extension_in_cpp.py"
+
+  files = [
+    "extension/background.js",
+    "extension/manifest.json",
+  ]
+
+  inputs = [ "cpp_source.py" ] + files
+  outputs = [
+    "$target_gen_dir/chrome/embedded_automation_extension.cc",
+    "$target_gen_dir/chrome/embedded_automation_extension.h",
+  ]
+
+  args = [
+    "--directory",
+    rebase_path("$target_gen_dir/chrome", root_build_dir),
+  ]
+  args += rebase_path(files, root_build_dir)
+}
+
+# GYP version: chrome/chrome_tests.gypi:automation_client_lib
+source_set("automation_client_lib") {
+  sources =
+      rebase_path(chrome_tests_gypi_values.chrome_automation_client_lib_sources,
+                  ".",
+                  "//chrome")
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  # Also compile the generated files.
+  sources += get_target_outputs(":embed_extension_in_cpp")
+  sources += get_target_outputs(":embed_js_in_cpp")
+  sources += get_target_outputs(":embed_user_data_dir_in_cpp")
+
+  deps = [
+    ":embed_extension_in_cpp",
+    ":embed_js_in_cpp",
+    ":embed_user_data_dir_in_cpp",
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//net",
+    "//third_party/zlib:minizip",
+    "//third_party/zlib:zip",
+    "//ui/accessibility:ax_gen",
+    "//ui/base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//url",
+  ]
+}
+
+# GYP version: chrome/chrome_tests.gypi:chromedriver_lib
+#              (embed_version_in_cpp action)
+action("embed_version_in_cpp") {
+  script = "embed_version_in_cpp.py"
+  inputs = [
+    "cpp_source.py",
+    "VERSION",
+  ]
+  outputs = [
+    "$target_gen_dir/version.cc",
+    "$target_gen_dir/version.h",
+  ]
+
+  args = [
+    "--version-file",
+    rebase_path("VERSION", root_build_dir),
+    "--directory",
+    rebase_path(target_gen_dir, root_build_dir),
+  ]
+}
+
+# GYP version: chrome/chrome_tests.gypi:chromedriver_lib
+source_set("lib") {
+  sources = rebase_path(chrome_tests_gypi_values.chrome_driver_lib_sources,
+                        ".",
+                        "//chrome")
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  # Also compile the generated version files.
+  sources += get_target_outputs(":embed_version_in_cpp")
+
+  # These aren't automatically filtered out.
+  if (!use_x11) {
+    sources -= [ "keycode_text_conversion_x.cc" ]
+  }
+  if (!use_ozone) {
+    sources -= [ "keycode_text_conversion_ozone.cc" ]
+  }
+
+  deps = [
+    ":automation_client_lib",
+    ":embed_version_in_cpp",
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//chrome/common:version_header",
+    "//crypto",
+    "//net",
+    "//net:http_server",
+    "//third_party/zlib",
+    "//ui/base",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events:events_base",
+    "//ui/events/ozone:events_ozone_layout",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (use_x11) {
+    configs += [ "//build/config/linux:x11" ]
+    deps += [ "//ui/gfx/x" ]
+  }
+
+  if (is_mac) {
+    libs = [ "Carbon.framework" ]
+  }
+}
+
+executable("chromedriver") {
+  sources = [
+    "server/chromedriver_server.cc",
+  ]
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  deps = [
+    ":lib",
+    "//build/config/sanitizers:deps",
+    "//build/win:default_exe_manifest",
+  ]
+}
+
+test("chromedriver_unittests") {
+  sources =
+      rebase_path(chrome_tests_gypi_values.chrome_driver_unittests_sources,
+                  ".",
+                  "//chrome")
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  data = [
+    "//chrome/test/data/chromedriver/",
+  ]
+
+  deps = [
+    ":lib",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//net",
+    "//net:http_server",
+    "//testing/gtest",
+    "//ui/base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+}
+
+# ChromeDriver tests that aren't run on the main buildbot. Available as an
+# optional test type on trybots.
+test("chromedriver_tests") {
+  sources = rebase_path(chrome_tests_gypi_values.chrome_driver_tests_sources,
+                        ".",
+                        "//chrome")
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  deps = [
+    ":lib",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//net",
+    "//net:http_server",
+    "//net:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
+}

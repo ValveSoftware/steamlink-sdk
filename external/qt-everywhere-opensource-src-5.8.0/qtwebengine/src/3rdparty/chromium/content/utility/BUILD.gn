@@ -1,0 +1,52 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//content/utility/utility.gni")
+import("//media/media_options.gni")
+
+source_set("utility") {
+  # Only the public target should depend on this. All other targets (even
+  # internal content ones other than test) should depend on the public one.
+  visibility = [
+    ":for_content_tests",
+    "//content/public/utility:utility_sources",
+  ]
+
+  sources =
+      rebase_path(content_utility_gypi_values.utility_sources, ".", "//content")
+
+  configs += [ "//content:content_implementation" ]
+
+  deps = [
+    "//base",
+    "//components/scheduler",
+    "//content:export",
+    "//content/child",
+    "//content/public/child:child_sources",
+    "//content/public/common:common_sources",
+    "//mojo/common",
+    "//mojo/public/cpp/bindings",
+    "//sandbox",
+    "//services/shell",
+    "//services/shell/public/cpp",
+    "//services/shell/public/interfaces",
+    "//third_party/WebKit/public:blink_headers",
+    "//third_party/WebKit/public:mojo_bindings",
+    "//url",
+  ]
+
+  if (mojo_media_host == "utility") {
+    deps += [ "//media/mojo/services" ]
+  }
+}
+
+# See comment at the top of //content/BUILD.gn for how this works.
+group("for_content_tests") {
+  visibility = [ "//content/test/*" ]
+  if (!is_component_build) {
+    public_deps = [
+      ":utility",
+    ]
+  }
+}

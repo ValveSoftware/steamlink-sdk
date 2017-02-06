@@ -1,0 +1,110 @@
+{% from "macros.tmpl" import license %}
+{{ license() }}
+
+#include "{{namespace}}ElementFactory.h"
+
+#include "{{namespace}}Names.h"
+{% for tag in tags|groupby('interface') %}
+#include "core/{{namespace|lower}}/{{tag[0]}}.h"
+{% endfor %}
+{% if fallback_interface %}
+#include "core/{{namespace|lower}}/{{fallback_interface}}.h"
+{% endif %}
+{% if namespace == 'HTML' %}
+#include "core/dom/custom/CustomElement.h"
+{% endif %}
+#include "core/dom/custom/V0CustomElement.h"
+#include "core/dom/custom/V0CustomElementRegistrationContext.h"
+#include "core/dom/Document.h"
+#include "core/frame/Settings.h"
+#include "platform/RuntimeEnabledFeatures.h"
+#include "wtf/HashMap.h"
+
+namespace blink {
+
+using namespace {{namespace}}Names;
+
+typedef {{namespace}}Element* (*ConstructorFunction)(
+    Document&,
+    {% if namespace == 'HTML' %}
+    HTMLFormElement*,
+    {% endif %}
+    CreateElementFlags);
+
+typedef HashMap<AtomicString, ConstructorFunction> FunctionMap;
+
+static FunctionMap* g_constructors = 0;
+
+{% for tag in tags|sort if not tag.noConstructor %}
+static {{namespace}}Element* {{tag|symbol}}Constructor(
+    Document& document,
+    {% if namespace == 'HTML' %}
+    HTMLFormElement* formElement,
+    {% endif %}
+    CreateElementFlags flags)
+{
+    {% if tag.runtimeEnabled %}
+    if (!RuntimeEnabledFeatures::{{tag.runtimeEnabled}}Enabled())
+        return {{fallback_interface}}::create({{tag|symbol}}Tag, document);
+    {% endif %}
+    return {{tag.interface}}::create(
+        {%- if tag.multipleTagNames %}{{tag|symbol}}Tag, {% endif -%}
+        document
+        {%- if namespace == 'HTML' and tag.constructorNeedsFormElement %}, formElement{% endif -%}
+        {%- if tag.constructorNeedsCreatedByParser %}, flags & CreatedByParser{% endif -%}
+    );
+}
+{% endfor %}
+
+struct Create{{namespace}}FunctionMapData {
+  const QualifiedName& tag;
+  ConstructorFunction func;
+};
+
+static void create{{namespace}}FunctionMap()
+{
+    ASSERT(!g_constructors);
+    g_constructors = new FunctionMap;
+    // Empty array initializer lists are illegal [dcl.init.aggr] and will not
+    // compile in MSVC. If tags list is empty, add check to skip this.
+    static const Create{{namespace}}FunctionMapData data[] = {
+    {% for tag in tags|sort if not tag.noConstructor %}
+        { {{tag|symbol}}Tag, {{tag|symbol}}Constructor },
+    {% endfor %}
+    };
+    for (size_t i = 0; i < WTF_ARRAY_LENGTH(data); i++)
+        g_constructors->set(data[i].tag.localName(), data[i].func);
+}
+
+{{namespace}}Element* {{namespace}}ElementFactory::create{{namespace}}Element(
+    const AtomicString& localName,
+    Document& document,
+    {% if namespace == 'HTML' %}
+    HTMLFormElement* formElement,
+    {% endif %}
+    CreateElementFlags flags)
+{
+    if (!g_constructors)
+        create{{namespace}}FunctionMap();
+    if (ConstructorFunction function = g_constructors->get(localName))
+        return function(document, {% if namespace == 'HTML' %}formElement, {% endif %}flags);
+
+    {% if namespace == 'HTML' %}
+    if (CustomElement::shouldCreateCustomElement(document, localName)) {
+        QualifiedName tagName(nullAtom, localName, HTMLNames::xhtmlNamespaceURI);
+        if (flags & AsynchronousCustomElements)
+            return CustomElement::createCustomElementAsync(document, tagName);
+        return CustomElement::createCustomElementSync(document, tagName);
+    }
+    {% endif %}
+
+    if (document.registrationContext() && V0CustomElement::isValidName(localName)) {
+        Element* element = document.registrationContext()->createCustomTagElement(document, QualifiedName(nullAtom, localName, {{namespace_prefix}}NamespaceURI));
+        ASSERT_WITH_SECURITY_IMPLICATION(element->is{{namespace}}Element());
+        return to{{namespace}}Element(element);
+    }
+
+    return {{fallback_interface}}::create(QualifiedName(nullAtom, localName, {{namespace_prefix}}NamespaceURI), document);
+}
+
+} // namespace blink

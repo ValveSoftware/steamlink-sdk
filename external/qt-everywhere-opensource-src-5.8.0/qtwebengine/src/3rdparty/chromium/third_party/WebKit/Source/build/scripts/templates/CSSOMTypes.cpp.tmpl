@@ -1,0 +1,43 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "core/css/cssom/CSSOMTypes.h"
+
+#include "core/css/CSSPropertyMetadata.h"
+#include "core/css/cssom/CSSOMKeywords.h"
+#include "core/css/cssom/CSSKeywordValue.h"
+#include "core/css/cssom/CSSLengthValue.h"
+
+namespace blink {
+
+bool CSSOMTypes::propertyCanTake(CSSPropertyID id, const CSSStyleValue& styleValue)
+{
+    // Shortcut special case.
+    if (styleValue.type() == CSSStyleValue::SimpleLengthType || styleValue.type() == CSSStyleValue::CalcLengthType) {
+        if (toCSSLengthValue(styleValue).containsPercent() && !CSSPropertyMetadata::propertySupportsPercentage(id)) {
+            return false;
+        }
+    } else if (styleValue.type() == CSSStyleValue::KeywordType) {
+        // Keywords are also handled differently.
+        return CSSOMKeywords::validKeywordForProperty(id, toCSSKeywordValue(styleValue));
+    } else if (styleValue.type() == CSSStyleValue::Unknown) {
+        // The check happens later in this case.
+        return true;
+    }
+
+    switch (id) {
+    {% for property_id, property in properties.items() if property.typedom_types %}
+    case {{property_id}}:
+    return (
+        {% for type in property.typedom_types %}
+        {{ "|| " if not loop.first }}styleValue.type() == CSSStyleValue::{{type}}Type
+        {% endfor %}
+        );
+    {% endfor %}
+    default:
+        return false;
+    }
+}
+
+}  // namespace blink

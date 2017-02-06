@@ -1,0 +1,356 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/test.gni")
+import("//tools/grit/grit_rule.gni")
+import("//tools/grit/repack.gni")
+
+config("headless_implementation") {
+  defines = [ "HEADLESS_IMPLEMENTATION" ]
+}
+
+group("headless") {
+  deps = [
+    "//headless:headless_lib",
+  ]
+}
+
+repack("pak") {
+  sources = [
+    "$root_gen_dir/blink/devtools_resources.pak",
+    "$root_gen_dir/blink/public/resources/blink_image_resources_100_percent.pak",
+    "$root_gen_dir/blink/public/resources/blink_resources.pak",
+    "$root_gen_dir/content/app/resources/content_resources_100_percent.pak",
+    "$root_gen_dir/content/app/strings/content_strings_en-US.pak",
+    "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
+    "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/headless/headless_lib_resources.pak",
+    "$root_gen_dir/net/net_resources.pak",
+    "$root_gen_dir/ui/resources/ui_resources_100_percent.pak",
+    "$root_gen_dir/ui/resources/webui_resources.pak",
+    "$root_gen_dir/ui/strings/app_locale_settings_en-US.pak",
+    "$root_gen_dir/ui/strings/ui_strings_en-US.pak",
+  ]
+
+  deps = [
+    ":headless_lib_resources_grit",
+    "//content:resources",
+    "//content/app/resources",
+    "//content/app/strings",
+    "//content/browser/devtools:resources",
+    "//content/browser/tracing:resources",
+    "//net:net_resources",
+    "//third_party/WebKit/public:image_resources",
+    "//third_party/WebKit/public:resources",
+    "//ui/resources",
+    "//ui/strings",
+  ]
+
+  output = "$root_out_dir/headless_lib.pak"
+}
+
+grit("headless_lib_resources_grit") {
+  source = "lib/resources/headless_lib_resources.grd"
+  outputs = [
+    "grit/headless_lib_resources.h",
+    "$root_gen_dir/headless/headless_lib_resources.pak",
+  ]
+}
+
+action("gen_devtools_client_api") {
+  script = "//headless/lib/browser/client_api_generator.py"
+  deps = [
+    "//third_party/WebKit/Source/core/inspector:protocol_version",
+  ]
+  inputs = [
+    "$root_gen_dir/blink/core/inspector/protocol.json",
+  ]
+
+  outputs = [
+    "$target_gen_dir/public/domains/accessibility.cc",
+    "$target_gen_dir/public/domains/accessibility.h",
+    "$target_gen_dir/public/domains/animation.cc",
+    "$target_gen_dir/public/domains/animation.h",
+    "$target_gen_dir/public/domains/application_cache.cc",
+    "$target_gen_dir/public/domains/application_cache.h",
+    "$target_gen_dir/public/domains/cache_storage.cc",
+    "$target_gen_dir/public/domains/cache_storage.h",
+    "$target_gen_dir/public/domains/console.cc",
+    "$target_gen_dir/public/domains/console.h",
+    "$target_gen_dir/public/domains/css.cc",
+    "$target_gen_dir/public/domains/css.h",
+    "$target_gen_dir/public/domains/database.cc",
+    "$target_gen_dir/public/domains/database.h",
+    "$target_gen_dir/public/domains/debugger.cc",
+    "$target_gen_dir/public/domains/debugger.h",
+    "$target_gen_dir/public/domains/device_orientation.cc",
+    "$target_gen_dir/public/domains/device_orientation.h",
+    "$target_gen_dir/public/domains/dom_debugger.cc",
+    "$target_gen_dir/public/domains/dom_debugger.h",
+    "$target_gen_dir/public/domains/dom.cc",
+    "$target_gen_dir/public/domains/dom.h",
+    "$target_gen_dir/public/domains/dom_storage.cc",
+    "$target_gen_dir/public/domains/dom_storage.h",
+    "$target_gen_dir/public/domains/emulation.cc",
+    "$target_gen_dir/public/domains/emulation.h",
+    "$target_gen_dir/public/domains/heap_profiler.cc",
+    "$target_gen_dir/public/domains/heap_profiler.h",
+    "$target_gen_dir/public/domains/indexeddb.cc",
+    "$target_gen_dir/public/domains/indexeddb.h",
+    "$target_gen_dir/public/domains/input.cc",
+    "$target_gen_dir/public/domains/input.h",
+    "$target_gen_dir/public/domains/inspector.cc",
+    "$target_gen_dir/public/domains/inspector.h",
+    "$target_gen_dir/public/domains/io.cc",
+    "$target_gen_dir/public/domains/io.h",
+    "$target_gen_dir/public/domains/layer_tree.cc",
+    "$target_gen_dir/public/domains/layer_tree.h",
+    "$target_gen_dir/public/domains/memory.cc",
+    "$target_gen_dir/public/domains/memory.h",
+    "$target_gen_dir/public/domains/network.cc",
+    "$target_gen_dir/public/domains/network.h",
+    "$target_gen_dir/public/domains/page.cc",
+    "$target_gen_dir/public/domains/page.h",
+    "$target_gen_dir/public/domains/profiler.cc",
+    "$target_gen_dir/public/domains/profiler.h",
+    "$target_gen_dir/public/domains/rendering.cc",
+    "$target_gen_dir/public/domains/rendering.h",
+    "$target_gen_dir/public/domains/runtime.cc",
+    "$target_gen_dir/public/domains/runtime.h",
+    "$target_gen_dir/public/domains/security.cc",
+    "$target_gen_dir/public/domains/security.h",
+    "$target_gen_dir/public/domains/service_worker.cc",
+    "$target_gen_dir/public/domains/service_worker.h",
+    "$target_gen_dir/public/domains/tracing.cc",
+    "$target_gen_dir/public/domains/tracing.h",
+    "$target_gen_dir/public/domains/type_conversions.h",
+    "$target_gen_dir/public/domains/types.cc",
+    "$target_gen_dir/public/domains/types.h",
+    "$target_gen_dir/public/domains/worker.cc",
+    "$target_gen_dir/public/domains/worker.h",
+  ]
+
+  sources = [
+    "lib/browser/domain_cc.template",
+    "lib/browser/domain_h.template",
+    "lib/browser/type_conversions_h.template",
+    "lib/browser/types_cc.template",
+    "lib/browser/types_h.template",
+  ]
+
+  args = [
+    "--protocol",
+    rebase_path(inputs[0], root_build_dir),
+    "--output_dir",
+    rebase_path(target_gen_dir) + "/public/domains",
+  ]
+}
+
+static_library("headless_lib") {
+  sources = [
+    "$target_gen_dir/public/domains/accessibility.cc",
+    "$target_gen_dir/public/domains/accessibility.h",
+    "$target_gen_dir/public/domains/animation.cc",
+    "$target_gen_dir/public/domains/animation.h",
+    "$target_gen_dir/public/domains/application_cache.cc",
+    "$target_gen_dir/public/domains/application_cache.h",
+    "$target_gen_dir/public/domains/cache_storage.cc",
+    "$target_gen_dir/public/domains/cache_storage.h",
+    "$target_gen_dir/public/domains/console.cc",
+    "$target_gen_dir/public/domains/console.h",
+    "$target_gen_dir/public/domains/css.cc",
+    "$target_gen_dir/public/domains/css.h",
+    "$target_gen_dir/public/domains/database.cc",
+    "$target_gen_dir/public/domains/database.h",
+    "$target_gen_dir/public/domains/debugger.cc",
+    "$target_gen_dir/public/domains/debugger.h",
+    "$target_gen_dir/public/domains/device_orientation.cc",
+    "$target_gen_dir/public/domains/device_orientation.h",
+    "$target_gen_dir/public/domains/dom.cc",
+    "$target_gen_dir/public/domains/dom.h",
+    "$target_gen_dir/public/domains/dom_debugger.cc",
+    "$target_gen_dir/public/domains/dom_debugger.h",
+    "$target_gen_dir/public/domains/dom_storage.cc",
+    "$target_gen_dir/public/domains/dom_storage.h",
+    "$target_gen_dir/public/domains/emulation.cc",
+    "$target_gen_dir/public/domains/emulation.h",
+    "$target_gen_dir/public/domains/heap_profiler.cc",
+    "$target_gen_dir/public/domains/heap_profiler.h",
+    "$target_gen_dir/public/domains/indexeddb.cc",
+    "$target_gen_dir/public/domains/indexeddb.h",
+    "$target_gen_dir/public/domains/input.cc",
+    "$target_gen_dir/public/domains/input.h",
+    "$target_gen_dir/public/domains/inspector.cc",
+    "$target_gen_dir/public/domains/inspector.h",
+    "$target_gen_dir/public/domains/io.cc",
+    "$target_gen_dir/public/domains/io.h",
+    "$target_gen_dir/public/domains/layer_tree.cc",
+    "$target_gen_dir/public/domains/layer_tree.h",
+    "$target_gen_dir/public/domains/memory.cc",
+    "$target_gen_dir/public/domains/memory.h",
+    "$target_gen_dir/public/domains/network.cc",
+    "$target_gen_dir/public/domains/network.h",
+    "$target_gen_dir/public/domains/page.cc",
+    "$target_gen_dir/public/domains/page.h",
+    "$target_gen_dir/public/domains/profiler.cc",
+    "$target_gen_dir/public/domains/profiler.h",
+    "$target_gen_dir/public/domains/rendering.cc",
+    "$target_gen_dir/public/domains/rendering.h",
+    "$target_gen_dir/public/domains/runtime.cc",
+    "$target_gen_dir/public/domains/runtime.h",
+    "$target_gen_dir/public/domains/security.cc",
+    "$target_gen_dir/public/domains/security.h",
+    "$target_gen_dir/public/domains/service_worker.cc",
+    "$target_gen_dir/public/domains/service_worker.h",
+    "$target_gen_dir/public/domains/tracing.cc",
+    "$target_gen_dir/public/domains/tracing.h",
+    "$target_gen_dir/public/domains/type_conversions.h",
+    "$target_gen_dir/public/domains/types.cc",
+    "$target_gen_dir/public/domains/types.h",
+    "$target_gen_dir/public/domains/worker.cc",
+    "$target_gen_dir/public/domains/worker.h",
+    "lib/browser/headless_browser_context_impl.cc",
+    "lib/browser/headless_browser_context_impl.h",
+    "lib/browser/headless_browser_impl.cc",
+    "lib/browser/headless_browser_impl.h",
+    "lib/browser/headless_browser_main_parts.cc",
+    "lib/browser/headless_browser_main_parts.h",
+    "lib/browser/headless_content_browser_client.cc",
+    "lib/browser/headless_content_browser_client.h",
+    "lib/browser/headless_devtools.cc",
+    "lib/browser/headless_devtools.h",
+    "lib/browser/headless_devtools_client_impl.cc",
+    "lib/browser/headless_devtools_client_impl.h",
+    "lib/browser/headless_screen.cc",
+    "lib/browser/headless_screen.h",
+    "lib/browser/headless_url_request_context_getter.cc",
+    "lib/browser/headless_url_request_context_getter.h",
+    "lib/browser/headless_web_contents_impl.cc",
+    "lib/browser/headless_web_contents_impl.h",
+    "lib/browser/headless_window_tree_client.cc",
+    "lib/browser/headless_window_tree_client.h",
+    "lib/headless_content_client.cc",
+    "lib/headless_content_client.h",
+    "lib/headless_content_main_delegate.cc",
+    "lib/headless_content_main_delegate.h",
+    "lib/renderer/headless_content_renderer_client.cc",
+    "lib/renderer/headless_content_renderer_client.h",
+    "lib/utility/headless_content_utility_client.cc",
+    "lib/utility/headless_content_utility_client.h",
+    "public/headless_browser.cc",
+    "public/headless_browser.h",
+    "public/headless_browser_context.h",
+    "public/headless_devtools_client.h",
+    "public/headless_devtools_host.h",
+    "public/headless_devtools_target.h",
+    "public/headless_export.h",
+    "public/headless_web_contents.h",
+    "public/internal/message_dispatcher.h",
+    "public/internal/value_conversions.h",
+    "public/util/error_reporter.cc",
+    "public/util/error_reporter.h",
+  ]
+
+  deps = [
+    ":gen_devtools_client_api",
+    ":pak",
+    "//base",
+    "//components/devtools_http_handler",
+    "//content/public/app:both",
+    "//content/public/browser",
+    "//content/public/child",
+    "//content/public/common",
+    "//content/public/renderer",
+    "//content/public/utility",
+    "//net",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/ozone",
+    "//url",
+  ]
+
+  configs += [ ":headless_implementation" ]
+}
+
+group("headless_tests") {
+  testonly = true
+
+  deps = [
+    ":client_api_generator_tests",
+    ":headless_browsertests",
+    ":headless_unittests",
+  ]
+}
+
+test("headless_unittests") {
+  sources = [
+    "public/domains/types_unittest.cc",
+    "public/util/error_reporter_unittest.cc",
+  ]
+
+  deps = [
+    ":headless_lib",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//testing/gtest",
+  ]
+}
+
+action("client_api_generator_tests") {
+  _stamp = "$target_gen_dir/client_api_generator_unittests.stamp"
+  inputs = [
+    "lib/browser/client_api_generator.py",
+    "lib/browser/client_api_generator_unittest.py",
+  ]
+  outputs = [
+    _stamp,
+  ]
+
+  script = "lib/browser/client_api_generator_unittest.py"
+  args = [
+    "--stamp",
+    rebase_path(_stamp, root_build_dir),
+  ]
+}
+
+test("headless_browsertests") {
+  sources = [
+    "lib/headless_browser_browsertest.cc",
+    "lib/headless_browser_context_browsertest.cc",
+    "lib/headless_devtools_client_browsertest.cc",
+    "lib/headless_web_contents_browsertest.cc",
+    "test/headless_browser_test.cc",
+    "test/headless_browser_test.h",
+    "test/headless_test_launcher.cc",
+    "test/test_protocol_handler.cc",
+    "test/test_protocol_handler.h",
+    "test/test_url_request_job.cc",
+    "test/test_url_request_job.h",
+  ]
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  deps = [
+    "//base",
+    "//content/test:browsertest_base",
+    "//content/test:test_support",
+    "//headless:headless_lib",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+executable("headless_shell") {
+  sources = [
+    "app/headless_shell.cc",
+    "app/headless_shell_switches.cc",
+    "app/headless_shell_switches.h",
+  ]
+
+  deps = [
+    "//headless:headless_lib",
+  ]
+}

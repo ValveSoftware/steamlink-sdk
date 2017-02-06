@@ -1,0 +1,135 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example draggableaxes
+    \title Axis Range Dragging With Labels Example
+    \ingroup qtdatavisualization_examples
+    \brief Implementing a custom input handler to support axis dragging.
+    \since QtDataVisualization 1.1
+
+    The Axis Range Dragging example shows how to customize the 3D graph controls in a widget
+    application to allow changing axis ranges by clicking on an axis label and dragging. This is
+    done by implementing a custom input handler to react to selection signals emitted from the
+    graph.
+
+    \image draggableaxes-example.png
+
+    \include examples-run.qdocinc
+
+    \section1 Replacing Default Input Handling
+
+    The default input handling mechanism is replaced by setting the active input handler of
+    Q3DScatter to \c AxesInputHandler that implements the custom behavior:
+
+    \snippet draggableaxes/data.cpp 0
+
+    \c m_inputHandler was initialized in the constructor:
+
+    \snippet draggableaxes/data.cpp 1
+
+    We will also need the pointers to the axes, so we will pass them to our input handler too:
+
+    \snippet draggableaxes/data.cpp 2
+
+    \section1 Extending Mouse Event Handling
+
+    First of all, we inherited our input handler from Q3DInputHandler instead of
+    QAbstract3DInputHandler. The reason for doing this is to keep all the functionality of the
+    default input handling, and to add our own functionality on top of it:
+
+    \snippet draggableaxes/axesinputhandler.h 0
+
+    We start extending the default functionality by re-implementing some of the mouse events.
+    Let's start with \c {mousePressEvent}. We'll just add button pressed flag for left mouse button
+    into it, and keep the rest of the default functionality:
+
+    \snippet draggableaxes/axesinputhandler.cpp 0
+
+    We'll need to modify \c mouseReleaseEvent too to clear the flag and reset the internal state:
+
+    \snippet draggableaxes/axesinputhandler.cpp 1
+
+    Then we'll modify \c {mouseMoveEvent}. Here we check if the \c m_mousePressed is \c true and
+    our internal state is something other than \c StateNormal. If so, we'll set the input positions
+    for mouse move distance calculations and call the axis dragging function (see
+    \l {Implementing axis dragging} for details):
+
+    \snippet draggableaxes/axesinputhandler.cpp 2
+
+    We don't need to change the functionality of mouse wheel, so we will not re-implement that.
+
+    \section1 Implementing Axis Dragging
+
+    First we need to start listening to the selection signal from the graph. We do that in the
+    constructor, and connect it to \c handleElementSelected method:
+
+    \snippet draggableaxes/axesinputhandler.cpp 3
+
+    In \c handleElementSelected we check the type of the selection and set our internal state based on
+    it:
+
+    \snippet draggableaxes/axesinputhandler.cpp 4
+
+    The actual dragging logic is implemented in \c handleAxisDragging method, which we call from
+    \c mouseMoveEvent in case the required conditions are met:
+
+    \snippet draggableaxes/axesinputhandler.cpp 5
+
+    In \c handleAxisDragging we first get the scene orientation from our active camera:
+
+    \snippet draggableaxes/axesinputhandler.cpp 6
+
+    Then we calculate the modifiers to mouse move direction based on the orientation:
+
+    \snippet draggableaxes/axesinputhandler.cpp 7
+
+    After that, we calculate the mouse movement, and modify it based on the y rotation of the
+    camera:
+
+    \snippet draggableaxes/axesinputhandler.cpp 8
+
+    And finally apply the moved distance to the correct axis:
+
+    \snippet draggableaxes/axesinputhandler.cpp 9
+
+    We also have a function for setting the dragging speed:
+
+    \snippet draggableaxes/axesinputhandler.h 1
+
+    This is needed, as the mouse movement distance is absolute (in screen coordinates) and we
+    need to adjust it to the axis range. The larger the value, the slower the dragging will be.
+    Note that on this example we do not take scene zoom level into account when determining the
+    drag speed, so you'll notice changes in the range adjustment as you change the zoom level.
+
+    The modifier could be adjusted automatically based on the axis range and camera zoom level, but
+    we'll leave implementing that as an excercise for the reader.
+
+    \section1 Example Contents
+*/

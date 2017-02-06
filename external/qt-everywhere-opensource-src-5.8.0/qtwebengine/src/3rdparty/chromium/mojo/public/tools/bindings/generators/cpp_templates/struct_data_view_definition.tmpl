@@ -1,0 +1,60 @@
+{{struct.name}}DataView::{{struct.name}}DataView(
+    internal::{{struct.name}}_Data*  data,
+    mojo::internal::SerializationContext* context)
+    : data_(data), context_(context) {
+  DCHECK(data_);
+}
+
+{%- for pf in struct.packed.packed_fields_in_ordinal_order %}
+{%-   set kind = pf.field.kind -%}
+{%-   set name = pf.field.name -%}
+{%-   if kind|is_struct_kind or kind|is_array_kind or kind|is_string_kind or
+         kind|is_map_kind %}
+{#-     Does nothing. They are already defined in the class declaration. #}
+
+{%-   elif kind|is_enum_kind %}
+{{kind|get_qualified_name_for_kind}} {{struct.name}}DataView::{{name}}() const {
+{%-     if pf.min_version != 0 %}
+  if (data_->header_.version < {{pf.min_version}})
+    return {{kind|get_qualified_name_for_kind}}{};
+{%-     endif %}
+  return static_cast<{{kind|get_qualified_name_for_kind}}>(data_->{{name}});
+}
+
+{%-   elif kind|is_union_kind %}
+bool {{struct.name}}DataView::Read{{name|under_to_camel}}(
+    {{kind|cpp_wrapper_type}}* value) {
+{%-     if pf.min_version != 0 %}
+    auto pointer = data_->header_.version >= {{pf.min_version}}
+                   ? &data_->{{name}} : nullptr;
+{%-     else %}
+    auto pointer = &data_->{{name}};
+{%-     endif %}
+  return mojo::internal::Deserialize<{{kind|unmapped_type_for_serializer}}>(
+      pointer, value, context_);
+}
+
+{%-   elif kind|is_any_handle_or_interface_kind %}
+{{kind|cpp_wrapper_type}} {{struct.name}}DataView::Take{{name|under_to_camel}}() {
+  {{kind|cpp_wrapper_type}} result;
+{%-     if pf.min_version != 0 %}
+  if (data_->header_.version < {{pf.min_version}})
+    return result;
+{%-     endif %}
+  bool ret = mojo::internal::Deserialize<{{kind|unmapped_type_for_serializer}}>(
+      &data_->{{name}}, &result, context_);
+  DCHECK(ret);
+  return result;
+}
+
+{%-   else %}
+{{kind|cpp_wrapper_type}} {{struct.name}}DataView::{{name}}() const {
+{%-     if pf.min_version != 0 %}
+  if (data_->header_.version < {{pf.min_version}})
+    return {{kind|cpp_wrapper_type}}{};
+{%-     endif %}
+  return data_->{{name}};
+}
+{%-   endif %}
+{%- endfor %}
+

@@ -1,0 +1,180 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chrome_build.gni")
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+
+# Convenience meta-target for all of Blimp's production & test code.
+group("blimp") {
+  # In spite of the name, this really just means that non-test targets
+  # cannot depend on this one, and that it can depend on test targets,
+  # which fits how we intend to use it.
+  testonly = true
+
+  deps = [
+    ":blimp_tests",
+    "//blimp/client",
+    "//blimp/common",
+  ]
+
+  if (is_android) {
+    deps += [
+      "//blimp/client:blimp_apk",
+      "//blimp/client:blimp_apk_incremental",
+    ]
+  }
+
+  if (is_linux) {
+    deps += [
+      "//blimp/engine",
+      "//blimp/engine:blimp_engine_bundle",
+    ]
+
+    if (is_official_build) {
+      deps += [ "//blimp/engine:blimp_symbols" ]
+    }
+  }
+
+  if (is_linux && !is_chromeos && use_x11) {
+    deps += [ "//blimp/client:blimp_shell" ]
+  }
+}
+
+# Builds all Blimp test code (unit tests, APKs).
+group("blimp_tests") {
+  testonly = true
+
+  deps = [
+    ":blimp_unittests",
+  ]
+
+  if (is_android) {
+    deps += [ "//blimp/client:blimp_test_apk" ]
+  }
+
+  if (is_linux) {
+    deps += [ ":blimp_browsertests" ]
+  }
+}
+
+test("blimp_unittests") {
+  deps = [
+    "//blimp/client:app_unit_tests",
+    "//blimp/client:blimp_client_unit_tests",
+    "//blimp/client:feature_unit_tests",
+    "//blimp/client/core:unit_tests",
+    "//blimp/common:unit_tests",
+    "//blimp/net:unit_tests",
+  ]
+
+  if (is_linux) {
+    deps += [ "//blimp/engine:unit_tests" ]
+  }
+}
+
+if (is_linux) {
+  test("blimp_browsertests") {
+    deps = [
+      "//blimp/engine:browser_tests",
+    ]
+  }
+
+  _blimp_engine_env_tests_runtime_deps =
+      "$root_gen_dir/blimp-tests.runtime_deps"
+  _rebased_blimp_engine_env_tests_runtime_deps =
+      rebase_path(_blimp_engine_env_tests_runtime_deps, root_out_dir)
+
+  # This group contains Blimp Engine tests and tests of the various components
+  # the Blimp Engine depends on.  The idea is that if this group of tests pass
+  # on a given system there is a high probability the Engine will also work on
+  # that platform.
+  group("blimp_engine_env_tests_group") {
+    testonly = true
+
+    # Additional environment test targets should be added here.
+    # Executable targets and those executable targets' transitive
+    # dependencies are not considered unless that executable is listed in
+    # "data_deps". Otherwise, GN assumes that the executable (and
+    # everything it requires) is a build-time dependency only.
+    data_deps = [
+      ":blimp_unittests",
+      "//base:base_unittests",
+    ]
+
+    write_runtime_deps = _blimp_engine_env_tests_runtime_deps
+  }
+
+  _blimp_engine_env_tests_manifest = "$root_gen_dir/blimp-tests-manifest.txt"
+  _rebased_blimp_engine_env_tests_manifest =
+      rebase_path(_blimp_engine_env_tests_manifest, root_out_dir)
+  _rebased_blimp_engine_env_tests_blacklist =
+      rebase_path("//blimp/tools/tests-manifest-blacklist.txt")
+
+  action("generate_blimp_engine_env_tests_manifest") {
+    testonly = true
+    script = "//blimp/tools/generate-target-manifest.py"
+    args = [
+      "--blacklist",
+      _rebased_blimp_engine_env_tests_blacklist,
+      "--runtime-deps-file",
+      _rebased_blimp_engine_env_tests_runtime_deps,
+      "--output",
+      _rebased_blimp_engine_env_tests_manifest,
+    ]
+    inputs = [
+      _blimp_engine_env_tests_runtime_deps,
+    ]
+    outputs = [
+      _blimp_engine_env_tests_manifest,
+    ]
+
+    # By specifying a dependency (not a data_dependency) on :blimp_tests_group,
+    # we can be sure that everything is built before the action is
+    # complete (though not necessarily before we generate the manifest
+    # itself).
+    deps = [
+      ":blimp_engine_env_tests_group",
+    ]
+  }
+
+  # Builds and bundles the tests into a tarball that can be used to build a
+  # Docker image.
+  action("blimp_engine_env_tests_bundle") {
+    testonly = true
+    script = "//blimp/tools/create-bundle.py"
+
+    # These form the arguments to the script.
+    _rebased_out_dir = rebase_path(root_out_dir)
+    _rebased_dockerfile = rebase_path("//blimp/engine/testing/Dockerfile")
+    _rebased_dockerfile_base = rebase_path("//blimp/tools/Dockerfile.base")
+    _bundle = "$root_out_dir/blimp_engine_env_tests_bundle.tar.gz"
+
+    # Depending on this ensures that both the manifest is generated
+    # and everything listed in the manifest has been built.
+    deps = [
+      ":generate_blimp_engine_env_tests_manifest",
+    ]
+
+    sources = [
+      _blimp_engine_env_tests_manifest,
+      _rebased_dockerfile,
+      _rebased_dockerfile_base,
+    ]
+    outputs = [
+      _bundle,
+    ]
+    args = [
+      "--build-dir",
+      _rebased_out_dir,
+      "--filelist",
+      _rebased_dockerfile,
+      _rebased_dockerfile_base,
+      "--manifest",
+      _rebased_blimp_engine_env_tests_manifest,
+      "--output",
+      rebase_path(_bundle),
+    ]
+  }
+}

@@ -1,0 +1,117 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//extensions/extensions.gni")
+
+# GYP version: extensions/extensions.gyp:extensions_browser
+source_set("browser") {
+  sources = []
+
+  deps = [
+    "//base:i18n",
+    "//components/cast_certificate",
+    "//components/guest_view/browser",
+    "//components/keyed_service/content",
+    "//components/keyed_service/core",
+    "//components/pref_registry",
+    "//components/sessions",
+    "//components/update_client",
+    "//components/version_info",
+    "//components/web_cache/browser",
+    "//components/web_modal",
+    "//components/zoom",
+    "//content/public/browser",
+    "//crypto:platform",
+    "//extensions/common",
+    "//extensions/common/api",
+    "//extensions/common/api:api_registration",
+    "//extensions/strings",
+    "//google_apis",
+    "//skia",
+    "//third_party/leveldatabase",
+    "//third_party/re2",
+    "//ui/display",
+  ]
+
+  configs += [
+    "//build/config:precompiled_headers",
+
+    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+    "//build/config/compiler:no_size_t_to_int_warning",
+  ]
+
+  if (enable_extensions) {
+    # Includes all API implementations and the ExtensionsApiClient
+    # interface. Moving an API from src/chrome to src/extensions implies
+    # it can be cleanly disabled with enable_extensions=false.
+    # TODO: Eventually the entire extensions module should not be built
+    # when enable_extensions=false.
+    sources = rebase_path(extensions_gypi_values.extensions_browser_sources,
+                          ".",
+                          "//extensions")
+
+    deps += [
+      "//components/browsing_data",
+      "//components/onc",
+      "//components/storage_monitor",
+      "//components/update_client",
+      "//components/variations",
+      "//crypto:platform",
+      "//device/bluetooth",
+      "//device/core",
+      "//device/hid",
+      "//device/power_save_blocker",
+      "//device/serial",
+      "//device/usb",
+      "//extensions/common/api/cast_channel:cast_channel_proto",
+    ]
+
+    if (is_chromeos) {
+      deps += [ "//chromeos" ]
+    }
+
+    if (is_chromeos) {
+      chromeos_sources = rebase_path(
+              extensions_gypi_values.extensions_browser_sources_chromeos,
+              ".",
+              "//extensions")
+      sources += chromeos_sources
+    } else {
+      nonchromeos_sources = rebase_path(
+              extensions_gypi_values.extensions_browser_sources_nonchromeos,
+              ".",
+              "//extensions")
+      sources += nonchromeos_sources
+
+      if (is_linux) {
+        if (use_dbus) {
+          deps += [ "//dbus" ]
+        }
+        linux_sources = rebase_path(
+                extensions_gypi_values.extensions_browser_sources_linux_nonchromeos,
+                ".",
+                "//extensions")
+        sources += linux_sources
+      } else {
+        if (is_win || is_mac) {
+          deps += [ "//components/wifi" ]
+
+          win_or_mac_sources = rebase_path(
+                  extensions_gypi_values.extensions_browser_sources_win_or_mac,
+                  ".",
+                  "//extensions")
+          sources += win_or_mac_sources
+        }
+      }
+      if (proprietary_codecs && enable_wifi_display) {
+        wifi_display_sources = rebase_path(
+                extensions_gypi_values.extensions_browser_sources_wifi_display,
+                ".",
+                "//extensions")
+        sources += wifi_display_sources
+      }
+    }
+  }
+}

@@ -1,0 +1,376 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+declare_args() {
+  # Overrides os name in uma metrics log to "Blimp".
+  metrics_use_blimp = false
+}
+
+# These are only used by the blimp team, which has entirely migrated to gn,
+# so this logic is not replicated in the gyp file.
+if (metrics_use_blimp) {
+  defines = [ "OVERRIDE_OS_NAME_TO_BLIMP" ]
+}
+
+# GYP version: components/metrics.gypi:metrics
+source_set("metrics") {
+  sources = [
+    "call_stack_profile_metrics_provider.cc",
+    "call_stack_profile_metrics_provider.h",
+    "clean_exit_beacon.cc",
+    "clean_exit_beacon.h",
+    "client_info.cc",
+    "client_info.h",
+    "cloned_install_detector.cc",
+    "cloned_install_detector.h",
+    "daily_event.cc",
+    "daily_event.h",
+    "data_use_tracker.cc",
+    "data_use_tracker.h",
+    "drive_metrics_provider.cc",
+    "drive_metrics_provider.h",
+    "drive_metrics_provider_android.cc",
+    "drive_metrics_provider_ios.mm",
+    "drive_metrics_provider_linux.cc",
+    "drive_metrics_provider_mac.mm",
+    "drive_metrics_provider_win.cc",
+    "enabled_state_provider.cc",
+    "enabled_state_provider.h",
+    "file_metrics_provider.cc",
+    "file_metrics_provider.h",
+    "histogram_encoder.cc",
+    "histogram_encoder.h",
+    "machine_id_provider.h",
+    "machine_id_provider_stub.cc",
+    "machine_id_provider_win.cc",
+    "metrics_log.cc",
+    "metrics_log.h",
+    "metrics_log_manager.cc",
+    "metrics_log_manager.h",
+    "metrics_log_uploader.cc",
+    "metrics_log_uploader.h",
+    "metrics_pref_names.cc",
+    "metrics_pref_names.h",
+    "metrics_provider.cc",
+    "metrics_provider.h",
+    "metrics_reporting_default_state.cc",
+    "metrics_reporting_default_state.h",
+    "metrics_reporting_scheduler.cc",
+    "metrics_reporting_scheduler.h",
+    "metrics_service.cc",
+    "metrics_service.h",
+    "metrics_service_accessor.cc",
+    "metrics_service_accessor.h",
+    "metrics_service_client.cc",
+    "metrics_service_client.h",
+    "metrics_state_manager.cc",
+    "metrics_state_manager.h",
+    "metrics_switches.cc",
+    "metrics_switches.h",
+    "persisted_logs.cc",
+    "persisted_logs.h",
+    "stability_metrics_helper.cc",
+    "stability_metrics_helper.h",
+    "system_memory_stats_recorder.h",
+    "system_memory_stats_recorder_linux.cc",
+    "system_memory_stats_recorder_win.cc",
+    "url_constants.cc",
+    "url_constants.h",
+  ]
+
+  public_deps = [
+    "//components/metrics/proto",
+  ]
+  deps = [
+    "//base",
+    "//base:base_static",
+    "//components/prefs",
+    "//components/variations",
+    "//third_party/zlib:compression_utils",
+  ]
+
+  if (is_chromeos) {
+    deps += [ ":serialization" ]
+  }
+
+  if (is_mac) {
+    libs = [
+      # The below are all needed for drive_metrics_provider_mac.mm.
+      "CoreFoundation.framework",
+      "DiskArbitration.framework",
+      "Foundation.framework",
+      "IOKit.framework",
+    ]
+  }
+
+  if (is_win) {
+    sources -= [ "machine_id_provider_stub.cc" ]
+  }
+}
+
+if (!is_ios) {
+  # GYP version: components/metrics.gypi:metrics_gpu
+  source_set("gpu") {
+    sources = [
+      "gpu/gpu_metrics_provider.cc",
+      "gpu/gpu_metrics_provider.h",
+    ]
+
+    public_deps = [
+      ":metrics",
+    ]
+    deps = [
+      "//base",
+      "//content/public/browser",
+      "//gpu/config",
+    ]
+  }
+}
+
+if (is_chromeos) {
+  # GYP version: components/metrics.gypi:metrics_leak_detector
+  source_set("leak_detector") {
+    sources = [
+      "leak_detector/call_stack_manager.cc",
+      "leak_detector/call_stack_manager.h",
+      "leak_detector/call_stack_table.cc",
+      "leak_detector/call_stack_table.h",
+      "leak_detector/custom_allocator.cc",
+      "leak_detector/custom_allocator.h",
+      "leak_detector/leak_analyzer.cc",
+      "leak_detector/leak_analyzer.h",
+      "leak_detector/leak_detector.cc",
+      "leak_detector/leak_detector.h",
+      "leak_detector/leak_detector_impl.cc",
+      "leak_detector/leak_detector_impl.h",
+      "leak_detector/leak_detector_value_type.cc",
+      "leak_detector/leak_detector_value_type.h",
+      "leak_detector/ranked_set.cc",
+      "leak_detector/ranked_set.h",
+    ]
+
+    deps = [
+      "//base",
+      "//components/metrics/proto:proto",
+    ]
+  }
+}
+
+# GYP version: components/metrics.gypi:metrics_net
+static_library("net") {
+  sources = [
+    "net/cellular_logic_helper.cc",
+    "net/cellular_logic_helper.h",
+    "net/net_metrics_log_uploader.cc",
+    "net/net_metrics_log_uploader.h",
+    "net/network_metrics_provider.cc",
+    "net/network_metrics_provider.h",
+    "net/version_utils.cc",
+    "net/version_utils.h",
+    "net/wifi_access_point_info_provider.cc",
+    "net/wifi_access_point_info_provider.h",
+  ]
+
+  public_deps = [
+    ":metrics",
+  ]
+  allow_circular_includes_from = [ ":metrics" ]
+
+  deps = [
+    "//base",
+    "//components/data_use_measurement/core",
+    "//components/variations",
+    "//components/version_info",
+    "//net",
+    "//url",
+  ]
+
+  if (is_chromeos) {
+    sources += [
+      "net/wifi_access_point_info_provider_chromeos.cc",
+      "net/wifi_access_point_info_provider_chromeos.h",
+    ]
+    deps += [ "//chromeos" ]
+  }
+}
+
+# GYP version: components/metrics.gypi:metrics_profiler
+source_set("profiler") {
+  sources = [
+    "profiler/profiler_metrics_provider.cc",
+    "profiler/profiler_metrics_provider.h",
+    "profiler/tracking_synchronizer.cc",
+    "profiler/tracking_synchronizer.h",
+    "profiler/tracking_synchronizer_delegate.h",
+    "profiler/tracking_synchronizer_observer.cc",
+    "profiler/tracking_synchronizer_observer.h",
+  ]
+
+  public_deps = [
+    ":metrics",
+  ]
+  deps = [
+    "//base",
+    "//components/variations",
+  ]
+}
+
+# GYP version: components/metrics.gypi:metrics_ui
+source_set("ui") {
+  sources = [
+    "ui/screen_info_metrics_provider.cc",
+    "ui/screen_info_metrics_provider.h",
+  ]
+
+  public_deps = [
+    ":metrics",
+  ]
+  deps = [
+    "//base",
+    "//ui/display",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+}
+
+if (!is_ios) {
+  # GYP version: components/metrics.gypi:metrics_profiler_content
+  source_set("profiler_content") {
+    sources = [
+      "profiler/content/content_tracking_synchronizer_delegate.cc",
+      "profiler/content/content_tracking_synchronizer_delegate.h",
+    ]
+
+    public_deps = [
+      ":profiler",
+    ]
+    deps = [
+      "//base",
+      "//components/nacl/common:process_type",
+      "//content/public/browser",
+      "//content/public/common",
+    ]
+  }
+} else {
+  # GYP version: components/metrics.gypi:metrics_profiler_ios
+  source_set("profiler_ios") {
+    sources = [
+      "profiler/ios/ios_tracking_synchronizer_delegate.cc",
+      "profiler/ios/ios_tracking_synchronizer_delegate.h",
+    ]
+
+    public_deps = [
+      ":profiler",
+    ]
+    deps = [
+      "//base",
+    ]
+  }
+}
+
+# GYP version: components/metrics.gypi:metrics_test_support
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "test_enabled_state_provider.cc",
+    "test_enabled_state_provider.h",
+    "test_metrics_provider.cc",
+    "test_metrics_provider.h",
+    "test_metrics_service_client.cc",
+    "test_metrics_service_client.h",
+  ]
+
+  public_deps = [
+    ":metrics",
+  ]
+  deps = [
+    "//base",
+  ]
+}
+
+if (is_linux) {
+  # GYP version: components/metrics.gypi:metrics_serialization
+  source_set("serialization") {
+    sources = [
+      "serialization/metric_sample.cc",
+      "serialization/metric_sample.h",
+      "serialization/serialization_utils.cc",
+      "serialization/serialization_utils.h",
+    ]
+    deps = [
+      "//base",
+    ]
+  }
+}
+
+if (is_chromeos) {
+  source_set("leak_detector_unit_tests") {
+    testonly = true
+    sources = [
+      "leak_detector/call_stack_manager_unittest.cc",
+      "leak_detector/call_stack_table_unittest.cc",
+      "leak_detector/leak_analyzer_unittest.cc",
+      "leak_detector/leak_detector_impl_unittest.cc",
+      "leak_detector/leak_detector_unittest.cc",
+      "leak_detector/ranked_set_unittest.cc",
+    ]
+
+    deps = [
+      ":leak_detector",
+      "//base",
+      "//components/metrics/proto:proto",
+      "//content/test:test_support",
+      "//testing/gtest",
+    ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "call_stack_profile_metrics_provider_unittest.cc",
+    "cloned_install_detector_unittest.cc",
+    "daily_event_unittest.cc",
+    "data_use_tracker_unittest.cc",
+    "drive_metrics_provider_unittest.cc",
+    "file_metrics_provider_unittest.cc",
+    "histogram_encoder_unittest.cc",
+    "machine_id_provider_win_unittest.cc",
+    "metrics_log_manager_unittest.cc",
+    "metrics_log_unittest.cc",
+    "metrics_reporting_scheduler_unittest.cc",
+    "metrics_service_unittest.cc",
+    "metrics_state_manager_unittest.cc",
+    "net/net_metrics_log_uploader_unittest.cc",
+    "persisted_logs_unittest.cc",
+    "profiler/profiler_metrics_provider_unittest.cc",
+    "profiler/tracking_synchronizer_unittest.cc",
+    "stability_metrics_helper_unittest.cc",
+    "ui/screen_info_metrics_provider_unittest.cc",
+  ]
+
+  deps = [
+    ":metrics",
+    ":net",
+    ":profiler",
+    ":test_support",
+    ":ui",
+    "//base/test:test_support",
+    "//components/prefs:test_support",
+    "//components/variations",
+    "//net:test_support",
+    "//testing/gtest",
+    "//third_party/zlib:compression_utils",
+    "//ui/gfx/geometry",
+  ]
+
+  if (is_linux) {
+    sources += [ "serialization/serialization_utils_unittest.cc" ]
+    deps += [ ":serialization" ]
+  }
+
+  if (is_chromeos) {
+    deps += [ ":leak_detector_unit_tests" ]
+  }
+}

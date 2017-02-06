@@ -1,0 +1,685 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page qtquickcontrols-texteditor.html
+\title Qt Quick Text Editor Guide
+\nextpage Qt Quick Text Editor Guide - UI
+\brief Walkthrough of an application built with Qt Quick Controls.
+
+\section1 Application Design
+
+The \e{Text Editor} example is a simple example of creating an application
+with Qt. Specifically, the example uses QML to set up the user interface,
+C++ to implement the file operations, and the Qt tools to manage the project
+files and build environment.
+
+We will use Qt Quick Designer to add QML controls onto our application and set
+up the controls and resources. We will also implement the logic and connect
+the user interface to a C++ backend that will handle the saving and loading of
+text files.
+
+This guide assumes that you have downloaded Qt and are able to install, open,
+and run the basic examples found in Qt Creator's \uicontrol{Welcome Mode}. If
+not, here are the pages that will help you:
+
+\list
+\li \l{Getting Started with Qt}
+\endlist
+
+The guide attempts to be self-contained but will refer to topics in the Qt
+reference documentation. Feel free to click on the links, but it is not
+necessary to leave the guide to find the information necessary to develop
+the application.
+
+The files are part of the Qt package and are available when searched for
+\uicontrol{Qt Quick Text Editor} in Qt Creator's \uicontrol{Welcome mode}.
+All files used in the application are listed for viewing in the
+\l{Qt Quick Controls - Text Editor Example} page.
+
+\section1 Setting Up the Environment and Project
+
+We can start by creating the project in Qt Creator. Our application has the
+name \e{Text Editor} and it is a Qt Quick Application. Qt Creator has a wizard
+that can create the project for you.
+
+\list 1
+    \li Select \uicontrol File > \uicontrol {New File or Project} > \uicontrol Applications >
+        \uicontrol {Qt Quick Application} > \uicontrol Choose.
+    \li In the \uicontrol Name field, enter \uicontrol TextEditor and select \uicontrol Next.
+    \li In the \uicontrol {Qt Quick component set} field, select
+        \uicontrol{Qt Quick Controls 1.2} > \uicontrol Next.
+    \li In the \uicontrol{Kit Selection} page, select \uicontrol Next.
+    \li In the \uicontrol{Summary} page, select \uicontrol Finish.
+\endlist
+
+The wizard creates the project and you can run it by clicking on the run button,
+\inlineimage{qtcreator/qtcreator-run.png}
+. The application is an empty shell but it contains the basic window and layout
+on which we can build. Make sure that you can run the basic application and if
+not, make sure that your build environment and Qt version are configured.
+
+\section2 Project Files
+
+The wizard creates the project files used to build the project. To view them,
+select the \uicontrol{Edit mode}. The following project files are modified
+later in the guide:
+
+\list
+\li \uicontrol TextEdit.pro - the project file used to create the build files.
+    Also sets the paths that are visible to the project.
+\li \uicontrol Sources - contains the C++ implementation files (\c{.cpp}).
+\li \uicontrol Resources - contains a resource file that configures the application
+    assets and how the application resolves the location of the assets. The QML
+    file is also found here.
+\li \uicontrol Headers - contains the C++ header files (\c{.h}). The default
+    project does not have any header files, therefore this is not visible.
+\endlist
+
+\section2 Resource Files
+
+The text editor uses several icons to represent various actions. The icons are
+in the \e images directory which is directly under the \e TextEditor project
+directory. The images as well as the project files are also listed in the
+reference documentation on the \l{Qt Quick Controls - Text Editor Example} page.
+
+We first need to register the image files into the project's resource file,
+\e qml.qrc. The resource files compact the images into the binary packages.
+The resource files provide a streamlined directory structure, which is
+cross-platform. It is beneficial especially on mobile platforms, where each
+platform manages the application resources differently.
+
+\list
+\li To register the image files, in the \uicontrol Edit mode, right-click the
+    \e qml.qrc file and select \uicontrol{Open in Editor}.
+\li Click the \uicontrol Add button and select \uicontrol{Add Files}.
+\li In the file manager, select the files to be added. You can select
+    all the images in the \e images directory at once.
+\endlist
+
+You can refer to the images from QML by referring directly to the filename.
+For example, \c{images/editcopy.png} is the name of the \e editcopy.png file.
+We will use these images later in the guide.
+
+Qt Creator then packages the images alongside your application in a single
+binary. For more information about resource files, see the
+\l{Managing Resource Files with the Qt Resource System} and the
+\l{The Qt Resource System} pages.
+
+\section1 Example Files
+
+The accompanying examples files are listed in the following page:
+\list
+\li \l{Qt Quick Controls - Text Editor Example}
+\endlist
+
+*/
+
+/*!
+\page qtquickcontrols-texteditor-ui.html
+\title Qt Quick Text Editor Guide - UI
+\previouspage Qt Quick Text Editor Guide
+\nextpage Qt Quick Text Editor Guide - Logic
+\brief Walkthrough of an application built with Qt Quick Controls.
+
+Qt Quick Designer is integrated into Qt Creator, allowing you to switch between
+\uicontrol Edit and \uicontrol Design modes. To start using Qt Quick Designer,
+select the QML file, \e main.qml, and click the \uicontrol Design button on the
+left panel.
+
+It is important to familiarize yourself with the windows in Qt Quick Designer.
+This guide uses Qt Quick Designer to add and set up the layout.
+
+\image controlstexteditor/controlstexteditor_designer.png
+
+\note The default kit for the project must be a Desktop kit, as Qt Quick
+Designer cannot yet emulate the styles for a mobile platform.
+
+To start, we can customize the default application created by the wizard. You
+can delete the \uicontrol MainForm.ui.qml file and remove the following lines
+from the \uicontrol main.qml file:
+\qml
+    MainForm {
+        anchors.fill: parent
+        button1.onClicked: messageDialog.show(qsTr("Button 1 pressed"))
+        button2.onClicked: messageDialog.show(qsTr("Button 2 pressed"))
+        button3.onClicked: messageDialog.show(qsTr("Button 3 pressed"))
+    }
+
+    MessageDialog {
+        id: messageDialog
+        title: qsTr("May I have your attention, please?")
+
+        function show(caption) {
+            messageDialog.text = caption;
+            messageDialog.open();
+        }
+    }
+\endqml
+
+The default dimension of the \c ApplicationWindow may remain but
+you can change the \c title property to a relevant name such as:
+
+\qml
+title: qsTr("Text Editor Example")
+\endqml
+
+\note The example uses the \c qsTr() function to facilitate translation. For
+more information, visit the \l{Internationalization and Localization with Qt Quick}
+page.
+
+Make sure that \uicontrol Resources tab contains the images from the
+\l{Resource Files}{previous page}.
+
+\section1 Defining the Application Layout
+
+Our application has a simple layout, which consists of a \e{tool bar} and a
+\e{text area}. The tool bar contains the \e{tool buttons} that the user can
+choose to manipulate the text area contents. At the top, there are menus, which
+perform actions such as saving and opening files to edit.
+
+\section1 Adding the Controls
+
+To add a control, you have the following options:
+
+\list 1
+\li Drag and drop a control from the \uicontrol{QML Types} window onto the
+    main design window. This allows you to drop the control onto a specific
+    area of the layout.
+\li Drag and drop a control from the \uicontrol{QML Types} window onto the
+    \uicontrol Navigator window. This allows you to set the layout hierarchy.
+\endlist
+
+Both these actions give you several options to quickly set up the layout.
+Whichever method you use, designer gives you a more direct way of setting up a
+particular aspect of the control, such as the scene hierarchy or the position
+of the control.
+
+Afterwards, the various properties are set from within the
+\uicontrol Properties window on the right side of Qt Creator window.
+
+\section1 Setting Up the Tool Bar
+
+First, we need to add the tool bar. We can do this in the
+\e Edit mode and typing in a \l ToolBar type inside the ApplicationWindow type.
+This configures the ApplicationWindow object as the tool bar's parent.
+
+\badcode
+ApplicationWindow {
+
+    ToolBar {
+        id: toolBar
+    }
+}
+\endcode
+
+In the \uicontrol Design mode, the \uicontrol Properties window lets us set the
+tool bar \uicontrol id to \c toolbar.
+
+In the \uicontrol Navigator window, make sure that the tool bar is a child of the
+application window. To make the tool bar a child of the window, simply drag the tool bar
+underneath the application window.
+
+Within the tool bar, we need a \e{row} layout. Drag the \e{row} layout into the
+\uicontrol Navigator window and set it to be a child of the tool bar.
+
+Similarly, set these layout properties:
+\list
+\li \uicontrol id - set it to \c rowToolbar
+\li click on the fill area button to set the fill area to \e parent. The parent should
+    be the tool bar.
+\endlist
+
+\image controlstexteditor/controlstexteditor_rowproperties.png
+
+\section2 Adding the Tool Buttons
+
+\e{Tool buttons} exist within a tool bar and specifically use the layout within the tool bar.
+\e{Text Editor} has six tool buttons, each performing a specific action, such as
+\e copy and \e paste to and from the clipboard.
+
+The steps for adding the six tool buttons are mainly the same:
+\list
+\li Drag and drop the \uicontrol{Tool Button} type as a child of the row layout.
+\li The \uicontrol id should be set to a unique name that is related to the
+    tool button's action.
+    The parent is set to \uicontrol parent and set the \uicontrol margin to \c 0.
+
+    \image controlstexteditor/controlstexteditor_newproperties.png
+\li The first tool button, for example \uicontrol New, should have the left anchor
+    set to the row layout.
+\li The subsequent tool buttons should have the left anchor set to their previous
+    sibling and the \uicontrol margin to \c 0. These settings makes sure that
+    the tool buttons are adjacent to each other.
+\li Set the \uicontrol iconName and \uicontrol iconSource properties in the
+    \uicontrol ToolButton tab. The \uicontrol iconName should be set to a unique name
+    identifying the icon name while the \uicontrol iconSource property should
+    be set to the name of the icon for the tool button.
+\endlist
+
+For example, the \uicontrol New tool button has \c newIcon set as its \uicontrol iconName and
+\c images/filenew.png set to the \uicontrol iconSource property. The icons are also viewable in the
+\uicontrol Resources inside the \uicontrol Library window.
+
+Similarly for the \uicontrol Open tool button, the margins are set to \c 0
+but the left anchor is set to the \uicontrol New tool button.
+
+\image controlstexteditor/controlstexteditor_openproperties.png
+
+\note Dragging and dropping the images from the \uicontrol Resources onto
+the scene adds the image into the scene as an \l Image object, instead
+of setting the iconSource property.
+
+\section1 Setting Up the Text Area
+
+Next, add a \uicontrol{Text Area} onto the scene as a child of the application
+window and a sibling of \c toolBar. The tool bar should be above the text area.
+Similarly, set the following text area properties:
+
+\list
+\li \uicontrol id - set it to \c textArea
+\li set the left, right, and bottom margin to the parent and the top margin
+    to \c toolBar.bottom and set the margins to \c 0.
+    \qml
+    anchors.top: toolBar.bottom
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    \endqml
+\endlist
+
+Verify that you have the parent, margins, and icons set up. Your
+\uicontrol Navigator should look similar to:
+
+\image controlstexteditor/controlstexteditor_navigator.png
+
+Running the application should result in this layout:
+\image controlstexteditor/controlstexteditor_main.png
+
+We are now ready to go back to \uicontrol Edit and set the handlers and
+actions. A QML \e handler is called when the buttons are pressed and
+triggers the necessary action associated with the tool buttons. An
+\e action collects various QML logic into one code block so it may be
+reused by several handlers. For more information, visit the \l Action
+QML type and \l{Signal and Handler Event System}.
+
+\section1 Example Files
+
+The accompanying examples files are found in the following page:
+\list
+\li \l{Qt Quick Controls - Text Editor Example}
+\endlist
+
+*/
+
+/*!
+\page qtquickcontrols-texteditor-logic.html
+\title Qt Quick Text Editor Guide - Logic
+\previouspage Qt Quick Text Editor Guide - UI
+\nextpage qtquickcontrols-texteditor-action.html
+\brief Walkthrough of an application built with Qt Quick Controls.
+
+This part of the guide is about adding logic and backend to the
+text editor example. At this stage, the user interface is
+set up from the \l{Qt Quick Text Editor Guide - Logic}{previous} stage.
+
+\section1 Implementing the Logic and C++ Backend
+
+\e{Text Editor} has a QML user interface and a C++ backend to
+implement the document handling. To connect QML and C++,
+we need to create \e actions associated to the tool buttons,
+which will call the document handling logic in C++.
+
+\section1 Creating the Document Handler
+
+The document handler implements the file loading and file
+saving logic with Qt's C++ APIs. First, we need to create the
+header file and the implementation file in Qt Creator's
+\uicontrol Edit mode.
+
+\list
+\li Right-click a folder, and select \uicontrol{Add New}.
+\li Follow the wizard and create a new \uicontrol{C++ Class}.
+\li Create a class called \uicontrol DocumentHandler and select
+\uicontrol{Inherits QObject} in the \uicontrol{Type information}.
+\li You can use default values for the rest and finish the wizard.
+\endlist
+
+The wizard creates a \uicontrol DocumentHandler class in two files,
+\e documenthandler.h and \e documenthandler.cpp.
+
+There are two functionalities we can expose to QML, the file loading and
+saving. We can do this by creating \e properties and binding them to C++
+functions through the \l{The Property System}{Qt Property System}.
+
+In the \e documenthandler.h header file, add the following functions with their
+respective access modifier:
+
+\code
+    Q_PROPERTY(QUrl fileUrl READ fileUrl WRITE setFileUrl NOTIFY fileUrlChanged)
+    Q_PROPERTY(QString text READ text WRITE setText NOTIFY textChanged)
+    Q_PROPERTY(QString documentTitle READ documentTitle WRITE setDocumentTitle NOTIFY documentTitleChanged)
+
+public:
+    QUrl fileUrl() const;
+    QString text() const;
+    QString documentTitle() const;
+
+public slots:
+    void setFileUrl(const QUrl &arg);
+    void setText(const QString &arg);
+    void setDocumentTitle(QString arg);
+
+signals:
+    void fileUrlChanged();
+    void textChanged();
+    void documentTitleChanged();
+\endcode
+
+The lines with \c Q_PROPERTY() macro declares the \e property and its \e write
+and \e read methods as well as its \e notify signal. For example, setting the
+\c fileUrl property calls \c setFileUrl() and reading the property calls the
+\c fileUrl() function. Similarly, when the value of fileUrl changes the
+\c fileUrlChanged() function is called.
+
+Internally, the properties are represented by private member variables. For our
+needs, here are the three variables in \e documenthandler.h which correspond to the properties:
+\code
+private:
+    QUrl m_fileUrl;
+    QString m_text;
+    QString m_documentTitle;
+\endcode
+
+Implementing the read functions is straightforward. They simply return
+the private member variables. For example, the implementation of
+\c documentTitle() in \e documenthandler.cpp is:
+\code
+QString DocumentHandler::documentTitle() const
+{
+    return m_documentTitle;
+}
+\endcode
+
+Implementing the write (\c setText(), for example) functions is also straightforward as they simply
+assign a value to a private member variable. They also handle basic error handling
+and they emit their respective notify signals. For example, the \c setDocumentTitle() function
+is implemented in \e documenthandler.cpp as:
+
+\code
+void DocumentHandler::setDocumentTitle(QString arg)
+{
+    if (m_documentTitle != arg) {
+        m_documentTitle = arg;
+        emit documentTitleChanged();
+    }
+}
+\endcode
+
+The opening of the file is done in the \c setFileUrl() function:
+\code
+void DocumentHandler::setFileUrl(const QUrl &arg)
+{
+    if (m_fileUrl != arg) {
+        m_fileUrl = arg;
+        QString fileName = arg.fileName();
+        QFile file(arg.toLocalFile());
+        if (file.open(QFile::ReadOnly)) {
+            setText(QString(file.readAll()));
+            if (fileName.isEmpty())
+                m_documentTitle = QStringLiteral("untitled");
+            else
+                m_documentTitle = fileName;
+            emit textChanged();
+            emit documentTitleChanged();
+        }
+        emit fileUrlChanged();
+    }
+}
+\endcode
+
+Note how the function emits the notify signals with the \c emit keyword.
+
+Similarly, we use QFile and text streams to save files. The function signature in
+\e documenthandler.h is placed under \c{public slots} because that is one
+way to expose functions to the QML engine. \c saveFile() is called from the
+QML file during saving.
+\code
+public slots:
+
+    Q_INVOKABLE void saveFile(const QUrl &arg) const;
+\endcode
+
+The implementation of \c saveFile() is in documenthandler.cpp:
+\code
+void DocumentHandler::saveFile(const QUrl &arg) const
+{
+    QFile file(arg.toLocalFile());
+    if (file.open(QFile::WriteOnly | QFile::Truncate)) {
+        QTextStream out(&file);
+        out << text();
+    }
+}
+\endcode
+
+For information about reading files and data storage, visit the QFile
+and the \l{Data Storage} documentation.
+
+\section1 Registering the DocumentHandler Class
+
+We now need to let the QML engine know about the \c DocumentHandler and its
+type. The \c qmlRegisterType() function is called in the application's \c main()
+function in \e main.cpp:
+
+\code
+    qmlRegisterType<DocumentHandler>("org.qtproject.example", 1, 0, "DocumentHandler");
+\endcode
+
+The \c org.qtproject.example is the library with the version \c 1.0 and the
+QML type registered is \c DocumentHandler. The import statement for the
+DocumentHandler QML type is then
+\code
+import org.qtproject.example 1.0
+\endcode
+
+\note The \c qmlRegisterType() function should be called before the engine loads the QML file.
+
+\section1 Using the DocumentHandler QML type
+
+With the basic loading implemented, we can use the functionalities in the
+QML file by creating an instance of the DocumentHandler class and by accessing
+its properties.
+
+The \l{Qt Quick Text Editor - Connecting Actions}{next page} is about using
+these C++ functions in QML files.
+
+\section1 Example Files
+
+The accompanying examples files are found in the following page:
+\list
+\li \l{Qt Quick Controls - Text Editor Example}
+\endlist
+
+*/
+
+/*!
+\page qtquickcontrols-texteditor-action.html
+\title Qt Quick Text Editor - Connecting Actions
+\previouspage Qt Quick Text Editor Guide - Logic
+
+Earlier in the \l{Qt Quick Text Editor Guide}, we created a \e main.qml file
+containing the description of our user interface in QML. The user interface
+contains tool buttons in a tool bar on top of a text area. Afterwards, we
+created a DocumentHandler class in C++ that will handle the file loading
+and saving.
+
+Now we shall use the DocumentHandler in the QML file through \e actions. There
+is an \l Action QML type that we can connect to the tool buttons which in turn
+calls the DocumentHandler functions.
+
+\section1 Importing the DocumentHandler QML Type
+
+With the \c qmlRegisterType() function, we declared that the DocumentHandler
+QML type is imported from the \c org.qtproject.example library.
+
+The following code is taken from the \e main.cpp file from the previous stage.
+\code
+    qmlRegisterType<DocumentHandler>("org.qtproject.example", 1, 0, "DocumentHandler");
+\endcode
+
+In the \e main.qml file, enter the following import statement:
+\qml
+import org.qtproject.example 1.0
+\endqml
+The DocumentHandler type is then available and we can create an object directly by adding it at
+the bottom of the application window.
+\qml
+    DocumentHandler {
+        id: document
+    }
+\endqml
+
+\section1 Assigning Actions
+
+As mentioned, the tool buttons are associated with an \e action, for example, the cut button
+is associated with the cut action. The cut action embodies the events that define the action,
+for example, the calling of the appropriate function in the text area.
+
+For our application, we have six actions, which may be placed inside the application window.
+
+\qml
+    Action {
+        id: cutaction
+        text: "Cut"
+        shortcut: "ctrl+x"
+        iconSource: "images/editcut.png"
+        iconName: "edit-cut"
+        onTriggered: textarea.cut()
+    }
+
+    Action {
+        id: copyaction
+        text: "Copy"
+        shortcut: "Ctrl+C"
+        iconSource: "images/editcopy.png"
+        iconName: "edit-copy"
+        onTriggered: textarea.copy()
+    }
+
+    Action {
+        id: pasteaction
+        text: "Paste"
+        shortcut: "ctrl+v"
+        iconSource: "qrc:images/editpaste.png"
+        iconName: "edit-paste"
+        onTriggered: textarea.paste()
+    }
+
+    Action {
+        id: fileopenaction
+        iconSource: "images/fileopen.png"
+        iconName: "document-open"
+        text: "Open"
+        onTriggered: fileDialog.open()
+    }
+\endqml
+
+These actions call the appropriate function and assign a specific icon and name to the
+action. To connect the \c cutaction to the cut tool button, add the following to the
+tool button
+
+\qml
+ToolButton {
+            id: cut_toolbutton
+            iconSource: "images/editcut.png"
+            iconName: "cut_icon"
+            anchors.left: save_toolbutton.right
+            action: cutaction;
+}
+\endqml
+
+For the open and save actions, we require that the user choose an existing file
+or create a new file. To do this, we can pop up a file dialog and ask the user
+to select the file to open from or save onto. We can create two file dialogs,
+one for opening a file and one for saving the file, each setting their own
+titles.
+
+\qml
+    FileDialog {
+        id: fileOpenDialog
+        title: "Please choose a file to open"
+        nameFilters: ["Text files (*.txt)"]
+        onAccepted: document.fileUrl = fileUrl
+    }
+
+    FileDialog {
+        id: fileSaveDialog
+        title: "Please enter the file to save"
+        nameFilters: ["Text files (*.txt)"]
+        selectExisting: false
+        onAccepted: document.saveFile(fileUrl)
+    }
+\endqml
+
+Setting the FileDialog's \c selectExisting property to \c false allows us to
+save new files.
+
+The \l FileDialog type is from the \l{Qt Quick Dialogs} and is imported with
+\qml
+import QtQuick.Dialogs 1.2
+\endqml
+
+\section1 Deploying TextEditor
+
+Deploying the TextEditor depends on the platform on which the application is run. The process is simple
+and Qt provides several tools for packaging applications for a given platform. The
+\l{Deploying Qt Applications} page lists the instructions for the supported platforms.
+For this guide, we will deploy on Windows desktop platform with the
+\c windeploytool to create a directory with the required dependent libraries.
+
+To package TextEditor,
+\list 1
+\li Copy the \e texteditor.exe file from the release directory to another directory which
+    serves as the destination folder.
+\li Run the \e windeployqt.exe file which resolves and copies the Qt libraries into
+    the destination folder. \e windeployqt.exe is found in the \e bin directory of the installation.
+    \code
+    C:\Qt\5.3\msvc2012_opengl\bin>windeployqt.exe <path to destination folder>
+    \endcode
+\endlist
+
+The destination folder can now be packaged and the binary file is executable. The images
+and QML file are already packaged into the binary file.
+
+\section1 Example Files
+
+The accompanying examples files are found in the following page:
+\list
+\li \l{Qt Quick Controls - Text Editor Example}
+\endlist
+
+*/

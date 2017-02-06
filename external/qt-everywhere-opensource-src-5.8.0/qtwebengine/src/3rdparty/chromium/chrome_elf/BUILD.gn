@@ -1,0 +1,240 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/win/manifest.gni")
+import("//chrome/version.gni")
+import("//testing/test.gni")
+
+process_version("chrome_elf_resources") {
+  template_file = chrome_version_rc_template
+  sources = [
+    "chrome_elf.ver",
+  ]
+  output = "$target_gen_dir/chrome_elf_version.rc"
+}
+
+# This manifest matches what GYP produces. It may not even be necessary.
+windows_manifest("chrome_elf_manifest") {
+  sources = [
+    as_invoker_manifest,
+  ]
+  type = "dll"
+}
+
+# We should move chrome_result_codes.h to another target which does not bring
+# in the world.
+shared_library("chrome_elf") {
+  sources = [
+    "//chrome/app/chrome_crash_reporter_client_win.cc",
+    "//chrome/app/chrome_crash_reporter_client_win.h",
+    "//chrome/common/chrome_result_codes.h",
+    "chrome_elf.def",
+    "chrome_elf_main.cc",
+    "chrome_elf_main.h",
+  ]
+  deps = [
+    ":blacklist",
+    ":breakpad",
+    ":chrome_elf_manifest",
+    ":chrome_elf_resources",
+    ":common",
+    "//base",
+    "//build/config/sanitizers:deps",
+    "//chrome/install_static:install_static_util",
+    "//components/crash/content/app",
+    "//components/crash/core/common",
+    "//content/public/common:result_codes",
+  ]
+  configs += [ "//build/config/win:windowed" ]
+  configs -= [ "//build/config/win:console" ]
+  ldflags = [
+    "/NODEFAULTLIB:user32.lib",
+    "/DELAYLOAD:dbghelp.dll",
+    "/DELAYLOAD:ole32.dll",
+    "/DELAYLOAD:psapi.dll",
+    "/DELAYLOAD:rpcrt4.dll",
+    "/DELAYLOAD:shell32.dll",
+    "/DELAYLOAD:user32.dll",
+    "/DELAYLOAD:winhttp.dll",
+    "/DELAYLOAD:winmm.dll",
+    "/DELAYLOAD:ws2_32.dll",
+  ]
+  if (current_cpu == "x86") {
+    # Don"t set an x64 base address (to avoid breaking HE-ASLR).
+    ldflags += [ "/BASE:0x01c20000" ]
+  }
+}
+
+source_set("constants") {
+  sources = [
+    "chrome_elf_constants.cc",
+    "chrome_elf_constants.h",
+  ]
+}
+
+source_set("common") {
+  public_deps = [
+    ":constants",
+  ]
+  deps = [
+    "//base",
+    "//sandbox",
+  ]
+  sources = [
+    "thunk_getter.cc",
+    "thunk_getter.h",
+  ]
+}
+
+source_set("breakpad") {
+  include_dirs = [ "$target_gen_dir" ]
+  sources = [
+    "breakpad.cc",
+    "breakpad.h",
+  ]
+  deps = [
+    ":common",
+    "//base",
+    "//breakpad:breakpad_handler",
+    "//chrome/common:version_header",
+    "//chrome/install_static:install_static_util",
+  ]
+}
+
+source_set("dll_hash") {
+  deps = [
+    "//base",
+  ]
+  sources = [
+    "dll_hash/dll_hash.cc",
+    "dll_hash/dll_hash.h",
+  ]
+}
+
+executable("dll_hash_main") {
+  sources = [
+    "dll_hash/dll_hash_main.cc",
+  ]
+  deps = [
+    ":dll_hash",
+    "//build/config/sanitizers:deps",
+    "//build/win:default_exe_manifest",
+  ]
+}
+
+static_library("blacklist") {
+  sources = [
+    "blacklist/blacklist.cc",
+    "blacklist/blacklist.h",
+    "blacklist/blacklist_interceptions.cc",
+    "blacklist/blacklist_interceptions.h",
+  ]
+  public_deps = [
+    "//sandbox",
+  ]
+  deps = [
+    ":breakpad",
+    ":common",
+    ":constants",
+    "//base",
+    "//chrome/install_static:install_static_util",
+  ]
+}
+
+test("chrome_elf_unittests") {
+  output_name = "chrome_elf_unittests"
+  sources = [
+    "blacklist/test/blacklist_test.cc",
+    "chrome_elf_util_unittest.cc",
+    "elf_imports_unittest.cc",
+    "run_all_unittests.cc",
+  ]
+  include_dirs = [ "$target_gen_dir" ]
+  deps = [
+    ":blacklist",
+    ":blacklist_test_main_dll",
+    ":common",
+    "//base",
+    "//base/test:test_support",
+    "//chrome",
+    "//chrome/common:version_header",
+    "//chrome/install_static:install_static_util",
+    "//sandbox",
+    "//testing/gtest",
+  ]
+
+  # It's not easily possible to have //chrome in data_deps without changing
+  # the //chrome target to bundle up both initial/chrome.exe and chrome.exe.
+  # As a workaround, explicitly include a data dep on just chrome.exe, and
+  # add //chrome to deps above to make sure it's been built.
+  data = [
+    "$root_out_dir/chrome.exe",
+  ]
+  data_deps = [
+    ":blacklist_test_dll_1",
+    ":blacklist_test_dll_2",
+    ":blacklist_test_dll_3",
+    ":chrome_elf",
+  ]
+  ldflags = [
+    "/DELAYLOAD:dbghelp.dll",
+    "/DELAYLOAD:ole32.dll",
+    "/DELAYLOAD:psapi.dll",
+    "/DELAYLOAD:rpcrt4.dll",
+    "/DELAYLOAD:shell32.dll",
+    "/DELAYLOAD:shlwapi.dll",
+    "/DELAYLOAD:user32.dll",
+    "/DELAYLOAD:winhttp.dll",
+    "/DELAYLOAD:winmm.dll",
+    "/DELAYLOAD:ws2_32.dll",
+  ]
+}
+
+shared_library("blacklist_test_main_dll") {
+  sources = [
+    "blacklist/test/blacklist_test_main_dll.cc",
+    "blacklist/test/blacklist_test_main_dll.def",
+  ]
+  deps = [
+    ":blacklist",
+    ":common",
+    "//base",
+    "//build/config/sanitizers:deps",
+    "//chrome/install_static:install_static_util",
+  ]
+}
+
+loadable_module("blacklist_test_dll_1") {
+  sources = [
+    "blacklist/test/blacklist_test_dll_1.cc",
+    "blacklist/test/blacklist_test_dll_1.def",
+  ]
+  deps = [
+    "//build/config/sanitizers:deps",
+  ]
+}
+
+loadable_module("blacklist_test_dll_2") {
+  sources = [
+    "blacklist/test/blacklist_test_dll_2.cc",
+    "blacklist/test/blacklist_test_dll_2.def",
+  ]
+  deps = [
+    "//build/config/sanitizers:deps",
+  ]
+}
+
+# As-is, this does not generate a .lib file because there are no exports and no
+# .def file. The current definition of loadable_module does not declare a .lib
+# file as an output, so this is OK. If it did (or if this used shared_library
+# which does), Ninja would get confused and always rebuild this target because
+# it sees a declared output file but that file doesn't exist on disk.
+loadable_module("blacklist_test_dll_3") {
+  sources = [
+    "blacklist/test/blacklist_test_dll_3.cc",
+  ]
+  deps = [
+    "//build/config/sanitizers:deps",
+  ]
+}

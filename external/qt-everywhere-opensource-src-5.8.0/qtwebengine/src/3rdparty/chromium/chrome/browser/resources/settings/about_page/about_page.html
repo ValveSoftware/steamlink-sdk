@@ -1,0 +1,180 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="/about_page/about_page_browser_proxy.html">
+<link rel="import" href="/i18n_setup.html">
+<link rel="import" href="/icons.html">
+<link rel="import" href="/lifetime_browser_proxy.html">
+<link rel="import" href="/settings_page/main_page_behavior.html">
+<link rel="import" href="/settings_page/settings_animated_pages.html">
+<link rel="import" href="/settings_page/settings_section.html">
+<link rel="import" href="/settings_page_css.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/html/assert.html">
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/neon-animation/neon-animatable.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+
+<if expr="chromeos">
+<link rel="import" href="/about_page/detailed_build_info.html">
+<link rel="import" href="/settings_page/settings_subpage.html">
+</if>
+
+<dom-module id="settings-about-page">
+  <template>
+    <style include="settings-shared settings-page-styles">
+      .product-title {
+        font-size: 20px;
+        margin-bottom: auto;
+        margin-top: auto;
+      }
+
+      img {
+        -webkit-margin-end: 10px;
+      }
+
+      iron-icon {
+        -webkit-margin-end: var(--iron-icon-spacing);
+      }
+
+      iron-icon[icon='settings:check-circle'] {
+        fill: var(--paper-blue-600);
+      }
+
+      iron-icon[icon='settings:error'] {
+        fill: var(--paper-red-600);
+      }
+
+      .product-info {
+        display: block;
+        padding-bottom: 10px;
+        padding-top: 10px;
+      }
+
+      .info-section {
+        margin-bottom: 12px;
+      }
+
+      #regulatoryInfo img {
+        width: 330px;
+      }
+    </style>
+    <div data-page="about">
+      <settings-section page-title="$i18n{aboutPageTitle}"
+          current-route="[[currentRoute]]" section="about">
+        <settings-animated-pages id="pages" current-route="{{currentRoute}}"
+            section="about">
+          <neon-animatable id="main">
+            <div class="settings-box">
+              <img id="product-logo"
+                  srcset="chrome://theme/current-channel-logo@1x 1x,
+                          chrome://theme/current-channel-logo@2x 2x" alt="">
+              <span class="product-title">$i18n{aboutProductTitle}</span>
+            </div>
+            <div class="settings-box two-line">
+              <iron-icon
+                  hidden="[[!shouldShowUpdateStatusIcon_(
+                      currentUpdateStatusEvent_)]]"
+                  icon$="[[getIcon_(currentUpdateStatusEvent_)]]"
+                  src="[[getIconSrc_(currentUpdateStatusEvent_)]]">
+              </iron-icon>
+              <div class="start">
+                <div id="updateStatusMessage"
+                    hidden="[[!shouldShowUpdateStatusMessage_(
+                        currentUpdateStatusEvent_)]]">
+<if expr="not chromeos">
+                  [[getUpdateStatusMessage_(currentUpdateStatusEvent_)]]
+</if>
+<if expr="chromeos">
+                  [[getUpdateStatusMessage_(
+                      currentUpdateStatusEvent_, targetChannel_)]]
+</if>
+                </div>
+                <span id="deprecationWarning"
+                    hidden="[[!obsoleteSystemInfo_.obsolete]]">
+                  $i18n{aboutObsoleteSystem}
+                  <a href="$i18n{aboutObsoleteSystemURL}" target="_blank">
+                    $i18n{learnMore}
+                  </a>
+                </span>
+                <div class="secondary">$i18n{aboutBrowserVersion}</div>
+              </div>
+              <paper-button id="relaunch" class="secondary-action"
+<if expr="not chromeos">
+                  hidden="[[!shouldShowRelaunch_(currentUpdateStatusEvent_)]]"
+</if>
+<if expr="chromeos">
+                  hidden="[[!shouldShowRelaunch_(
+                      currentUpdateStatusEvent_, targetChannel_)]]"
+</if>
+                  on-tap="onRelaunchTap_">
+                $i18n{aboutRelaunch}
+              </paper-button>
+<if expr="chromeos">
+              <paper-button id="relaunchAndPowerwash" class="secondary-action"
+                  hidden="[[!shouldShowRelaunchAndPowerwash_(
+                      currentUpdateStatusEvent_, targetChannel_)]]"
+                  on-tap="onRelaunchAndPowerwashTap_">
+                $i18n{aboutRelaunchAndPowerwash}
+              </paper-button>
+              <paper-button id="checkForUpdates" class="secondary-action"
+                  hidden="[[!shouldShowCheckUpdates_(currentUpdateStatusEvent_)]]"
+                  on-tap="onCheckUpdatesTap_">
+                $i18n{aboutCheckForUpdates}
+              </paper-button>
+</if>
+            </div>
+            <div id="help" class="settings-box two-line" on-tap="onHelpTap_"
+                actionable>
+              $i18n{aboutGetHelpUsingChrome}
+            </div>
+<if expr="_google_chrome">
+            <div id="reportIssue" class="settings-box" actionable
+                on-tap="onReportIssueTap_">
+              $i18n{aboutReportAnIssue}
+            </div>
+</if>
+<if expr="chromeos">
+            <div class="settings-box" on-tap="onDetailedBuildInfoTap_"
+                actionable>
+              <!-- TODO(dpapad): Localize string. -->
+              Detailed build info
+            </div>
+</if>
+            <div class="settings-box product-info">
+              <div class="info-section">
+                <div class="secondary">$i18n{aboutProductTitle}</div>
+                <div class="secondary">$i18n{aboutProductCopyright}</div>
+              </div>
+
+              <div class="info-section">
+                <div class="secondary">$i18nRaw{aboutProductLicense}</div>
+<if expr="chromeos">
+                <div class="secondary">$i18nRaw{aboutProductOsLicense}</div>
+</if>
+              </div>
+<if expr="_google_chrome">
+              <div class="secondary">$i18nRaw{aboutProductTos}</div>
+</if>
+            </div>
+<if expr="chromeos">
+            <div class="settings-box product-info" id="regulatoryInfo"
+                hidden$="[[!shouldShowRegulatoryInfo_(regulatoryInfo_)]]">
+              <img src="[[regulatoryInfo_.url]]" alt="[[regulatoryInfo_.text]]">
+            </div>
+</if>
+          </neon-animatable>
+<if expr="chromeos">
+          <template is="dom-if" name="detailed-build-info">
+            <settings-subpage page-title="Detailed build information">
+              <settings-detailed-build-info></settings-detailed-build-info>
+            </settings-subpage>
+          </template>
+</if>
+        </settings-animated-pages>
+      </settings-section>
+    </div>
+  </template>
+  <script src="about_page.js"></script>
+</dom-module>

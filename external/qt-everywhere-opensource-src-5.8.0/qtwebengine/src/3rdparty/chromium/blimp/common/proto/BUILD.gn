@@ -1,0 +1,49 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/protobuf/proto_library.gni")
+
+group("proto") {
+  public_deps = [
+    ":blimp_proto",
+    "//third_party/protobuf:protobuf_lite",
+  ]
+}
+
+component("blimp_proto") {
+  # Only expose the target to the "proto" group.
+  visibility = [ ":proto" ]
+
+  public_deps = [
+    ":proto_internal",
+  ]
+}
+
+proto_library("proto_internal") {
+  # Only expose the target to the "blimp_proto" target.
+  visibility = [ ":blimp_proto" ]
+
+  sources = [
+    "blimp_message.proto",
+    "blob_cache.proto",
+    "blob_channel.proto",
+    "compositor.proto",
+    "ime.proto",
+    "input.proto",
+    "navigation.proto",
+    "protocol_control.proto",
+    "render_widget.proto",
+    "settings.proto",
+    "tab_control.proto",
+  ]
+
+  cc_generator_options = "dllexport_decl=BLIMP_PROTO_EXPORT:"
+  cc_include = "blimp/common/proto/blimp_proto_export.h"
+  component_build_force_source_set = true
+
+  defines = [ "BLIMP_PROTO_IMPLEMENTATION" ]
+
+  # Warn if clang creates exit destructors
+  extra_configs = [ "//build/config/compiler:wexit_time_destructors" ]
+}

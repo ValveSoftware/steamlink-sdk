@@ -1,0 +1,158 @@
+// This file is generated
+
+// Copyright (c) 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef HEADLESS_PUBLIC_DOMAINS_{{domain.domain | camelcase_to_hacker_style | upper}}_H_
+#define HEADLESS_PUBLIC_DOMAINS_{{domain.domain | camelcase_to_hacker_style | upper}}_H_
+
+#include "base/callback.h"
+#include "base/observer_list.h"
+#include "base/values.h"
+#include "headless/public/domains/types.h"
+#include "headless/public/headless_export.h"
+#include "headless/public/internal/message_dispatcher.h"
+
+{# Macro for defining a member function for a given command. #}
+{% macro command_decl(command) %}
+  {% set method_name = command.name | to_title_case %}
+  {% if command.description %}
+  // {{ command.description }}
+  {% endif %}
+  {% if "parameters" in command and "returns" in command %}
+  void {{method_name}}(std::unique_ptr<{{method_name}}Params> params, base::Callback<void(std::unique_ptr<{{method_name}}Result>)> callback = base::Callback<void(std::unique_ptr<{{method_name}}Result>)>());
+  {% elif "parameters" in command %}
+  void {{method_name}}(std::unique_ptr<{{method_name}}Params> params, base::Callback<void()> callback = base::Callback<void()>());
+  {% elif "returns" in command %}
+  void {{method_name}}(base::Callback<void(std::unique_ptr<{{method_name}}Result>)> callback = base::Callback<void(std::unique_ptr<{{method_name}}Result>)>());
+  {% else %}
+  void {{method_name}}(base::Callback<void()> callback = base::Callback<void()>());
+  {% endif %}
+  {# Generate convenience methods that take the required parameters directly. #}
+  {# Don't generate these for hidden commands. #}
+  {% if "parameters" in command and not command.hidden %}
+  void {{method_name}}({##}
+    {% for parameter in command.parameters -%}
+      {% if parameter.get("optional", False) -%}
+        {% break %}
+      {% endif %}
+      {% if not loop.first %}, {% endif %}
+{{resolve_type(parameter).pass_type}} {{parameter.name | camelcase_to_hacker_style -}}
+    {% endfor %}
+    {% if "parameters" in command and not command.parameters[0].get("optional", False) %}, {% endif %}{# -#}
+    {% if "returns" in command -%}
+      base::Callback<void(std::unique_ptr<{{method_name}}Result>)> callback = base::Callback<void(std::unique_ptr<{{method_name}}Result>)>(){##}
+    {% else -%}
+      base::Callback<void()> callback = base::Callback<void()>(){##}
+    {% endif %});
+  {% endif %}
+{% endmacro %}
+
+namespace headless {
+namespace {{domain.domain | camelcase_to_hacker_style}} {
+class ExperimentalDomain;
+class ExperimentalObserver;
+{% if "events" in domain %}
+
+class HEADLESS_EXPORT ExperimentalObserver {
+ public:
+  virtual ~ExperimentalObserver() {}
+  {% for event in domain.events %}
+    {% if event.description %}
+  // {{event.description}}
+    {% endif %}
+  virtual void On{{event.name | to_title_case}}(const {{event.name | to_title_case}}Params& params) {}
+  {% endfor %}
+};
+
+class HEADLESS_EXPORT Observer : public ExperimentalObserver {
+ public:
+  virtual ~Observer() {}
+  {% for event in domain.events %}
+    {% if event.description %}
+  // {% if event.hidden %}Experimental: {% endif %}{{event.description}}
+    {% endif %}
+  virtual void On{{event.name | to_title_case}}(const {{event.name | to_title_case}}Params& params) {% if event.hidden %}final {% endif %}{}
+  {% endfor %}
+};
+{% endif %}
+
+{% if domain.description %}
+// {{domain.description}}
+{% endif %}
+class HEADLESS_EXPORT Domain {
+ public:
+  {% if "events" in domain %}
+  // Add or remove an observer. |observer| must be removed before being
+  // destroyed.
+  void AddObserver(Observer* observer);
+  void RemoveObserver(Observer* observer);
+  {% endif %}
+
+  // Return the experimental interface for this domain. Note that experimental
+  // commands may be changed or removed at any time.
+  ExperimentalDomain* GetExperimental();
+
+  {# Generate methods for each command. #}
+  {% for command in domain.commands %}
+    {# Skip redirected commands. #}
+    {% if "redirect" in command %}{% continue %}{% endif %}
+    {# Skip hidden commands. #}
+    {% if command.hidden %}{% continue %}{% endif %}
+{{ command_decl(command) }}
+  {% endfor %}
+ protected:
+  Domain(internal::MessageDispatcher* dispatcher);
+  ~Domain();
+
+  {# Generate response handlers for commands that need them. #}
+  {% for command in domain.commands %}
+    {% if not "returns" in command %}{% continue %}{% endif %}
+    {% set method_name = command.name | to_title_case %}
+  static void Handle{{method_name}}Response(base::Callback<void(std::unique_ptr<{{method_name}}Result>)> callback, const base::Value& response);
+  {% endfor %}
+
+  {# Generate event dispatchers. #}
+  {% for event in domain.events %}
+  void Dispatch{{event.name | to_title_case}}Event(const base::Value& params);
+  {% endfor %}
+
+  internal::MessageDispatcher* dispatcher_;  // Not owned.
+  {% if "events" in domain %}
+  base::ObserverList<ExperimentalObserver> observers_;
+  {% endif %}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(Domain);
+};
+
+class ExperimentalDomain : public Domain {
+ public:
+  ExperimentalDomain(internal::MessageDispatcher* dispatcher);
+  ~ExperimentalDomain();
+
+  {% if "events" in domain %}
+  // Add or remove an observer. |observer| must be removed before being
+  // destroyed.
+  void AddObserver(ExperimentalObserver* observer);
+  void RemoveObserver(ExperimentalObserver* observer);
+  {% endif %}
+
+  {# Generate methods for each experimental command. #}
+  {% for command in domain.commands %}
+    {# Skip redirected commands. #}
+    {% if "redirect" in command %}{% continue %}{% endif %}
+    {# Skip non-hidden commands. #}
+    {% if not command.hidden %}{% continue %}{% endif %}
+{{ command_decl(command) }}
+  {% endfor %}
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(ExperimentalDomain);
+};
+
+}  // namespace {{domain.domain | camelcase_to_hacker_style}}
+}  // namespace headless
+
+#endif  // HEADLESS_PUBLIC_DOMAINS_{{domain.domain | camelcase_to_hacker_style | upper}}_H_

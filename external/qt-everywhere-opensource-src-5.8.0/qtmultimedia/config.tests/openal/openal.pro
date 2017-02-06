@@ -1,0 +1,3 @@
+SOURCES += main.cpp
+
+mac: DEFINES += HEADER_OPENAL_PREFIX

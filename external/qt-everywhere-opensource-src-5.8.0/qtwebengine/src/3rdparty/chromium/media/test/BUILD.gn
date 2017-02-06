@@ -1,0 +1,133 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//media/media_options.gni")
+import("//testing/libfuzzer/fuzzer_test.gni")
+
+source_set("pipeline_integration_test_base") {
+  testonly = true
+
+  if (media_use_ffmpeg) {
+    sources = [
+      "pipeline_integration_test_base.cc",
+      "pipeline_integration_test_base.h",
+    ]
+
+    public_deps = [
+      "//media",
+    ]
+
+    deps = [
+      "//base",
+      "//media:test_support",
+      "//media/audio:test_support",
+      "//media/base:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+    ]
+  }
+}
+
+source_set("pipeline_integration_tests") {
+  testonly = true
+
+  # Even if FFmpeg is enabled on Android we don't want these.
+  # TODO(watk): Refactor tests that could be made to run on Android. See
+  # http://crbug.com/570762
+  if (media_use_ffmpeg && !is_android) {
+    sources = [
+      "pipeline_integration_test.cc",
+    ]
+
+    configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+    deps = [
+      ":pipeline_integration_test_base",
+      "//url",
+
+      # TODO(dalecurtis): Required since the gmock header is included in the
+      # header for pipeline_integration_test_base.h.  This should be moved into
+      # the .cc file to avoid the extra dependency here.
+      "//testing/gmock",
+    ]
+  }
+}
+
+source_set("pipeline_integration_perftests") {
+  testonly = true
+
+  if (media_use_ffmpeg) {
+    sources = [
+      "pipeline_integration_perftest.cc",
+    ]
+
+    deps = [
+      ":pipeline_integration_test_base",
+      "//media/base:test_support",
+      "//testing/gtest",
+      "//testing/perf",
+
+      # TODO(dalecurtis): Required since the gmock header is included in the
+      # header for pipeline_integration_test_base.h.  This should be moved into
+      # the .cc file to avoid the extra dependency here.
+      "//testing/gmock",
+    ]
+  }
+}
+
+source_set("mojo_pipeline_integration_tests") {
+  testonly = true
+
+  if (media_use_ffmpeg && !is_android) {
+    sources = [
+      "pipeline_integration_test.cc",
+    ]
+
+    defines = [ "MOJO_RENDERER" ]
+
+    configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+    deps = [
+      ":pipeline_integration_test_base",
+      "//base",
+      "//base/test:test_support",
+      "//media",
+      "//media:test_support",
+      "//media/audio:test_support",
+      "//media/base:test_support",
+      "//media/mojo/clients",
+      "//media/mojo/interfaces",
+      "//media/mojo/services",
+      "//services/shell/public/cpp:shell_test_support",
+      "//testing/gtest",
+      "//ui/gfx:test_support",
+      "//ui/gfx/geometry",
+
+      # TODO(dalecurtis): Required since the gmock header is included in the
+      # header for pipeline_integration_test_base.h.  This should be moved
+      # into the .cc file to avoid the extra dependency here.
+      "//testing/gmock",
+    ]
+  }
+}
+
+fuzzer_test("media_pipeline_integration_fuzzer") {
+  sources = [
+    "pipeline_integration_fuzzertest.cc",
+  ]
+  deps = [
+    "//base",
+    "//media",
+    "//media/test:pipeline_integration_test_base",
+
+    # TODO(dalecurtis): Required since the gmock header is included in the
+    # header for pipeline_integration_test_base.h.  This should be
+    # moved into the .cc file to avoid the extra dependency here.
+    "//testing/gmock",
+    "//ui/gfx:test_support",
+  ]
+
+  # This is done to avoid DEATH of ASan with "Thread limit exceeded" error.
+  libfuzzer_options = [ "runs=500000" ]
+}

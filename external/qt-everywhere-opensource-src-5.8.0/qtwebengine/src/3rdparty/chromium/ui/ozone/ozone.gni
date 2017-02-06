@@ -1,0 +1,66 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chromecast_build.gni")
+import("//build/config/ui.gni")
+
+declare_args() {
+  # Select platforms automatically. Turn this off for manual control.
+  ozone_auto_platforms = use_ozone
+
+  # This enables memory-mapped access to accelerated graphics buffers via the
+  # VGEM ("virtual GEM") driver. This is currently only available on Chrome OS
+  # kernels and affects code in the GBM ozone platform.
+  # TODO(dshwang): remove this flag when all gbm hardware supports vgem map.
+  # crbug.com/519587
+  use_vgem_map = false
+}
+
+declare_args() {
+  # The platform that will be active by default.
+  ozone_platform = ""
+
+  # Enable individual platforms.
+  ozone_platform_caca = false
+  ozone_platform_cast = false
+  ozone_platform_egltest = false
+  ozone_platform_gbm = false
+  ozone_platform_ozonex = false
+  ozone_platform_headless = false
+  ozone_platform_x11 = false
+  ozone_platform_wayland = false
+
+  if (ozone_auto_platforms) {
+    # Use headless as the default platform.
+    ozone_platform = "headless"
+    ozone_platform_headless = true
+
+    if (is_chromecast) {
+      # Enable the Cast ozone platform on all A/V Cast builds.
+      ozone_platform_cast = true
+
+      # For visual desktop Chromecast builds, override the default "headless"
+      # platform with --ozone-platform=x11.
+      # TODO(halliwell): Create a libcast_graphics implementation for desktop
+      # using X11, and disable this platform.
+      if (is_cast_desktop_build && !disable_display) {
+        ozone_platform_x11 = true
+      } else {
+        ozone_platform = "cast"
+      }
+    } else if (is_chromeos) {
+      ozone_platform_gbm = true
+      ozone_platform_x11 = true
+    } else {
+      # Build all platforms whose deps are in install-build-deps.sh.
+      # Only these platforms will be compile tested by buildbots.
+      ozone_platform_x11 = true
+    }
+  }
+}
+
+assert(use_ozone || !(ozone_platform_caca || ozone_platform_cast ||
+                          ozone_platform_egltest || ozone_platform_gbm ||
+                          ozone_platform_ozonex || ozone_platform_headless),
+       "Must set use_ozone to select ozone platforms")

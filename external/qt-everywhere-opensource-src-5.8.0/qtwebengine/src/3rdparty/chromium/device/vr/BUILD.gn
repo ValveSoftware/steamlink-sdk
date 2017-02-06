@@ -1,0 +1,89 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+
+if (is_android) {
+  import("//build/config/android/rules.gni")  # For generate_jni().
+}
+
+component("vr") {
+  output_name = "device_vr"
+
+  sources = [
+    "vr_device.cc",
+    "vr_device.h",
+    "vr_device_manager.cc",
+    "vr_device_manager.h",
+    "vr_device_provider.h",
+  ]
+
+  deps = [
+    ":mojo_bindings",
+    "//base",
+    "//mojo/public/cpp/bindings",
+    "//third_party/WebKit/public:mojo_bindings",
+    "//ui/gfx",
+  ]
+
+  defines = [ "DEVICE_VR_IMPLEMENTATION" ]
+
+  if (is_android) {
+    sources += [
+      "android/cardboard/cardboard_vr_device.cc",
+      "android/cardboard/cardboard_vr_device.h",
+      "android/cardboard/cardboard_vr_device_provider.cc",
+      "android/cardboard/cardboard_vr_device_provider.h",
+    ]
+
+    deps += [ ":jni_headers" ]
+  }
+}
+
+static_library("fakes") {
+  testonly = true
+
+  sources = [
+    "test/fake_vr_device.cc",
+    "test/fake_vr_device.h",
+    "test/fake_vr_device_provider.cc",
+    "test/fake_vr_device_provider.h",
+  ]
+
+  public_deps = [
+    ":vr",
+    "//base",
+    "//mojo/public/cpp/bindings",
+    "//third_party/WebKit/public:mojo_bindings",
+  ]
+}
+
+mojom("mojo_bindings") {
+  sources = [
+    "vr_service.mojom",
+  ]
+}
+
+if (is_android) {
+  java_sources_needing_jni =
+      [ "android/java/src/org/chromium/device/vr/CardboardVRDevice.java" ]
+
+  generate_jni("jni_headers") {
+    sources = java_sources_needing_jni
+    jni_package = "vr"
+
+    public_deps = [
+      "//third_party/cardboard-java:cardboard-java",
+    ]
+  }
+
+  android_library("java") {
+    java_files = java_sources_needing_jni
+    deps = [
+      "//base:base_java",
+      "//third_party/cardboard-java:cardboard-java",
+    ]
+  }
+}

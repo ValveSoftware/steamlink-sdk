@@ -1,0 +1,153 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \qmlmodule QtQuick.Particles 2
+    \title Qt Quick Particles QML Types
+    \ingroup qmlmodules
+    \brief Provides QML types for particle effects
+
+  This QML module contains a particle system for Qt Quick. To use these types, import the module with the following line:
+  \code
+  import QtQuick.Particles 2.0
+  \endcode
+
+  For a simple overview of how the system can be used, see \l{Using the Qt Quick Particle System}.
+
+  For details on the performance characteristics see \l{qtquick-particles-performance.html}{Qt Quick Particle System Performance}.
+
+*/
+
+/*!
+    \page qtquick-effects-particles.html
+    \title Using the Qt Quick Particle System
+
+    Documentation for all Particle System types can be found on the \l QtQuick.Particles module page.
+
+  Note that to use types from the particles module, you will need to import the types with the following line:
+  \code
+  import QtQuick.Particles 2.0
+  \endcode
+
+    \section1 The ParticleSystem
+    This particle system contains four main types of QML types: ParticleSystem, Painters, Emitters and Affectors.
+
+    The ParticleSystem type ties all the other types together, and manages the shared timeline. Painters, Emitters
+    and Affectors must all have the same ParticleSystem to be able to interact with each other.
+
+    You may have as many ParticleSystems as you want subject to this constraint, so the logical separation is to have
+    one ParticleSystem for all the types that you want to interact, or just one if the number of types is small
+    and they are easily kept under control..
+
+    \section1 Logical Particles
+    All the particle system types act on "logical particles". Every particle has a logical representation inside
+    the particle system, and this is what the types act upon. Not every logical particle needs to be visualized,
+    and some logical particles could lead to multiple visual particles being drawn on screen.
+
+    \section1 Particle Groups
+    Every logical particle is a member of a particle group, and each group is identified by a name. If no other
+    group has been specified, a logical particle belongs to the group with the name "" (the empty string), which
+    acts the same as any other group. Groups are used for two purposes, for controlling particles and because they
+    can have stochastic state transitions.
+
+    Groups control particles because you can never access an individual particle with any of the particle system
+    types. All types act on groups as a whole, and so any particles that need to behave differently from each
+    other (aside from the usual stochastic parameter variation) will need to be in different groups.
+
+    Particles can also change groups dynamically. When this happens the particles trajectory is unaltered, but it
+    can be acted upon by different ParticlePainters or Affectors. Particles can either have their group changed by
+    an Affector, or stochastic state transitions can be defined in a ParticleGroup type.
+
+    Generally, groups should only be defined in a ParticleGroup if they require stochastic state transitions. Otherwise,
+    it is sufficient to have the groups be defined simply by the strings used in the particle/particles properties
+    of the types.
+
+    \section1 Emitters
+    Emitters emit logical particles into the system. These particles have a trajectory and lifespan, but no visualization.
+    These particles are emitted from the location of the Emitter.
+
+    TrailEmitters are a special type of emitter which emits particles from the location of other logicial particles. Any logical
+    particle of the followed type within the bounds of a TrailEmitter will cause particle emission from its location, as if there
+    were an Emitter on it with the same properties as the TrailEmitter.
+
+    \section1 ParticlePainters
+    Painters are the types that visualize logical particles. For each logical particle in the groups assigned to it,
+    which are within its bounds (or outside, if you do not set the clip property on the type) it will be visualized
+    in a manner dependent on the type of ParticlePainter.  The base type of ParticlePainter does not draw anything.
+    ImageParticle renders an image at the particle location. CustomParticle allows you to write your own shaders to render
+    the particles, passing in the logical particle state as vertex data. ItemParticle allows you to visualize logical
+    particles using arbitrary QML delegates. ModelParticle is similar, but coordinates model data amongst the delegates
+    in a similar manner to the view classes.
+
+    As the ParticlePainter is the QML type visualizing the particles in the scene, it is its Z value which is important
+    when trying to place particles above or below other types visually.
+
+    \section1 Affectors
+    Affectors are an optional component of a particle system. They can perform a variety of manipulations to the simulation,
+    such as altering the trajectory of particles or prematurely ending their life in the simulation. For performance reasons,
+    it is recommended not to use Affectors in high-volume particle systems.
+
+    \section1 Stochastic Parameters
+    As particle systems benefit from stochastic control of parameters across a large number of instances, several stochastic
+    helper types are used by the particle system. If you do not wish to have any stochastic variation in these parameters,
+    then do not specify any variation in these types.
+
+    \section2 Directions
+    Directions can be specified by angle and magnitude, or by x and y components. While any direction can be specified with
+    either method, there is a significant difference between varying the x and y components and varying the angle and magnitude.
+    Varying the x and y components will lead to a rectangular area around the specified point, while varying the angle will lead
+    to an arc centered on the specified point.
+
+    \section2 Shapes
+    The particle system contains several types which represent shapes. These types do not visualize shapes, and are used
+    for the purpose of selecting a random point within the shape. If you want a specific point with no randomness, use a 0 width
+    and 0 height shape (which is the default). Otherwise you can use the shape types to specify an area, so that the
+    result can use a random point selected from that area.
+*/
+
+/*!
+    \page qtquick-particles-performance.html
+    \title Particle System Performance Guide
+
+    The performance of the particle system scales with the number of particles it is maintaining. After prototyping the desired
+    effect, performance can be improved by lowering the particle count. Conversely, if performance is well within the acceptable
+    bounds, you can increase the number of particles until you hit that point (should that improve the effect).
+
+    Note that particle count is often estimated by the particle system, and in some cases explicitly providing hints as to how
+    many particles will be needed will improve performance. You can do this by setting maximumEmitted on an Emitter, and it is
+    generally useful for Emitters which do not continuously emit particles.
+
+    Like ShaderEffect, the performance of the particle system is largely dependent on the graphics hardware it is running on.
+    The exception to this is Affectors. For systems not including Affectors, the majority of the performance cost of particles
+    will be on the GPU. Since the GPU is better at parallelizing large numbers of operations more particles can be drawn at 60FPS
+    when Affectors are not used.
+
+    Affectors, particularly if modifying the particles in javascript, can be relatively slow as well as increasing the CPU cost
+    of using particles. Avoid using them in high-volume systems where possible. Some easy cases where Affectors can be avoided
+    are using timed ParticleGroup transitions instead of time-triggered Affectors, or setting acceleration due to gravity in the
+    acceleration property of the Emitter instead of with a Gravity Affector.
+*/

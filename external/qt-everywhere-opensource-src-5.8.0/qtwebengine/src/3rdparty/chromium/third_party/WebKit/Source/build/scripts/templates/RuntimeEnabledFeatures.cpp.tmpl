@@ -1,0 +1,66 @@
+{% from 'macros.tmpl' import license %}
+{{license()}}
+
+#include "platform/RuntimeEnabledFeatures.h"
+
+#include "wtf/Assertions.h"
+#include "wtf/text/WTFString.h"
+
+namespace {
+
+bool caseInsensitiveEqual(const std::string& a, const std::string& b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (tolower(a[i]) != tolower(b[i]))
+            return false;
+    }
+    return true;
+}
+
+} // namespace
+
+namespace blink {
+
+RuntimeEnabledFeatures::Backup::Backup()
+    :
+    {% for feature in standard_features %}
+    {%+ if not loop.first %}, {% endif -%}m_{{feature.first_lowered_name}}(RuntimeEnabledFeatures::{{feature.first_lowered_name}}Enabled())
+    {% endfor %}
+{
+}
+
+void RuntimeEnabledFeatures::Backup::restore()
+{
+    {% for feature in standard_features %}
+    RuntimeEnabledFeatures::set{{feature.name}}Enabled(m_{{feature.first_lowered_name}});
+    {% endfor %}
+}
+
+{% for feature_set in feature_sets %}
+void RuntimeEnabledFeatures::set{{feature_set|capitalize}}FeaturesEnabled(bool enable)
+{
+    {% for feature in features if feature.status == feature_set %}
+    set{{feature.name}}Enabled(enable);
+    {% endfor %}
+}
+
+{% endfor %}
+
+void RuntimeEnabledFeatures::setFeatureEnabledFromString(const std::string& name, bool isEnabled)
+{
+    {% for feature in standard_features %}
+    if (caseInsensitiveEqual(name, "{{feature.name}}")) {
+        set{{feature.name}}Enabled(isEnabled);
+        return;
+    }
+    {% endfor %}
+    DLOG(ERROR) << "RuntimeEnabledFeature not recognized: " << name;
+}
+
+{% for feature in standard_features %}
+bool RuntimeEnabledFeatures::is{{feature.name}}Enabled = {{'true' if feature.status == 'stable' else 'false'}};
+{% endfor %}
+
+} // namespace blink

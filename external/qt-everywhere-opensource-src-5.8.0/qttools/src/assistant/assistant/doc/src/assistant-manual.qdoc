@@ -1,0 +1,445 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtassistant-index.html
+    \title Qt Assistant Manual
+    \ingroup qttools
+
+    \startpage {Qt Reference Pages}
+    \nextpage Qt Assistant Quick Guide
+
+    \keyword Qt Assistant
+
+    \QA is a tool for viewing on-line documentation in Qt help file format.
+    For more information about basic \QA functions, see
+    \l{Qt Assistant Quick Guide}.
+
+    Qt installations include a set of reference and tools documentation that
+    you can view in the Qt Creator IDE and in \QA. You can add custom
+    documentation to the set of documents displayed in the \QA main view. For
+    detailed information about all \QA functions, see \l{Using Qt Assistant}.
+
+    You can use \QA as the help viewer in your applications. You can display
+    your own documentation and customize \QA to look and feel like part of your
+    application. You can change the window title or icon, as well as menu texts
+    and actions. For more information, see \l{Customizing Qt Assistant}.
+
+    \section1 Table of Contents
+
+    \list
+        \li \l{Qt Assistant Quick Guide}
+        \li \l{Using Qt Assistant}
+        \li \l{Customizing Qt Assistant}
+    \endlist
+*/
+
+/*!
+    \page assistant-custom-help-viewer.html
+    \title Customizing Qt Assistant
+
+    \contentspage {Qt Assistant Manual}{Contents}
+    \previouspage Using Qt Assistant
+
+    Using \QA as custom help viewer requires more than just being able to
+    display custom documentation. It is equally important that the
+    appearance of \QA can be customized so that it is seen as a
+    application-specific help viewer rather than \QA. This is achieved by
+    changing the window title or icon, as well as some application-specific
+    menu texts and actions. For a complete list of possible customizations,
+    see \l{Creating a Custom Help Collection File}.
+
+    Another requirement of a custom help viewer is the ability to receive
+    actions or commands from the application it provides help for. This is
+    especially important when the application offers context sensitive help.
+    When used in this way, the help viewer may need to change its contents
+    depending on the state the application is currently in. This means that
+    the application has to communicate the current state to the help viewer.
+    For more information, see \l{Using Qt Assistant Remotely}.
+
+    The \l{Simple Text Viewer Example}{Simple Text Viewer} example uses the
+    techniques described in this document to show how to use \QA as a custom
+    help viewer for an application.
+
+    \warning In order to ship Qt Assistant in your application, it is crucial
+    that you include the sqlite plugin. For more information on how to include
+    plugins in your application, refer to the \l{Deploying Qt Applications}
+    {deployment documentation}.
+
+    \section1 Qt Help Collection Files
+
+    The first important point to know about \QA is that it stores all
+    settings related to its appearance \e and a list of installed
+    documentation in a help collection file. This means, when starting \QA
+    with different collection files, \QA may look totally different. This
+    complete separation of settings makes it possible to deploy \QA as a
+    custom help viewer for more than one application on one machine
+    without risk of interference between different instances of \QA.
+
+    To apply a certain help collection to \QA, specify the respective
+    collection file on the command line when starting it. For example:
+
+    \snippet doc_src_assistant-manual.qdoc 8
+
+    However, storing all settings in one collection file raises some problems.
+    The collection file is usually installed in the same directory as the
+    application itself, or one of its subdirectories. Depending on the
+    directory and the operating system, the user may not have any permissions
+    to modify this file which would happen when the user settings are stored.
+    Also, it may not even be possible to give the user write permissions, for
+    example when the file is located on a read-only medium like a CD-ROM.
+
+    Even if it is possible to give everybody the right to store their settings
+    in a globally available collection file, the settings from one user would
+    be overwritten by another user when exiting \QA.
+
+    To solve this dilemma, \QA creates user specific collection files which
+    are more or less copied from the original collection file. The user-specific
+    collection file will be saved in a subdirectory of the path returned by
+    QDesktopServices::DataLocation. The subdirectory, or \e{cache directory}
+    within this user-specific location, can be defined in the help collection
+    project file. For example:
+
+    \snippet doc_src_assistant-manual.qdoc 7
+
+    So, when calling
+
+    \snippet doc_src_assistant-manual.qdoc 8
+
+    \QA actually uses the collection file:
+
+    \snippet doc_src_assistant-manual.qdoc 9
+
+    There is no need ever to start \QA with the user specific collection
+    file. Instead, the collection file shipped with the application should
+    always be used. Also, when adding or removing documentation from the
+    collection file (see next section) always use the normal collection file.
+    \QA will take care of synchronizing the user collection files when the
+    list of installed documentation has changed.
+
+    \section1 Displaying Custom Documentation
+
+    Before \QA is able to show documentation, it has to know where it can
+    find the actual documentation files, meaning that it has to know the
+    location of the Qt compressed help file (*.qch). As already mentioned,
+    \QA stores references to the compressed help files in the currently used
+    collection file. So, when creating a new collection file you can list
+    all compressed help files \QA should display.
+
+    \snippet doc_src_assistant-manual.qdoc 5
+
+    Sometimes, depending on the application for which \QA acts as a
+    help viewer, more documentation needs to be added over time; for
+    example, when installing more application components or plugins.
+    This can be done manually in \QA by selecting \gui Edit > \gui Preferences
+    > \gui Documentation. However, this approach has the disadvantage
+    that every user has to do it manually to get access to the new
+    documentation.
+
+    The preferred way of adding documentation to an already existing collection
+    file is to use the \c{-register} command line flag of \QA. When starting
+    \QA with this flag, the documentation will be added and \QA will
+    exit right away displaying a message if the registration was successful
+    or not.
+
+    The search indexing will only index your custom *.html, *.htm,
+    and *.txt files.
+
+    \snippet doc_src_assistant-manual.qdoc 6
+
+    The \c{-quiet} flag can be passed on to \QA to prevent it from writing
+    out the status message.
+
+    \note \QA shows the documentation in the \gui Contents view in the same
+    order as it was registered.
+
+
+    \section1 Changing the Appearance of Qt Assistant
+
+    The appearance of \QA can be changed by passing different command line options
+    on startup. However, these command line options only allow to show or hide
+    specific widgets, like the contents or index view. Other customizations, such
+    as changing the application title or icon, or disabling the filter functionality,
+    can be done by creating a custom help collection file.
+
+    \section2 Creating a Custom Help Collection File
+
+    The help collection file (*.qhc) used by \QA is created when running the
+    \c qcollectiongenerator tool on a help collection project file (*.qhcp).
+    The project file format is XML and it supports the following tags:
+
+    \table
+        \header
+            \li Tag
+            \li Brief Description
+        \row
+            \li \c{<title>}
+            \li Specifies a window title for \QA.
+        \row
+            \li \c{<homePage>}
+            \li Specifies the page to display when selecting \gui Home in the
+                \QA main window.
+        \row
+            \li \c{<startPage>}
+            \li Specifies the page to display initially when the help collection
+                is used.
+        \row
+            \li \c{<currentFilter>}
+            \li Specifies the filter that is initially used.
+            If this filter is not specified, the documentation will not be filtered. This has
+            no impact if only one documentation set is installed.
+        \row
+            \li \c{<applicationIcon>}
+            \li Describes an icon that will be used instead of the normal \QA
+            application icon. This is specified as a relative path from the directory
+            containing the collection file.
+        \row
+            \li \c{<enableFilterFunctionality>}
+            \li Enables or disables user accessible filter functionality,
+            making it possible to prevent the user from changing any filter when running \QA.
+            It does not mean that the internal filter functionality is completely disabled.
+            Set the value to \c{false} if you want to disable the filtering. If the filter
+            toolbar should be shown by default, set the attribute \c{visible} to \c{true}.
+        \row
+            \li \c{<enableDocumentationManager>}
+            \li Shows or hides the \gui Documentation tab in the \gui Preferences
+            dialog. Disabling the \gui Documentation tab allows you to limit
+            \QA to display a specific documentation set or make it impossible for the end user
+            to accidentally remove or install documentation. To hide the \gui Documentation tab,
+            set the tag value to \c{false}.
+        \row
+            \li \c{<enableAddressBar>}
+            \li Enables or disables the address bar functionality. By default it
+            is enabled. To disable it, set the tag value to \c{false}. If the
+            address bar functionality is enabled, the address bar can be shown by setting the
+            tag attribute \c{visible} to \c{true}.
+        \row
+            \li \c{<aboutMenuText>, <text>}
+            \li Lists localized versions for the \gui About menu item in the
+            \gui Help menu. For example, \gui {About Application}. The text is
+            specified within the \c{text} tags. The \c{language} attribute takes the two
+            letter language name. The text is used as the default text if no language
+            attribute is specified.
+        \row
+            \li \c{<aboutDialog>, <file>, <icon>}
+            \li Specifies the text for the \gui About dialog that can be opened
+            from the \gui Help menu. The text is taken from the
+            file in the \c{file} tags. It is possible to specify a different file or any
+            language. The icon defined by the \c{icon} tags is applied to any language.
+        \row
+            \li \c{<cacheDirectory base="collection > default">}
+            \li Specifies the cache directory that is used to store index files
+            needed for the full text search and a copy of the collection file.
+            The copy is needed because \QA stores all its settings in the
+            collection file, and therefore, it must be writable for the user.
+            The directory is specified as a relative path.
+            If the \c{base} attribute is set to "collection", the path is
+            relative to the directory the collection file resides in.
+            If the attribute is set to "default" or if it is missing,
+            the path is relative to the directory given by
+            QDesktopServices::DataLocation. The first form is useful for
+            collections that are used in a \e mobile way, such as carried around
+            on a USB stick.
+        \row
+            \li \c{<enableFullTextSearchFallback>}
+            \li Enables or disables the ability to fallback and use the full text
+            search if a keyword cannot be found in the index. This functionality
+            can be used while remote controlling \QA. To make it available for
+            remote control, set the tag value to \c{true}.
+    \endtable
+
+    In addition to those \QA specific tags, the tags for generating and registering
+    documentation can be used. See \l{Qt Help Collection Files} documentation for more information.
+
+    An example of a help collection file that uses all the available tags is shown below:
+
+    \snippet doc_src_assistant-manual.qdoc 1
+
+    To create the binary collection file, run the \c qcollectiongenerator tool:
+
+    \snippet doc_src_assistant-manual.qdoc 10
+
+    To test the generated collection file, start \QA in the following way:
+
+    \snippet doc_src_assistant-manual.qdoc 8
+
+    \section1 Using Qt Assistant Remotely
+
+    Even though the help viewer is a standalone application, it will mostly
+    be launched by the application it provides help for. This approach
+    gives the application the possibility to ask for specific help contents
+    to be displayed as soon as the help viewer is started. Another advantage
+    with this approach is that the application can communicate with the
+    help viewer process and can therefore request other help contents to be
+    shown depending on the current state of the application.
+
+    So, to use \QA as the custom help viewer of your application, simply
+    create a QProcess and specify the path to the \QA executable. In order
+    to make \QA listen to your application, turn on its remote control
+    functionality by passing the \c{-enableRemoteControl} command line option.
+
+    The following example shows how this can be done:
+
+    \snippet doc_src_assistant-manual.qdoc 2
+
+    Once \QA is running, you can send commands by using the stdin channel of
+    the process. The code snippet below shows how to tell \QA to show a certain
+    page in the documentation.
+
+    \snippet doc_src_assistant-manual.qdoc 3
+
+    \note The trailing newline character is required to mark the end
+    of the input.
+
+    The following commands can be used to control \QA:
+
+    \table
+        \header
+            \li Command
+            \li Brief Description
+        \row
+            \li \c{show <Widget>}
+            \li Shows the sidebar window (dock widget) specified by <Widget>. If the widget
+            is already shown and this command is sent again, the widget will be
+            activated, meaning that it will be raised and given the input focus.
+            Possible values for <Widget> are "contents", "index", "bookmarks" or "search".
+        \row
+            \li \c{hide <Widget>}
+            \li Hides the dock widget specified by <Widget>. Possible values for
+            <Widget> are "contents", "index", "bookmarks" and "search".
+        \row
+            \li \c{setSource <Url>}
+            \li Displays the given <Url>. The URL can be absolute or relative
+            to the currently displayed page. If the URL is absolute, it has to
+            be a valid Qt help system URL. That is, starting with "qthelp://".
+        \row
+            \li \c{activateKeyword <Keyword>}
+            \li Inserts the specified <Keyword> into the line edit of the
+            index dock widget and activates the corresponding item in the
+            index list. If such an item has more than one link associated
+            with it, a topic chooser will be shown.
+        \row
+            \li \c{activateIdentifier <Id>}
+            \li Displays the help contents for the given <Id>. An ID is unique
+            in each namespace and has only one link associated to it, so the
+            topic chooser will never pop up.
+        \row
+            \li \c{syncContents}
+            \li Selects the item in the contents widget which corresponds to
+            the currently displayed page.
+        \row
+            \li \c{setCurrentFilter <filter>}
+            \li Selects the specified filter and updates the visual representation
+            accordingly.
+        \row
+            \li \c{expandToc <Depth>}
+            \li Expands the table of contents tree to the given depth. If depth
+            is 0, the tree will be collapsed completely. If depth is -1,
+            the tree will be expanded completely.
+        \row
+            \li \c{register <help file>}
+            \li Adds the given Qt compressed help file to the collection.
+        \row
+            \li \c{unregister <help file>}
+            \li Removes the given Qt compressed help file from the collection.
+    \endtable
+
+    If you want to send several commands within a short period of time, it is
+    recommended that you write only a single line to the stdin of the process
+    instead of one line for every command. The commands have to be separated by
+    a semicolon, as shown in the following example:
+
+    \snippet doc_src_assistant-manual.qdoc 4
+
+    \section1 Compatibility with Old Formats
+
+    In Qt versions up to 4.3, the help system was based on Document Content File
+    (DCF) and Qt Assistant Documentation Profile (ADP) formats.
+    Unfortunately, the old file formats are not compatible with the new ones
+    that are described in this manual and that are used from Qt 4.4 on, also in Qt 5.
+    In general, the differences are not that big \mdash in most cases is the old
+    format is just a subset of the new one. One example is the \c namespace tag in
+    the Qt Help Project format, which was not part of the old format, but plays a vital
+    role in the new one. To help you to move to the new file format, we have created
+    a conversion wizard.
+
+    The wizard is started by executing \c qhelpconverter. It guides you through the
+    conversion of different parts of the file and generates a new \c qch or \c qhcp
+    file.
+
+    Once the wizard is finished and the files created, run the \c qhelpgenerator
+    or the \c qcollectiongenerator tool to generate the binary help files used by \QA.
+*/
+
+/*
+\section2 Modifying \QA with Command Line Options
+
+    Different help collections can be shown by simply passing the help collection
+    path to \QA. For example:
+
+    \snippet doc_src_assistant-manual.qdoc 0
+
+    Other available options the can be passed on the command line.
+
+    \table
+        \header
+            \li Command Line Option
+            \li Brief Description
+        \row
+            \li -collectionFile <file.qhc>
+            \li Uses the specified collection file instead of the default one.
+        \row
+            \li -showUrl URL
+            \li Shows the document referenced by URL.
+        \row
+            \li -enableRemoteControl
+            \li Enables \QA to be remotly controlled.
+        \row
+            \li -show <widget>
+            \li Shows the specified dockwidget which can be "contents", "index",
+            "bookmarks" or "search".
+        \row
+            \li -hide <widget>
+            \li Hides the specified dockwidget which can be "contents", "index",
+            "bookmarks" or "search.
+        \row
+            \li -activate <widget>
+            \li Activates the specified dockwidget which can be "contents",
+            "index", "bookmarks" or "search.
+        \row
+            \li -register <doc.qch>
+            \li Registers the specified compressed help file in the given help
+            collection.
+        \row
+            \li -unregister <doc.qch>
+            \li Unregisters the specified compressed help file from the given
+            collection file.
+        \row
+            \li -quiet
+            \li Doesn't show any error, warning or success messages.
+    \endtable
+    */

@@ -1,0 +1,113 @@
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/classes/iron-flex-layout.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-listbox/paper-listbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-slider/paper-slider.html">
+<link rel="import" href="/device_page/display_layout.html">
+<link rel="import" href="/device_page/display_overscan_dialog.html">
+<link rel="import" href="/settings_shared_css.html">
+
+<dom-module id="settings-display">
+  <template>
+    <style include="settings-shared">
+     .display-section {
+       align-self: flex-start;
+       font-size: 100%;
+       font-weight: 500;
+       margin: 10px 0;
+     }
+
+     .settings-box.embedded {
+       align-self: stretch;
+       margin-left: 20px;
+       padding: 0;
+     }
+
+     display-layout {
+       align-self: stretch;
+       flex: 1 1;
+       height: 300px;
+       margin: 10px;
+     }
+
+     .textarea {
+       margin: 10px 0;
+     }
+
+     .info-text {
+       color: var(--paper-grey-500);
+     }
+
+     .settings-box > paper-button:first-child {
+       padding-left: 0
+     }
+    </style>
+    <div class="settings-box first layout vertical self-stretch">
+      <div class="display-section">$i18n{displayArrangement}</div>
+      <display-layout id="displayLayout"
+          selected-display="[[selectedDisplay]]"
+          on-select-display="onSelectDisplay_">
+      </display-layout>
+    </div>
+    <div class="settings-box layout vertical">
+      <div class="display-section">[[selectedDisplay.name]]</div>
+      <div class="settings-box embedded first">
+        <paper-checkbox class="flex" checked="[[isMirrored_(displays)]]"
+            hidden$="[[!showMirror_(displays)]]" on-tap="onMirroredTap_">
+          $i18n{displayMirror}
+        </paper-checkbox>
+        <paper-button
+            hidden$="[[!showMakePrimary_(selectedDisplay, primaryDisplayId)]]"
+            on-tap="onMakePrimaryTap_">
+          $i18n{displayMakePrimary}
+        </paper-button>
+      </div>
+      <div class="settings-box embedded horizontal justified">
+        <div class="start textarea layout vertical">
+          <div>$i18n{displayResolutionTitle}</div>
+          <div class="info-text layout self-start">
+            [[getResolutionText_(selectedDisplay, immediateSelectedModeIndex_)]]
+          </div>
+        </div>
+        <paper-slider snaps max-markers="100" step="1"
+            disabled="[[!enableSetResolution_(selectedDisplay)]]"
+            min="0" max="[[maxModeIndex_]]"
+            value="[[selectedModeIndex_]]"
+            immediate-value="{{immediateSelectedModeIndex_}}"
+            on-change="onChangeMode_">
+        </paper-slider>
+      </div>
+      <div class="settings-box embedded">
+        <div class="start textarea">$i18n{displayOrientation}</div>
+        <paper-dropdown-menu>
+          <paper-listbox class="dropdown-content"
+              selected="[[selectedDisplay.rotation]]"
+              attr-for-selected="value"
+              on-iron-activate="onSetOrientation_">
+            <paper-item value="0">$i18n{displayOrientationStandard}
+            </paper-item>
+            <paper-item value="90">90</paper-item>
+            <paper-item value="180">180</paper-item>
+            <paper-item value="270">270</paper-item>
+          </paper-listbox>
+        </paper-dropdown-menu>
+      </div>
+      <div class="settings-box embedded"
+          hidden$="[[selectedDisplay.isInternal]]">
+        <paper-button disabled="[[selectedDisplay.isInternal]]"
+            on-tap="onOverscanTap_">
+          $i18n{displayOverscanPageTitle}
+        </paper-button>
+      </div>
+
+      <settings-display-overscan-dialog id="displayOverscan"
+          display-id="{{overscanDisplayId}}">
+      </settings-display-overscan-dialog>
+
+    </div>
+  </template>
+  <script src="display.js"></script>
+</dom-module>

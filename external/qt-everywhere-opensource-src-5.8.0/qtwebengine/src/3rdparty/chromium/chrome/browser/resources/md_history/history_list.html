@@ -1,0 +1,69 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-list/iron-list.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-scroll-threshold/iron-scroll-threshold.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-item/paper-item.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_shared_menu/cr_shared_menu.html">
+<link rel="import" href="chrome://history/browser_service.html">
+<link rel="import" href="chrome://history/constants.html">
+<link rel="import" href="chrome://history/history_item.html">
+<link rel="import" href="chrome://history/shared_style.html">
+
+<dom-module id="history-list">
+  <template>
+    <style include="shared-style">
+      :host {
+        display: block;
+      }
+
+      #infinite-list {
+        height: 100%;
+      }
+
+      paper-item {
+        -webkit-user-select: none;
+        cursor: pointer;
+        font: inherit;
+        white-space: nowrap;
+      }
+
+      paper-item:hover {
+        background: #eaeaea;
+      }
+
+      history-item {
+        --history-item-padding-side: var(--card-padding-side);
+      }
+    </style>
+    <div id="no-results" class="centered-message"
+        hidden$="[[hasResults(historyData_.length)]]">
+      {{noResultsMessage_(searchedTerm, querying)}}
+    </div>
+    <iron-list items="{{historyData_}}" as="item" id="infinite-list"
+        hidden$="[[!hasResults(historyData_.length)]]">
+      <template>
+        <history-item item="[[item]]"
+            starred="[[item.starred]]"
+            selected="{{item.selected}}"
+            is-first-item="[[isFirstItem_(index)]]"
+            is-card-start="[[isCardStart_(item, index, historyData_.length)]]"
+            is-card-end="[[isCardEnd_(item, index, historyData_.length)]]"
+            has-time-gap="[[needsTimeGap_(item, index, historyData_.length)]]"
+            search-term="[[searchedTerm]]"
+            number-of-items="[[historyData_.length]]">
+        </history-item>
+      </template>
+    </iron-list>
+    <iron-scroll-threshold id="scroll-threshold" scroll-target="infinite-list"
+        lower-threshold="500" on-lower-threshold="loadMoreData_">
+    </iron-scroll-threshold>
+    <cr-shared-menu id="sharedMenu">
+      <paper-item id="menuMoreButton" on-tap="onMoreFromSiteTap_">
+        $i18n{moreFromSite}
+      </paper-item>
+      <paper-item id="menuRemoveButton" on-tap="onRemoveFromHistoryTap_">
+        $i18n{removeFromHistory}
+      </paper-item>
+    </cr-shared-menu>
+  </template>
+  <script src="chrome://history/history_list.js"></script>
+</dom-module>

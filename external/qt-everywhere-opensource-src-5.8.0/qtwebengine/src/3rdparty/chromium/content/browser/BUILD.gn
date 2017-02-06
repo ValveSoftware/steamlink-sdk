@@ -1,0 +1,531 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//content/browser/browser.gni")
+import("//media/media_options.gni")
+import("//tools/ipc_fuzzer/ipc_fuzzer.gni")
+
+source_set("browser") {
+  # Only the public target should depend on this. All other targets (even
+  # internal content ones) should depend on the public one.
+  visibility = [
+    ":for_content_tests",  # See top of //content/BUILD.gn for why.
+    "//content/public/browser:browser_sources",
+  ]
+
+  configs += [
+    "//build/config:precompiled_headers",
+    "//content:content_implementation",
+    "//content/public/common:mojo_shell_client",
+    "//third_party/WebKit/public:debug_devtools",
+    "//v8:external_startup_data",
+  ]
+  defines = []
+  libs = []
+  ldflags = []
+
+  deps = [
+    "//base",
+    "//base:base_static",
+    "//base/third_party/dynamic_annotations",
+    "//cc",
+    "//cc/surfaces",
+    "//components/display_compositor",
+    "//components/filesystem:lib",
+    "//components/leveldb:lib",
+    "//components/link_header_util",
+    "//components/mime_util",
+    "//components/scheduler:common",
+    "//components/tracing",
+    "//components/tracing:startup_tracing",
+    "//components/url_formatter",
+    "//components/webmessaging",
+    "//content:resources",
+    "//content/app/resources",
+    "//content/app/strings",
+    "//content/browser/background_sync:background_sync_proto",
+    "//content/browser/cache_storage:cache_storage_proto",
+    "//content/browser/devtools:gen_devtools_protocol_handler",
+    "//content/browser/devtools:resources",
+    "//content/browser/notifications:notification_proto",
+    "//content/browser/service_worker:service_worker_proto",
+    "//content/browser/speech/proto",
+    "//content/common",
+    "//content/public/common:common_sources",
+    "//crypto",
+    "//device/battery",
+    "//device/bluetooth",
+    "//device/gamepad",
+    "//device/power_save_blocker",
+    "//device/vibration",
+    "//gin",
+    "//google_apis",
+    "//gpu",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//gpu/command_buffer/client:gles2_interface",
+    "//media",
+    "//media/capture",
+    "//media/gpu/ipc/client",
+    "//media/midi",
+    "//media/mojo/interfaces:image_capture",
+    "//mojo/common",
+    "//mojo/edk/system",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/js",
+    "//net",
+    "//net:extras",
+    "//services/shell",
+    "//services/shell/public/cpp",
+    "//services/shell/public/interfaces",
+    "//services/shell/runner/common",
+    "//services/shell/runner/host:lib",
+    "//services/user:lib",
+    "//services/user/public/cpp",
+    "//services/user/public/interfaces",
+    "//skia",
+    "//sql",
+    "//storage/browser",
+    "//storage/common",
+    "//third_party/WebKit/public:blink_headers",
+    "//third_party/WebKit/public:image_resources",
+    "//third_party/WebKit/public:mojo_bindings",
+    "//third_party/WebKit/public:resources",
+    "//third_party/angle:angle_common",
+    "//third_party/icu",
+    "//third_party/kasko:kasko_features",
+    "//third_party/libyuv",
+    "//third_party/re2",
+    "//third_party/zlib",
+    "//third_party/zlib:zip",
+    "//ui/accessibility",
+    "//ui/accessibility:ax_gen",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/display",
+    "//ui/events",
+    "//ui/events:gesture_detection",
+    "//ui/events/blink",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gfx/geometry/mojo",
+    "//ui/gl",
+    "//ui/native_theme",
+    "//ui/resources",
+    "//ui/shell_dialogs",
+    "//ui/snapshot",
+    "//ui/surface",
+    "//ui/touch_selection",
+  ]
+
+  public_deps = [
+    "//third_party/leveldatabase",
+  ]
+
+  sources = rebase_path(content_browser_gypi_values.private_browser_sources,
+                        ".",
+                        "//content")
+
+  # TODO(GYP_GONE) these generated files are listed as sources in
+  # content_browser.  This is a bit suspicious. The GN grit template will make
+  # a source set containing the generated code so it should be sufficient to
+  # just depend on the grit rule. But maybe some of these will need to be
+  # added?
+  #
+  # Need this annoying rebase_path call to match what happened with the
+  # sources.
+  sources -= rebase_path(
+          [
+            "$root_gen_dir/blink/grit/devtools_resources.h",
+            "$root_gen_dir/blink/grit/devtools_resources_map.cc",
+            "$root_gen_dir/blink/grit/devtools_resources_map.h",
+            "$root_gen_dir/content/browser/tracing/grit/tracing_resources.h",
+            "$root_gen_dir/ui/resources/grit/webui_resources_map.cc",
+          ],
+          ".")
+
+  if (toolkit_views) {
+    deps += [ "//ui/events" ]
+  }
+
+  if (!is_win) {
+    sources += [
+      "file_descriptor_info_impl.cc",
+      "file_descriptor_info_impl.h",
+    ]
+    sources -= [ "renderer_host/web_input_event_aurawin.cc" ]
+  }
+
+  if (enable_basic_printing || enable_print_preview) {
+    deps += [ "//printing" ]
+  }
+
+  if (!is_mac) {
+    deps += [ "//sandbox" ]
+  }
+  if (!is_android) {
+    deps += [ "//content/browser/tracing:resources" ]
+  }
+  if ((use_udev && is_posix) || is_mac || is_win) {
+    deps += [ "//tools/battor_agent:battor_agent_lib" ]
+    sources += [
+      "tracing/power_tracing_agent.cc",
+      "tracing/power_tracing_agent.h",
+    ]
+  }
+
+  if (enable_webrtc) {
+    sources += rebase_path(content_browser_gypi_values.webrtc_browser_sources,
+                           ".",
+                           "//content")
+    deps += [
+      "//jingle:jingle_glue",
+      "//third_party/libjingle:libjingle_webrtc",
+      "//third_party/webrtc",
+      "//third_party/webrtc/base:rtc_base",
+      "//third_party/webrtc/modules/desktop_capture:primitives",
+    ]
+    if (is_linux || is_mac || is_win) {
+      sources += [
+        "media/capture/desktop_capture_device.cc",
+        "media/capture/desktop_capture_device.h",
+      ]
+      if (use_aura) {
+        sources += [
+          "media/capture/aura_window_capture_machine.cc",
+          "media/capture/aura_window_capture_machine.h",
+          "media/capture/desktop_capture_device_aura.cc",
+          "media/capture/desktop_capture_device_aura.h",
+        ]
+      }
+      defines += [ "ENABLE_SCREEN_CAPTURE=1" ]
+      deps += [ "//third_party/webrtc/modules/desktop_capture" ]
+    }
+  }
+
+  if (is_win) {
+    sources -= [
+      "device_sensors/data_fetcher_shared_memory_default.cc",
+      "geolocation/empty_wifi_data_provider.cc",
+    ]
+    defines += [
+      # This prevents the inclusion of atlhost.h which paired
+      # with the windows 8 sdk it does the wrong thing.
+      "__ATLHOST_H__",
+    ]
+    deps += [
+      "//third_party/iaccessible2",
+      "//third_party/isimpledom",
+    ]
+    libs += [
+      "comctl32.lib",
+      "dinput8.lib",
+      "dwmapi.lib",
+      "dxguid.lib",
+      "imm32.lib",
+      "oleacc.lib",
+      "sensorsapi.lib",
+      "portabledeviceguids.lib",
+    ]
+
+    # TODI(GYP)
+    #       'msvs_settings': {
+    #         'VCLinkerTool': {
+    #           'DelayLoadDLLs': [
+    #             'dinput8.dll',
+    #             'user32.dll',
+    #             'dwmapi.dll',
+    #           ],
+  }
+
+  if (use_udev) {
+    deps += [
+      "//device/udev_linux",
+      "//media/capture",
+    ]
+  }
+
+  if (enable_plugins) {
+    sources += rebase_path(content_browser_gypi_values.plugin_browser_sources,
+                           ".",
+                           "//content")
+    deps += [
+      "//ppapi/host",
+      "//ppapi/proxy",
+      "//ppapi/proxy:ipc",
+      "//ppapi/shared_impl",
+    ]
+    if (!use_ozone || use_pango) {
+      sources -= [ "renderer_host/pepper/pepper_truetype_font_list_ozone.cc" ]
+    }
+    if (!use_pango) {
+      sources -= [ "renderer_host/pepper/pepper_truetype_font_list_pango.cc" ]
+    }
+  }
+
+  if (use_atk) {
+    sources +=
+        rebase_path(content_browser_gypi_values.auralinux_browser_sources,
+                    ".",
+                    "//content")
+
+    configs += [
+      "//build/config/linux/atk",
+      "//build/config/linux/atk:warnings",
+      "//build/config/linux/gconf",
+      "//build/config/linux:glib",
+    ]
+  }
+
+  if (is_linux && use_aura) {
+    deps += [ "//build/linux:fontconfig" ]
+  }
+
+  if (use_x11) {
+    configs += [ "//build/config/linux:x11" ]
+    deps += [ "//ui/gfx/x" ]
+  }
+
+  # Dealing with *wifi_data_provider_*.cc is also a bit complicated given
+  # android, chromeos, linux and use_dbus.
+  if (is_android) {
+    sources -= [ "geolocation/wifi_data_provider_common.cc" ]
+  }
+  if (is_chromeos || (is_linux && !use_dbus)) {
+    sources -= [ "geolocation/wifi_data_provider_linux.cc" ]
+  }
+  if (is_linux && use_dbus) {
+    sources -= [ "geolocation/empty_wifi_data_provider.cc" ]
+  }
+
+  if (use_pango) {
+    configs += [ "//build/config/linux/pangocairo" ]
+  }
+
+  if (is_android) {
+    sources += rebase_path(content_browser_gypi_values.android_browser_sources,
+                           ".",
+                           "//content")
+    sources -= [
+      "browser_ipc_logging.cc",
+      "device_sensors/data_fetcher_shared_memory_default.cc",
+      "geolocation/network_location_provider.cc",
+      "geolocation/network_location_provider.h",
+      "geolocation/network_location_request.cc",
+      "geolocation/network_location_request.h",
+      "media/session/media_session_delegate_default.cc",
+      "power_usage_monitor_impl.cc",
+      "power_usage_monitor_impl.h",
+      "tracing/tracing_ui.cc",
+      "tracing/tracing_ui.h",
+
+      # Android skips most, but not all, of the speech code.
+      "speech/audio_buffer.cc",
+      "speech/audio_buffer.h",
+      "speech/audio_encoder.cc",
+      "speech/audio_encoder.h",
+      "speech/chunked_byte_buffer.cc",
+      "speech/chunked_byte_buffer.h",
+      "speech/endpointer/endpointer.cc",
+      "speech/endpointer/endpointer.h",
+      "speech/endpointer/energy_endpointer.cc",
+      "speech/endpointer/energy_endpointer.h",
+      "speech/endpointer/energy_endpointer_params.cc",
+      "speech/endpointer/energy_endpointer_params.h",
+      "speech/speech_recognition_engine.cc",
+      "speech/speech_recognition_engine.h",
+      "speech/speech_recognizer_impl.cc",
+      "speech/speech_recognizer_impl.h",
+    ]
+    deps -= [ "//device/battery" ]
+    deps += [
+      "//content/public/android:jni",
+      "//media",
+      "//media/capture/video/android",
+      "//media/mojo/interfaces",
+      "//mojo/android:libsystem_java",
+      "//ui/android",
+    ]
+    defines += [ "APPCACHE_USE_SIMPLE_CACHE" ]
+    libs += [ "jnigraphics" ]
+  }
+
+  if (is_mac) {
+    sources -= [
+      "device_sensors/data_fetcher_shared_memory_default.cc",
+      "geolocation/empty_wifi_data_provider.cc",
+      "geolocation/empty_wifi_data_provider.h",
+    ]
+    deps += [
+      "//media",
+      "//sandbox/mac:sandbox",
+      "//third_party/mozilla",
+      "//third_party/sudden_motion_sensor",
+      "//ui/accelerated_widget_mac",
+    ]
+    libs += [
+      "Carbon.framework",
+      "QuartzCore.framework",
+      "IOSurface.framework",
+    ]
+  }
+
+  if (is_chromeos) {
+    sources -= [ "device_sensors/data_fetcher_shared_memory_default.cc" ]
+    deps += [
+      "//chromeos",
+      "//chromeos:power_manager_proto",
+    ]
+  }
+
+  if (use_aura) {
+    deps += [
+      "//components/bitmap_uploader",
+      "//components/mus/common:mus_common",
+      "//components/mus/public/cpp",
+      "//components/mus/public/interfaces",
+      "//ui/aura",
+      "//ui/aura_extra",
+      "//ui/strings",
+      "//ui/wm",
+    ]
+    sources += [
+      "compositor/software_output_device_mus.cc",
+      "compositor/software_output_device_mus.h",
+      "renderer_host/render_widget_host_view_mus.cc",
+      "renderer_host/render_widget_host_view_mus.h",
+      "web_contents/web_contents_view_mus.cc",
+      "web_contents/web_contents_view_mus.h",
+    ]
+    if (toolkit_views) {
+      defines += [ "MOJO_RUNNER_CLIENT" ]
+    }
+  } else {  # Not aura.
+    sources -= [
+      "media/capture/cursor_renderer_aura.cc",
+      "media/capture/cursor_renderer_aura.h",
+      "media/capture/window_activity_tracker_aura.cc",
+      "media/capture/window_activity_tracker_aura.h",
+      "renderer_host/compositor_resize_lock_aura.cc",
+      "renderer_host/compositor_resize_lock_aura.h",
+      "renderer_host/input/synthetic_gesture_target_aura.cc",
+      "renderer_host/input/synthetic_gesture_target_aura.h",
+      "renderer_host/input/touch_selection_controller_client_aura.cc",
+      "renderer_host/input/touch_selection_controller_client_aura.h",
+      "renderer_host/native_web_keyboard_event_aura.cc",
+      "renderer_host/render_widget_host_view_aura.cc",
+      "renderer_host/render_widget_host_view_aura.h",
+      "renderer_host/ui_events_helper.cc",
+      "renderer_host/ui_events_helper.h",
+      "renderer_host/web_input_event_aura.cc",
+      "renderer_host/web_input_event_aura.h",
+      "web_contents/aura/gesture_nav_simple.cc",
+      "web_contents/aura/gesture_nav_simple.h",
+      "web_contents/aura/overscroll_navigation_overlay.cc",
+      "web_contents/aura/overscroll_navigation_overlay.h",
+      "web_contents/aura/overscroll_window_animation.cc",
+      "web_contents/aura/overscroll_window_animation.h",
+      "web_contents/aura/overscroll_window_delegate.cc",
+      "web_contents/aura/overscroll_window_delegate.h",
+      "web_contents/aura/shadow_layer_delegate.cc",
+      "web_contents/aura/shadow_layer_delegate.h",
+      "web_contents/web_contents_view_aura.cc",
+      "web_contents/web_contents_view_aura.h",
+    ]
+  }
+
+  if (use_aura || is_mac) {
+    sources +=
+        rebase_path(content_browser_gypi_values.compositor_browser_sources,
+                    ".",
+                    "//content")
+    if (enable_vulkan) {
+      sources += [
+        "compositor/vulkan_browser_compositor_output_surface.cc",
+        "compositor/vulkan_browser_compositor_output_surface.h",
+      ]
+    }
+    if (!use_x11) {
+      sources -= [
+        "compositor/software_output_device_x11.cc",
+        "compositor/software_output_device_x11.h",
+      ]
+    }
+
+    if (!use_ozone) {
+      sources -= [
+        "compositor/software_output_device_ozone.cc",
+        "compositor/software_output_device_ozone.h",
+      ]
+    }
+    deps += [ "//ui/compositor" ]
+  }
+
+  if (enable_web_speech) {
+    deps += [ "//third_party/flac" ]
+  }
+
+  if (is_linux && use_dbus) {
+    deps += [ "//dbus" ]
+  }
+
+  if (enable_browser_cdms) {
+    sources += [
+      "media/cdm/browser_cdm_manager.cc",
+      "media/cdm/browser_cdm_manager.h",
+    ]
+  }
+
+  if (is_linux) {
+    deps += [ "//third_party/boringssl" ]
+  }
+
+  if (enable_mojo_media) {
+    configs += [ "//media/mojo/services:mojo_media_config" ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+
+  if (!is_mac && !is_android) {
+    sources -= [
+      "gpu/gpu_surface_tracker.cc",
+      "gpu/gpu_surface_tracker.h",
+    ]
+  }
+
+  if (enable_webvr) {
+    deps += [ "//device/vr" ]
+  }
+
+  if (enable_ipc_fuzzer) {
+    configs += [ "//tools/ipc_fuzzer:ipc_fuzzer_config" ]
+  }
+
+  if (use_qt && is_linux) {
+    sources -= [
+      "renderer_host/native_web_keyboard_event_aura.cc",
+      "renderer_host/render_widget_host_view_aura.cc",
+      "renderer_host/render_widget_host_view_aura.h",
+      "web_contents/web_contents_view_aura.h",
+      "web_contents/web_contents_view_aura.cc",
+    ]
+  }
+}
+
+# See comment at the top of //content/BUILD.gn for how this works.
+group("for_content_tests") {
+  visibility = [ "//content/test/*" ]
+  if (!is_component_build) {
+    public_deps = [
+      ":browser",
+    ]
+  } else {
+    public_deps = [
+      "//third_party/leveldatabase",
+    ]
+  }
+}

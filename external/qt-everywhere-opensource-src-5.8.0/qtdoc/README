@@ -1,0 +1,94 @@
+To Generate Qt Documentation:
+
+qtdoc contains the main Qt Reference Documentation, which includes
+overviews, Qt topics, and examples not specific to any Qt module.The
+configuration files are located in qtdoc/doc/config and the articles in
+qtdoc/doc/src. Note that QDoc is located in qtbase.
+
+The instructions in this file assumes that the prerequisite binaries are
+compiled and in the $PATH variable.
+
+Prerequisites:
+    * qtbase exists
+    * "qmake" and "qdoc" compiled and installed
+    * other Qt repositories exist as needed
+
+The Qt Reference Documentation were written with links to the released modules
+for Qt 5. If the modules and repositories do not exist, then the resulting HTML
+files will contain broken links.
+
+There are two ways to build the documentation. One way is to compile the
+documentation using QDoc and the configuration file (qdocconf) file. The other
+way is to use qmake by running "make docs".
+
+Section 1 Building the qdocconf File
+
+    This method is useful for building separate projects without any
+    dependencies to other projects.
+
+    To build using the qdocconf file, run the "qdoc" binary and pass the
+    qdocconf file as a parameter. "qdoc" is found in qtbase repository. A
+    mandatory "outputdir" must be specified.
+
+        $> qdoc doc/config/qtdoc.qdocconf -outputdir html
+
+    Note that QDoc will delete the contents of the "html" output directory.
+
+Section 2 Building using make
+
+    QMake uses the QT_INSTALL_DOCS variable to determine where the documentation
+    for Qt 5 are installed. This method is useful for linking to other Qt
+    modules.
+
+    To see where the documentation will be installed, run:
+    $> qmake -query
+
+    To generate the documentation, run:
+
+    $> cd qtdoc  #or whichever repository's root
+    $> qmake
+    $> make docs
+
+    "make docs" also works in the main Qt 5 repository. Running the command
+    there will generate the documentation for Qt 5 and install them to the
+    path set to the QT_INSTALL_DOCS variable.
+
+Section 3 Building Qt Documentation
+
+    To build the Qt module documentation along with the Qt Reference Documentation,
+    run the following:
+
+    $> cd qt5  #the main qt5.git directory
+    $> make qmake_all  #creates Makefiles for each repository
+    $> make docs
+
+    To generate only HTML files, run "make html_docs" instead of "make docs"
+
+Section 4 Packaging the Documentation
+
+    To package the documentation for Qt Assistant, the HTML files must be
+    compiled into a QCH file (.qch).
+
+    Required binaries:
+    * assistant - found in qttools
+    * qhelpgenerator - found in qttools
+
+    To compile thq qch file for each module, first enter the output directory
+    which contains the .qhp file and generate the QCH file.
+
+    $> cd qtbase/doc/qtdoc              #the default path for QT_INSTALL_DOCS for qtdoc
+    $> qhelpgenerator qtdoc.qhp         #creates the QCH file called qtdoc.qch
+
+    Alternatively, modules have a "qch_docs" target:
+    $> cd qtbase
+    $> make qch_docs #builds the QCH files for modules in qtbase
+
+    The QCH file can then be loaded in Qt Assistant or Qt Creator. For Qt
+    Assistant, the QCH file may be registered to automatically load it.
+
+    $> assistant -register qtdoc.qch    #to automatically load the documentation
+
+Section 5 More Information
+
+For more information about Qt 5's documentation, refer to the Qt Project wiki:
+http://wiki.qt.io/Qt5DocumentationProject

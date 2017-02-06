@@ -1,0 +1,79 @@
+{% from "enum_macros.tmpl" import enum_decl -%}
+
+class {{struct.name}} {
+ public:
+  using DataView = {{struct.name}}DataView;
+  using Data_ = internal::{{struct.name}}_Data;
+
+{#--- Enums #}
+{%- for enum in struct.enums -%}
+{%-   if enum|is_native_only_kind %}
+  using {{enum.name}} = mojo::NativeEnum;
+{%-   else %}
+  {{enum_decl(enum)|indent(2)}}
+{%-   endif %}
+{%- endfor %}
+
+{#--- Constants #}
+{%- for constant in struct.constants %}
+{%-   if constant.kind|is_integral_kind %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}} = {{constant|constant_value}};
+{%-   else %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}};
+{%-   endif %}
+{%- endfor %}
+
+  static {{struct.name}}Ptr New();
+
+  template <typename U>
+  static {{struct.name}}Ptr From(const U& u) {
+    return mojo::TypeConverter<{{struct.name}}Ptr, U>::Convert(u);
+  }
+
+  template <typename U>
+  U To() const {
+    return mojo::TypeConverter<U, {{struct.name}}>::Convert(*this);
+  }
+
+  {{struct.name}}();
+  ~{{struct.name}}();
+
+  // Clone() is a template so it is only instantiated if it is used. Thus, the
+  // bindings generator does not need to know whether Clone() or copy
+  // constructor/assignment are available for members.
+  template <typename StructPtrType = {{struct.name}}Ptr>
+  {{struct.name}}Ptr Clone() const;
+
+  // Equals() is a template so it is only instantiated if it is used. Thus, the
+  // bindings generator does not need to know whether Equals() or == operator
+  // are available for members.
+  template <typename T,
+            typename std::enable_if<std::is_same<
+                T, {{struct.name}}>::value>::type* = nullptr>
+  bool Equals(const T& other) const;
+
+{%- set serialization_result_type = "mojo::WTFArray<uint8_t>"
+        if for_blink else "mojo::Array<uint8_t>" %}
+
+  template <typename UserType>
+  static {{serialization_result_type}} Serialize(UserType* input) {
+    return mojo::internal::StructSerializeImpl<
+        {{struct.name}}Ptr, {{serialization_result_type}}>(input);
+  }
+
+  template <typename UserType>
+  static bool Deserialize({{serialization_result_type}} input,
+                          UserType* output) {
+    return mojo::internal::StructDeserializeImpl<
+        {{struct.name}}Ptr, {{serialization_result_type}}>(
+            std::move(input), output);
+  }
+
+{#--- Struct members #}
+{%  for field in struct.fields %}
+{%-   set type = field.kind|cpp_wrapper_type %}
+{%-   set name = field.name %}
+  {{type}} {{name}};
+{%- endfor %}
+};
+

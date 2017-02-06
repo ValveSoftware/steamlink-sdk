@@ -1,0 +1,194 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example itemmodel
+    \title Item Model Example
+    \ingroup qtdatavisualization_examples
+    \brief Using an item model as data source for Q3DBars.
+
+    The item model example shows how to make a simple 3D bar graph using Q3DBars and how to modify
+    the data being drawn at run-time. The example shows how to:
+
+    \list
+        \li Create an application with Q3DBars and widgets
+        \li Use QItemModelBarDataProxy to set data to the graph
+        \li Use a table widget to modify the data in the graph
+    \endlist
+
+    For instructions about how to interact with the graph, see \l{Qt Data Visualization Interacting with Data}{this page}.
+
+    \image itemmodel-example-2.png
+
+    \include examples-run.qdocinc
+
+    \section1 Creating the Application
+
+    First, in main.cpp, we create a QApplication, instantiate Q3DBars and a window container for it:
+
+    \snippet itemmodel/main.cpp 0
+
+    The call to QWidget::createWindowContainer is required, as all data visualization graph classes
+    (Q3DBars, Q3DScatter, and Q3DSurface) inherit QWindow. Any class inheriting QWindow cannot be used
+    as a widget any other way.
+
+    Then we'll create a layout and add the graph and the table widget into it:
+
+    \snippet itemmodel/main.cpp 1
+
+    The table widget is going to be used to display the numerical data being inserted into the
+    graph, and to modify it (See \l {Adding data to the graph} and \l {Interacting with the data}).
+
+    We need to instantiate QItemModelBarDataProxy and a QBar3DSeries for it, and give the series
+    to the graph:
+
+    \snippet itemmodel/main.cpp 2
+
+    Here we tell the proxy to directly map the model's rows and columns into the proxy's rows and
+    columns instead of defining row and column roles to map for them. Then we give the model from
+    the table widget to the proxy. We also create a series instance and set the proxy to it.
+    We customize the series visuals a bit by changing the object mesh to pyramids, and finally
+    add the series to the graph.
+
+    Next, let's create another class to handle the data addition and other interaction with the
+    graph. Let's call it \c GraphDataGenerator (See \l {Setting up the graph} and
+    \l {Adding data to the graph} for details) and connect some signals between QBar3DSeries,
+    \c GraphDataGenerator, and QTableWidget (See \l {Interacting with the data} for a closer look):
+
+    \snippet itemmodel/main.cpp 3
+
+    The application main is done and we can show the graph and start the event loop:
+
+    \snippet itemmodel/main.cpp 4
+
+    \section1 Setting up the Graph
+
+    Let's set up the visual attributes for the graph in the constructor of \c GraphDataGenerator:
+
+    \snippet itemmodel/main.cpp 5
+    \snippet itemmodel/main.cpp 6
+    \snippet itemmodel/main.cpp 7
+
+    First we set bar thickness ratio to 1.0, which means bars will be as wide as they are deep. 1.0
+    is also the default value, so the line is basically unnecessary. It's left there so you could
+    easily try how changing it affects the graph. The second line sets bar spacings to 0.2, which
+    means there will be a gap of 20% of the bar's thickness between the bars in both directions.
+
+    We want to be able to select rows of data for a closer inspection, so we set the selection mode
+    to slice item and row. This means that whenever we select a bar in the graph, the whole row will be
+    displayed separately and the selected bar will be highlighted.
+
+    We don't want to use the default colors, so we set one of the predefined themes as the active theme.
+
+    Next line sets the font to \c Impact. If your system doesn't have it, it will be replaced by
+    the system default.
+
+    And finally, we set the camera position to one of the predefined camera positions.
+    Now the initial graph settings are done.
+
+    \note You do not need to set any of these in case you're happy with the defaults. You can
+    easily try them by commenting out the contents of the constructor.
+
+    \section1 Adding Data to the Graph
+
+    We created the data generator in the application main and gave it the graph and the table
+    widget as parameters:
+
+    \code GraphDataGenerator generator(graph, tableWidget); \endcode
+
+    We added a separate start method to the generator, so that it wouldn't start doing anything
+    until everything else is set up. We then called the method when starting the application:
+
+    \code generator.start(); \endcode
+
+    Let's have a look at the contents of the \c start() method:
+
+    \snippet itemmodel/main.cpp 8
+
+    The main thing \c start() does is set up the data model. It also activates a timer for getting
+    the accurate dimensions of the table widget after it's been filled with data. The reason we
+    do this is that the widget doesn't know its final visual domensions until all the data has been
+    inserted to it and it has been shown. The data timer usage is not vital for the
+    application, so we won't take a closer look at it. It's just there to make QTableWidget look better.
+
+    In \c setupModel() we first introduce the row and column labels, and the actual data:
+
+    \snippet itemmodel/main.cpp 9
+
+    Then we set up the axes:
+
+    \snippet itemmodel/main.cpp 10
+
+    Next we will set up the table widget:
+
+    \snippet itemmodel/main.cpp 11
+
+    After that all that's left is adding the data to the table widget:
+
+    \snippet itemmodel/main.cpp 12
+
+    Now we have a bar graph and a table widget, both displaying the same data.
+
+    You're probably wondering how the data can be displayed in the graph, as the only thing we did
+    was add it to the table widget? That's because of what we did earlier, in the application main:
+
+    \snippet itemmodel/main.cpp 2
+
+    We created QItemModelBarDataProxy instance, and gave the proxy the model of the table widget
+    we just created. The proxy maps the rows and the columns in the model of the table widget into
+    rows and columns for itself directly, as we set the QItemModelBarDataProxy::useModelCategories
+    property to true, and the graph gets the data to be displayed via the series that owns the proxy.
+
+    \section1 Interacting with the Data
+
+    We made a couple of signal connections in the application main earlier:
+
+    \snippet itemmodel/main.cpp 3
+
+    Now we'll find out what these were for.
+
+    The first one connects a signal from Q3DBars to the \c GraphDataGenerator. Signal
+    QBar3DSeries::selectedBarChanged() is emitted when a bar is selected from the series. We connect
+    that to a method in the data generator that selects the same data item in the table widget:
+
+    \snippet itemmodel/main.cpp 13
+
+    The second connection does the opposite; it connects a signal from the table widget to a
+    method in the data generator. The method then selects the corresponding bar in the series:
+
+    \snippet itemmodel/main.cpp 14
+
+    You can even select an item in the widget and change the value of it, and the new value is
+    updated to the graph. This is handled again by the proxy with mapping between the data
+    in the table widget and itself.
+
+    \image itemmodel-example.png
+
+    \section1 Example Contents
+*/

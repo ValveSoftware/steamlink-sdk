@@ -1,0 +1,335 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("views.gyp") ],
+                          "scope",
+                          [ "views.gyp" ])
+
+config("flags") {
+  defines = [ "TOOLKIT_VIEWS=1" ]
+}
+
+component("views") {
+  all_dependent_configs = [ ":flags" ]
+  sources = gypi_values.views_sources
+
+  configs += [
+    "//build/config:precompiled_headers",
+
+    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+    "//build/config/compiler:no_size_t_to_int_warning",
+  ]
+
+  defines = [ "VIEWS_IMPLEMENTATION" ]
+
+  deps = [
+    "//base:i18n",
+    "//base/third_party/dynamic_annotations",
+    "//skia",
+    "//third_party/icu",
+    "//ui/accessibility",
+    "//ui/display",
+    "//ui/native_theme",
+    "//ui/resources",
+    "//ui/strings",
+    "//ui/views/resources",
+    "//url",
+  ]
+
+  public_deps = [
+    "//base",
+    "//ui/accessibility:ax_gen",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/events",
+    "//ui/events:events_base",
+    "//ui/events/platform",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/views/resources",
+  ]
+
+  if (use_x11 && !is_chromeos) {
+    deps += [ "//ui/display/util" ]
+  }
+  if (is_linux && !is_chromeos) {
+    sources -= [ "window/window_button_order_provider.cc" ]
+    deps += [ "//ui/shell_dialogs" ]
+  } else {
+    sources -= [
+      "linux_ui/linux_ui.cc",
+      "linux_ui/linux_ui.h",
+      "linux_ui/window_button_order_observer.h",
+      "linux_ui/window_button_order_provider.cc",
+    ]
+  }
+
+  if (is_chromeos) {
+    sources -= [
+      "controls/menu/menu_config_linux.cc",
+      "linux_ui/status_icon_linux.cc",
+      "linux_ui/status_icon_linux.h",
+    ]
+  }
+
+  if (is_win) {
+    sources += gypi_values.views_win_sources
+    libs = [
+      "dwmapi.lib",
+      "imm32.lib",
+      "oleacc.lib",
+      "wtsapi32.lib",
+    ]
+    ldflags = [ "/DELAYLOAD:user32.dll" ]
+    deps += [
+      "//third_party/iaccessible2",
+      "//third_party/wtl",
+    ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+  if (use_x11) {
+    configs += [
+      "//build/config/linux:x11",
+      "//build/config/linux:xrandr",
+    ]
+    deps += [
+      "//ui/events/devices",
+      "//ui/events/devices/x11",
+      "//ui/events/platform/x11",
+      "//ui/gfx/x",
+    ]
+  }
+
+  if (use_aura) {
+    sources += gypi_values.views_aura_sources
+    deps += [
+      "//ui/aura",
+      "//ui/touch_selection",
+      "//ui/wm",
+    ]
+    if (!is_chromeos) {
+      sources += gypi_values.views_desktop_aura_sources
+      if (use_x11) {
+        sources += gypi_values.views_desktop_aura_x11_sources
+        configs += [ "//ui/accessibility:atk" ]
+      } else if (is_win) {
+        sources += gypi_values.views_desktop_aura_win_sources
+      } else if (use_ozone) {
+        sources += gypi_values.views_desktop_aura_ozone_sources
+      }
+      if (is_linux) {
+        sources += gypi_values.views_desktop_aura_linux_sources
+      }
+    }
+  }
+
+  if (is_mac) {
+    deps += [
+      "//ui/accelerated_widget_mac",
+      "//ui/events:dom_keycode_converter",
+    ]
+    libs = [
+      "AppKit.framework",
+      "ApplicationServices.framework",  # Temporary hack around https://crbug.com/620127. Remove after https://crbug.com/622481 is fixed.
+      "CoreGraphics.framework",
+      "Foundation.framework",
+      "QuartzCore.framework",  # Required by bridged_native_widget.mm.
+    ]
+  }
+}
+
+source_set("test_support_internal") {
+  testonly = true
+  sources = gypi_values.views_test_support_sources
+
+  # External code should depend upon "test_support".
+  visibility = [ "./*" ]
+
+  configs += [ "//build/config:precompiled_headers" ]
+
+  public_deps = [
+    ":views",
+  ]
+  deps = [
+    "//base",
+    "//base/test:test_support",
+    "//ipc:test_support",
+    "//skia",
+    "//testing/gtest",
+    "//ui/base",
+    "//ui/base:test_support",
+    "//ui/base/ime",
+    "//ui/compositor",
+    "//ui/compositor:test_support",
+    "//ui/events",
+    "//ui/events:events_base",
+    "//ui/events:test_support",
+    "//ui/events/platform",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gl:test_support",
+  ]
+
+  sources += [
+    "test/platform_test_helper.cc",
+    "test/platform_test_helper.h",
+  ]
+
+  if (use_aura) {
+    sources += gypi_values.views_test_support_aura_sources
+    deps += [
+      "//ui/aura",
+      "//ui/aura:test_support",
+      "//ui/wm",
+    ]
+    if (use_x11 && !is_chromeos) {
+      sources += gypi_values.views_test_support_desktop_aura_x11_sources
+    }
+  }
+  if (use_x11) {
+    deps += [ "//ui/gfx/x" ]
+  }
+  if (use_ozone || !use_x11) {
+    sources -= [
+      "test/x11_property_change_waiter.cc",
+      "test/x11_property_change_waiter.h",
+    ]
+  }
+}
+
+static_library("test_support") {
+  testonly = true
+  public_deps = [
+    ":test_support_internal",
+  ]
+  sources = [
+    "test/native_widget_factory_desktop.cc",
+  ]
+}
+
+test("views_unittests") {
+  sources = gypi_values.views_unittests_sources
+
+  deps = [
+    ":test_support",
+    "//base",
+    "//base:i18n",
+    "//base/test:test_support",
+    "//cc",
+    "//skia",
+    "//testing/gtest",
+    "//third_party/icu",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/base:test_support",
+    "//ui/base/ime",
+    "//ui/compositor:test_support",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events:events_base",
+    "//ui/events:test_support",
+    "//ui/events/platform",
+    "//ui/gfx:test_support",
+    "//ui/gfx/geometry",
+    "//ui/gl:test_support",
+    "//ui/native_theme",
+    "//ui/resources",
+    "//ui/resources:ui_test_pak",
+    "//ui/strings",
+    "//url",
+  ]
+
+  data_deps = [
+    "//ui/resources:ui_test_pak_data",
+  ]
+
+  if (is_win) {
+    deps += [
+      "//build/win:default_exe_manifest",
+      "//third_party/iaccessible2",
+      "//third_party/wtl",
+    ]
+    libs = [
+      "imm32.lib",
+      "oleacc.lib",
+      "comctl32.lib",
+    ]
+  }
+
+  if (use_x11) {
+    configs += [
+      "//build/config/linux:x11",
+      "//build/config/linux:xext",
+    ]
+    deps += [
+      "//ui/events/devices",
+      "//ui/events/platform/x11",
+      "//ui/gfx/x",
+    ]
+  }
+
+  if (use_aura) {
+    sources += gypi_values.views_unittests_aura_sources
+    deps += [
+      "//ui/aura",
+      "//ui/aura:test_support",
+      "//ui/touch_selection",
+      "//ui/wm",
+    ]
+    if (!is_chromeos) {
+      sources += gypi_values.views_unittests_desktop_aura_sources
+      if (use_x11) {
+        sources += gypi_values.views_unittests_desktop_aurax11_sources
+      }
+    }
+  }
+
+  if (!is_chromeos) {
+    sources += gypi_values.views_unittests_desktop_sources
+  }
+
+  if (is_mac) {
+    # views_unittests not yet compiling on Mac. http://crbug.com/378134
+    sources -= [
+      "bubble/bubble_window_targeter_unittest.cc",
+      "controls/native/native_view_host_unittest.cc",
+      "widget/window_reorderer_unittest.cc",
+    ]
+    deps += [ "//ui/accelerated_widget_mac" ]
+  }
+}
+
+if (is_mac) {
+  test("macviews_interactive_ui_tests") {
+    sources = [
+      "cocoa/bridged_native_widget_interactive_uitest.mm",
+      "run_all_unittests_main.cc",
+      "widget/native_widget_mac_interactive_uitest.mm",
+    ]
+    deps = [
+      ":test_support",
+      ":views",
+      "//base",
+      "//base/test:test_support",
+      "//skia",
+      "//testing/gtest",
+      "//ui/base:test_support",
+      "//ui/compositor",
+      "//ui/events:test_support",
+      "//ui/gl:test_support",
+      "//ui/resources",
+      "//ui/resources:ui_test_pak",
+      "//ui/strings",
+    ]
+  }
+}

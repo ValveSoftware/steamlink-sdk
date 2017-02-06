@@ -1,0 +1,142 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example volumetric
+    \title Volumetric rendering Example
+    \ingroup qtdatavisualization_examples
+    \brief Rendering volumetric objects.
+    \since QtDataVisualization 1.2
+
+    This example shows how to use QCustom3DVolume items to display volumetric data.
+
+    \image volumetric-example.png
+
+    \include examples-run.qdocinc
+
+    \section1 Initializing Volume Item
+
+    The QCustom3DVolume items are special custom items (see QCustom3DItem), which can be used
+    to display volumetric data. The volume items are only supported with orthographic projection,
+    so first we make sure the graph is using it:
+
+    \snippet volumetric/volumetric.cpp 6
+
+    The following code shows how to create a volumetric item tied to the data ranges of the axes:
+
+    \snippet volumetric/volumetric.cpp 0
+
+    By setting the QCustom3DItem::scalingAbsolute property to \c{false}, we indicate that the
+    scaling of the volume should follow the changes in the data ranges. Next we define the
+    internal contents of the volume:
+
+    \snippet volumetric/volumetric.cpp 1
+
+    We use eight bit indexed color for our texture, as it is compact and makes it easy to adjust the
+    colors without needing to reset the whole texture. For the texture data we use the data we
+    created earlier based on some height maps.
+    Typically the data for volume items comes pregenerated in a form of a stack of images, so we are
+    not going to explain the data generation in detail. Please refer to the example code if you
+    are interested in the actual data generation process.
+
+    Since we are using eight bit indexed colors, we need a color table to map the eight bit color
+    indexes to actual colors. We use one we populated on our own, but in a typical use case you
+    would get the color table from the source images:
+
+    \snippet volumetric/volumetric.cpp 2
+
+    We want to optionally show slice frames around the volume, so we initialize their properties.
+    Initially, the frames will be hidden:
+
+    \snippet volumetric/volumetric.cpp 5
+
+    Finally we add the volume as a custom item to the graph to display it:
+
+    \snippet volumetric/volumetric.cpp 3
+
+    \section1 Slicing into the Volume
+
+    Unless the volume is largely transparent, you can only see the surface of it, which is often
+    not very helpful. One way to inspect the internal structure of the volume is to view the slices
+    of the volume. QCustom3DVolume provides two ways to display the slices. The first is to show
+    the selected slices in place of the volume. For example, to specify a slice perpendicular to
+    the X-axis, you can use the following method:
+
+    \snippet volumetric/volumetric.cpp 7
+
+    To actually draw the slice specified above, the QCustom3DVolume::drawSlices property must be
+    also set:
+
+    \snippet volumetric/volumetric.cpp 8
+
+    The second way to view slices is to use QCustom3DVolume::renderSlice() method, which produces
+    a QImage from the specified slice. This image can then be displayed on another widget, such
+    as a QLabel here:
+
+    \snippet volumetric/volumetric.cpp 9
+
+    \section1 Adjusting Volume Transparency
+
+    Sometimes viewing just the slices doesn't give you a good understanding of the volume's internal
+    structure. QCustom3DVolume provides two properties that can be used to adjust the volume
+    transparency:
+
+    \snippet volumetric/volumetric.cpp 11
+    \dots
+    \snippet volumetric/volumetric.cpp 10
+
+    The QCustom3DVolume::alphaMultiplier is a general multiplier that is applied to the alpha value
+    of each voxel of the volume. It makes it possible to add uniform transparency to the already
+    somewhat transparent portions of the volume to reveal internal opaque details. This multiplier
+    doesn't affect colors that are fully opaque, unless the QCustom3DVolume::preserveOpacity
+    property is set to \c{false}.
+
+    An alternative way to adjust the transparency of the volume is adjust the alpha values of the
+    voxels directly. For eight bit indexed textures, this is done simply by modifying and
+    resetting the color table:
+
+    \snippet volumetric/volumetric.cpp 12
+
+    \section1 High Definition vs. Low Definition Shader
+
+    By default the volume rendering uses the high definition shader. It accounts for each
+    voxel of the volume with correct weight when ray-tracing the volume contents,
+    providing an accurate representation of even the finer details of the volume.
+    However, this is computationally very expensive, so the frame rate suffers.
+    If rendering speed is more important than pixel-perfect
+    accuracy of the volume contents, you can take the much faster low definition shader into use
+    by setting \c{false} for QCustom3DVolume::useHighDefShader property. The low definition shader
+    achieves the speed by making compromises on the accuracy, so it doesn't guarantee each voxel
+    of the volume will be sampled. This can lead to flickering and/or other rendering artifacts
+    on the finer details of the volume.
+
+    \snippet volumetric/volumetric.cpp 13
+
+    \section1 Example Contents
+*/

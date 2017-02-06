@@ -1,0 +1,394 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example sudoku
+    \title Qt SCXML Sudoku Example
+    \ingroup examples-qtscxml
+    \brief Presents the use of SCXML in a sudoku game.
+
+    \e {Sudoku} demonstrates how an SCXML file may be used in a game.
+
+    \include examples-run.qdocinc
+
+    \section1 Sudoku Features
+
+    \image sudoku.png Screenshot of the Sudoku example
+
+    Our sudoku contains the following features:
+    \list
+    \li Initially and when the game ends, the sudoku
+        enters the \c idle state. In that state the players
+        can see if their last game finished successfully or not.
+        The state machine is then in one of two child states
+        of the \c idle state: \c solved or \c unsolved,
+        respectively. In the \c idle state the players
+        can also choose the sudoku grid they would like to solve.
+        The grid is disabled and the user interaction
+        is ignored.
+    \li After players click the \uicontrol Start button, the sudoku
+        enters the \c playing state and is ready for the user
+        interaction on the board.
+    \li When the game is in the \c playing state and the players
+        click the \uicontrol Stop button, the game ends
+        and enters the \c unsolved child state of the \c idle state.
+        If the players have solved the current puzzle successfully,
+        the game automatically ends and enters the \c solved child state
+        of the \c idle state indicating success.
+    \li The board consist of 81 buttons, laid out in a 9x9 grid.
+        The buttons with initial values given remain disabled
+        during the game. The players can only interact
+        with buttons initially empty. Each
+        click on the button increases its value by one.
+    \li During the game the \uicontrol Undo button
+        is available for the players' convenience.
+    \endlist
+
+    \section1 SCXML Part: Internal Logic Description
+
+    The \e sudoku.scxml file describes the internal structure of
+    the states the sudoku game can be in, defines the transitions
+    between states, and triggers the appropriate script
+    functions when the transitions take place. It also
+    communicates with the GUI part by sending events and listening
+    to the upcoming events and reacting to them.
+
+    We use the ECMAScript data model:
+
+    \quotefromfile sudoku/sudoku.scxml
+    \skipto scxml
+    \printuntil ecmascript
+
+    We declare the following variables:
+
+    \printuntil </datamodel>
+
+    \table
+    \header
+        \li Variable
+        \li Description
+    \row
+        \li \c initState
+        \li Holds the initial state of the current game. It is a
+            two-dimensional array of 9x9 cells that contain initial sudoku
+            numbers. The value of zero means the cell is initially empty.
+    \row
+        \li \c currentState
+        \li Holds the current state of the game being played. It is
+            similar to the \c initState variable and initially
+            contains the same content. However, when the players start
+            entering the numbers into the empty cells, this variable
+            is being updated accordingly, while the \c initState variable
+            remains unchanged.
+    \row
+        \li \c undoStack
+        \li Holds the history of players' moves. It is a vector of
+            the cells' coordinates that were touched last. Each
+            new modification during a game adds a pair of
+            x and y coordinates to that vector.
+    \endtable
+
+    The variables above are shared with the script helper functions
+    defined in the \c sudoku.js file:
+
+    \printuntil sudoku.js
+
+    We call some of the functions defined there
+    when taking transitions or in reaction to the
+    events sent by the GUI.
+
+    All the possible states mentioned before are defined in a
+    root state \c game.
+
+    \printuntil idle
+    \dots 12
+    \skipto id="unsolved"
+    \printuntil playing
+    \dots 12
+    \skipto /^\ {8}<\//
+    \printline state
+    \dots 8
+    \skipto /^\ {4}<\//
+    \printline state
+
+    When the sudoku example is started, the state
+    machine enters the \c game state and stays in this
+    state until the application exits. When entering this
+    state, we raise internally the \c restart event.
+    This event is also being raised whenever the players
+    change the current sudoku grid or when they start
+    the game by pressing the \uicontrol Start button.
+    We do not want to send it when they have finished
+    the current game because we still want to show the
+    filled grid from the last game play. So, this event
+    is being raised from three different contexts
+    and is captured internally once in a targetless
+    transition of the \c game state:
+
+    \quotefromfile sudoku/sudoku.scxml
+    \skipto <transition event="restart">
+    \printuntil </transition>
+
+    When we catch the \c restart event, we call
+    a helper \c restart() script method, defined in the \c sudoku.js
+    file and raise internally an additional \c update event.
+
+    \quotefromfile sudoku/sudoku.js
+    \skipto restart
+    \printuntil }
+
+    The \c restart() function assigns the \c initState into the \c currentState
+    variable and clears the \c undoStack variable.
+
+    The \c update event is raised internally whenever we want to notify the GUI
+    that the grid contents have been changed and that
+    the GUI should update itself according to the passed values. This event
+    is caught in another targetless transition of the \c game state:
+
+    \quotefromfile sudoku/sudoku.scxml
+    \skipto <transition event="update">
+    \printuntil </transition>
+
+    We send the external event \c updateGUI,
+    which is being intercepted in the \l {cpp}{C++ code}.
+    The \c updateGUI event is equipped
+    with additional data, specified inside \c <param>
+    elements. We pass two parameters, which
+    are accessible externally through the
+    \c currentState and \c initState names.
+    The actual values passed for them
+    equal the datamodel's \c currentState
+    and \c initState variables, respectively, which
+    are specified by the \c expr attributes.
+
+    \quotefromfile sudoku/sudoku.scxml
+    \skipto idle
+    \printuntil </state>
+
+    When in \c idle state, we react to two
+    events, which may be sent by the GUI part:
+    \c start and \c setup. Whenever we receive the
+    \c start event, we just transition to the \c playing
+    state. When we receive the \c setup event, we
+    expect that the GUI part has sent us the new grid
+    to be solved. The grid's new initial state is expected
+    to be passed through the \c initState field of
+    \c _event.data. We assign the passed value to the
+    \c initState variable defined in our datamodel and
+    restart the grid's contents.
+
+    \skipto playing
+    \printuntil </transition>
+    \dots 12
+    \skipto </state>
+    \printline </state>
+
+    Whenever we enter the \c playing state, we reset
+    the grid's contents since we could have been still
+    showing the contents from the previous game play.
+    In the \c playing state we react to possible
+    events sent from the GUI: \c tap, \c undo, and \c stop.
+
+    The \c tap event is sent when the players
+    press one of the enabled sudoku cells.
+    This event is expected to contain additional data
+    specifying the cell's coordinates, which are passed
+    through the \c x and \c y fields of \c _event.data.
+    First, we check if the passed coordinates are valid
+    by invoking the \c isValidPosition() script function:
+
+    \quotefromfile sudoku/sudoku.js
+    \skipto isValidPosition
+    \printuntil }
+
+    We ensure the coordinates are neither negative nor bigger than our grid.
+    In addition, we check if the coordinates point to an
+    initially empty cell, since we can not modify
+    the cells initially given by the grid description.
+
+    When we have ensured the passed coordinates are correct,
+    we call \c calculateCurrentState() script function:
+
+    \quotefromfile sudoku/sudoku.js
+    \skipto calculateCurrentState
+    \printuntil }
+
+    This function increments the value of the passed
+    grid's cell and adds the new move to the
+    undo stack history.
+
+    Right after the \c calculateCurrentState() function
+    finishes its execution, we check whether the grid is
+    already solved by calling the \c isSolved() script function:
+
+    \quotefromfile sudoku/sudoku.js
+    \skipto isOK
+    \printuntil return true
+    \printuntil }
+    \skipto isSolved
+    \printuntil return true
+    \printuntil }
+
+    The \c isSolved() function returns \c true if the
+    grid is properly solved. Since we need to check
+    each row, each column, and each 3x3 square, we define
+    the \c isOK() helper function. This function takes
+    the vector of numbers and returns \c true if the passed vector
+    contains unique numbers and no number equals zero, meaning
+    there is no empty cell. The main loop of the \c isSolved() is invoked
+    nine times. In every iteration, we construct three vectors of numbers
+    representing a row, a column, and a square of the grid and call \c isOK()
+    for them. When all 27 vectors are OK, the grid is solved properly
+    and we return \c true.
+
+    Coming back to our SCXML file, in case \c isSolved()
+    returns \c true, we raise the \c solved event internally.
+    The last instruction in case of a proper move is to raise
+    the \c update event, since we need to notify the GUI
+    about the grid's change.
+
+    \quotefromfile sudoku/sudoku.scxml
+    \skipto id="playing"
+    \printline playing
+    \dots 12
+    \skipto undo
+    \printuntil </state>
+
+    When in the \c playing state, we also react to the \c undo
+    event sent from the GUI. In this case, we call the \c undo()
+    script function and notify the GUI about the need of an update.
+
+    \quotefromfile sudoku/sudoku.js
+    \skipto function undo
+    \printuntil }
+
+    The \c undo() function removes the last move from
+    the history, if there was any, and decrements the current value
+    for the cell described by the coordinates taken from this move.
+
+    The \c playing state is also ready for the \c stop
+    event sent by the GUI when the players press the \uicontrol Stop
+    button. In this case, we simply activate the \c idle state.
+
+    In addition, we intercept the \c solved event
+    sent internally and activate the \c solved state in this case.
+
+    \target cpp
+    \section1 C++ Part: Constructing the GUI
+
+    The C++ part of the application consists of a
+    \c MainWindow class which constructs the GUI and glues it with the SCXML part.
+    The class is declared in \e mainwindow.h.
+
+    \quotefromfile sudoku/mainwindow.h
+    \skipto MainWindow
+    \printuntil };
+
+    The \c MainWindow class holds the pointer to the
+    \c {QScxmlStateMachine *m_machine}, which is the state machine
+    class automatically generated by Qt out of the \c sudoku.scxml file.
+    It also holds the pointers to some GUI elements.
+
+    \quotefromfile sudoku/mainwindow.cpp
+    \skipto MainWindow
+    \printuntil {
+
+    The constructor of the \c MainWindow class
+    instantiates the GUI part of the application
+    and stores the pointer to the passed state machine.
+    It also initializes the GUI part and glues the
+    GUI part to the state machine by connecting
+    their communication interfaces together.
+
+    \skipto clicked
+    \printuntil });
+
+    First, we create 81 buttons and connect
+    their \c clicked signal to a lambda expression
+    that submits the \c tap event to the state machine
+    passing the button's coordinates.
+
+    Later, we add some horizontal and vertical lines
+    to the grid in order to group buttons in 3x3 boxes.
+
+    \skipto clicked
+    \printuntil });
+
+    We create the \uicontrol {Start / Stop} button and
+    connect its clicked signal to a lambda expression
+    which submits the \c stop or \c start event
+    depending on whether the machine is in \c playing state
+    or not, respectively.
+
+    We create a label informing whether the grid is solved
+    or not, and an \uicontrol Undo button, which submits the
+    \c undo event whenever it is clicked.
+
+    \skipto clicked
+    \printuntil });
+
+    Then we create a combobox that is filled with
+    grid names to be solved. These grids are
+    read from the \c :/data directory of the application
+    compiled-in resources.
+
+    \skipto currentIndexChanged
+    \printuntil setInitialValues
+
+    Whenever the players change the grid in the combobox,
+    we read the grid contents storing it in the
+    variant map under the \c initValues key as a
+    list of lists of int variants and we submit the
+    \c setup event to the state machine passing
+    the grid's contents. Initially, we read the first
+    available grid from the list and pass it directly
+    to the sudoku state machine as the initial grid.
+
+    \skipto connectToState
+    \printline playing
+    \dots 8
+    \skipto });
+    \printuntil connectToEvent
+    \dots 8
+    \skipto });
+    \printline });
+
+    Later, we connect to the signals that are being sent
+    whenever the machine enters or leaves the \c playing
+    or \c solved states, and we update some GUI parts accordingly.
+    We also connect to the state machine's \c updateGUI event
+    and update all the buttons' values according to the passed cells' states.
+
+    \quotefromfile sudoku/main.cpp
+    \skipto #include
+    \printuntil /\}$/
+
+    In the \c main() function in the \c main.cpp file, we instantiate the
+    \c app application object, \c Sudoku state machine,
+    and \c MainWindow GUI class. We start the state machine,
+    show the main window, and execute the application.
+*/

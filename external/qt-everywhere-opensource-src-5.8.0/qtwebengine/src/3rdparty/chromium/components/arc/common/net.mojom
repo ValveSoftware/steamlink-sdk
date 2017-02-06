@@ -1,0 +1,178 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module arc.mojom;
+
+[Extensible]
+enum NetworkResult {
+  SUCCESS = 0,
+  FAILURE = 1,
+};
+
+[Extensible]
+enum GetNetworksRequestType {
+  CONFIGURED_ONLY = 0,
+  VISIBLE_ONLY = 1,
+};
+
+[Extensible]
+enum ConnectionStateType {
+  CONNECTED = 0,
+  CONNECTING = 1,
+  NOT_CONNECTED = 2,
+};
+
+struct VisibleNetworkDetails {
+  int32 frequency;
+  int32 signal_strength;
+  string bssid;
+};
+
+struct ConfiguredNetworkDetails {
+  string? passphrase;
+  bool autoconnect;
+};
+
+union NetworkDetails {
+  VisibleNetworkDetails visible;
+  ConfiguredNetworkDetails configured;
+};
+
+[Extensible]
+enum IPAddressType {
+  IPV4,
+  IPV6,
+};
+
+struct IPConfiguration {
+  string gateway;
+  string ip_address;
+  array<string> name_servers;
+  int32 routing_prefix;
+  IPAddressType type;
+  string web_proxy_auto_discovery_url;
+};
+
+[Extensible]
+enum SecurityType {
+  NONE,
+  WEP_PSK,
+  WEP_8021X,
+  WPA_PSK,
+  WPA_EAP,
+};
+
+struct WiFi {
+  string bssid;
+  int32 frequency;
+  string hex_ssid;
+  bool hidden_ssid;
+  SecurityType security;
+  int32 signal_strength;
+};
+
+[Extensible]
+enum NetworkType {
+  CELLULAR,
+  ETHERNET,
+  VPN,
+  WIFI,
+  WIMAX,
+};
+
+struct NetworkConfiguration {
+  // These correspond to ONC properties returned by
+  // chrome.networkingPrivate.getProperties().
+  // See components/onc/docs/onc_spec.html
+  ConnectionStateType connection_state;
+  string guid;
+  array<IPConfiguration>? ip_configs;
+  string? mac_address;
+  NetworkType type;
+  WiFi? wifi;
+};
+
+struct WifiConfiguration {
+  // These correspond to ONC properties returned by
+  // chrome.networkingPrivate.getNetworks() and createNetwork().
+  // See components/onc/docs/onc_spec.html
+
+  // SSID encoded as a series of hex bytes, e.g. "61626364"
+  // This allows for handling SSIDs which are not valid UTF-8 strings.
+  [MinVersion=2] string? hexssid@6;
+
+  [MinVersion=1] string? guid@5;
+  string security@4;
+
+  // Fields specific to either visible or configured networks.
+  [MinVersion=2] NetworkDetails? details@7;
+
+  // Deprecated.  These will be removed when both sides support NetworkDetails.
+  int32 frequency@1;
+  int32 signal_strength@2;
+  string bssid@3;
+
+  // Deprecated. |hexssid| will be used, going forward.
+  string ssid@0;
+};
+
+struct NetworkData {
+  NetworkResult status;
+  array<WifiConfiguration> networks;
+};
+
+interface NetHost {
+  // Sends a request to get configured or visible WiFi networks based on the
+  // |configured_only| and |visible_only| flags.
+  GetNetworksDeprecated@0(bool configured_only, bool visible_only) => (NetworkData data);
+
+  // Sends a request to get enabled / disabled status of WiFi.
+  GetWifiEnabledState@1() => (bool is_enabled);
+
+  // Sends a request to start scan of WiFi APs.
+  [MinVersion=1] StartScan@2();
+
+  // Sends a request to get configured or visible WiFi networks based on the
+  // request type.
+  [MinVersion=2] GetNetworks@3(GetNetworksRequestType type) => (NetworkData data);
+
+  // Sends a request to enable or disable WiFi. The |result| is true when the
+  // the state has been successfully set or WiFi is already in the desired
+  // state. It is false if WiFi manipulation is prohibited due to a policy or
+  // its current state.
+  [MinVersion=3] SetWifiEnabledState@4(bool is_enabled) => (bool result);
+
+  // Creates a new network and returns the GUID.  If an error occurs,
+  // |guid| will be an empty string.
+  [MinVersion=4] CreateNetwork@5(WifiConfiguration cfg) => (string guid);
+
+  // Deletes an existing network.
+  [MinVersion=4] ForgetNetwork@6(string guid) => (NetworkResult status);
+
+  // Initiates a network connection.  If called when connected to a different
+  // network, it will drop the current connection first.
+  [MinVersion=4] StartConnect@7(string guid) => (NetworkResult status);
+
+  // Disconnects from network |guid|.
+  [MinVersion=4] StartDisconnect@8(string guid) => (NetworkResult status);
+
+  // Retrieve details (IP, SSID, etc.) about the current network connection.
+  [MinVersion=5] GetDefaultNetwork@9() => (
+      NetworkConfiguration? logical_default,
+      NetworkConfiguration? physical_default);
+};
+
+interface NetInstance {
+  // Establishes full-duplex communication with the host.
+  Init@0(NetHost host_ptr);
+
+  // Notifies the instance of a WiFI AP scan being completed.
+  [MinVersion=1] ScanCompleted@1();
+
+  [MinVersion=2] DefaultNetworkChanged@2(
+      NetworkConfiguration? logical_default,
+      NetworkConfiguration? physical_default);
+
+  [MinVersion=3] WifiEnabledStateChanged@3(bool is_enabled);
+};

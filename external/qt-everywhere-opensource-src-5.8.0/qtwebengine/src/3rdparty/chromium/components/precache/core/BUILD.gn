@@ -1,0 +1,82 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/protobuf/proto_library.gni")
+
+# These values are duplicated in the GYP build in:
+# //components/precache/precache_defines.gypi
+precache_config_settings_url =
+    "https://www.gstatic.com/chrome/wifiprefetch/precache_config"
+precache_manifest_url_prefix =
+    "https://www.gstatic.com/chrome/wifiprefetch/hosts/"
+
+config("precache_config") {
+  defines = [
+    "PRECACHE_CONFIG_SETTINGS_URL=\"$precache_config_settings_url\"",
+    "PRECACHE_MANIFEST_URL_PREFIX=\"$precache_manifest_url_prefix\"",
+  ]
+}
+
+source_set("core") {
+  sources = [
+    "fetcher_pool.h",
+    "precache_database.cc",
+    "precache_database.h",
+    "precache_fetcher.cc",
+    "precache_fetcher.h",
+    "precache_session_table.cc",
+    "precache_session_table.h",
+    "precache_switches.cc",
+    "precache_switches.h",
+    "precache_url_table.cc",
+    "precache_url_table.h",
+  ]
+
+  # Note the GYP build sets this as direct dependent settings, but this is
+  # only used to share the settings with the unit tests. Instead, we just
+  # set this config for the necessary targets manually.
+  configs += [ ":precache_config" ]
+
+  deps = [
+    ":proto",
+    "//base",
+    "//components/history/core/browser",
+    "//components/prefs",
+    "//net",
+    "//sql",
+    "//url",
+  ]
+}
+
+proto_library("proto") {
+  sources = [
+    "proto/precache.proto",
+    "proto/unfinished_work.proto",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "fetcher_pool_unittest.cc",
+    "precache_database_unittest.cc",
+    "precache_fetcher_unittest.cc",
+    "precache_session_table_unittest.cc",
+    "precache_url_table_unittest.cc",
+  ]
+
+  configs += [ ":precache_config" ]
+
+  deps = [
+    ":core",
+    ":proto",
+    "//base",
+    "//base/test:test_support",
+    "//components/history/core/browser",
+    "//net:test_support",
+    "//sql",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}

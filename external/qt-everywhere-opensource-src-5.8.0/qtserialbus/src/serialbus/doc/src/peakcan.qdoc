@@ -1,0 +1,94 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+    \page qtserialbus-peakcan-overview.html
+    \title Using PeakCAN Plugin
+
+    \brief Overview of how to use the PeakCAN plugin.
+
+    The PeakCAN plugin encapsulates the low-level API to work with the
+    \l{http://www.peak-system.com/}{PEAK-System} CAN adapters.
+
+    \section1 Creating CAN Bus Devices
+
+    At first it is necessary to check that QCanBus provides the desired plugin:
+
+    \code
+        if (QCanBus::instance()->plugins().contains(QStringLiteral("peakcan"))) {
+            // plugin available
+        }
+    \endcode
+
+    Where \e peakcan is the plugin name.
+
+    Next, a connection to a specific interface can be established:
+
+    \code
+        QCanBusDevice *device = QCanBus::instance()->createDevice(
+            QStringLiteral("peakcan"), QStringLiteral("usb0"));
+        device->connectDevice();
+    \endcode
+
+    Where \e usb0 is the active CAN interface name. The PeakCAN plugin supports
+    eight USB interfaces from \e usb0 to \e usb7 and eight PCI interfaces from
+    \e pci0 to \e pci7.
+
+    \note Only the USB and PCI adapters are currently supported by this plugin.
+
+    The device is now open for writing and reading CAN frames:
+
+    \code
+        QCanBusFrame frame;
+        frame.setFrameId(8);
+        QByteArray payload("A36E");
+        frame.setPayload(payload);
+        device->writeFrame(frame);
+    \endcode
+
+    The reading can be done using the \l {QCanBusDevice::}{readFrame()} method. The
+    \l {QCanBusDevice::}{framesReceived()} signal is emitted when at least one new frame
+    is available for reading:
+
+    \code
+        QCanBusFrame frame = device->readFrame();
+    \endcode
+
+    PeakCAN supports the following configurations that can be controlled through
+    \l {QCanBusDevice::}{setConfigurationParameter()}:
+
+    \table
+        \header
+            \li Configuration parameter key
+            \li Description
+        \row
+            \li QCanBusDevice::BitRateKey
+            \li Determines the bit rate of the CAN bus connection. The following bit rates
+                are supported: 5000, 10000, 20000, 33000, 47000, 50000, 83000, 95000,
+                100000, 125000, 250000, 500000, 800000, 1000000. Note that this configuration
+                parameter can only be adjusted while the QCanBusDevice is not connected.
+   \endtable
+*/

@@ -1,0 +1,234 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+
+assert(enable_extensions)
+
+gypi_values =
+    exec_script("//build/gypi_to_gn.py",
+                [ rebase_path("../../chrome_browser_extensions.gypi") ],
+                "scope",
+                [ "../../chrome_browser_extensions.gypi" ])
+
+# GYP version: chrome/chrome_browser_extensions.gypi:browser_extensions
+static_library("extensions") {
+  sources = []
+  sources += rebase_path(gypi_values.chrome_browser_extensions_enabled_sources,
+                         ".",
+                         "//chrome")
+
+  configs += [
+    "//build/config:precompiled_headers",
+    "//build/config/compiler:wexit_time_destructors",
+  ]
+  defines = []
+
+  # Since browser and browser_extensions actually depend on each other,
+  # we must omit the dependency from browser_extensions to browser.
+  # However, this means browser_extensions and browser should more or less
+  # have the same dependencies. Once browser_extensions is untangled from
+  # browser, then we can clean up these dependencies.
+  public_deps = [
+    "//chrome/common/extensions/api",
+    "//content/public/browser",
+  ]
+  deps = [
+    "//chrome:extra_resources",
+    "//chrome:resources",
+    "//chrome:strings",
+    "//chrome/app/resources:platform_locale_settings",
+    "//chrome/app/theme:theme_resources",
+    "//chrome/browser/devtools",
+    "//chrome/common",
+    "//chrome/common/extensions/api:api_registration",
+    "//chrome/common/safe_browsing:proto",
+    "//chrome/installer/util:with_no_strings",
+    "//components/copresence",
+    "//components/data_reduction_proxy/proto:data_reduction_proxy_proto",
+    "//components/dom_distiller/core",
+    "//components/onc",
+    "//components/policy",
+    "//components/proximity_auth",
+    "//components/resources",
+    "//components/strings",
+    "//components/update_client",
+    "//components/url_matcher",
+    "//content/app/resources",
+    "//content/public/common",
+    "//crypto",
+    "//device/bluetooth",
+    "//device/hid",
+    "//extensions:extensions_resources",
+    "//extensions/browser",
+    "//extensions/common/api",
+    "//extensions/common/api:api_registration",
+    "//extensions/strings",
+    "//net",
+    "//skia",
+    "//storage/browser",
+    "//storage/common",
+    "//sync",
+    "//third_party/WebKit/public:image_resources",
+    "//third_party/WebKit/public:resources",
+    "//third_party/cacheinvalidation",
+    "//third_party/icu",
+    "//third_party/leveldatabase",
+    "//third_party/libaddressinput:util",
+    "//third_party/re2",
+    "//third_party/webrtc/modules/desktop_capture",
+    "//ui/accessibility:ax_gen",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/resources",
+    "//ui/strings",
+    "//url",
+  ]
+
+  if (enable_task_manager) {
+    sources += rebase_path(
+            gypi_values.chrome_browser_extensions_task_manager_enabled_sources,
+            ".",
+            "//chrome")
+  }
+
+  if (is_chromeos) {
+    sources +=
+        rebase_path(gypi_values.chrome_browser_extensions_chromeos_sources,
+                    ".",
+                    "//chrome")
+    sources -= [ "api/music_manager_private/device_id_linux.cc" ]
+    if (use_dbus) {
+      configs += [ "//build/config/linux/dbus" ]
+    }
+    deps += [
+      "//components/chrome_apps",
+      "//remoting/host/it2me:common",
+      "//third_party/protobuf:protobuf_lite",
+    ]
+  } else {
+    sources += [
+      "default_apps.cc",
+      "default_apps.h'",
+    ]
+    sources +=
+        rebase_path(gypi_values.chrome_browser_extensions_non_chromeos_sources,
+                    ".",
+                    "//chrome")
+  }
+
+  if (enable_service_discovery) {
+    sources += rebase_path(
+            gypi_values.chrome_browser_extensions_service_discovery_sources,
+            ".",
+            "//chrome")
+  }
+
+  if (use_ash) {
+    sources += [
+      "api/tabs/ash_panel_contents.cc",
+      "api/tabs/ash_panel_contents.h",
+    ]
+  }
+
+  if (use_aura) {
+    deps += [
+      "//ui/keyboard",
+      "//ui/keyboard:keyboard_with_content",
+      "//ui/keyboard:resources",
+    ]
+  }
+
+  if (toolkit_views) {
+    deps += [ "//ui/views" ]
+  }
+
+  if (is_linux) {
+    deps += [ "//build/linux:fontconfig" ]
+
+    if (use_dbus) {
+      deps += [ "//dbus" ]
+    }
+
+    if (use_x11) {
+      configs += [ "//build/config/linux:x11" ]
+      deps += [
+        "//ui/events:events_base",
+        "//ui/events/platform",
+        "//ui/events/platform/x11",
+      ]
+    }
+    if (!is_chromeos) {
+      sources += rebase_path(
+              gypi_values.chrome_browser_extensions_input_ime_linux_win_sources,
+              ".",
+              "//chrome")
+    }
+  }
+
+  if (enable_webrtc) {
+    sources += [ "api/webrtc_logging_private/webrtc_logging_private_api.cc" ]
+  } else {
+    sources +=
+        [ "api/webrtc_logging_private/webrtc_logging_private_api_stub.cc" ]
+  }
+
+  if (use_brlapi) {
+    deps += [ "//build/linux/libbrlapi" ]
+    sources += rebase_path(gypi_values.chrome_browser_extensions_brlapi_sources,
+                           ".",
+                           "//chrome")
+  } else {
+    sources += [ "api/braille_display_private/braille_controller_stub.cc" ]
+  }
+
+  # chromeos uses its own global_shortcut_listener, _x11 is not necessary.
+  if (is_chromeos || !use_x11) {
+    sources -= [
+      "global_shortcut_listener_x11.cc",
+      "global_shortcut_listener_x11.h",
+    ]
+  }
+
+  if (is_win || is_mac) {
+    deps += [ "//components/wifi" ]
+    sources += rebase_path(
+            gypi_values.chrome_browser_extensions_networking_private_sources_winmac,
+            ".",
+            "//chrome")
+  }
+
+  if (is_win) {
+    deps += [
+      "//third_party/iaccessible2",
+      "//third_party/isimpledom",
+    ]
+    sources += rebase_path(
+            gypi_values.chrome_browser_extensions_input_ime_linux_win_sources,
+            ".",
+            "//chrome")
+  } else if (use_aura && !is_chromeos) {
+    sources += [
+      "display_info_provider_aura.cc",
+      "display_info_provider_aura.h",
+    ]
+  }
+
+  if (enable_app_list) {
+    sources +=
+        rebase_path(gypi_values.chrome_browser_extensions_app_list_sources,
+                    ".",
+                    "//chrome")
+  }
+
+  if (is_chromeos && use_ozone) {
+    sources -= [ "global_shortcut_listener_chromeos.cc" ]
+  }
+  if (!use_ozone) {
+    sources -= [ "global_shortcut_listener_ozone.cc" ]
+  }
+}

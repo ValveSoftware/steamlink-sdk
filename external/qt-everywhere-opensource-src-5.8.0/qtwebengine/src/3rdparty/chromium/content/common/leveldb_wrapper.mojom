@@ -1,0 +1,51 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module content.mojom;
+
+import "components/leveldb/public/interfaces/leveldb.mojom";
+
+// Gives information about changes to a LevelDB database.
+// Note that observer methods are called before the callbacks for the
+// LevelDBWrapper methods are run.
+interface LevelDBObserver {
+  KeyAdded(array<uint8> key, array<uint8> value, string source);
+  KeyChanged(array<uint8> key, array<uint8> new_value, array<uint8> old_value,
+             string source);
+  KeyDeleted(array<uint8> key, array<uint8> old_value, string source);
+  AllDeleted(string source);
+
+  // Since the GetAll call is synchronous, observers need this asynchronously
+  // delivered notification to avoid applying changes to the returned array
+  // that it already contains.
+  GetAllComplete(string source);
+};
+
+struct KeyValue {
+  array<uint8> key;
+  array<uint8> value;
+};
+
+// A wrapper around leveldb that supports giving notifications when values
+// change.
+interface LevelDBWrapper {
+  // Sets the database entry for |key| to |value|. Returns OK on success.
+  Put(array<uint8> key, array<uint8> value, string source) => (bool success);
+
+  // Remove the database entry (if any) for |key|.  Returns OK on success, and a
+  // non-OK status on error.  It is not an error if |key| did not exist in the
+  // database.
+  Delete(array<uint8> key, string source) => (bool success);
+
+  // Removes all the entries.
+  DeleteAll(string source) => (bool success);
+
+  // Returns the value of the |key|.
+  Get(array<uint8> key) => (bool success, array<uint8> value);
+
+  // Only used with small databases. Returns all key/value pairs.
+  [Sync]
+  GetAll(string source)
+    => (leveldb.mojom.DatabaseError status, array<KeyValue> data);
+};

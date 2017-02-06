@@ -1,3 +1,0 @@
-import "test.js"
-
-Item { }

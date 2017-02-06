@@ -1,0 +1,1190 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page osx.html
+    \title Qt for macOS
+    \brief Platform support for \macos.
+    \ingroup supportedplatform
+    \keyword Qt for OS X
+
+    \macos (previously known as OS X or Mac OS X) is a UNIX platform and
+    behaves similarly to other Unix-like platforms. The main difference is
+    that X11 is not used as the windowing system. Instead, \macos uses its own
+    native windowing system that is accessible through the Cocoa API.
+    Application development on \macos is done using Xcode, which is available
+    from \l{https://developer.apple.com/xcode/}.
+
+    \section1 Downloading and Installing Qt
+
+    There are two ways to install Qt:
+    \list 1
+    \li through the \e{Qt Installers} - downloads and installs Qt
+    \li through the \e{Qt sources}.
+    \endlist
+
+    You can download the Qt 5 installers and sources from the \l Downloads page.
+    For more information, visit the \l{Getting Started with Qt} page.
+
+    \section2 Building Qt 5 from Source
+
+    Below, you will find more information about building Qt from source.
+    \list
+        \li \l{Qt for macOS - Building from Source} - building and installing from source
+    \endlist
+
+    \note Qt 5 uses Cocoa, therefore, building for Carbon is not possible.
+
+    \section1 \macos Versions
+
+    See \l{Supported Platforms} for the list of \macos versions supported by Qt.
+
+    Qt can be built for either x86 or x86_64. 64-bit is used by default.
+    To select a 32-bit build, use the \c macx-clang-32 or \c macx-g++32 mkspec.
+    This is selectable at configure time:
+    \code
+    ./configure -platform macx-clang-32
+    \endcode
+
+    The Qt build system does not support building unversal binaries directly.
+    Instead, use the \c lipo tool to glue two Qt builds together.
+
+    \note Qt 5 does not support OS X on PowerPC.
+    \note Static builds are not tested.
+
+    \section1 Additional Command-Line Options
+
+    On the command-line, applications can be built using \c qmake and \c make.
+    Optionally, \c qmake can generate project files for Xcode with
+    \c{-spec macx-xcode}. If you are using the binary package, \c qmake
+    generates Xcode projects by default; use \c{-spec macx-gcc} to generate
+    makefiles. For example:
+
+    \snippet snippets/code/doc_src_qtmac-as-native.qdoc 0
+
+    Configuring with \c{-spec macx-xcode} generates an Xcode project file from
+    project.pro. With \l qmake you do not have to worry about rules for Qt's
+    preprocessors (\l moc and \l uic) since \l qmake automatically handles them
+    and ensures that everything necessary is linked into your application.
+
+    Qt does not entirely interact with the development environment (for
+    example plugins to set a file to "mocable" from within the Xcode
+    user interface).
+
+    The result of the build process is an application bundle, which is a
+    directory structure that contains the actual application executable. The
+    application can be launched by double-clicking it in Finder, or by
+    referring directly to its executable from the command line, for example,
+    \c{myApp.app/Contents/MacOS/myApp}.
+
+    If you wish to have a command-line tool that does not use the GUI for
+    example, \c moc, \c uic or \c ls, you can tell qmake to disable bundle
+    creation from the \c{CONFIG} variable in the project file:
+
+    \code
+    CONFIG -= app_bundle
+    \endcode
+
+    \section1 Deploying Applications on \macos
+
+    In general, Qt supports building on one \macos version and deploying to
+    earlier or later \macos versions. The recommended way is to build on the
+    latest version and deploy to an earlier \macos version.
+
+    \macos applications are typically deployed as self-contained application
+    bundles. The application bundle contains the application executable as well
+    as dependencies such as the Qt libraries, plugins, translations and other
+    resources you may need. Third party libraries like Qt are normally not
+    installed system-wide; each application provides its own copy.
+
+    A common way to distribute applications is to provide a compressed disk
+    image (.dmg file) that the user can mount in Finder. The deployment tool, \c
+    macdeployqt (available from the \macos installers), can be used to create
+    the self-contained bundles, and optionally also create a .dmg archive.
+    Applications can also be distributed through the Mac App Store. Qt 5 aims
+    to stay within the app store sandbox rules. macdeployqt (bin/macdeployqt)
+    can be used as a starting point for app store deployment.
+
+    \list
+    \li \l{Qt for macOS - Deployment}
+    \endlist
+
+    \section1 \macos Issues
+
+    The page below covers specific issues and recommendations for creating
+    \macos applications.
+    \list
+    \li \l{Qt for macOS - Specific Issues}
+    \endlist
+
+    \section1 Where to Go from Here
+
+    We invite you to explore the rest of Qt. We prepared overviews to help
+    you decide which APIs to use and our examples demonstrate how to use our
+    API.
+
+    \list
+    \li \l{Qt Overviews} - list of topics about application development
+    \li \l{Qt Examples and Tutorials}{Examples and Tutorials} - code samples and tutorials
+    \li \l{Qt Reference Pages} - a listing of C++ and QML APIs
+    \endlist
+
+    Qt's vibrant and active community site, \l{http://qt.io} houses
+    a wiki, a forum, and additional learning guides and presentations.
+
+*/
+
+/*!
+    \page osx-requirements.html
+    \title Qt for macOS - Requirements
+    \brief Setting up the \macos environment for Qt.
+
+    Qt requires Xcode to be installed on the system. You can get it from:
+
+    \l{http://developer.apple.com/xcode/}
+
+    \section1 Required Compiler Versions
+
+    Qt for macOS is tested and compatible with several versions of GCC (GNU
+    Compiler Collection) and Clang (as available from Xcode). For a list of
+    tested configurations, refer to the \e{Reference Configuration} section of
+    the \l{Community Supported Platforms#Reference Configurations}{supported platforms}
+    page.
+
+    \section2 OS X on PowerPC hardware
+
+    Qt 5 does not support OS X on PowerPC.
+
+*/
+
+/*!
+    \page osx-building.html
+    \title Qt for macOS - Building from Source
+    \brief How to install Qt on \macos.
+
+    Qt for macOS has some requirements that are given in more detail
+    in the \l{Qt for macOS Requirements} document.
+
+    The following instructions describe how to install Qt from the source package.
+    You can download the Qt 5 sources from the \l{Downloads} page. For
+    more information, visit the \l{Getting Started with Qt} page.
+
+    \section1 Step 1: Install the License File (Commercially Licensed Qt Only)
+
+        If you have a commercial Qt license, download the license file
+        from your \l {Qt Account} Web portal and save it as
+        \c{$HOME/.qt-license}.
+
+        Unpack the archive if you have not done so already. For example,
+        if you have the \c{qt-everywhere-opensource-src-%VERSION%.tar.gz}
+        package, type the following commands at a command line prompt:
+
+    \snippet snippets/code/doc_src_installation.qdoc 11
+
+        This creates the directory \c{/tmp/qt-everywhere-opensource-src-%VERSION%}
+        containing the files from the archive.
+
+    \section1 Step 2: Build the Qt Library
+
+        To configure the Qt library for your machine type, run the
+        \c{./configure} script in the package directory.
+
+        By default, Qt is configured for installation in the
+        \c{/usr/local/Qt-%VERSION%} directory, but this can be
+        changed by using the \c{-prefix} option.
+
+    \snippet snippets/code/doc_src_installation.qdoc 12
+
+        By default, Qt is built as a framework, but you can built
+        it as a set of dynamic libraries (dylibs) by specifying the
+        \c{-no-framework} option.
+
+        Qt can also be configured to be built with debugging symbols. This
+        process is described in detail in the \l{Debugging Techniques}
+        document.
+
+        The \l{Qt Configure Options}{Configure Options} page contains more
+        information about the configure options.
+
+        To create the library and compile all the examples and tools, type:
+
+    \snippet snippets/code/doc_src_installation.qdoc 13
+
+        If \c{-prefix} is outside the build directory, you need to install
+        the library, examples, and tools in the appropriate place. To do this,
+        type:
+
+    \snippet snippets/code/doc_src_installation.qdoc 14
+
+        This command requires that you have administrator access
+        on your machine.
+
+        \note There is a potential race condition when running make install with multiple
+        jobs. It is best to only run one make job (-j1) for the install.
+
+    \section1 Step 3: Set the Environment Variables
+
+        In order to use Qt, some environment variables need to be
+        extended.
+
+    \snippet snippets/code/doc_src_installation.qdoc 15
+
+        This is done like this:
+
+        In \c{.profile} (if your shell is bash), add the following lines:
+
+    \snippet snippets/code/doc_src_installation.qdoc 16
+
+        In \c{.login} (in case your shell is csh or tcsh), add the following line:
+
+    \snippet snippets/code/doc_src_installation.qdoc 17
+
+        If you use a different shell, please modify your environment
+        variables accordingly.
+
+    \b {That's all. Qt is now installed.}
+
+*/
+
+/*!
+    \page osx-issues.html
+    \title Qt for macOS - Specific Issues
+    \brief A description of issues with Qt that are specific to \macos.
+
+    This page outlines the main issues regarding \macos support in Qt.
+    \macos terminologies and specific processes are found at
+    \l{https://developer.apple.com/}.
+
+    \section1 Aqua
+
+    Aqua is an essential part of the \macos platform. As with Cocoa and
+    Carbon, Qt provides widgets that look like those described in the Human
+    Interface Descriptions. Qt's widgets use HIThemes to implement the look and
+    feel. In other words, we use Apple's own APIs for doing the rendering. More
+    documentation about Aqua is found at the
+     \l{http://developer.apple.com/library/mac/#documentation/UserExperience/Conceptual/AppleHIGuidelines/Intro/Intro.html#//apple_ref/doc/uid/20000957}
+     {\macos Human Interface Guidelines}.
+
+    The \l{Macintosh Style Widget Gallery} page
+    contains sample images of widgets using the \macos platform theme.
+
+    \section2 Qt Attributes for \macos
+
+    The following lists a set of useful attributes that can be used to tweak
+    applications on \macos:
+
+    \list
+    \li Qt::AA_MacPluginApplication
+    \li Qt::AA_DontUseNativeMenuBar
+    \li Qt::AA_MacDontSwapCtrlAndMeta
+    \li Qt::WA_MacNoClickThrough
+    \li Qt::WA_MacOpaqueSizeGrip
+    \li Qt::WA_MacShowFocusRect
+    \li Qt::WA_MacNormalSize
+    \li Qt::WA_MacSmallSize
+    \li Qt::WA_MacMiniSize
+    \li Qt::WA_MacVariableSize
+    \li Qt::WA_MacBrushedMetal
+    \li Qt::WA_MacAlwaysShowToolWindow
+    \li Qt::WA_MacFrameworkScaled
+    \li Qt::WA_MacNoShadow
+    \li Qt::Sheet
+    \li Qt::Drawer
+    \li Qt::MacWindowToolBarButtonHint,
+    \li QMainWindow::unifiedTitleAndToolBarOnMac
+    \endlist
+
+    \macos always double buffers the screen, therefore, the
+    Qt::WA_PaintOnScreen attribute has no effect. Also it is impossible to paint
+    outside of a paint event so Qt::WA_PaintOutsidePaintEvent has no effect
+    either.
+
+    \section2 Right Mouse Clicks
+
+    The QContextMenuEvent class provides right mouse click support for \macos
+    applications. This will map to a context menu event, for example, a menu
+    that will display a pop-up selection. This is the most common use of right
+    mouse clicks, and maps to a control-click with the \macos one-button mouse
+    support.
+
+    \section2 Menu Bar
+
+    Qt detects menu bars and turns them into Mac native menu bars. Fitting this
+    into existing Qt applications is normally automatic. However, if you
+    have special needs, the Qt implementation currently selects a menu bar by
+    starting at the active window (for example, QGuiApplication::focusWindow())
+    and applying the following tests:
+
+    \list 1
+    \li If the window has a QMenuBar, then it is used.
+    \li If the window is modal, then its menu bar is used. If no menu
+       bar is specified, then a default menu bar is used (as
+       documented below).
+    \li If the window has no parent, then the default menu bar is used
+       (as documented below).
+    \endlist
+
+    These tests are followed all the way up the parent window chain
+    until one of the above rules is satisifed. If all else fails, a
+    default menu bar will be created. The default menu bar on
+    Qt is an empty menu bar. However, you can create a different
+    default menu bar by creating a parentless QMenuBar. The first one
+    created will be designated the default menu bar and will be used
+    whenever a default menu bar is needed.
+
+    Using native menu bars introduces certain limitations on Qt classes. The
+    section with the \l{#Limitations}{list of limitations} below has more
+    information.
+
+    Qt provides support for the Global Menu Bar with QMenuBar. \macos users
+    expect to have a menu bar at the top of the screen and Qt honors this.
+
+    Additionally, users expect certain conventions to be respected, for example
+    the application menu should contain \gui About, \gui Preferences, \gui Quit,
+    and so on. Qt handles these conventions, although it does not provide a
+    means of interacting directly with the application menu.
+
+    Each \l QAction has a \l{QAction::menuRole}{menuRole} property which
+    controls the special placement of application menu items; however by
+    default the \c menuRole is \l{QAction::TextHeuristicRole}{TextHeuristicRole}
+    which mean the menu items will be auto-detected by their \l{QAction::text}{text}.
+
+    Other standard menu items such as \gui Cut, \gui Copy, \gui Paste and
+    \gui{Select All} are applicable both in your application and in some
+    native dialogs such as \l QFileDialog. It's important that you create these
+    menu items with the standard shortcuts so that the corresponding editing
+    features will be enabled in the dialogs. At this time there are no
+    \c MenuRole identifiers for them, but they will be auto-detected
+    just like the application menu items when the \c QAction has the default
+    \l{QAction::TextHeuristicRole}{TextHeuristicRole}.
+
+    \section2 Special Keys
+
+    To provide the expected behavior for Qt applications on \macos,
+    the Qt::Key_Meta, Qt::MetaModifier, and Qt::META enum values
+    correspond to the Control keys on the standard Apple keyboard,
+    and the Qt::Key_Control, Qt::ControlModifier, and Qt::CTRL enum values
+    correspond to the Command keys.
+
+    \section2 Dock
+
+    Interaction with the dock is possible. The icon can be set by calling
+    QWindow::setWindowIcon() from the main window in your application. The
+    setWindowIcon() call can be made as often as necessary, providing an
+    icon that can be easily updated.
+
+    \section2 Accessiblity
+
+    Many users interact with \macos with assistive devices. With Qt the aim is
+    to make this automatic in your application so that it conforms to accepted
+    practice on its platform. Qt uses Apple's accessibility framework to provide
+    access to users with disabilities.
+
+    \section1 Library and Deployment Support
+
+    Qt provides support for \macos structures such as Frameworks and bundles.
+    It is important to be aware of these structure as they directly affect the
+    deployment of applications.
+
+    Qt provides a deploy tool, \l{The Mac Deployment Tool}{macdeployqt}, to
+    simplify the deployment process. The \l{Qt for macOS - Deployment}
+    article covers the deployment process in more detail.
+
+    \section2 Qt Libraries as Frameworks
+
+    By default, Qt is built as a set of frameworks. Frameworks are the
+    \macos preferred way of distributing libraries. The
+    \l{http://developer.apple.com/documentation/MacOSX/Conceptual/BPFrameworks/index.html}
+    {Apple's Framework Programming Guide} site has far more information about
+    Frameworks.
+
+    It is important to remember that Frameworks always link with \e release
+    versions of libraries. If the \e{debug} version of a Qt framework is
+    desired, use the \c DYLD_IMAGE_SUFFIX environment variables to ensure that
+    the debug version is loaded:
+
+    \code
+    export DYLD_IMAGE_SUFFIX=_debug
+    \endcode
+
+    Alternatively, you can temporarily swap your debug and release versions,
+    which is documented in
+    \l{http://developer.apple.com/technotes/tn2004/tn2124.html#SECJUSTONELIB}
+    {Apple's "Debugging Magic" technical note}.
+
+    If you don't want to use frameworks, simply configure Qt with
+    \c{-no-framework}.
+
+    \code
+    ./configure -no-framework
+    \endcode
+
+    \section2 Bundle-Based Libraries
+
+    If you want to use some dynamic libraries in the \macos
+    application bundle (the application directory), create a
+    subdirectory named \e Frameworks in the application bundle
+    directory and place your dynamic libraries there. The application
+    will find a dynamic library if it has the install name
+    \e{@executable_path/../Frameworks/libname.dylib}.
+
+    If you use \c qmake and Makefiles, use the \c QMAKE_LFLAGS_SONAME setting:
+
+    \snippet snippets/code/doc_src_mac-differences.pro 0
+
+    Alternatively, you can modify the install name using the
+    \c{install_name_tool(1)} on the command line.
+
+    The \c DYLD_LIBRARY_PATH environment variable will override these settings,
+    and any other default paths, such as a lookup of dynamic libraries inside
+    \e /usr/lib and similar default locations.
+
+    If you are using older versions of GDB you must run with the full
+    path to the executable. Later versions allow you to pass the
+    bundle name on the command line.
+
+    \section2 Combining Libraries
+
+    If you want to build a new dynamic library combining the Qt 4
+    dynamic libraries, you need to introduce the \c{ld -r} flag. Then
+    relocation information is stored in the output file, so that
+    this file could be the subject of another \c ld run. This is done
+    by setting the \c -r flag in the \c .pro file, and the \c LFLAGS
+    settings.
+
+    \section2 Initialization Order
+
+    \c dyld(1) calls global static initializers in the order they are
+    linked into the application. If a library links against Qt and
+    references the globals in Qt (from global initializers in your own
+    library), link the application against Qt before
+    linking it against the library. Otherwise the result will be
+    undefined because Qt's global initializers have not been called
+    yet.
+
+    \section1 Compile-Time Flags
+
+    The following flags are helpful when you want to define \macos specific
+    code:
+
+    \list
+    \li \c Q_OS_DARWIN is defined when Qt detects you are on a
+    Darwin-based system such as \macos or iOS.
+    \li \c Q_OS_MACOS is defined when you are on an \macos system.
+    \endlist
+
+    \note \c Q_WS_MAC is no longer defined in Qt 5.
+
+    If you want to define code for specific versions of \macos, use
+    the availability macros defined in \e{/usr/include/AvailabilityMacros.h}.
+
+    The QSysInfo documentation has information about runtime version checking.
+
+    \section1 \macos Native API Access
+
+    \section2 Accessing the Bundle Path
+
+    \macos applications are structured as a directory (ending with \e .app).
+    This directory contains sub-directories and files. It may be useful to place
+    items, such as plugins and online documentation, inside this bundle. The
+    following code returns the path of the application bundle:
+
+    \snippet snippets/code/doc_src_mac-differences.cpp 1
+
+    \note When \macos is set to use Japanese, a bug causes this sequence
+    to fail and return an empty string. Therefore, always test the
+    returned string.
+
+    For more information about using the CFBundle API, visit
+    \l{http://developer.apple.com/documentation/CoreFoundation/Reference/CFBundleRef/index.html}
+    {Apple's Developer Website}.
+
+    QCoreApplication::applicationDirPath() can be used to determine
+    the path of the binary within the bundle.
+
+    \section2 Translating the Application Menu and Native Dialogs
+
+    The items in the Application Menu will be merged correctly for
+    localized applications, but they will not show up translated
+    until the application bundle contains a localized resource folder.
+    to the application bundle.
+
+    Essentially, there needs to be a file called
+    \e locversion.plist. Here is an example of an application with Norwegian
+    localization:
+
+    \snippet snippets/code/doc_src_mac-differences.qdoc 2
+
+    Afterwards, when the application is run with the preferred language set to
+    Norwegian, the menu items should display \gui Avslutt instead of \gui Quit.
+
+    The \l{http://developer.apple.com/library/mac/#documentation/CoreFoundation/Conceptual/CFBundles/BundleTypes/BundleTypes.html#//apple_ref/doc/uid/10000123i-CH101-SW13}{Bundle Programming Guide}
+    contains information about bundles and the localized resource folder.
+
+    \section2 Mixing Qt with Native Code
+
+    Two classes are available for adding native Cocoa views and controls
+    inside a Qt application, or for embedding Qt into a native
+    Cocoa application: QMacCocoaViewContainer, and QMacNativeWidget.
+
+    \section2 Using Native Cocoa Panels
+
+    Qt's event dispatcher is more flexible than what Cocoa offers, and lets the
+    user spin the event dispatcher (and running QEventLoop::exec) without having
+    to think about whether or not modal dialogs are showing on screen (which is
+    a difference compared to Cocoa). Therefore, we need to do extra management
+    in Qt to handle this correctly, which unfortunately makes mixing native
+    panels hard. The best way at the moment to do this, is to follow the pattern
+    below, where we post the call to the function with native code rather than
+    calling it directly. Then we know that Qt has cleanly updated any pending
+    event loop recursions before the native panel is shown:
+
+    \code
+        #include <QtGui>
+
+        class NativeProxyObject : public QObject
+        {
+            Q_OBJECT
+        public slots:
+            void execNativeDialogLater()
+            {
+                QMetaObject::invokeMethod(this, "execNativeDialogNow", Qt::QueuedConnection);
+            }
+
+            void execNativeDialogNow()
+            {
+                NSRunAlertPanel(@"A Native dialog", @"", @"OK", @"", @"");
+            }
+
+        };
+
+        #include "main.moc"
+
+        int main(int argc, char **argv){
+            QApplication app(argc, argv);
+            NativeProxyObject proxy;
+            QPushButton button("Show native dialog");
+            QObject::connect(&button, SIGNAL(clicked()), &proxy, SLOT(execNativeDialogLater()));
+            button.show();
+            return app.exec();
+        }
+    \endcode
+
+    \section1 Limitations
+
+    \section2 Fink
+
+    If you have installed the Qt for X11 package from \l{Fink}, it will set the
+    \c QMAKESPEC environment variable to \c darwin-g++. This will cause problems when
+    you build the Qt for macOS package. To fix this, simply unset your \c
+    QMAKESPEC or set it to \c macx-g++ before you run \c configure. To get a
+    fresh Qt distribution, run \c{make confclean} in the command-line.
+
+    \section2 MySQL and \macos
+
+    There seems to be a issue when both \c -prebind and \c -multi_module are
+    defined when linking static C libraries into dynamic libraries. If you
+    get the following error message when linking Qt:
+
+    \snippet snippets/code/doc_src_platform-notes.qdoc 6
+
+    re-link Qt using -single_module. This is only a problem when building the
+    MySQL driver into Qt. It does not affect plugins or static builds.
+
+    \section2 D-Bus and \macos
+
+    The QtDBus module defaults to dynamically loading the libdbus-1 library on
+    \macos. That means applications linking against the QtDBus module will
+    load even on \macos systems that do not have the libraries, but they
+    will fail to connect to any D-Bus server and they will fail to open a
+    server using QDBusServer.
+
+    To use D-Bus functionality, you need to install the libdbus-1 library, for
+    example through Homebrew, Fink or MacPorts. You may want to include those
+    libraries in your application's bundle if you're deploying to other
+    systems. Additionally, note that there is no system bus on \macos and
+    that the session bus will only be started after launchd is configured to
+    manage it.
+
+    \section2 Menu Actions
+
+    \list
+    \li Actions in a QMenu with accelerators that have more than one
+       keystroke (QKeySequence) will not display correctly, when the
+       QMenu is translated into a Mac native menu bar. The first key
+       will be displayed. However, the shortcut will still be
+       activated as on all other platforms.
+
+    \li QMenu objects used in the native menu bar are not able to
+       handle Qt events via the normal event handlers.
+       Install a delegate on the menu itself to be notified of these
+       changes. Alternatively, consider using the QMenu::aboutToShow()
+       and QMenu::aboutToHide() signals to keep track of menu visibility;
+       these provide a solution that should work on all platforms
+       supported by Qt.
+    \endlist
+
+    \section2 Native Widgets
+
+    Qt has support for sheets, represented by the window flag, Qt::Sheet.
+
+    Usually, when referring to a native \macos application, \e native means an
+    application that interfaces directly to the underlying window system, rather
+    than one that uses some intermediary layer. Qt applications run as first
+    class citizens, just like Cocoa and Carbon applications. We use Cocoa
+    internally to communicate with the operating system.
+
+*/
+
+/*!
+    \page osx-deployment.html
+    \title Qt for macOS - Deployment
+    \brief Describes the deployment process for \macos.
+
+    This document describes how to create a \l{Qt for macOS}{\macos} bundle
+    and make sure that the application finds the resources it needs at run-time.
+    We demonstrate the procedures in terms of deploying the
+    \l{tools/plugandpaint/app}{Plug & Paint} example application that comes with the
+    Qt installation package.
+
+    The Qt installers for \macos include a \l
+    {macdeploy}{deployment tool} that automates the procedures described here.
+
+    \section1 The Bundle
+
+    On \macos, a GUI application must be built and run from a bundle, which is a
+    directory structure that appears as a single  entity when viewed in the
+    Finder. A bundle for an application typically contains the executable and
+    all the resources it needs. Here is the snapshot of an application bundle
+    structure:
+
+    \image deployment-mac-bundlestructure.png
+
+    The bundle provides many advantages to the user:
+    \list
+     \li It is easily installable as it is identified as a single entity.
+     \li Information about a bundle is accessible from code.
+    \endlist
+    This is specific to \macos and beyond the scope of this document. For
+    more information about bundles, see
+    \l {http://developer.apple.com/documentation/CoreFoundation/Conceptual/CFBundles/index.html}{Apple's Developer Website}.
+
+    \c{qmake} automatically generates a bundle for your application. To disable this,
+    add the following statement to your application's project file (\c{.pro}):
+
+    \snippet snippets/code/doc_src_deployment.pro 26
+
+    \section1 Static Linking
+
+    If you want to keep things simple and have a few files to
+    deploy, you must build your application with statically linked libraries.
+
+    \section2 Building Qt Statically
+
+    Start by installing a static version of the Qt library. Remember that you
+    cannot use plugins and that you must build the dependent libraries such
+    as image formats, SQL drivers, and so on with static linking.
+
+    \snippet snippets/code/doc_src_deployment.qdoc 27
+
+    You can check the various options that are available by running \c
+    configure -help.
+
+    \section2 Linking the Application to the Static Version of Qt
+
+    Once Qt is built statically, the next step is to regenerate the
+    makefile and rebuild the application. First, we must go into the
+    directory that contains the application:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 28
+
+    Now run \c qmake to create a new makefile for the application, and do
+    a clean build to create the statically linked executable:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 29
+
+    You probably want to link against the release libraries, and you
+    can specify this when invoking \c qmake. If you have Xcode Tools
+    1.5 or higher installed, you may want to take advantage of "dead
+    code stripping" to reduce the size of your binary even more. You
+    can do this by passing \c {LIBS+= -dead_strip} to \c qmake in
+    addition to the \c {-config release} parameter.
+
+    Now, provided that everything compiled and linked without any
+    errors, we should have a \c plugandpaint.app bundle ready
+    for deployment. Try installing the bundle on a machine running \macos
+    that does not have Qt or any Qt applications installed.
+
+    You can check what other libraries your application links to using
+    the \c otool:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 30
+
+    Here is what the output looks like for the statically linked
+    \l {tools/plugandpaint/app}{Plug & Paint}:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 31
+
+    If you see \e Qt libraries in the output, it probably
+    means that you have both dynamic and static Qt libraries installed
+    on your machine. The linker always chooses dynamic linking over
+    static. If you want to use only static libraries, you can either:
+    \list
+     \li move your Qt dynamic libraries (\c .dylibs) away to another directory
+         while you link the application and then move them back,
+     \li or edit the \c Makefile  and replace link lines for the Qt libraries
+         with the absolute path to the static libraries.
+    \endlist
+
+    For example, replace the following:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 32
+
+    with this:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 33
+
+    The \l {tools/plugandpaint/app}{Plug & Paint} example consists of
+    several components: The core application (\l
+    {tools/plugandpaint/app}{Plug & Paint}), and the \l
+    {tools/plugandpaint/plugins/basictools}{Basic Tools} and \l
+    {tools/plugandpaint/plugins/extrafilters}{Extra Filters}
+    plugins. As we cannot deploy plugins using the static linking
+    approach, the bundle we have prepared so far is incomplete. The
+    application will run, but the functionality will be disabled due
+    to the missing plugins. To deploy plugin-based applications we
+    should use the framework approach, which is specific to \macos.
+
+    \section1 Frameworks
+
+    In this approach, ensure that the Qt runtime is redistributed correctly
+    with the application bundle, and that the plugins are installed in the correct
+    location so that the application finds them.
+
+    There are two ways to distribute Qt with your application in the frameworks
+    approach:
+    \list
+     \li Private framework within your application bundle.
+     \li Standard framework (alternatively use the Qt frameworks in
+    the installed binary).
+    \endlist
+
+    The former is good if you have Qt built in a special way, or want to make
+    sure the framework is there. It just comes down to where you place the Qt
+    frameworks.
+
+    The latter option is good if you have many Qt applications and you want
+    them use a single Qt framework rather than multiple versions of it.
+
+    \section2 Building Qt as Frameworks
+
+    We assume that you already have installed Qt as frameworks, which
+    is the default when installing Qt, in the /path/to/Qt
+    directory. For more information on how to build Qt without Frameworks,
+    visit the \l{Qt for macOS - Specific Issues} documentation.
+
+    When installing, the identification name of the frameworks is set. This
+    name is used by the dynamic linker (\c dyld) to find the libraries for your
+    application.
+
+    \section2 Linking the Application to Qt as Frameworks
+
+    After building Qt as frameworks, we can build the \l
+    {tools/plugandpaint/app}{Plug & Paint} application. First, we must go
+    to the directory that contains the application:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 34
+
+    Run \c qmake to create a new makefile for the application, and do
+    a clean build to create the dynamically linked executable:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 35
+
+    This builds the core application. Use the following to build the plugins:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 36
+
+    Now run the \c otool for the Qt frameworks, for example Qt Gui:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 37
+
+    You would get the following output:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 38
+
+    For the Qt frameworks, the first line (i.e. \c
+    {path/to/Qt/lib/QtGui.framework/Versions/4/QtGui (compatibility
+    version 4.0.0, current version 4.0.1)}) becomes the framework's
+    identification name which is used by the dynamic linker (\c dyld).
+
+    But when you are deploying the application, your users may not
+    have the Qt frameworks installed in the specified location. For
+    that reason, you must either provide the frameworks in an agreed
+    location, or store the frameworks in the bundle.
+    Regardless of which solution you choose, you must make sure that
+    the frameworks return the proper identification name for
+    themselves, and that the application looks for these names.
+    Luckily we can control this with the \c install_name_tool
+    command-line tool.
+
+    The \c install_name_tool works in two modes, \c -id and \c
+    -change. The \c -id mode is for libraries and frameworks, and
+    allows us to specify a new identification name. We use the \c
+    -change mode to change the paths in the application.
+
+    Let's test this out by copying the Qt frameworks into the Plug &
+    Paint bundle. Looking at \c otool's output for the bundle, we can
+    see that we must copy both the QtCore and QtGui frameworks into
+    the bundle. We will assume that we are in the directory where we
+    built the bundle.
+
+    \snippet snippets/code/doc_src_deployment.qdoc 39
+
+    First we create a \c Frameworks directory inside the bundle. This
+    follows the \macos application convention. We then copy the
+    frameworks into the new directory. As frameworks contain
+    symbolic links, we use the \c -R option.
+
+    \snippet snippets/code/doc_src_deployment.qdoc 40
+
+    Then we run \c install_name_tool to set the identification names
+    for the frameworks. The first argument after \c -id is the new
+    name, and the second argument is the framework that we want to
+    rename.  The text \c @executable_path is a special \c dyld variable
+    telling \c dyld to start looking where the executable is located. The new
+    names specifies that these frameworks are located in the directory directly
+    under the \c Frameworks directory.
+
+    \snippet snippets/code/doc_src_deployment.qdoc 41
+
+    Now, the dynamic linker knows where to look for QtCore and
+    QtGui. We must ensure that the application also knows where to find the
+    library, using \c install_name_tool's \c -change mode.
+    This basically comes down to string replacement, to match the
+    identification names that we set earlier to the frameworks.
+
+    Finally, the QtGui framework depends on QtCore, so we must
+    remember to change the reference for QtGui:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 42
+
+    After this, we run \c otool again and see that the
+    application can find the libraries.
+
+    The plugins for the \l {tools/plugandpaint/app}{Plug &
+    Paint} example makes it interesting. The basic steps we
+    need to follow with plugins are:
+
+    \list
+        \li put the plugins inside the bundle,
+        \li run the \c install_name_tool to check whether the plugins are using
+            the correct library,
+        \li and ensure that the application knows where to look for the plugins.
+    \endlist
+
+    We can put the plugins anywhere we want in the bundle, but the
+    best location is to put them under Contents/Plugins. When we built
+    the Plug & Paint plugins, based on the \c DESTDIR variable in their \c .pro
+    file, the plugins' \c .dylib files are in the \c plugins subdirectory
+    under the \c plugandpaint directory. We just have to move this directory
+    to the correct location.
+
+    \snippet snippets/code/doc_src_deployment.qdoc 43
+
+    For example, If we run \c otool on the \l
+    {tools/plugandpaint/plugins/basictools}{Basic Tools} plugin's \c
+    .dylib file, we get the following information.
+
+    \snippet snippets/code/doc_src_deployment.qdoc 44
+
+    Then we can see that the plugin links to the Qt frameworks it was
+    built against. As we want the plugins to use the framework in
+    the application bundle, we change them the same way as we did for
+    the application. For example for the Basic Tools plugin:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 45
+
+
+    We must also modify the code in \c
+    tools/plugandpaint/mainwindow.cpp to \l {QDir::cdUp()}{cdUp()} to ensure
+    that the application finds the plugins. Add the following
+    code to the \c mainwindow.cpp file:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 46
+
+    \table
+    \row
+    \li \inlineimage deployment-mac-application.png
+    \li
+    The additional code in \c tools/plugandpaint/mainwindow.cpp also
+    enables us to view the plugins in the Finder, as shown in the image.
+
+    We can also add plugins extending Qt, for example adding SQL
+    drivers or image formats. We just need to follow the directory
+    structure outlined in plugin documentation, and make sure they are
+    included in the QCoreApplication::libraryPaths(). Let's quickly do
+    this with the image formats, following the procedure outlined earlier.
+
+    Copy Qt's image format plugins into the bundle:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 47
+
+    Use \c install_name_tool to link the plugins to the frameworks in
+    the bundle:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 48
+
+    Update the source code in \c tools/plugandpaint/main.cpp
+    to look for the new plugins. After constructing the
+    QApplication, we add the following code:
+
+    \snippet snippets/code/doc_src_deployment.cpp 49
+
+    First, we tell the application to only look for plugins in this
+    directory. In our case, we want the application to look for only those
+    plugins that we distribute with the bundle. If we
+    were part of a bigger Qt installation we could have used
+    QCoreApplication::addLibraryPath() instead.
+
+    \endtable
+
+    \warning While deploying plugins, we make changes to the
+    source code and that resets the default identification names when
+    the application is rebuilt. So you must repeat the process of
+    making your application link to the correct Qt frameworks in the bundle
+    using \c install_name_tool.
+
+    Now you should be able to move the application to another \macos
+    machine and run it without Qt installed. Alternatively, you can
+    move your frameworks that live outside of the bundle to another
+    directory and see if the application still runs.
+
+    If you store the frameworks in another location outside the
+    bundle, the technique of linking your application is similar; you
+    must make sure that the application and the frameworks agree where
+    to be looking for the Qt libraries as well as the plugins.
+
+    \section2 Creating the Application Package
+
+    When you are done linking your application to Qt, either
+    statically or as frameworks, the application is ready to be
+    distributed. For more information, refer to the
+    \l {https://developer.apple.com/library/mac/#documentation/ToolsLanguages/Conceptual/OSXWorkflowGuide/Introduction/Introduction.html}{Tools Workflow Guide}.
+
+    Although the process of deploying an application do have some
+    pitfalls, once you know the various issues you can easily create
+    packages that all your \macos users will enjoy.
+
+    \section1 Application Dependencies
+
+    \section2 Qt Plugins
+
+    All Qt GUI applications require a plugin that implements the \l {Qt
+    Platform Abstraction} (QPA) layer in Qt 5. For \macos, the name of the
+    platform plugin is \c {libqcocoa.dylib}. This file must be located within a
+    specific subdirectory (by default, \c platforms) under your distribution
+    directory. Alternatively, it is possible to adjust the search path Qt
+    uses to find its plugins, as described below.
+
+    Your application may also depend on one or more Qt plugins, such as the JPEG
+    image format plugin or a SQL driver plugin. Be sure to distribute any Qt
+    plugins that you need with your application. Similar to the platform plugin,
+    each type of plugin must be located within a specific subdirectory (such as
+    \c imageformats or \c sqldrivers) in your distribution directory.
+
+    The search path for Qt plugins (as well as a few other paths) is
+    hard-coded into the QtCore library. By default, the first plugin
+    search path will be hard-coded as \c /path/to/Qt/plugins. But
+    using pre-determined paths has certain disadvantages. For example,
+    they may not exist on the target machine. So you must check
+    various alternatives to ensure that the Qt plugins are found:
+
+    \list
+
+    \li \l{qt-conf.html}{Using \c qt.conf}. This is the recommended
+    approach as it provides the most flexibility.
+
+    \li Using QApplication::addLibraryPath() or
+    QApplication::setLibraryPaths().
+
+    \li Using a third party installation utility to change the
+    hard-coded paths in the QtCore library.
+
+    \endlist
+
+    The \l{How to Create Qt Plugins} document outlines the issues you
+    need to pay attention to when building and deploying plugins for
+    Qt applications.
+
+    \section2 Additional Libraries
+
+    You can check which libraries your application is linking against
+    by using \c otool. Run this with the application path as an argument:
+
+    \snippet snippets/code/doc_src_deployment.qdoc 50
+
+    Compiler-specific libraries rarely have to be redistributed with your
+    application. But there are several ways to deploy applications, as Qt can be
+    configured, built, and installed in several ways on \macos. Typically your
+    goals help determine how you are going to deploy the application. The last
+    sections describe a few things that you must be aware of while deploying
+    your application.
+
+    \section2 \macos Version Dependencies
+
+    Qt 5 applications can be built on the latest \macos version and deployed to
+    previous versions. This is achieved using \e{weak linking}. In
+    \e{weak linking}, Qt tests whether a function added in a newer
+    version of \macos is available on the computer it is running
+    on. This allows Qt to use newer features when it runs on a newer
+    version of \macos, while remaining compatible on the older versions.
+
+    For more information about cross development issues on \macos,
+    see \l
+    {https://developer.apple.com/library/mac/#documentation/DeveloperTools/Conceptual/cross_development/Introduction/Introduction.html}{Apple's Developer Website}.
+
+    The linker is set to be compatible with all \macos versions,
+    so you must change the \c MACOSX_DEPLOYMENT_TARGET environment
+    variable to get \e{weak linking} to work for your application. You
+    can add the following:
+
+    \snippet snippets/code/doc_src_deployment.pro 51
+
+    to your .pro file, and qmake will take care of this for you.
+
+    For more information about C++ runtime environment, see \l
+    {https://developer.apple.com/library/mac/#documentation/DeveloperTools/Conceptual/CppRuntimeEnv/CPPRuntimeEnv.html}{Apple's Developer Website}
+
+    \section1 The Mac Deployment Tool
+    \target macdeploy
+    The Mac deployment tool can be found in QTDIR/bin/macdeployqt. It is
+    designed to automate the process of creating a deployable
+    application bundle that contains the Qt libraries as private
+    frameworks.
+
+    The mac deployment tool also deploys the Qt plugins, according
+    to the following rules (unless \c {-no-plugins} option is used):
+    \list
+    \li The platform plugin is always deployed.
+    \li Debug versions of the plugins are not deployed.
+    \li The designer plugins are not deployed.
+    \li The image format plugins are always deployed.
+    \li The print support plugin is always deployed.
+    \li SQL driver plugins are deployed if the application uses the \l{Qt SQL} module.
+    \li Script plugins are deployed if the application uses the \l{Qt Script} module.
+    \li The SVG icon plugin is deployed if the application uses the \l{Qt SVG} module.
+    \li The accessibility plugin is always deployed.
+    \endlist
+
+    To include a 3rd party library in the application bundle, copy the library
+    into the bundle manually, after the bundle is created.
+
+    \c macdeployqt supports the following options:
+    \table
+    \header
+        \li Option
+        \li Description
+    \row
+        \li \c{-verbose=<0-3>}
+        \li 0 = no output, 1 = error/warning (default), 2 = normal, 3 = debug
+    \row
+        \li \c{-no-plugins}
+        \li Skip plugin deployment
+    \row
+        \li \c{-dmg}
+        \li Create a .dmg disk image
+    \row
+        \li \c{-no-strip}
+        \li Don't run 'strip' on the binaries
+    \row
+        \li \c{-use-debug-libs}
+        \li Deploy with debug versions of frameworks and plugins (implies
+            \c{-no-strip})
+    \row
+        \li \c{-executable=<path>}
+        \li Let the given executable also use the deployed frameworks
+    \row
+        \li \c{-qmldir=<path>}
+        \li Deploy imports used by .qml files in the given path
+    \endtable
+*/
+
+/*!
+    \page mac-licensing.html
+
+    \title Contributions to the Cocoa Platform Plugin Files
+    \contentspage {Other Licenses Used in Qt}{Contents}
+    \ingroup licensing
+    \brief License information for contributions by Apple, Inc. to specific parts of the Qt for macOS Cocoa port.
+
+    This page is about the contributions to the following files
+    \list
+    \li qcocoaapplication.h
+    \li qcocoaapplication.mm
+    \li qcocoaapplicationdelegate.h
+    \li qcocoaapplicationdelegate.mm
+    \li qcocoaeventdispatcher.h
+    \li qcocoaeventdispatcher.mm
+    \li qmacdefines_mac.h
+    \endlist
+
+    \legalese
+
+    \section1 Cocoa Platform Plugin
+
+    Copyright (C) 2007-2008, Apple, Inc.
+
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+    \list
+    \li Redistributions of source code must retain the above copyright notice,
+       this list of conditions and the following disclaimer.
+    \li Redistributions in binary form must reproduce the above copyright notice,
+       this list of conditions and the following disclaimer in the documentation
+       and/or other materials provided with the distribution.
+    \li Neither the name of Apple, Inc. nor the names of its contributors
+       may be used to endorse or promote products derived from this software
+       without specific prior written permission.
+    \endlist
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+    A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+    CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+    EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+    PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+    PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+    LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+    NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+    \endlegalese
+*/

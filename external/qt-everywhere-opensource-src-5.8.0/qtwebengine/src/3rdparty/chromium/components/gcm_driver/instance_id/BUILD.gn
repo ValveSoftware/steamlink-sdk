@@ -1,0 +1,75 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# GYP version: components/gcm_driver.gypi:instance_id_driver
+source_set("instance_id") {
+  sources = [
+    "android/component_jni_registrar.cc",
+    "android/component_jni_registrar.h",
+    "instance_id.cc",
+    "instance_id.h",
+    "instance_id_driver.cc",
+    "instance_id_driver.h",
+    "instance_id_impl.cc",
+    "instance_id_impl.h",
+  ]
+
+  deps = [
+    "//base",
+    "//components/gcm_driver",
+    "//crypto",
+  ]
+  allow_circular_includes_from = [ "//components/gcm_driver" ]
+
+  if (is_android) {
+    sources -= [
+      "instance_id_impl.cc",
+      "instance_id_impl.h",
+    ]
+    sources += [
+      "instance_id_android.cc",
+      "instance_id_android.h",
+    ]
+    deps += [ "android:jni_headers" ]
+  }
+}
+
+# GYP version: components/gcm_driver.gypi:instance_id_test_support
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "fake_gcm_driver_for_instance_id.cc",
+    "fake_gcm_driver_for_instance_id.h",
+    "scoped_use_fake_instance_id_android.cc",
+    "scoped_use_fake_instance_id_android.h",
+  ]
+
+  public_deps = [
+    ":instance_id",
+  ]
+  deps = [
+    "//base",
+    "//components/gcm_driver:test_support",
+    "//testing/gtest",
+  ]
+
+  if (is_android) {
+    deps += [ "android:test_support_jni_headers" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "instance_id_driver_unittest.cc",
+  ]
+
+  deps = [
+    ":instance_id",
+    ":test_support",
+    "//base",
+    "//google_apis/gcm",
+    "//testing/gtest",
+  ]
+}

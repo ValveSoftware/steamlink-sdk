@@ -1,0 +1,122 @@
+# Copyright 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/clang/clang.gni")
+import("//build/config/sysroot.gni")  # Imports android/config.gni.
+import("//build/toolchain/gcc_toolchain.gni")
+
+# The Android GCC toolchains share most of the same parameters, so we have this
+# wrapper around gcc_toolchain to avoid duplication of logic.
+#
+# Parameters:
+#  - toolchain_cpu
+#      Same as gcc_toolchain.
+#  - toolchain_root
+#      Path to cpu-specific toolchain within the ndk.
+#  - sysroot
+#      Sysroot for this architecture.
+#  - lib_dir
+#      Subdirectory inside of sysroot where libs go.
+#  - binary_prefix
+#      Prefix of compiler executables.
+template("android_gcc_toolchain") {
+  gcc_toolchain(target_name) {
+    is_clang = invoker.is_clang
+    toolchain_cpu = invoker.toolchain_cpu
+    toolchain_os = "android"
+
+    # Make our manually injected libs relative to the build dir.
+    _ndk_lib =
+        rebase_path(invoker.sysroot + "/" + invoker.lib_dir, root_build_dir)
+
+    libs_section_prefix = "$_ndk_lib/crtbegin_dynamic.o"
+    libs_section_postfix = "$_ndk_lib/crtend_android.o"
+
+    solink_libs_section_prefix = "$_ndk_lib/crtbegin_so.o"
+    solink_libs_section_postfix = "$_ndk_lib/crtend_so.o"
+
+    _android_tool_prefix =
+        "${invoker.toolchain_root}/bin/${invoker.binary_prefix}-"
+
+    # The tools should be run relative to the build dir.
+    _tool_prefix = rebase_path("$_android_tool_prefix", root_build_dir)
+
+    if (is_clang) {
+      _prefix = rebase_path("$clang_base_path/bin", root_build_dir)
+      cc = "$_prefix/clang"
+      cxx = "$_prefix/clang++"
+    } else {
+      cc = "${_tool_prefix}gcc"
+      cxx = "${_tool_prefix}g++"
+    }
+    ar = _tool_prefix + "ar"
+    ld = cxx
+    readelf = _tool_prefix + "readelf"
+    nm = _tool_prefix + "nm"
+    strip = "${_tool_prefix}strip"
+
+    # Don't use .cr.so for loadable_modules since they are always loaded via
+    # absolute path.
+    loadable_module_extension = ".so"
+  }
+}
+
+template("android_gcc_toolchains_helper") {
+  android_gcc_toolchain(target_name) {
+    forward_variables_from(invoker, "*")
+  }
+
+  android_gcc_toolchain("clang_$target_name") {
+    forward_variables_from(invoker, "*")
+    is_clang = true
+  }
+}
+
+android_gcc_toolchains_helper("x86") {
+  toolchain_cpu = "x86"
+  toolchain_root = x86_android_toolchain_root
+  sysroot = "$android_ndk_root/$x86_android_sysroot_subdir"
+  lib_dir = "usr/lib"
+  binary_prefix = "i686-linux-android"
+}
+
+android_gcc_toolchains_helper("arm") {
+  toolchain_cpu = "arm"
+  toolchain_root = arm_android_toolchain_root
+  sysroot = "$android_ndk_root/$arm_android_sysroot_subdir"
+  lib_dir = "usr/lib"
+  binary_prefix = "arm-linux-androideabi"
+}
+
+android_gcc_toolchains_helper("mipsel") {
+  toolchain_cpu = "mipsel"
+  toolchain_root = mips_android_toolchain_root
+  sysroot = "$android_ndk_root/$mips_android_sysroot_subdir"
+  lib_dir = "usr/lib"
+  binary_prefix = "mipsel-linux-android"
+}
+
+android_gcc_toolchains_helper("x64") {
+  toolchain_cpu = "x86_64"
+  toolchain_root = x86_64_android_toolchain_root
+  sysroot = "$android_ndk_root/$x86_64_android_sysroot_subdir"
+  lib_dir = "usr/lib64"
+  binary_prefix = "x86_64-linux-android"
+}
+
+android_gcc_toolchains_helper("arm64") {
+  toolchain_cpu = "arm64"
+  toolchain_root = arm64_android_toolchain_root
+  sysroot = "$android_ndk_root/$arm64_android_sysroot_subdir"
+  lib_dir = "usr/lib"
+  binary_prefix = "aarch64-linux-android"
+}
+
+android_gcc_toolchains_helper("mips64el") {
+  toolchain_cpu = "mips64el"
+  toolchain_root = mips64_android_toolchain_root
+  sysroot = "$android_ndk_root/$mips64_android_sysroot_subdir"
+  lib_dir = "usr/lib64"
+  binary_prefix = "mips64el-linux-android"
+}

@@ -1,0 +1,436 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/buildflag_header.gni")
+import("//chrome/common/features.gni")
+import("//chrome/version.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//tools/grit/grit_rule.gni")
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("../chrome_common.gypi") ],
+                          "scope",
+                          [ "../chrome_common.gypi" ])
+
+# GYP version: chrome/chrome_resources.gyp:chrome_resources
+#              (generate_common_resources action)
+grit("resources") {
+  source = "common_resources.grd"
+  output_dir = "$root_gen_dir/chrome"
+  output_name = "common_resources"
+  outputs = [
+    "grit/common_resources.h",
+    "common_resources.pak",
+  ]
+}
+
+# GYP version: chrome/chrome_resources.gyp:chrome_resources
+#              (generate_extensions_api_resources action)
+if (enable_extensions) {
+  grit("extensions_api_resources") {
+    source = "extensions_api_resources.grd"
+    output_dir = "$root_gen_dir/chrome"
+    outputs = [
+      "grit/extensions_api_resources.h",
+      "extensions_api_resources.pak",
+    ]
+  }
+}
+
+buildflag_header("features") {
+  header = "features.h"
+  flags = [
+    "ANDROID_JAVA_UI=$android_java_ui",
+    "ENABLE_BACKGROUND=$enable_background",
+    "ENABLE_GOOGLE_NOW=$enable_google_now",
+    "ENABLE_ONE_CLICK_SIGNIN=$enable_one_click_signin",
+    "ENABLE_PACKAGE_MASH_SERVICES=$enable_package_mash_services",
+    "USE_VULCANIZE=$use_vulcanize",
+  ]
+}
+
+# GYP version: chrome/chrome_common.gypi:common
+#
+# Use a static library here because many test binaries depend on this but don't
+# require many files from it. This makes linking more efficient.
+static_library("common") {
+  sources = rebase_path(gypi_values.chrome_common_sources, ".", "//chrome")
+  defines = []
+
+  configs += [
+    "//build/config:precompiled_headers",
+    "//build/config/compiler:wexit_time_destructors",
+  ]
+
+  public_deps = [
+    ":features",
+    "//base:base",
+    "//base:base_static",
+    "//base:i18n",
+    "//chrome:resources",
+    "//chrome:strings",
+    "//chrome/app/theme:theme_resources",
+    "//chrome/common:constants",
+    "//chrome/common/safe_browsing:proto",
+    "//chrome/common/variations:fieldtrial_testing_config",
+    "//chrome/installer/util:with_no_strings",
+    "//components/cast_certificate",
+    "//components/cdm/common",
+    "//components/cloud_devices/common",
+    "//components/component_updater",
+    "//components/content_settings/core/common",
+    "//components/crash/core/common",
+    "//components/data_reduction_proxy/content/common",
+    "//components/dom_distiller/core",
+    "//components/error_page/common",
+    "//components/favicon_base",
+    "//components/flags_ui:switches",
+    "//components/gcm_driver/common",
+    "//components/json_schema",
+    "//components/metrics",
+    "//components/metrics:net",
+    "//components/nacl/common:process_type",
+    "//components/nacl/common:switches",
+    "//components/network_session_configurator:switches",
+    "//components/offline_pages:switches",
+    "//components/omnibox/common",
+    "//components/policy",
+    "//components/policy:policy_component_common",
+    "//components/prefs",
+    "//components/strings",
+    "//components/translate/core/common",
+    "//components/url_formatter",
+    "//components/variations",
+    "//components/version_info",
+    "//content/public/common",
+    "//crypto",
+    "//extensions/common:common_constants",
+    "//gin",
+    "//google_apis",
+    "//gpu/command_buffer/service",
+    "//gpu/config",
+    "//net",
+    "//skia",
+    "//third_party/icu",
+    "//third_party/kasko:kasko_features",
+    "//third_party/zlib:zip",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/gfx/ipc",
+    "//ui/gfx/ipc/geometry",
+    "//ui/gfx/ipc/skia",
+    "//ui/gl",
+    "//ui/message_center",
+    "//ui/resources:resources",
+    "//url",
+  ]
+
+  if (enable_plugins) {
+    public_deps += [ "//ppapi/shared_impl" ]
+  }
+
+  if (is_ios) {
+    sources += [
+      # Use this Mac file that was filtered out.
+      "channel_info_mac.mm",
+    ]
+    sources -= [
+      "resource_usage_reporter_type_converters.cc",
+      "resource_usage_reporter_type_converters.h",
+    ]
+  } else {
+    # Non-iOS.
+    public_deps += [
+      ":mojo_bindings",
+      "//chrome/common/net",
+      "//components/autofill/content/common",
+      "//components/autofill/core/common",
+      "//components/password_manager/content/public/interfaces",
+      "//components/password_manager/core/common",
+      "//components/signin/core/common",
+      "//components/translate/content/common",
+      "//components/visitedlink/common",
+      "//ipc",
+      "//media",
+      "//mojo/public/cpp/bindings",
+      "//third_party/re2",
+      "//third_party/widevine/cdm:version_h",
+    ]
+  }
+
+  if (enable_extensions) {
+    sources += rebase_path(gypi_values.chrome_common_extensions_sources,
+                           ".",
+                           "//chrome")
+    public_deps += [
+      "//chrome/common/extensions/api",
+      "//device/usb",
+      "//extensions:extensions_resources",
+      "//extensions/common",
+      "//extensions/common/api",
+      "//extensions/strings",
+      "//media/cast:net",
+    ]
+    if (is_chromeos) {
+      sources +=
+          rebase_path(gypi_values.chrome_common_extensions_chromeos_sources,
+                      ".",
+                      "//chrome")
+    }
+    if (use_aura) {
+      # This dependency is for a header used only by extensions code.
+      public_deps += [ "//ui/keyboard:keyboard_with_content" ]
+    }
+  }
+
+  if (is_win || is_mac) {
+    sources +=
+        rebase_path(gypi_values.chrome_common_win_mac_sources, ".", "//chrome")
+  }
+  if (is_win || is_mac || is_chromeos) {
+    sources += rebase_path(gypi_values.chrome_common_networking_private_sources,
+                           ".",
+                           "//chrome")
+
+    # networking_private_crypto.cc depends on boringssl.
+    public_deps += [ "//third_party/boringssl" ]
+  }
+  if (is_mac) {
+    public_deps += [ ":app_mode_app_support" ]
+  }
+  if (is_chromeos) {
+    public_deps += [ "//chromeos" ]
+  }
+
+  if (enable_nacl) {
+    public_deps += [ "//components/nacl/common" ]
+  }
+
+  # Printing.
+  if (enable_basic_printing || enable_print_preview) {
+    sources +=
+        rebase_path(gypi_values.chrome_common_printing_sources, ".", "//chrome")
+
+    public_deps += [
+      "//components/printing/common",
+      "//printing",
+    ]
+    if (enable_print_preview) {
+      # Full printing support.
+      sources += rebase_path(gypi_values.chrome_common_service_process_sources,
+                             ".",
+                             "//chrome")
+    }
+  }
+
+  if (is_android) {
+    sources -= [
+      "channel_info_posix.cc",
+      "media_galleries/metadata_types.h",
+    ]
+  } else {
+    # Non-Android.
+    sources +=
+        rebase_path(gypi_values.chrome_common_importer_sources, ".", "//chrome")
+  }
+
+  if (is_chromeos) {
+    sources -= [ "channel_info_posix.cc" ]
+  }
+
+  if (is_win) {
+    public_deps += [
+      "//components/dom_distiller/core",  # Needed by chrome_content_client.cc.
+      "//third_party/wtl",
+    ]
+
+    libs = [ "wintrust.lib" ]
+  }
+
+  if (is_mac) {
+    sources -= [ "channel_info_posix.cc" ]
+    public_deps += [
+      "//third_party/google_toolbox_for_mac",
+      "//third_party/mach_override",
+    ]
+  }
+
+  if (enable_plugins) {
+    sources += [
+      "pepper_flash.cc",
+      "pepper_flash.h",
+      "ppapi_utils.cc",
+      "ppapi_utils.h",
+    ]
+    public_deps += [ "//third_party/adobe/flash:flapper_version_h" ]
+  }
+  if (enable_plugins && enable_extensions) {
+    sources += [
+      "pepper_permission_util.cc",
+      "pepper_permission_util.h",
+    ]
+  }
+  if (!enable_webrtc) {
+    sources -= [ "media/webrtc_logging_messages.h" ]
+  }
+
+  if (safe_browsing_mode != 0) {
+    sources +=
+        rebase_path(gypi_values.chrome_common_shared_safe_browsing_sources,
+                    ".",
+                    "//chrome")
+
+    if (safe_browsing_mode == 1) {
+      sources +=
+          rebase_path(gypi_values.chrome_common_full_safe_browsing_sources,
+                      ".",
+                      "//chrome")
+    }
+  }
+}
+
+# GYP version: chrome/common_constants.gyp:version_header
+process_version("version_header") {
+  # TODO(brettw) this should have more reduced visibility, but chrome/browser
+  # currently depends on this.
+  #visibility = [ ":*" ]
+
+  # This one just uses the custom template and no separate sources.
+  sources = []
+  template_file = "chrome_version.h.in"
+
+  output = "$target_gen_dir/chrome_version.h"
+}
+
+# GYP version: chrome/common_constants.gyp:common_constants
+static_library("constants") {
+  sources = [
+    "chrome_constants.cc",
+    "chrome_constants.h",
+    "chrome_features.cc",
+    "chrome_features.h",
+    "chrome_icon_resources_win.cc",
+    "chrome_icon_resources_win.h",
+    "chrome_paths.cc",
+    "chrome_paths.h",
+    "chrome_paths_android.cc",
+    "chrome_paths_internal.h",
+    "chrome_paths_linux.cc",
+    "chrome_paths_mac.mm",
+    "chrome_paths_win.cc",
+    "chrome_result_codes.h",
+    "chrome_switches.cc",
+    "chrome_switches.h",
+    "env_vars.cc",
+    "env_vars.h",
+    "pref_font_script_names-inl.h",
+    "pref_font_webkit_names.h",
+    "pref_names.cc",
+    "pref_names.h",
+  ]
+
+  public_deps = [
+    "//content/public/common:result_codes",
+  ]
+  deps = [
+    ":features",
+    ":version_header",
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//components/bookmarks/common",
+    "//components/nacl/common:switches",
+    "//media:cdm_paths",  # Needed by chrome_paths.cc.
+    "//third_party/widevine/cdm:version_h",
+  ]
+
+  if (is_android) {
+    # This dependency must only be added for Android.
+    #
+    # On Windows, //chrome/installer/util depends on this target to get
+    # constants. That target is in turn used in a number of installer helper
+    # targets independent of Chrome that we want to keep small. So we don't
+    # want something large like //ui/base.
+    #
+    # Android doesn't have this structure and corresponding size limitation
+    # on this target. On that platform one of the Chrome paths forwards to one
+    # implemented in //ui/base, so we need that dependency.
+    deps += [ "//ui/base" ]
+  }
+}
+
+if (is_win) {
+  # GYP version: chrome/chrome_common.gypi:metrics_constants_util_win
+  source_set("metrics_constants_util_win") {
+    sources = [
+      "metrics_constants_util_win.cc",
+      "metrics_constants_util_win.h",
+    ]
+
+    deps = [
+      "//base",
+      "//chrome/installer/util:with_no_strings",
+    ]
+  }
+}
+
+# Use a static library here because many test binaries depend on this but don't
+# require many files from it. This makes linking more efficient.
+static_library("test_support") {
+  testonly = true
+  visibility = [ "//chrome/test:test_support" ]
+
+  sources = []
+
+  deps = [
+    ":common",
+    "//base",
+    "//testing/gtest",
+  ]
+
+  if (is_win || is_mac) {
+    sources += [
+      "media_galleries/picasa_test_util.cc",
+      "media_galleries/picasa_test_util.h",
+      "media_galleries/pmp_test_util.cc",
+      "media_galleries/pmp_test_util.h",
+    ]
+  }
+
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  if (enable_extensions) {
+    sources += [
+      "extensions/extension_test_util.cc",
+      "extensions/extension_test_util.h",
+    ]
+  }
+}
+
+# GYP version: chrome/chrome.gyp:app_mode_app_support
+source_set("app_mode_app_support") {
+  sources = [
+    "mac/app_mode_chrome_locator.h",
+    "mac/app_mode_chrome_locator.mm",
+    "mac/app_mode_common.h",
+    "mac/app_mode_common.mm",
+  ]
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  deps = [
+    ":constants",
+    "//base",
+  ]
+}
+
+mojom("mojo_bindings") {
+  sources = [
+    "image_decoder.mojom",
+    "resource_usage_reporter.mojom",
+  ]
+
+  public_deps = [
+    "//skia/public/interfaces",
+  ]
+}

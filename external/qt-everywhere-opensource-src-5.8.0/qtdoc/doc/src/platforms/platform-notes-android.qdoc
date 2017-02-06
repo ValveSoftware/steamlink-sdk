@@ -1,0 +1,180 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+
+/*!
+    \page platform-notes-android.html
+    \title Platform and Compiler Notes - Android
+    \contentspage Platform and Compiler Notes
+
+    This page contains information particular to building Qt applications for
+    and running them on the \l{Qt for Android}{Android} platform. Qt supports
+    Android versions 4.1 (API level 16) or later.
+
+    \tableofcontents
+
+    \section1 Android Development in Qt Creator
+
+    The easiest way to develop with Qt for Android is to use
+    \l{http://doc.qt.io/qtcreator/creator-developing-android.html}{Qt Creator}. When you apply
+    a \b{Qt for Android Kit} to a Qt Creator project, it will create and maintain a set of files which
+    are required to make your application run on Android.
+
+    The files added to your project are:
+    \list
+    \li \e .java files will serve as the entry point into your application and
+    automatically load Qt to execute the native code in your application
+    \li \e AndroidManifest.xml which provides meta-information about your
+    application
+    \li Other XML files detailing the dependencies of your application
+    \li Resource files
+    \li Depending on the deployment method selected in Qt Creator, additional
+    files like libraries and QML files can be included in the project.
+    \endlist
+
+    Qt Creator adds these files in a subdirectory of your project called \b android. The contents of
+    the \b android folder is used as basis for your app's distributable application package.
+
+    \section1 Application Package
+
+    On Android, apps are distributed in packages called \e APK. Qt Creator
+    builds the \e APK for you, but if you for some reason want to do this
+    manually, you must first make sure that the appropriate packaging and build
+    files are in place. For more detailed information about how the packaging
+    is done, see \l{Deploying an Application on Android}.
+
+    \section1 Deployment
+
+    Qt Creator currently supports three methods of deployment for Android apps: the default
+    deployment method is suitable for distribution of the APK file. With this deployment method,
+    the necessary Qt libraries and files will be copied into your project directory, and bundled
+    as part of the APK, so that you get a stand-alone, distributable application package.
+
+    \section2 Deployment with Ministro
+    The second method is suitable if you want to minimize the size of your APK, and can be selected by
+    opening the \b Run settings of your project, expanding \b{Deploy Configurations} and removing the
+    tick from the \b{Use local Qt libraries} check box. In this case, your application will have an
+    external dependency called \b{Ministro}. If a user downloads your application, and it is the first
+    application on their device to depend on Ministro, they will be asked to install it before they can
+    run your application. Ministro downloads Qt libraries from a repository of your choice. The
+    repository URL can be set by editing the file \e{android/res/values/libs.xml} which is created by Qt
+    Creator when configuring your project. Ministro will then serve as a central repository for Qt
+    libraries, and several apps can share the libraries to limit the amount of duplication. Note that
+    using this deployment method requires a repository for the libraries you want to distribute.
+
+    \section2 Deployment for Debugging
+    The third method is more convenient when you are simply testing your application on a device
+    physically connected to your development machine (or an emulator). It will copy the Qt libraries
+    into a temporary directory on your device and run the application against these instead. An APK
+    built in this way is not distributable, since it relies on the device being prepared to contain
+    the Qt libraries in the correct location. However, since the Qt libraries are only copied into
+    the device once, it benefits from a faster turn-around time, so it's more suited for testing
+    changes to your application during development. This deployment method can be selected by
+    opening the \b Run settings of your project, expanding \b{Deploy Configurations} and choosing
+    \b{Deploy local Qt libraries}. Make sure the \b{Use local Qt libraries} check box is also ticked.
+
+    \section1 Plugins and Imports Special Considerations
+
+    If an application uses plugins or imports that depend on other modules, these modules have to
+    be listed in the application's dependencies. This is because Qt Creator does not know ahead
+    of time which imports or plugins your application will end up loading.
+
+    For example, if your application's QML code imports \l{Qt Multimedia}, then the Qt Multimedia module
+    must explicitly be made a dependency of the application. You can do this by adding it to the
+    application .pro file:
+
+    \code
+    QT += multimedia
+    \endcode
+
+    It is also possible to manually enable dependencies on Qt libraries by opening the
+    \gui Run settings of your project, expanding \gui{Package configurations} and selecting the
+    \gui Libraries tab. Manually check the libraries that are dependencies of your project.
+
+    \section1 Text Special Considerations
+
+    Because of a bug in some OpenGL drivers, the mechanism used by Qt to cache text glyphs does
+    not work as expected on all Android devices, causing text to appear scrambled. To remedy this,
+    a workaround is in place, which increases memory consumption and can also affect text rendering
+    performance. Before Qt 5.3.2, the workaround was enabled only for a particular set of devices.
+    It is now used by default on all devices.
+
+    You can disable the workaround by setting the \c QT_ANDROID_DISABLE_GLYPH_CACHE_WORKAROUND
+    environment variable to \c 1. You should do so only after verifying that text appears correctly
+    on all targeted devices.
+
+    \section1 OpenGL Special Considerations
+
+    There are some special considerations to be made when OpenGL is used. The platform plugin only
+    supports full screen top-level OpenGL windows. This means that even dialogs and popups will be
+    shown as full screen. There may also be drawing errors if you try to stack windows that have
+    animations or otherwise require updating their UI while they are obscured by another window.
+
+    It is recommended that you try to avoid multiple top-level windows in the case of Android apps, as
+    there is no traditional window system on this platform.
+
+    \note Embedding a QGLWidget inside a widget hierarchy is not supported. When QGLWidget is in use,
+    it must be the top-level widget.
+
+    \note Avoid using the legacy QGLWidget. For embedding OpenGL or Qt Quick content into a
+    widget-based user interface, prefer using QOpenGLWidget and QQuickWidget.
+
+    Modern devices often support OpenGL ES 3.0 or 3.1 in addition to 2.0. To get a suitable OpenGL
+    context, set the requested version via QSurfaceFormat::setVersion(). Note however that the
+    header files are only available in recent API levels, for example to include gl31.h, you need to
+    target API level 21. Keep in mind also that using OpenGL ES 3.x features will result in the
+    application breaking on older devices that only support 2.0.
+
+    \section1 Multimedia Special Considerations
+    The \l{Qt Multimedia Widgets} module is not supported on Android, which means
+    video display is only available using the VideoOutput and the \l [QML]{QtMultimedia::}{Video}
+ QML Type.
+
+
+    \section1 Assets File System
+
+    Qt for Android provides a special, virtual file system which is based on the \e assets mechanism
+    in Android. Files that are put under \e assets in the \e android folder created by Qt Creator, will
+    be packaged as part of your application package. These can be accessed in Qt by prefixing the paths
+    with \c{assets:/}. For instance, to access the image \e logo.png in the folder \e{assets/images},
+    you can use \c QPixmap("assets:/images/logo.png").
+
+    If using the assets mechanism is not required for your app, the recommended way of distributing
+    resources with your Qt app is to use \l{The Qt Resource System}, which is a cross-platform mechanism
+    for distributing resources with your app.
+
+    \section1 Supported Architectures
+
+    Qt for Android currently has binaries for ARMv7 and x86. Make sure you select the
+    correct architecture for the device or emulator you are targeting, otherwise your application
+    will crash. The MIPS archictecture is currently not supported by Qt.
+
+    If you want to support several different architectures in your application, the recommendation is
+    to build separate APKs for each architecture, so that each APK only contains the binaries required
+    for the targeted architecture. For more information about this, see the Android documentation
+    about \l{http://developer.android.com/google/play/publishing/multiple-apks.html}{Multiple APK Support}.
+*/

@@ -1,0 +1,3169 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="onc_spec.css" >
+  <script src="onc_spec.js"></script>
+  <title>Open Network Configuration Format</title>
+</head>
+<body>
+
+<section id="root" class="not_in_toc">
+  <h1>Open Network Configuration Format</h1>
+
+<section class="not_in_toc">
+  <h1>Outline</h1>
+  <div id="outline"></div>
+</section>
+
+<section>
+  <h1>Objective</h1>
+  <p>
+    We would like to create a simple, open, but complete format to describe
+    multiple network configurations for WiFi, Ethernet, Cellular,
+    Bluetooth/WiFi-Direct, and VPN connections in a single file format, in order
+    to simplify and automate network configuration for users.
+  </p>
+</section>
+
+<section>
+  <h1>Background</h1>
+  <p>
+    Configuring networks is a painful and error-prone experience for users. It
+    is a problem shared across desktop, laptop, tablet, and phone users of all
+    operating system types. It is exacerbated in business and schools which
+    often have complex network configurations (VPNs and 802.1X networking) that
+    change often and have many connected devices. Configuration of WiFi is
+    still done manually, often by administrators physically standing next to
+    users working on devices. Certificate distribution is particularly painful
+    which often results in admins instead using passphrases to protect networks
+    or using protocols without client certificates that instead use LDAP
+    passwords for authentication. Even after networks are configured, updates to
+    the network configuration require another round of manual changes, and
+    accidental changes by a user or malicious changes by an attacker can break
+    connectivity or make connections less private or secure.
+  </p>
+
+<section>
+  <h1>Overview</h1>
+  <p>
+    We propose a single-file format for network configuration that is
+    human-readable, can describe all of the common kinds of network
+    configurations, supports integrity checking, certificate and key
+    provisioning, and updating. The file can be encrypted with a single
+    passphrase so that upon entering the passphrase the entire configuration is
+    loaded. The format can be described as an open format to enable multiple OS
+    vendors to interoperate and share configuration editors.
+  </p>
+
+  <p>
+    This format neither supports configuring browser settings nor allows setting
+    other types of system policies.
+  </p>
+</section>
+
+<section>
+  <h1>Infrastructure</h1>
+  <p>
+    A standalone configuration editor will be created, downloadable as a Chrome
+    app. This editor will allow creating, modifying, and encrypting an open
+    network configuration file in a way that is intuitive for a system
+    administrator.
+  </p>
+
+  <p>
+    This file format may be delivered to a user and manually imported into a
+    device.
+  </p>
+
+  <p>
+    This file format may be created by an administrator, stored in a policy
+    repository, and automatically pushed to a device.
+  </p>
+</section>
+
+</section>
+
+<section>
+  <h1>Detailed Design</h1>
+  <p>
+    We use JSON format for the files. The fields in a JSON file are always
+    case-sensitive, so the exact case of the fields in this section must be
+    matched. In addition, the values that are called out as explicit constants
+    must also match the case specified (e.g. WiFi must not be written as wifi,
+    etc.). This document describes a minimum set of required fields and optional
+    fields. Other fields may be created, however, see the
+    implementation-specific fields for guidelines for these fields.
+  </p>
+
+  <p>
+    The JSON consists of a top level dictionary containing
+    a <span class="field">Type</span> field which must have either the
+    value <span class="value">EncryptedConfiguration</span>
+    or <span class="value">UnencryptedConfiguration</span>.
+  </p>
+
+  <p>
+    For a description of the <span class="type">EncryptedConfiguration</span>
+    type, see the section on Encrypted Configuration
+    below. The <span class="type">EncryptedConfiguration</span> format encrypts
+    an unencrypted JSON object.
+  </p>
+
+<section>
+  <h1>GUIDs and Updating</h1>
+  <p>
+    This format allows for importing updated network configurations and
+    certificates by providing GUIDs to each network configuration and
+    certificate so they can be modified or even removed in future updates.
+  </p>
+
+  <p>
+    GUIDs are non-empty strings that are meant to be stable and unique. When
+    they refer to the same entity, they should be the same between ONC files. No
+    two different networks or certificates should have the same GUID, similarly
+    a network and certificate should not have the same GUID. A single ONC file
+    should not contain the same entity twice (with the same GUID). Failing any
+    of these tests indicates the ONC file is not valid.
+  </p>
+
+  <p>
+    Any GUID referred to in an ONC file must be present in the same ONC file. In
+    particular, it is an error to create a certificate in one ONC file and refer
+    to it in a NetworkConfiguration in another ONC file and not define it there,
+    even if the previous ONC file has been imported.
+  </p>
+</section>
+
+<section>
+  <h1>Implementation-specific fields</h1>
+  <p>
+    As there are many different kinds of connections and some that are not yet
+    anticipated may require new fields. This format allows arbitrary other
+    fields to be added.
+  </p>
+
+  <p>
+    Fields and values should follow these general guidelines:
+  </p>
+
+  <ul>
+    <li>
+      Certificates (with and without keys) should always be placed in the
+      certificate section - specifically certificate contents should not be
+      placed in fields directly. Referring to certificates should be done using
+      a field whose name ends in Ref and whose value is the GUID of the
+      certificate, or if the certificate is not contained in this file, its
+      pattern can be described using a field ending in Pattern of
+      <span class="type">CertificatePattern</span> type.
+    </li>
+    <li>
+      Fields should exist in the most-specific object in the hierarchy and
+      should be named CamelCase style.
+    </li>
+    <li>
+      Booleans and integers should be used directly instead of using a
+      stringified version of the type.
+    </li>
+  </ul>
+
+  <p>
+    Any editor of network configuration information should allows the user to
+    modify any fields that are implementation-specific. It may not be present
+    directly in the UI but it should be able to import files with such settings
+    and leave preserve these settings on export.
+  </p>
+</section>
+
+<section>
+  <h1>Unencrypted Configuration</h1>
+  <p>
+    When the top level <span class="field">Type</span> field
+    is <span class="value">UnencryptedConfiguration</span>, the top level JSON
+    has the <span class="type">UnencryptedConfiguration</span>
+    type. <span class="type">UnencryptedConfiguration</span> type contains the
+    following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">UnencryptedConfiguration
+         </span>)
+        <span class="type">string</span>
+      </span>
+      Must be <span class="value">UnencryptedConfiguration</span>.
+    </dd>
+
+    <dt class="field">NetworkConfigurations</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of NetworkConfiguration</span>
+      </span>
+      Describes WiFi, Ethernet, VPN, and wireless connections.
+    </dd>
+
+    <dt class="field">Certificates</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of Certificate</span>
+      </span>
+      Contains certificates stored in X.509 or PKCS#12 format.
+    </dd>
+  </dl>
+
+  At least one actual configuration field
+  (<span class="field">NetworkConfigurations</span> or
+   <span class="field">Certificates</span>) should be present, however it should
+  not be considered an error if no such field is present.
+
+<section>
+  <h1>Network Configuration</h1>
+  <p>
+    Field <span class="field">NetworkConfigurations</span> is an array
+    of <span class="type">NetworkConfiguration</span> typed
+    objects. The <span class="type">NetworkConfiguration</span> type contains
+    the following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Ethernet</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">Ethernet</span>, otherwise ignored)
+        <span class="type">Ethernet</span>
+      </span>
+      Ethernet settings.
+    </dd>
+
+    <dt class="field">GUID</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      A unique identifier for this network connection, which exists to make it
+      possible to update previously imported configurations. Must be a non-empty
+      string.
+    </dd>
+
+    <dt class="field">IPAddressConfigType</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">Remove</span> is
+        <span class="value">false</span>, otherwise ignored. Defaults to
+        <span class="value">DHCP</span> if
+        <span class="field">NameServersConfigType</span> is specified)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">DHCP</span> and
+        <span class="value">Static</span>.
+      </span>
+      Determines whether the IP Address configuration is statically configured,
+      see <span class="field">StaticIPConfig</span>, or automatically configured
+      using DHCP.
+    </dd>
+
+    <dt class="field">NameServersConfigType</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">Remove</span> is
+        <span class="value">false</span>, otherwise ignored. Defaults to
+        <span class="value">DHCP</span> if
+        <span class="field">IPAddressConfigType</span> is specified)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">DHCP</span> and
+        <span class="value">Static</span>.
+      </span>
+      Determines whether the NameServers configuration is statically configured,
+      see <span class="field">StaticIPConfig</span>, or automatically configured
+      using DHCP.
+    </dd>
+
+    <dt class="field">IPConfigs</dt>
+    <dd>
+      <span class="field_meta">
+        (optional for connected networks, read-only)
+        <span class="type">array of IPConfig</span>
+      </span>
+      Array of IPConfig properties associated with this connection.
+    </dd>
+
+    <dt class="field">StaticIPConfig</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">IPAddressConfigType</span> or
+        <span class="field">NameServersConfigType</span> is set to
+        <span class="value">Static</span>)
+        <span class="type">IPConfig</span>
+      </span>
+      Each property set in this IPConfig object overrides the respective
+      parameter received over DHCP.
+      If <span class="field">IPAddressConfigType</span> is set to
+      <span class="value">Static</span>, <span class="field">IPAddress</span>
+      and <span class="field">Gateway</span> are required.
+      If <span class="field">NameServersConfigType</span> is set to
+      <span class="value">Static</span>, <span class="field">NameServers</span>
+      is required.
+    </dd>
+
+    <dt class="field">SavedIPConfig</dt>
+    <dd>
+      <span class="field_meta">
+        (optional for connected networks, read-only)
+        <span class="type">IPConfig</span>
+      </span>
+      IPConfig property containing the configuration that was received from the
+      DHCP server prior to applying any StaticIPConfig parameters.
+    </dd>
+
+    <dt class="field">Name</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Remove</span> is
+        <span class="value">false</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      A user-friendly description of this connection. This name will not be used
+      for referencing and may not be unique. Instead it may be used for
+      describing the network to the user.
+    </dd>
+
+    <dt class="field">Remove</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      If set, remove this network configuration (only GUID should be set).
+    </dd>
+
+    <dt class="field">ProxySettings</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">Remove</span> is
+        <span class="value">false</span>, otherwise ignored)
+        <span class="type">ProxySettings</span>
+      </span>
+      Proxy settings for this network
+    </dd>
+
+    <dt class="field">VPN</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">VPN</span>, otherwise ignored)
+        <span class="type">VPN</span>
+      </span>
+      VPN settings.
+    </dd>
+
+    <dt class="field">WiFi</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">WiFi</span>, otherwise ignored)
+        <span class="type">WiFi</span>
+      </span>
+      WiFi settings.
+    </dd>
+
+    <dt class="field">WiMAX</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">WiMAX</span>, otherwise ignored)
+        <span class="type">WiMAX</span>
+      </span>
+      WiMAX settings.
+    </dd>
+
+    <dt class="field">Cellular</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">Cellular</span>, otherwise ignored)
+        <span class="type">Cellular</span>
+      </span>
+      Cellular settings.
+    </dd>
+
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Remove</span> is
+        <span class="value">false</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">Cellular</span>,
+        <span class="value">Ethernet</span>, <span class="value">WiFi</span>,
+        <span class="value">WiMAX</span> and <span class="value">VPN</span>.
+      </span>
+      Indicates which kind of connection this is.
+    </dd>
+
+    <dt class="field">ConnectionState</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The current connection state for this network, provided by the system.
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are:
+        <span class="value">Connected</span>,
+        <span class="value">Connecting</span>,
+        <span class="value">NotConnected</span>
+      </span>
+    </dd>
+
+    <dt class="field">RestrictedConnectivity</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>, read-only)
+        <span class="type">boolean</span>
+      </span>
+      True if a connnected network has limited connectivity to the Internet,
+      e.g. a connection is behind a portal or a cellular network is not
+      activated or requires payment.
+    </dd>
+
+    <dt class="field">Connectable</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">boolean</span>
+      </span>
+      True if the system indicates that the network can be connected to without
+      any additional configuration.
+    </dd>
+
+    <dt class="field">ErrorState</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The current error state for this network, if any. Error states are
+      provided by the system and are not explicitly defined here. They may or
+      may not be human-readable. This field will be empty or absent if the
+      network is not in an error state.
+    </dd>
+
+    <dt class="field">MacAddress</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The MAC address for the network. Only applies to connected non-virtual
+      networks. The format is 00:11:22:AA:BB:CC.
+    </dd>
+
+    <dt class="field">Source</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">string</span>
+      </span>
+      Indicates whether the network is configured and how it is configured:
+      <ul>
+        <li><span class="value">User</span>: Configured for the active
+          user only, i.e. an unshared configuration.</li>
+        <li><span class="value">Device</span>: Configured for all users of the
+          device (e.g laptop), i.e. a shared configuration.</li>
+        <li><span class="value">UserPolicy</span>: Configured by the user
+          policy for the active user.</li>
+        <li><span class="value">DevicePolicy</span>: Configured by the device
+          policy for the device.</li>
+        <li><span class="value">None</span>: Not configured, e.g. a visible
+          but unconfigured WiFi network.</li>
+      </ul>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are:
+        <span class="value">User</span>,
+        <span class="value">Device</span>,
+        <span class="value">UserPolicy</span>,
+        <span class="value">DevicePolicy</span>,
+        <span class="value">None</span>
+      </span>
+    </dd>
+
+    <dt class="field">Priority</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">integer</span>
+      </span>
+      Provides a suggested priority value for this network. May be used by the
+      system to determine which network to connect to when multiple configured
+      networks are available (or may be ignored).
+    </dd>
+
+  </dl>
+
+<section>
+  <h1>Ethernet networks</h1>
+  <p>
+    For Ethernet connections, <span class="field">Type</span> must be set to
+    <span class="value">Ethernet</span> and the
+    field <span class="field">Ethernet</span> must be set to an object of
+    type <span class="type">Ethernet</span> containing the following fields:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Authentication</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">None</span> and
+        <span class="value">8021X</span>.
+      </span>
+    </dd>
+
+    <dt class="field">EAP</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Authentication</span> is
+        <span class="value">8021X</span>, otherwise ignored)
+        <span class="type">EAP</span>
+      </span>
+      EAP settings.
+    </dd>
+  </dl>
+</section>
+
+<section>
+  <h1>IPConfig</h1>
+  <p>
+    Objects of type <span class="type">IPConfig</span> are used to report the
+    actual IP configuration of a connected network (see
+    <span class="field">IPConfigs</span>), the IP configuration received from
+    DHCP (see <span class="field">SavedIPConfig</span>) and to configure a 
+    static IP configuration (see <span class="field">StaticIPConfig</span>).
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">IPv4</span>
+        and <span class="value">IPv6</span>
+      </span>
+      Describes the type of configuration this is.
+    </dd>
+
+    <dt class="field">IPAddress</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Describes the IPv4 or IPv6 address of a connection, depending on the value
+      of <span class="field">Type</span> field. It should not contain the
+      routing prefix (i.e. should not end in something like /64).
+    </dd>
+
+    <dt class="field">RoutingPrefix</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">IPAddress</span> is set. Otherwise
+        ignored.)
+        <span class="type">integer</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Must be a number in the range [1, 32] for IPv4 and [1, 128] for IPv6
+        addresses.
+      </span>
+      Describes the routing prefix.
+    </dd>
+
+    <dt class="field">Gateway</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">IPAddress</span> is set. Otherwise
+        ignored.)
+        <span class="type">string</span>
+      </span>
+      Describes the gateway address to use for the configuration. Must match
+      address type specified in <span class="field">Type</span> field. If not
+      specified, DHCP values will be used.
+    </dd>
+
+    <dt class="field">NameServers</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of string</span>
+      </span>
+      Array of addresses to use for name servers. Address format must match that
+      specified in the <span class="field">Type</span> field. If not specified,
+      DHCP values will be used.
+    </dd>
+
+    <dt class="field">SearchDomains</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of string</span>
+      </span>
+      Array of strings to append to names for resolution. Items in this array
+      should not start with a dot. Example: <span class="snippet">[
+      "corp.acme.org", "acme.org" ]</span>. If not specified, DHCP values will
+      be used.
+    </dd>
+
+    <dt class="field">WebProxyAutoDiscoveryUrl</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if part of <span class="field">IPConfigs</span>, read-only)
+        <span class="type">string</span>
+      </span>
+      The Web Proxy Auto-Discovery URL for this network as reported over DHCP.
+    </dd>
+
+  </dl>
+</section>
+
+<section>
+  <h1>WiFi networks</h1>
+  <p>
+    For WiFi connections, <span class="field">Type</span> must be set to
+    <span class="value">WiFi</span> and the
+    field <span class="field">WiFi</span> must be set to an object of
+    type <span class="type">WiFi</span> containing the following fields:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">AllowGatewayARPPolling</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">true</span>)
+        <span class="type">boolean</span>
+      </span>
+      Indicaties if ARP polling of default gateway is allowed.
+      When it is allowed, periodic ARP messages will be sent to
+      the default gateway. This is used for monitoring the status
+      of the current connection.
+    </dd>
+
+    <dt class="field">AutoConnect</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Indicating that the network should be connected to automatically when in
+      range.
+    </dd>
+
+    <dt class="field">EAP</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Security</span> is
+        <span class="value">WEP-8021X</span> or
+        <span class="value">WPA-EAP</span>, otherwise ignored)
+        <span class="type">EAP</span>
+      </span>
+      EAP settings.
+    </dd>
+
+    <dt class="field">HexSSID</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">SSID</span> is set, if so defaults to
+        a hex representation of <span class="field">SSID</span>)
+        <span class="type">string</span>
+      </span>
+      Hex representation of the network's SSID.
+    </dd>
+
+    <dt class="field">HiddenSSID</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Indicating if the SSID will be broadcast.
+    </dd>
+
+    <dt class="field">Passphrase</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Security</span> is
+        <span class="value">WEP-PSK</span> or
+        <span class="value">WPA-PSK</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      Describes the passphrase for WEP/WPA/WPA2
+      connections. If <span class="value">WEP-PSK</span> is used, the passphrase
+      must be of the format 0x&lt;hex-number&gt;, where &lt;hex-number&gt; is
+      40, 104, 128, or 232 bits.
+    </dd>
+
+    <dt class="field">RoamThreshold</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">integer</span>
+      </span>
+      The roam threshold for this network, which is the signal-to-noise value
+      (in dB) below which we will attempt to roam to a new network. If this
+      value is not set, the default value will be used.
+    </dd>
+
+    <dt class="field">Security</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">None</span>,
+        <span class="value">WEP-PSK</span>,
+        <span class="value">WEP-8021X</span>,
+        <span class="value">WPA-PSK</span>, and
+        <span class="value">WPA-EAP</span>.
+      </span>
+    </dd>
+
+    <dt class="field">SSID</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">HexSSID</span> is set, otherwise
+        ignored)
+        <span class="type">string</span>
+      </span>
+      Property to access the decoded SSID of a network.<br/>
+      If this field is set, but <span class="field">HexSSID</span> is not,
+      its value will be UTF-8 encoded and the hex representation will be
+      assigned to <span class="field">HexSSID</span>. To configure a non-UTF-8
+      SSID, field <span class="field">HexSSID</span> must be used.<br/>
+      When reading the configuration of a network, both this field and
+      <span class="field">HexSSID</span> might be set. Then this field is the
+      decoding of <span class="field">HexSSID</span>. If possible the HexSSID is
+      decoded using UTF-8, otherwise an encoding is guessed on a best effort
+      basis.
+    </dd>
+
+    <dt class="field">SignalStrength</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">integer</span>
+      </span>
+      The current signal strength for this network in the range [0, 100],
+      provided by the system. If the network is not in range this field will
+      be set to '0' or not present.
+    </dd>
+  </dl>
+  <span class="rule">
+    <span class="rule_id"></span>
+      At least one of the fields <span class="field">HexSSID</span> or
+      <span class="field">SSID</span> must be present. If both
+      <span class="field">HexSSID</span> and <span class="field">SSID</span>
+      are set, the values must be consistent.
+    </span>
+  </span>
+</section>
+
+<section>
+  <h1>VPN networks</h1>
+  <p>
+    There are many kinds of VPNs with widely varying configuration options. We
+    offer standard configuration options for a few common configurations at this
+    time, and may add more later. For all others, implementation specific fields
+    should be used.
+  </p>
+
+  <p>
+    For VPN connections, <span class="field">Type</span> must be set
+    to <span class="value">VPN</span> and the
+    field <span class="field">VPN</span> must be set to an object of
+    type <span class="type">VPN</span> containing the following fields:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">AutoConnect</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Indicating that the network should be connected to automatically.
+    </dd>
+
+    <dt class="field">Host</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Host name or IP address of server to connect to. The only scenario that
+      does not require a host is a VPN that encrypts but does not tunnel
+      traffic. Standalone IPsec (v1 or v2, cert or PSK based -- this is not the
+      same as L2TP over IPsec) is one such setup. For all other types of VPN,
+      the <span class="field">Host</span> field is required.
+    </dd>
+
+    <dt class="field">IPsec</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">IPsec</span> or
+        <span class="value">L2TP-IPsec</span>, otherwise ignored)
+        <span class="type">IPsec</span>
+      </span>
+      IPsec layer settings.
+    </dd>
+
+    <dt class="field">L2TP</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">L2TP-IPsec</span>, otherwise ignored)
+        <span class="type">L2TP</span>
+      </span>
+      L2TP layer settings.
+    </dd>
+
+    <dt class="field">OpenVPN</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">OpenVPN</span>, otherwise ignored)
+        <span class="type">OpenVPN</span>
+      </span>
+      OpenVPN settings.
+    </dd>
+
+    <dt class="field">ThirdPartyVPN</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">ThirdPartyVPN</span>, otherwise ignored)
+        <span class="type">ThirdPartyVPN</span>
+      </span>
+      Third-party VPN provider settings.
+    </dd>
+
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">IPsec</span>,
+        <span class="value">L2TP-IPsec</span>,
+        <span class="value">OpenVPN</span>, and
+        <span class="value">ThirdPartyVPN</span>.
+      </span>
+      Type of the VPN.
+    </dd>
+  </dl>
+
+  <section>
+    <h1>IPsec-based VPN types</h1>
+    <p>
+      The <span class="type">IPsec</span> type contains the following:
+    </p>
+
+    <dl class="field_list">
+      <dt class="field">AuthenticationType</dt>
+      <dd>
+        <span class="field_meta">
+          (required)
+          <span class="type">string</span>
+        </span>
+        <span class="rule">
+          <span class="rule_id"></span>
+          Allowed values are <span class="value">PSK</span> and
+          <span class="value">Cert</span>. If <span class="value">Cert</span> is used, <span class="field">ClientCertType</span> and <span class="field">ServerCARefs</span> (or the deprecated <span class="field">ServerCARef</span>) must be set.
+        </span>
+      </dd>
+
+      <dt class="field">ClientCertPattern</dt>
+      <dd>
+        <span class="field_meta">
+          (required if <span class="field">ClientCertType</span>
+          is <span class="value">Pattern</span>, otherwise ignored)
+          <span class="type">CertificatePattern</span>
+        </span>
+        Pattern describing the client certificate.
+      </dd>
+
+      <dt class="field">ClientCertRef</dt>
+      <dd>
+        <span class="field_meta">
+          (required if <span class="field">ClientCertType</span>
+          is <span class="value">Ref</span>, otherwise ignored)
+          <span class="type">string</span>
+        </span>
+        Reference to client certificate stored in certificate section.
+      </dd>
+
+      <dt class="field">ClientCertType</dt>
+      <dd>
+        <span class="field_meta">
+          (required if <span class="field">AuthenticationType</span>
+          is <span class="value">Cert</span>, otherwise ignored)
+          <span class="type">string</span>
+        </span>
+        <span class="rule">
+          <span class="rule_id"></span>
+          Allowed values are <span class="value">Ref</span> and
+          <span class="value">Pattern</span>
+        </span>
+      </dd>
+
+      <dt class="field">EAP</dt>
+      <dd>
+        <span class="field_meta">
+          (optional if <span class="field">IKEVersion</span> is 2, otherwise
+          ignored)
+          <span class="type">EAP</span>
+        </span>
+        Indicating that EAP authentication should be used with the provided
+        parameters.
+      </dd>
+
+      <dt class="field">Group</dt>
+      <dd>
+        <span class="field_meta">
+          (optional if <span class="field">IKEVersion</span> is 1, otherwise
+          ignored)
+          <span class="type">string</span>
+        </span>
+        Group name used for machine authentication.
+      </dd>
+
+      <dt class="field">IKEVersion</dt>
+      <dd>
+        <span class="field_meta">
+          (required)
+          <span class="type">integer</span>
+        </span>
+        Version of IKE protocol to use.
+      </dd>
+
+      <dt class="field">PSK</dt>
+      <dd>
+        <span class="field_meta">
+          (optional if <span class="field">AuthenticationType</span>
+          is <span class="value">PSK</span>, otherwise ignored)
+          <span class="type">string</span>
+        </span>
+        Pre-Shared Key. If not specified, user is prompted at time of
+        connection.
+      </dd>
+
+      <dt class="field">SaveCredentials</dt>
+      <dd>
+        <span class="field_meta">
+          (optional if <span class="field">AuthenticationType</span>
+          is <span class="value">PSK</span>, otherwise ignored, defaults
+          to <span class="value">false</span>)
+          <span class="type">boolean</span>
+        </span>
+        If <span class="value">false</span>, require user to enter credentials
+        (PSK) each time they connect.
+      </dd>
+
+      <dt class="field">ServerCARefs</dt>
+      <dd>
+        <span class="field_meta">
+          (optional if <span class="field">AuthenticationType</span>
+          is <span class="value">Cert</span>, otherwise rejected)
+          <span class="type">array of string</span>
+        </span>
+        Non-empty list of references to CA certificates in <span class="field">Certificates</span> to be used for verifying the host's certificate chain. At least one of the CA certificates must match. If this field is set, <span class="field">ServerCARef</span> must be unset.
+      </dd>
+
+      <dt class="field">ServerCARef</dt>
+      <dd>
+        <span class="field_meta">
+          (optional if <span class="field">AuthenticationType</span>
+          is <span class="value">Cert</span>, otherwise rejected)
+          <span class="type">string</span>
+        </span>
+        DEPRECATED, use <span class="field">ServerCARefs</span> instead.<br/>
+        Reference to a CA certificate in <span class="field">Certificates</span>. Certificate authority to use for verifying connection. If this field is set, <span class="field">ServerCARefs</span> must be unset.
+      </dd>
+
+      <dt class="field">XAUTH</dt>
+      <dd>
+        <span class="field_meta">
+          (optional if <span class="field">IKEVersion</span> is 1, otherwise
+          ignored)
+          <span class="type">XAUTH</span>
+        </span>
+        Describing XAUTH credentials. XAUTH is not used if this object is not
+        present.
+      </dd>
+    </dl>
+
+    <p class="rule">
+      <span class="rule_id"></span>
+      If <span class="field">AuthenticationType</span> is set to <span class="value">Cert</span>, <span class="field">ServerCARefs</span> or <span class="field">ServerCARef</span> must be set.
+    </p>
+
+    <p class="rule">
+      <span class="rule_id"></span>
+      At most one of <span class="field">ServerCARefs</span> and <span class="field">ServerCARef</span> can be set.
+    </p>
+
+    <p>
+      <span class="type">L2TP</span> type contains the following:
+    </p>
+
+    <dl class="field_list">
+      <dt class="field">LcpEchoDisabled</dt>
+      <dd>
+        <span class="field_meta">
+          (optional, defaults to <span class="value">false</span>)
+          <span class="type">boolean</span>
+        </span>
+        Disable L2TP connection monitoring via PPP LCP frames.  This
+        allows the VPN client to work around server implementations
+        that do not support the LCP echo feature.
+      </dd>
+
+      <dt class="field">Password</dt>
+      <dd>
+        <span class="field_meta">
+          (optional)
+          <span class="type">string</span>
+        </span>
+        User authentication password. If not specified, user is prompted at time
+        of connection.
+      </dd>
+
+      <dt class="field">SaveCredentials</dt>
+      <dd>
+        <span class="field_meta">
+          (optional, defaults to <span class="value">false</span>)
+          <span class="type">boolean</span>
+        </span>
+        If <span class="value">false</span>, require user to enter credentials
+        each time they connect.
+      </dd>
+
+      <dt class="field">Username</dt>
+      <dd>
+        <span class="field_meta">
+          (optional)
+          <span class="type">string</span>
+        </span>
+        User identity. This value is subject to string expansions. If not
+        specified, user is prompted at time of connection.
+      </dd>
+    </dl>
+
+    <p>
+      <span class="type">XAUTH</span> type contains the following:
+    </p>
+
+    <dl class="field_list">
+      <dt class="field">Password</dt>
+      <dd>
+        <span class="field_meta">
+          (optional)
+          <span class="type">string</span>
+        </span>
+        XAUTH password. If not specified, user is prompted at time of
+        connection.
+      </dd>
+
+      <dt class="field">SaveCredentials</dt>
+      <dd>
+        <span class="field_meta">
+          (optional, defaults to <span class="value">false</span>)
+          <span class="type">boolean</span>
+        </span>
+        If <span class="value">false</span>, require user to enter credentials
+        each time they connect.
+      </dd>
+
+      <dt class="field">Username</dt>
+      <dd>
+        <span class="field_meta">
+          (optional)
+          <span class="type">string</span>
+        </span>
+        XAUTH user name. This value is subject to string expansions. If not
+        specified, user is prompted at time of connection.
+      </dd>
+    </dl>
+
+<section>
+  <h1>IPsec IKE v1 VPN connections</h1>
+  <p>
+    <span class="field">VPN.Type</span> must
+    be <span class="value">IPsec</span>, <span class="field">IKEVersion</span>
+    must be 1. Do not use this for L2TP over IPsec. This may be used for
+    machine-authentication-only IKEv1 or for IKEv1 with XAUTH. See
+    the <span class="type">IPsec</span> type described below.
+  </p>
+</section>
+
+<section>
+  <h1>IPsec IKE v2 VPN connections</h1>
+  <p>
+    <span class="field">VPN.Type</span> must
+    be <span class="value">IPsec</span>, <span class="field">IKEVersion</span>
+    must be 2. This may be used with EAP-based user authentication.
+  </p>
+</section>
+
+<section>
+  <h1>L2TP over IPsec VPN connections</h1>
+  <p>
+    There are two major configurations L2TP over IPsec which depend on how IPsec
+    is authenticated. In either case <span class="field">Type</span> must be
+    <span class="value">L2TP-IPsec</span>. They are described below.
+  </p>
+
+  <p>
+    L2TP over IPsec with pre-shared key:
+  </p>
+
+  <ul>
+    <li>The field <span class="field">IPsec</span> must be present and have the
+    following settings:
+      <ul>
+        <li><span class="field">IKEVersion</span> must be 1.</li>
+        <li><span class="field">AuthenticationType</span> must be PSK.</li>
+        <li><span class="field">XAUTH</span> must not be set.</li>
+      </ul>
+    </li>
+    <li>The field <span class="field">L2TP</span> must be present.</li>
+  </ul>
+</section>
+
+</section>
+
+<section>
+  <h1>OpenVPN connections and types</h1>
+  <p>
+    <span class="field">VPN.Type</span> must be
+    <span class="value">OpenVPN</span>.
+  </p>
+
+  <p>
+    <span class="type">OpenVPN</span> type contains the following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Auth</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">SHA1</span>)
+        <span class="type">string</span>
+      </span>
+    </dd>
+
+    <dt class="field">AuthRetry</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">none</span>)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">none</span>,
+        <span class="value">nointeract</span>, and
+        <span class="value">interact</span>.
+      </span>
+      Controls how OpenVPN responds to username/password verification
+      errors:<br> Either fail with error on retry
+      (<span class="value">none</span>), retry without asking for authentication
+      (<span class="value">nointeract</span>), or ask again for authentication
+      each time (<span class="value">interact</span>).
+    </dd>
+
+    <dt class="field">AuthNoCache</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Disable caching of credentials in memory.
+    </dd>
+
+    <dt class="field">Cipher</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">BF-CBC</span>)
+        <span class="type">string</span>
+      </span>
+      Cipher to use.
+    </dd>
+
+    <dt class="field">ClientCertRef</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">ClientCertType</span> is
+        <span class="value">Ref</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      Reference to client certificate stored in certificate section.
+    </dd>
+
+    <dt class="field">ClientCertPattern</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">ClientCertType</span> is
+        <span class="value">Pattern</span>, otherwise ignored)
+        <span class="type">CertificatePattern</span>
+      </span>
+      Pattern to use to find the client certificate.
+    </dd>
+
+    <dt class="field">ClientCertType</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">Ref</span>,
+        <span class="value">Pattern</span>, and <span class="value">None</span>.
+      </span>
+      <span class="value">None</span> implies that the server is configured to
+      not require client certificates.
+    </dd>
+
+    <dt class="field">CompLZO</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">adaptive</span>)
+        <span class="type">string</span>
+      </span>
+      Decides to fast LZO compression with <span class="value">true</span>
+      and <span class="value">false</span> as other values.
+    </dd>
+
+    <dt class="field">CompNoAdapt</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Disables adaptive compression.
+    </dd>
+
+    <dt class="field">IgnoreDefaultRoute</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">bool</span>
+      </span>
+      Omits a default route to the VPN gateway while the connection is active.
+      By default, the client creates a default route to the gateway address
+      advertised by the VPN server.  Setting this value to
+      <span class="value">true</span> will allow split tunnelling for
+      configurations where the VPN server omits explicit default routes.
+      This is roughly equivalent to omitting "redirect-gateway" OpenVPN client
+      configuration option.  If the server pushes a "redirect-gateway"
+      configuration flag to the client, this option is ignored.
+    </dd>
+
+    <dt class="field">KeyDirection</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Passed as --key-direction.
+    </dd>
+
+    <dt class="field">NsCertType</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      If set, checks peer certificate type. Should only be set
+      to <span class="value">server</span> if set.
+    </dd>
+
+    <dt class="field">OTP</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">UserAuthenticationType</span> is
+        <span class="value">OTP</span>,
+        <span class="value">PasswordAndOTP</span> or unset, otherwise ignored,
+        defaults to empty string)
+        <span class="type">string</span>
+      </span>
+      If <span class="field">UserAuthenticationType</span> is
+      <span class="value">OTP</span> or <span class="value">PasswordAndOTP</span>
+      and this field is not set, the user will be asked for an OTP.
+      The OTP is never persisted and must be provided on every connection
+      attempt.
+    </dd>
+
+    <dt class="field">Password</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">UserAuthenticationType</span> is
+        <span class="value">Password</span>,
+        <span class="value">PasswordAndOTP</span> or unset, otherwise ignored,
+        defaults to empty string)
+        <span class="type">string</span>
+      </span>
+      If <span class="field">UserAuthenticationType</span> is
+      <span class="value">Password</span> or
+      <span class="value">PasswordAndOTP</span> and this field is not set, the user
+      will be asked for a password.
+      If <span class="field">SaveCredentials</span> is
+      <span class="value">true</span>, the password is persisted for future
+      connection attempts. Otherwise it is not persisted but might still be
+      reused for consecutive connection attempts (opposed to an OTP, which will
+      never be reused).
+    </dd>
+
+    <dt class="field">Port</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">1194</span>)
+        <span class="type">integer</span>
+      </span>
+      Port for connecting to server.
+    </dd>
+
+    <dt class="field">Proto</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">udp</span>)
+        <span class="type">string</span>
+      </span>
+      Protocol for communicating with server.
+    </dd>
+
+    <dt class="field">PushPeerInfo</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+    </dd>
+
+    <dt class="field">RemoteCertEKU</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Require that the peer certificate was signed with this explicit extended
+      key usage in oid notation.
+    </dd>
+
+    <dt class="field">RemoteCertKU</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to [])
+        <span class="type">array of string</span>
+      </span>
+      Require the given array of key usage numbers. These are strings that are
+      hex encoded numbers.
+    </dd>
+
+    <dt class="field">RemoteCertTLS</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">server</span>)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">none</span> and
+        <span class="value">server</span>.
+      </span>
+      Require peer certificate signing based on RFC3280 TLS rules.
+    </dd>
+
+    <dt class="field">RenegSec</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">3600</span>)
+        <span class="type">integer</span>
+      </span>
+      Renegotiate data channel key after this number of seconds.
+    </dd>
+
+    <dt class="field">SaveCredentials</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      If <span class="value">false</span>, require user to enter credentials
+      each time they connect.
+    </dd>
+
+    <dt class="field">ServerCARefs</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of string</span>
+      </span>
+      Non-empty list of references to CA certificates in <span class="field">Certificates</span> to be used for verifying the host's certificate chain. At least one of the CA certificates must match. See also OpenVPN's command line option "--ca". If this field is set, <span class="field">ServerCARef</span> must be unset.
+    </dd>
+
+    <dt class="field">ServerCARef</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      DEPRECATED, use <span class="field">ServerCARefs</span> instead.<br/>
+      Reference to a CA certificate in <span class="field">Certificates</span>. Certificate authority to use for verifying connection. If this field is set, <span class="field">ServerCARefs</span> must be unset.
+    </dd>
+
+    <dt class="field">ServerCertRef</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Reference to a certificate. Peer's signed certificate.
+    </dd>
+
+    <dt class="field">ServerPollTimeout</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">integer</span>
+      </span>
+      Spend no more than this number of seconds before trying the next server.
+    </dd>
+
+    <dt class="field">Shaper</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">integer</span>
+      </span>
+      If not specified no bandwidth limiting, otherwise limit bandwidth of
+      outgoing tunnel data to this number of bytes per second.
+    </dd>
+
+    <dt class="field">StaticChallenge</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      String is used in static challenge response. Note that echoing is always
+      done.
+    </dd>
+
+    <dt class="field">TLSAuthContents</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      If not set, tls auth is not used. If set, this is the TLS Auth key
+      contents (usually starts with "-----BEGIN OpenVPN Static Key..."
+    </dd>
+
+    <dt class="field">TLSRemote</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      If set, only allow connections to server hosts with X509 name or common
+      name equal to this string.
+    </dd>
+
+    <dt class="field">UserAuthenticationType</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">None</span>)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">None</span>,
+        <span class="value">Password</span>,
+        <span class="value">PasswordAndOTP</span> and
+        <span class="value">OTP</span>.
+      </span>
+      Determines the required form of user authentication:
+      <ul><li>
+        <span class="value">PasswordAndOTP</span>: This VPN requires a password
+        and an OTP (possibly empty). Both will be send to the server in the
+        'password' response using the SCRv1 encoding.
+      </li><li>
+        <span class="value">Password</span>: This VPN requires only a password,
+        which will be send without modification to the server in the 'password'
+        response (no CRv1 or SCRv1 encoding).
+      </li><li>
+        <span class="value">OTP</span>: This VPN requires only an OTP, which
+        will be send without modification to the server in the 'password'
+        response (no CRv1 or SCRv1 encoding).
+      </li><li>
+        <span class="value">None</span>: Neither password nor OTP are required.
+        No password request from the server is expected.
+      </li></ul>
+      If not set, the user can provide a password and an OTP (both not
+      mandatory) and the network manager will send both in the SCRv1 encoding,
+      when the server sends a static-challenge. If the server does not send a
+      static-challenge, the client will reply with only the password (without
+      any encoding). This behavior is deprecated and new configurations should
+      explicitly set one of the above values.
+
+      See the fields <span class="field">Password</span> and
+      <span class="field">OTP</span> for configuring the password and OTP.
+    </dd>
+
+    <dt class="field">Username</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      OpenVPN user name. This value is subject to string expansions. If not
+      specified, user is prompted at time of connection.
+    </dd>
+
+    <dt class="field">Verb</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Verbosity level, defaults to OpenVpn's default if not specified.
+    </dd>
+
+    <dt class="field">VerifyHash</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      If set, this value is passed as the "--verify-hash" argument to OpenVPN,
+      which specifies the SHA1 fingerprint for the level-1 certificate.
+    </dd>
+
+    <dt class="field">VerifyX509</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">VerifyX509</span>
+      </span>
+       If set, the "--verify-x509-name" argument is passed to OpenVPN with the values of this object and only connections will be accepted if a host's X.509 name is equal to the given name.
+    </dd>
+  </dl>
+
+  <p class="rule">
+    <span class="rule_id"></span>
+    At most one of <span class="field">ServerCARefs</span> and <span class="field">ServerCARef</span> can be set.
+  </p>
+
+  <p>
+    <span class="type">VerifyX509</span> type contains the following:
+  </p>
+  <dl class="field_list">
+    <dt class="field">Name</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The name that the host's X.509 name is compared to. Which host name is compared depends on the value of <span class="field">Type</span>.
+    </dd>
+
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Determines which of the host's X.509 names will be verified. Allowed values are <span class="value">name</span>, <span class="value">name-prefix</span> and <span class="value">subject</span>. See OpenVPN's documentation for "--verify-x509-name" for the meaning of each value. Defaults to OpenVPN's default if not specified. 
+    </dd>
+  </dl>
+</section>
+
+<section>
+  <h1>Third-party VPN provider based connections and types</h1>
+  <p>
+    <span class="field">VPN.Type</span> must be
+    <span class="value">ThirdPartyVPN</span>.
+  </p>
+
+  <p>
+    <span class="type">ThirdPartyVPN</span> type contains the following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">ExtensionID</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The extension ID of the third-party VPN provider used by this network.
+    </dd>
+    <dt class="field">ProviderName</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The name of the third-party VPN provider used by this network.
+    </dd>
+  </dl>
+</section>
+
+</section>
+
+<section>
+  <h1>Client certificate patterns</h1>
+  <p>
+    In order to allow clients to securely key their private keys and request
+    certificates through PKCS#10 format or through a web flow, we provide
+    alternative CertificatePattern types. The
+    <span class="type">CertificatePattern</span> type contains the following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">IssuerCARef</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of string</span>
+      </span>
+      Array of references to certificates. At least one must have signed the
+      client certificate.
+    </dd>
+
+    <dt class="field">Issuer</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">IssuerSubjectPattern</span>
+      </span>
+      Pattern to match the issuer X.509 settings against. If not specified, the
+      only checks done will be a signature check against
+      the <span class="field">IssuerCARef</span> field. Issuer of the
+      certificate must match this field exactly to match the pattern.
+    </dd>
+
+    <dt class="field">Subject</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">IssuerSubjectPattern</span>
+      </span>
+      Pattern to match the subject X.509 settings against. If not specified, the
+      subject settings are not checked and any certificate matches. Subject of
+      the certificate must match this field exactly to match the pattern.
+    </dd>
+
+    <dt class="field">EnrollmentURI</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of string</span>
+      </span>
+      If no certificate matches this CertificatePattern, the first URI from this
+      array with a recognized scheme is navigated to, with the intention this
+      informs the user how to either get the certificate or gets the certificate
+      for the user. For instance, the array may be [
+      "chrome-extension://asakgksjssjwwkeielsjs/fetch-client-cert.html",
+      "http://intra/connecting-to-wireless.html" ] so that for Chrome browsers a
+      Chrome app or extension is shown to the user, but for other browsers, a
+      web URL is shown.
+    </dd>
+  </dl>
+
+  <p>
+    The <span class="type">IssuerSubjectPattern</span> type contains the
+    following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">CommonName</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Certificate subject's commonName must match this string if present.
+    </dd>
+
+    <dt class="field">Locality</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Certificate subject's location must match this string if present.
+    </dd>
+
+    <dt class="field">Organization</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      At least one of certificate subject's organizations must match this string
+      if present.
+    </dd>
+
+    <dt class="field">OrganizationalUnit</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      At least one of certificate subject's organizational units must match this
+      string if present.
+    </dd>
+  </dl>
+
+  <p class="rule">
+    <span class="rule_id"></span>
+    One field in <span class="field">Subject</span>,
+    <span class="field">Issuer</span>, or <span class="field">IssuerCARef</span>
+    must be given for a <span class="type">CertificatePattern</span> typed field
+    to be valid.
+  </p>
+
+  <p>
+    For a certificate to be considered matching, it must match all
+    the fields in the certificate pattern. If multiple certificates match, the
+    certificate with the latest issue date that is still in the past, and hence
+    valid, will be used.
+  </p>
+
+  <p>
+    If <span class="field">EnrollmentURI</span> is not given and no match is
+    found to this pattern, the importing tool may show an error to the user.
+  </p>
+</section>
+
+<section>
+  <h1>Proxy settings</h1>
+  <p>
+    Every network can be configured to use a
+    proxy. The <span class="type">ProxySettings</span> type contains the
+    following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">Direct</span>,
+        <span class="value">Manual</span>, <span class="value">PAC</span>, and
+        <span class="value">WPAD</span>.
+      </span>
+      <span class="value">PAC</span> indicates Proxy Auto-Configuration.
+      <span class="value">WPAD</span> indicates Web Proxy Autodiscovery.
+    </dd>
+
+    <dt class="field">Manual</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span>
+        is <span class="value">Manual</span>, otherwise ignored)
+        <span class="type">ManualProxySettings</span>
+      </span>
+      Manual proxy settings.
+    </dd>
+
+    <dt class="field">ExcludeDomains</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">Type</span>
+        is <span class="value">Manual</span>, otherwise ignored)
+        <span class="type">array of string</span>
+      </span>
+      Domains and hosts for which to exclude proxy settings.
+    </dd>
+
+    <dt class="field">PAC</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">PAC</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      URL of proxy auto-config file.
+    </dd>
+  </dl>
+
+  <p>
+    The <span class="type">ManualProxySettings</span> type contains the
+    following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">HTTPProxy</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">ProxyLocation</span>
+      </span>
+      settings for HTTP proxy.
+    </dd>
+
+    <dt class="field">SecureHTTPProxy</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">ProxyLocation</span>
+      </span>
+      settings for secure HTTP proxy.
+    </dd>
+
+    <dt class="field">FTPProxy</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">ProxyLocation</span>
+      </span>
+      settings for FTP proxy
+    </dd>
+
+    <dt class="field">SOCKS</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">ProxyLocation</span>
+      </span>
+      settings for SOCKS proxy.
+    </dd>
+  </dl>
+
+  <p>
+    The <span class="type">ProxyLocation</span> type contains the following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Host</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      Host (or IP address) to use for proxy
+    </dd>
+
+    <dt class="field">Port</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">integer</span>
+      </span>
+      Port to use for proxy
+    </dd>
+  </dl>
+</section>
+
+<section>
+  <h1>EAP configurations</h1>
+  <p>
+    For networks with 802.1X authentication, an <span class="type">EAP</span>
+    type exists to configure the
+    authentication. The <span class="type">EAP</span> type contains the
+    following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">AnonymousIdentity</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">Outer</span> is
+        <span class="value">PEAP</span> or <span class="value">EAP-TTLS</span>,
+        otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      For tunnelling protocols only, this indicates the identity of the user
+      presented to the outer protocol. This value is subject to string
+      expansions. If not specified, use empty string.
+    </dd>
+
+    <dt class="field">ClientCertPattern</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">ClientCertType</span> is
+        <span class="value">Pattern</span>, otherwise ignored)
+        <span class="type">CertificatePattern</span>
+      </span>
+      Pattern to use to find the client certificate.
+    </dd>
+
+    <dt class="field">ClientCertRef</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">ClientCertType</span> is
+        <span class="value">Ref</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      Reference to client certificate stored in certificate section.
+    </dd>
+
+    <dt class="field">ClientCertType</dt>
+    <dd>
+      <span class="field_meta">
+        (optional) <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">Ref</span>, and
+        <span class="value">Pattern</span>.
+      </span>
+    </dd>
+
+    <dt class="field">Identity</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Identity of user. For tunneling outer protocols
+      (<span class="value">PEAP</span>, <span class="value">EAP-TTLS</span>, and
+      <span class="value">EAP-FAST</span>), this is used to authenticate inside
+      the tunnel, and <span class="field">AnonymousIdentity</span> is used for
+      the EAP identity outside the tunnel. For non-tunneling outer protocols,
+      this is used for the EAP identity. This value is subject to string
+      expansions.
+    </dd>
+
+    <dt class="field">Inner</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">Outer</span> is
+        <span class="value">EAP-FAST</span>, <span class="value">EAP-TTLS</span>
+        or <span class="value">PEAP</span>, otherwise ignored, defaults to
+        <span class="value">Automatic</span>)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">Automatic</span>,
+        <span class="value">MD5</span>, <span class="value">MSCHAPv2</span>,
+        <span class="value">EAP-MSCHAPv2</span>,
+        <span class="value">PAP</span>, and <span class="value">GTC</span>.
+      </span>
+      For tunneling outer protocols.
+    </dd>
+
+    <dt class="field">Outer</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">LEAP</span>,
+        <span class="value">EAP-AKA</span>, <span class="value">EAP-FAST</span>,
+        <span class="value">EAP-TLS</span>, <span class="value">EAP-TTLS</span>,
+        <span class="value">EAP-SIM</span> and <span class="value">PEAP</span>.
+      </span>
+    </dd>
+
+    <dt class="field">Password</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      Password of user. If not specified, defaults to prompting the user.
+    </dd>
+
+    <dt class="field">SaveCredentials</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      If <span class="value">false</span>, require user to enter credentials
+      each time they connect. Specifying <span class="field">Identity</span>
+      and/or <span class="field">Password</span> when
+      <span class="field">SaveCredentials</span> is
+      <span class="value">false</span> is not allowed.
+    </dd>
+
+    <dt class="field">ServerCARefs</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">array of string</span>
+      </span>
+      Non-empty list of references to CA certificates in <span class="field">Certificates</span> to be used for verifying the host's certificate chain. At least one of the CA certificates must match. If this field is set, <span class="field">ServerCARef</span> must be unset. If neither <span class="field">ServerCARefs</span> nor <span class="field">ServerCARef</span> is set, the client does not check that the server certificate is signed by a specific CA. A verification using the system's CA certificates may still apply. See <span class="field">UseSystemCAs</span> for this.
+    </dd>
+
+    <dt class="field">ServerCARef</dt>
+    <dd>
+      <span class="field_meta">
+        (optional)
+        <span class="type">string</span>
+      </span>
+      DEPRECATED, use <span class="field">ServerCARefs</span> instead.<br/>
+      Reference to a CA certificate in <span class="field">Certificates</span>. If this field is set, <span class="field">ServerCARefs</span> must be unset. If neither <span class="field">ServerCARefs</span> nor <span class="field">ServerCARef</span> is set, the client does not check that the server certificate is signed by a specific CA. A verification using the system's CA certificates may still apply. See <span class="field">UseSystemCAs</span> for this.
+    </dd>
+
+    <dt class="field">UseSystemCAs</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">true</span>)
+        <span class="type">boolean</span>
+      </span>
+      Required server certificate to be signed by "system default certificate
+      authorities". If both <span class="field">ServerCARefs</span> (or <span class="field">ServerCARef</span>)
+      and <span class="field">UseSystemCAs</span> are supplied, a server
+      certificate will be allowed if it either has a chain of trust to a system
+      CA or to one of the given CA certificates. If <span class="field">UseSystemCAs</span>
+      is <span class="value">false</span>, and no <span class="field">ServerCARef</span> is set, the certificate
+      must be a self signed certificate, and no CA signature is required.
+    </dd>
+
+    <dt class="field">UseProactiveKeyCaching</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Indicates whether Proactive Key Caching (also known as Opportunistic
+      Key Caching) should be used on a per-service basis.
+    </dd>
+  </dl>
+
+  <p class="rule">
+    <span class="rule_id"></span>
+    At most one of <span class="field">ServerCARefs</span> and <span class="field">ServerCARef</span> can be set.
+  </p>
+</section>
+
+<section>
+  <h1>WiMAX Networks</h1>
+  <p>
+    For WiMAX connections, <span class="field">Type</span> must be set to
+    <span class="value">WiMAX</span> and the
+    field <span class="field">WiMAX</span> must be set to an object of
+    type <span class="type">WiMAX</span>. Currently only used for
+    representing an existing configuration; ONC configuration of
+    of <span class="field">WiMAX</span> networks is not yet fully supported.
+    Contains the following fields:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">AutoConnect</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Indicating that the network should be connected to automatically when
+      possible.
+    </dd>
+
+    <dt class="field">EAP</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">EAP</span>
+      </span>
+      EAP settings.
+    </dd>
+
+    <dt class="field">SignalStrength</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, read-only)
+        <span class="type">integer</span>
+      </span>
+      The current signal strength for this network in the range [0, 100],
+      provided by the system. If the network is not in range this field will
+      be set to '0' or not present.
+    </dd>
+  </dl>
+
+</section>
+
+<section>
+  <h1>Cellular Networks</h1>
+  <p>
+    For Cellular connections, <span class="field">Type</span> must be set to
+    <span class="value">Cellular</span> and the
+    field <span class="field">Cellular</span> must be set to an object of
+    type <span class="type">Cellular</span>. Currently only used for
+    representing an existing configuration; ONC configuration of
+    of <span class="field">Cellular</span> networks is not yet supported.
+    Contains the following fields:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">AutoConnect</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      Indicating that the network should be connected to automatically when
+      possible. Note, that disabled <span class="field">AllowRoaming</span>
+      takes precedence over autoconnect.
+    </dd>
+
+    <dt class="field">APN</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">APN</span>
+      </span>
+      Currently active  <span class="type">APN</span> object to be used with a
+      GSM carrier for making data connections.
+    </dd>
+
+    <dt class="field">APNList</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">array of APN</span>
+      </span>
+      List of available APN configurations.
+    </dd>
+
+    <dt class="field">ActivationType</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      Activation type.
+    </dd>
+
+    <dt class="field">ActivationState</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      Carrier account activation state.
+      <span class="rule">
+        <span class="rule_id"></span>Allowed values are
+        <span class="value">Activated</span>,
+        <span class="value">Activating</span>,
+        <span class="value">NotActivated</span>,
+        <span class="value">PartiallyActivated</span>
+      </span>
+    </dd>
+
+    <dt class="field">AllowRoaming</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">boolean</span>
+      </span>
+      Whether cellular data connections are allowed when the device is roaming.
+    </dd>
+
+    <dt class="field">Carrier</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The name of the carrier for which the device is configured.
+    </dd>
+
+    <dt class="field">ESN</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The Electronic Serial Number of the cellular modem.
+    </dd>
+
+    <dt class="field">Family</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      Technology family.
+      <span class="rule"><span class="rule_id"></span>
+        Allowed values are
+        <span class="value">CDMA</span>,
+        <span class="value">GSM</span>
+      </span>
+    </dd>
+
+    <dt class="field">FirmwareRevision</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The revision of firmware that is loaded in the modem.
+    </dd>
+
+    <dt class="field">FoundNetworks</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only, provided only
+        if <span class="field">Family</span> is <span class="value">GSM</span>)
+        <span class="type">array of FoundNetwork</span>
+      </span>
+      The list of cellular netwoks found in the most recent scan operation.
+    </dd>
+
+    <dt class="field">HardwareRevision</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The hardware revision of the cellular modem.
+    </dd>
+
+    <dt class="field">HomeProvider</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">CellularProvider</span>
+      </span>
+      Description of the operator that issued the SIM card currently installed
+      in the modem.
+    </dd>
+
+    <dt class="field">ICCID</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only, provided only
+        if <span class="field">Family</span> is <span class="value">GSM</span>
+        or <span class="field">NetworkTechnology</span>
+        is <span class="value">LTE</span>)
+        <span class="type">string</span>
+      </span>
+      For GSM / LTE modems, the Integrated Circuit Card Identifer of the SIM
+      card installed in the device.
+    </dd>
+
+    <dt class="field">IMEI</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The International Mobile Equipment Identity of the cellular modem.
+    </dd>
+
+    <dt class="field">IMSI</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only, provided only
+        if <span class="field">Family</span> is <span class="value">GSM</span>)
+        <span class="type">string</span>
+      </span>
+      For GSM modems, the International Mobile Subscriber Identity of the SIM
+      card installed in the device.
+    </dd>
+
+    <dt class="field">LastGoodAPN</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">APN</span>
+      </span>
+      The APN information used in the last successful connection attempt.
+    </dd>
+
+    <dt class="field">Manufacturer</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The manufacturer of the cellular modem.
+    </dd>
+
+    <dt class="field">MDN</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      The Mobile Directory Number (i.e., phone number) of the device.
+    </dd>
+
+    <dt class="field">MEID</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only, provided only
+        if <span class="field">Family</span> is <span class="value">CDMA</span>)
+        <span class="type">string</span>
+      </span>
+      For CDMA modems, the Mobile Equipment Identifer of the cellular modem.
+    </dd>
+
+    <dt class="field">MIN</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The Mobile Identification Number of the device.
+    </dd>
+
+    <dt class="field">ModelID</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The hardware model of the cellular modem.
+    </dd>
+
+    <dt class="field">NetworkTechnology</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      If the modem is registered on a network, then this is set to the
+      network technology currently in use.
+      <span class="rule"><span class="rule_id"></span>
+        Allowed values are
+        <span class="value">CDMA1XRTT</span>,
+        <span class="value">EDGE</span>,
+        <span class="value">EVDO</span>,
+        <span class="value">GPRS</span>,
+        <span class="value">GSM</span>,
+        <span class="value">HSPA</span>,
+        <span class="value">HSPAPlus</span>,
+        <span class="value">LTE</span>,
+        <span class="value">LTEAdvanced</span>
+        <span class="value">UMTS</span>,
+      </span>
+    </dd>
+
+    <dt class="field">PaymentPortal</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">PaymentPortal</span>
+      </span>
+      Properties describing the online payment portal (OLP) at which a user can
+      sign up for or modify a mobile data plan.
+    </dd>
+
+    <dt class="field">PRLVersion</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">integer</span>
+      </span>
+      The revision of the Preferred Roaming List that is loaded in the modem.
+    </dd>
+
+    <dt class="field">RoamingState</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">string</span>
+      </span>
+      The roaming status of the cellular modem on the current network.
+      <span class="rule"><span class="rule_id"></span>
+        Allowed values are <span class="value">Home</span>,
+        <span class="value">Roaming</span>, or if the provider has no home
+        network, <span class="value">Required</span>.
+      </span>
+    </dd>
+
+    <dt class="field">ServingOperator</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only, provided only
+        if <span class="field">Family</span> is <span class="value">GSM</span>)
+        <span class="type">CellularProvider</span>
+      </span>
+      Description of the operator on whose network the modem is currently
+      registered
+    </dd>
+
+    <dt class="field">SIMLockStatus</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only, provided only
+        if <span class="field">Family</span> is <span class="value">GSM</span>)
+        <span class="type">SIMLockStatus</span>
+      </span>
+      For GSM modems, a dictionary containing two properties describing the
+      state of the SIM card lock.
+    </dd>
+
+    <dt class="field">SIMPresent</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only, provided only
+        if <span class="field">Family</span> is <span class="value">GSM</span>
+        or <span class="field">NetworkTechnology</span>
+        is <span class="value">LTE</span>)
+        <span class="type">boolean</span>
+      </span>
+      For GSM or LTE modems, indicates whether a SIM card is present or not.
+    </dd>
+
+    <dt class="field">SupportNetworkScan</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">boolean</span>
+      </span>
+      True if the cellular network supports scanning.
+    </dd>
+
+    <dt class="field">SupportedCarriers</dt>
+    <dd>
+      <span class="field_meta">(optional, read-only)
+        <span class="type">array of string</span>
+      </span>
+      A list of supported carriers.
+    </dd>
+
+  </dl>
+
+  <p><span class="type">APN</span> type contains the following:</p>
+  <dl class="field_list">
+    <dt class="field">AccessPointName</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      The access point name used when making connections.
+    </dd>
+
+    <dt class="field">Name</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      Description of the APN.
+    </dd>
+
+    <dt class="field">LocalizedName</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      Localized description of the APN.
+    </dd>
+
+    <dt class="field">Username</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      Username for making connections if required.
+    </dd>
+
+    <dt class="field">Password</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      Password for making connections if required.
+    </dd>
+
+    <dt class="field">Language</dt>
+    <dd>
+      <span class="field_meta">(optional, rquired if <span class="field">
+          LocalizedName</span> is provided)
+        <span class="type">string</span>
+      </span>
+      Two letter language code for Localizedname if provided.
+    </dd>
+  </dl>
+
+  <p><span class="type">FoundNetwork</span> type contains the following:</p>
+  <dl class="field_list">
+    <dt class="field">Status</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      The availability of the network.
+    </dd>
+
+    <dt class="field">NetworkId</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      The network id in the form MCC/MNC (without the '/').
+    </dd>
+
+    <dt class="field">Technology</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      Access technology used by the network,
+      e.g. "GSM", "UMTS", "EDGE", "HSPA", etc.
+    </dd>
+
+    <dt class="field">ShortName</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      Short-format name of the network operator.
+    </dd>
+
+    <dt class="field">LongName</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      Long-format name of the network operator.
+    </dd>
+  </dl>
+
+  <p><span class="type">PaymentPortal</span> type contains the following:</p>
+  <dl class="field_list">
+    <dt class="field">Method</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      The HTTP method to use, "GET" or "POST"
+    </dd>
+
+    <dt class="field">PostData</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Method</span> is
+        <span class="value">POST</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      The postdata to send.
+    </dd>
+
+    <dt class="field">Url</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      The URL for the portal.
+    </dd>
+  </dl>
+
+  <p><span class="type">CellularProvider</span> type contains the following:</p>
+  <dl class="field_list">
+    <dt class="field">Name</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      The operator name.
+    </dd>
+
+    <dt class="field">Code</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      The network id in the form MCC/MNC (without the '/').
+    </dd>
+
+    <dt class="field">Country</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">string</span>
+      </span>
+      The two-letter country code.
+    </dd>
+  </dl>
+
+  <p><span class="type">SIMLockStatus</span> type contains the following:</p>
+  <dl class="field_list">
+    <dt class="field">LockType</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">string</span>
+      </span>
+      Specifies the type of lock in effect, or an empty string if unlocked.
+      <span class="rule"><span class="rule_id"></span>
+        Allowed values are
+        <span class="value">sim-pin</span>,
+        <span class="value">sim-puk</span>
+      </span>
+    </dd>
+
+    <dt class="field">LockEnabled</dt>
+    <dd>
+      <span class="field_meta">(required)
+        <span class="type">boolean</span>
+      </span>
+      Indicates whether SIM locking is enabled
+    </dd>
+
+    <dt class="field">RetriesLeft</dt>
+    <dd>
+      <span class="field_meta">(optional)
+        <span class="type">integer</span>
+      </span>
+      If <span class="field">LockType</span> is empty
+      or <span class="value">sim-pin</span>, then this property represents
+      the number of attempts remaining to supply a correct PIN before the
+      PIN becomes blocked, at which point a PUK provided by the carrier would
+      be necessary to unlock the SIM (and <span class="field">LockType</span>
+      changes to <span class="value">sim-puk</span>).
+    </dd>
+  </dl>
+
+</section>
+
+<section>
+  <h1>Bluetooth / WiFi Direct Networks</h1>
+  <p>
+    This format will eventually also cover configuration of Bluetooth and WiFi
+    Direct network technologies, however they are currently not supported.
+  </p>
+</section>
+
+</section>
+
+<section>
+  <h1>Certificates</h1>
+  <p>
+    Certificate data is stored in a separate section. Each certificate may be
+    referenced from within the NetworkConfigurations array using a certificate
+    reference. A certificate reference is its GUID.
+  </p>
+
+  <p>
+    The top-level field <span class="field">Certificates</span> is an array of
+    objects of <span class="type">Certificate</span> type.
+  </p>
+
+  <p>
+    The <span class="type">Certificate</span> type contains the following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">GUID</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      A unique identifier for this certificate. Must be a non-empty string.
+    </dd>
+
+    <dt class="field">PKCS12</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">Client</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span> For certificates with
+      private keys, this is the base64 encoding of the a PKCS#12 file.
+    </dd>
+
+    <dt class="field">Remove</dt>
+    <dd>
+      <span class="field_meta">
+        (optional, defaults to <span class="value">false</span>)
+        <span class="type">boolean</span>
+      </span>
+      If <span class="value">true</span>, remove this certificate (only GUID
+      should be set).
+    </dd>
+
+    <dt class="field">TrustBits</dt>
+    <dd>
+      <span class="field_meta">
+        (optional if <span class="field">Type</span>
+        is <span class="value">Server</span>
+        or <span class="value">Authority</span>, otherwise ignored, defaults to
+        [])
+        <span class="type">array of string</span>
+      </span>
+      An array of trust flags. Clients should ignore unknown flags. For
+      backwards compatibility, each flag should only increase the trust and
+      never restrict. The trust flag <span class="value">Web</span> implies that
+      the certificate is to be trusted for HTTPS SSL identification. A typical
+      web certificate authority would have <span class="field">Type</span> set
+      to <span class="value">Authority</span> and
+      <span class="field">TrustBits</span> set to
+      <span class="snippet">["Web"]</span>.
+    </dd>
+
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Remove</span> is
+        <span class="value">false</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span>
+      <span class="rule">
+        <span class="rule_id"></span>
+        Allowed values are <span class="value">Client</span>,
+        <span class="value">Server</span>, and
+        <span class="value">Authority</span>.
+      </span>
+      <span class="value">Client</span> indicates the certificate is for
+      identifying the user or device over HTTPS or for
+      VPN/802.1X. <span class="value">Server</span> indicates the certificate
+      identifies an HTTPS or VPN/802.1X peer.
+      <span class="value">Authority</span> indicates the certificate is a
+      certificate authority and any certificates it issues should be
+      trusted. Note that if <span class="field">Type</span> disagrees with the
+      x509 v3 basic constraints or key usage attributes, the
+      <span class="field">Type</span> field should be honored.
+    </dd>
+
+    <dt class="field">X509</dt>
+    <dd>
+      <span class="field_meta">
+        (required if <span class="field">Type</span> is
+        <span class="value">Server</span> or
+        <span class="value">Authority</span>, otherwise ignored)
+        <span class="type">string</span>
+      </span> For certificate
+      without private keys, this is the X509 certificate in PEM format.
+    </dd>
+  </dl>
+
+  <p>
+    The passphrase of the PKCS#12 encoding must be empty. Encryption of key data
+    should be handled at the level of the entire file, or the transport of the
+    file.
+  </p>
+
+  <p>
+    If a global-scoped network connection refers to a user-scoped certificate,
+    results are undefined, so this configuration should be prohibited by the
+    configuration editor.
+  </p>
+</section>
+
+</section>
+
+<section>
+  <h1>Encrypted Configuration</h1>
+  <p>
+    We assume that when this format is imported as part of policy that
+    file-level encryption will not be necessary because the policy transport is
+    already encrypted, but when it is imported as a standalone file, it is
+    desirable to encrypt it. Since this file has private information (user
+    names) and secrets (passphrases and private keys) in it, and we want it to
+    be usable as a manual way to distribute network configuration, we must
+    support encryption.
+  </p>
+
+  <p>
+    For this standalone export, the entire file will be encrypted in a symmetric
+    fashion with a passphrase stretched using salted PBKDF2 using at least 20000
+    iterations, and encrypted using an AES-256 CBC mode cipher with an SHA-1
+    HMAC on the ciphertext.
+  </p>
+
+  <p>
+    An encrypted ONC file's top level object will have the
+    <span class="type">EncryptedConfiguration</span>
+    type. <span class="type">EncryptedConfiguration</span> type contains the
+    following:
+  </p>
+
+  <dl class="field_list">
+    <dt class="field">Cipher</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The type of cipher used. Currently only <span class="value">AES256</span>
+      is supported.
+    </dd>
+
+    <dt class="field">Ciphertext</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The raw ciphertext of the encrypted ONC file, base64 encoded.
+    </dd>
+
+    <dt class="field">HMAC</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The HMAC for the ciphertext, base64 encoded.
+    </dd>
+
+    <dt class="field">HMACMethod</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The method used to compute the Hash-based Message Authentication Code
+      (HMAC). Currently only <span class="value">SHA1</span> is supported.
+    </dd>
+
+    <dt class="field">Salt</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The salt value used during key stretching.
+    </dd>
+
+    <dt class="field">Stretch</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The key stretching algorithm used. Currently
+      only <span class="value">PBKDF2</span> is supported.
+    </dd>
+
+    <dt class="field">Iterations</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">integer</span>
+      </span>
+      The number of iterations to use during key stretching.
+    </dd>
+
+    <dt class="field">IV</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The initial vector (IV) used for Cyclic Block Cipher (CBC) mode, base64
+      encoded.
+    </dd>
+
+    <dt class="field">Type</dt>
+    <dd>
+      <span class="field_meta">
+        (required)
+        <span class="type">string</span>
+      </span>
+      The type of the ONC file, which must be set
+      to <span class="value">EncryptedConfiguration</span>.
+    </dd>
+  </dl>
+
+  <p class="rule">
+    <span class="rule_id"></span>
+    When decrypted, the ciphertext must contain a JSON object of
+    type <span class="type">UnencryptedConfiguration</span>.
+  </p>
+</section>
+
+<section>
+  <h1>String Expansions</h1>
+  <p>
+    The values of some fields, such
+    as <span class="field">WiFi.EAP.Identity</span>
+    and <span class="field">VPN.*.Username</span>, are subject to string
+    expansions. These allow one ONC to have basic user-specific variations.
+  </p>
+
+  <p>
+    The expansions are:
+  </p>
+
+  <ul>
+    <li>
+      ${LOGIN_ID} - expands to the email address of the user, but before the
+      '@'.
+    </li>
+    <li>
+      ${LOGIN_EMAIL} - expands to the email address of the user.
+    </li>
+  </ul>
+
+  <p>
+    The following SED would properly handle resolution.
+  </p>
+
+  <ul>
+    <li>
+      s/\$\{LOGIN_ID\}/bobquail$1/g
+    </li>
+    <li>
+      s/\$\{LOGIN_EMAIL\}/bobquail@example.com$1/g
+    </li>
+  </ul>
+
+  <p>
+    Example expansions, assuming the user was bobquail@example.com:
+  </p>
+
+  <ul>
+    <li>
+      "${LOGIN_ID}" -> "bobquail"
+    </li>
+    <li>
+      "${LOGIN_ID}@corp.example.com" -> "bobquail@corp.example.com"
+    </li>
+    <li>
+      "${LOGIN_EMAIL}" -> "bobquail@example.com"
+    </li>
+    <li>
+      "${LOGIN_ID}X" -> "bobquailX"
+    </li>
+    <li>
+      "${LOGIN_IDX}" -> "${LOGIN_IDX}"
+    </li>
+    <li>
+      "X${LOGIN_ID}" -> "Xbobquail"
+    </li>
+  </ul>
+</section>
+
+<section>
+  <h1>Detection</h1>
+  <p>
+    This format should be sent in files ending in the .onc extension. When
+    transmitted with a MIME type, the MIME type should be
+    application/x-onc. These two methods make detection of data to be handled in
+    this format, especially when encryption is used and the payload itself is
+    not detectable.
+  </p>
+</section>
+
+</section>
+
+<section>
+  <h1>Alternatives considered</h1>
+  <p>
+    For the overall format, we considered XML, ASN.1, and protobufs. JSON and
+    ASN.1 seem more widely known than protobufs. Since administrators are
+    likely to want to tweak settings that will not exist in common UIs, we
+    should provide a format that is well known and human modifiable. ASN.1 is
+    not human modifiable. Protobufs formats are known by open source developers
+    but seem less likely to be known by administrators. JSON serialization
+    seems to have good support across languages.
+  </p>
+
+  <p>
+    We considered sending the exact connection manager configuration format of
+    an open source connection manager like connman. There are a few issues
+    here, for instance, referencing certificates by identifiers not tied to a
+    particular PKCS#11 token, and tying to one OS's connection manager.
+  </p>
+</section>
+
+<section>
+  <h1>Detection</h1>
+  <p>
+    This format should be sent in files ending in the .onc extension. When
+    transmitted with a MIME type, the MIME type should be
+    application/x-onc. These two methods make detection of data to be handled in
+    this format, especially when encryption is used and the payload itself is
+    not detectable.
+  </p>
+</section>
+
+<section>
+  <h1>Mocks</h1>
+
+<section>
+  <h1>Simple format example: PEAP/MSCHAPv2 network (per device)</h1>
+
+  <pre>
+{
+  "Type": "UnencryptedConfiguration",
+  "NetworkConfigurations": [
+    {
+      "GUID": "{f2c17903-b0e1-8593-b3ca74f977236bd7}",
+      "Name": "MySSID",
+      "Type": "WiFi",
+      "WiFi": {
+        "AutoConnect": true,
+        "EAP": {
+          "Outer": "PEAP",
+          "UseSystemCAs": true
+        },
+        "HiddenSSID": false,
+        "SSID": "MySSID",
+        "Security": "WPA-EAP"
+      }
+    }
+  ],
+  "Certificates": []
+}
+  </pre>
+
+  <p>
+    Notice that in this case, we do not provide a username and password - we set
+    SaveCredentials to <span class="value">false</span> so we are prompted every
+    time. We could have passed in username and password - but such a file should
+    be encrypted.
+  </p>
+</section>
+
+<section>
+  <h1>Complex format example: TLS network with client certs (per device)</h1>
+
+  <pre>
+{
+  "Type": "UnencryptedConfiguration",
+  "NetworkConfigurations": [
+    {
+      "GUID": "{00f79111-51e0-e6e0-76b3b55450d80a1b}",
+      "Name": "MyTTLSNetwork",
+      "Type": "WiFi",
+      "WiFi": {
+        "AutoConnect": false,
+        "EAP": {
+          "ClientCertPattern": {
+            "EnrollmentURI": [
+              "http://fetch-my-certificate.com"
+            ],
+            "IssuerCARef": [
+              "{6ed8dce9-64c8-d568-d225d7e467e37828}"
+            ]
+          },
+          "ClientCertType": "Pattern",
+          "Outer": "EAP-TLS",
+          "ServerCARef": "{6ed8dce9-64c8-d568-d225d7e467e37828}",
+          "UseSystemCAs": true
+        },
+        "HiddenSSID": false,
+        "SSID": "MyTTLSNetwork",
+        "Security": "WPA-EAP"
+      }
+    }
+  ],
+  "Certificates": [
+    {
+      "GUID": "{6ed8dce9-64c8-d568-d225d7e467e37828}",
+      "Type": "Authority",
+      "X509": "MIIEpzCCA4+gAwIBAgIJAMueiWq5WEIAMA0GCSqGSIb3DQEBBQUAMIGTMQswCQYDVQQGEwJGUjEPMA0GA1UECBMGUmFkaXVzMRIwEAYDVQQHEwlTb21ld2hlcmUxFTATBgNVBAoTDEV4YW1wbGUgSW5jLjEgMB4GCSqGSIb3DQEJARYRYWRtaW5AZXhhbXBsZS5jb20xJjAkBgNVBAMTHUV4YW1wbGUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MB4XDTExMDEyODA2MjA0MFoXDTEyMDEyODA2MjA0MFowgZMxCzAJBgNVBAYTAkZSMQ8wDQYDVQQIEwZSYWRpdXMxEjAQBgNVBAcTCVNvbWV3aGVyZTEVMBMGA1UEChMMRXhhbXBsZSBJbmMuMSAwHgYJKoZIhvcNAQkBFhFhZG1pbkBleGFtcGxlLmNvbTEmMCQGA1UEAxMdRXhhbXBsZSBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC9EDplhyrVNJIoy1OsVqvD/K67B5PW2bDKKxGznodrzCu8jHsP1Ne3mgrK20vbzQUUBdmxTCWO6x3a3//r4ZuPOuZd1ViycWjt6mRfRbBzNrHzP7NiyFuXjdlz74beHQQLcHwvZ3qFAWZK37uweiLiDPaMaEQlka2Bztqx4PsogmSdoVPSCxi5Cl1XlJmITA03LlKpO79+0rEPRamWO/DMCwvffn2/UUjJLog4/lYe16HQ6iq/6bjhffm2rLXDFKOGZmBVbLNMCfANRMtdFWHYdBXERoUo2zpM9tduOOUNLy7E7kRKVm/wy38s51ChFPlpORrhimN2j1caar+KAv2tAgMBAAGjgfswgfgwHQYDVR0OBBYEFBTIImiXp+57jjgn2N5wq93GgAAtMIHIBgNVHSMEgcAwgb2AFBTIImiXp+57jjgn2N5wq93GgAAtoYGZpIGWMIGTMQswCQYDVQQGEwJGUjEPMA0GA1UECBMGUmFkaXVzMRIwEAYDVQQHEwlTb21ld2hlcmUxFTATBgNVBAoTDEV4YW1wbGUgSW5jLjEgMB4GCSqGSIb3DQEJARYRYWRtaW5AZXhhbXBsZS5jb20xJjAkBgNVBAMTHUV4YW1wbGUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5ggkAy56JarlYQgAwDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQUFAAOCAQEAnNd0YY7s2YVYPsgEgDS+rBNjcQloTFWgc9Hv4RWBjwcdJdSPIrpBp7LSjC96wH5U4eWpQjlWbOYQ9RBq9Z/RpuAPEjzRV78rIrQrCWQ3lxwywWEb5Th1EVJSN68eNv7Ke5BlZ2l9kfLRKFm5MEBXX9YoHMX0U8I8dPIXfTyevmKOT1PuEta5cQOM6/zH86XWn6WYx3EXkyjpeIbVOw49AqaEY8u70yBmut4MO03zz/pwLjV1BWyIkXhsrtuJyA+ZImvgLK2oAMZtGGFo7b0GW/sWY/P3R6Un3RFy35k6U3kXCDYYhgZEcS36lIqcj5y6vYUUVM732/etCsuOLz6ppw=="
+    }
+  ]
+}
+  </pre>
+
+  <p>
+    In this example, the client certificate is not sent in the ONC format, but
+    rather we send a certificate authority which we know will have signed the
+    client certificate that is needed, along with an enrollment URI to navigate
+    to if the required certificate is not yet available on the client.
+  </p>
+</section>
+
+<section>
+  <h1>Simple format example: HTTPS Certificate Authority</h1>
+
+  <p>
+    In this example a new certificate authority is added to be trusted for HTTPS
+    server authentication.
+  </p>
+
+  <pre>
+{
+  "Type": "UnencryptedConfiguration",
+  "NetworkConfigurations": [],
+  "Certificates": [
+    {
+      "GUID": "{f31f2110-9f5f-61a7-a8bd7c00b94237af}",
+      "TrustBits": [ "Web" ],
+      "Type": "Authority",
+      "X509": "MIIEpzCCA4+gAwIBAgIJAMueiWq5WEIAMA0GCSqGSIb3DQEBBQUAMIGTMQswCQYDVQQGEwJGUjEPMA0GA1UECBMGUmFkaXVzMRIwEAYDVQQHEwlTb21ld2hlcmUxFTATBgNVBAoTDEV4YW1wbGUgSW5jLjEgMB4GCSqGSIb3DQEJARYRYWRtaW5AZXhhbXBsZS5jb20xJjAkBgNVBAMTHUV4YW1wbGUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MB4XDTExMDEyODA2MjA0MFoXDTEyMDEyODA2MjA0MFowgZMxCzAJBgNVBAYTAkZSMQ8wDQYDVQQIEwZSYWRpdXMxEjAQBgNVBAcTCVNvbWV3aGVyZTEVMBMGA1UEChMMRXhhbXBsZSBJbmMuMSAwHgYJKoZIhvcNAQkBFhFhZG1pbkBleGFtcGxlLmNvbTEmMCQGA1UEAxMdRXhhbXBsZSBDZXJ0aWZpY2F0ZSBBdXRob3JpdHkwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC9EDplhyrVNJIoy1OsVqvD/K67B5PW2bDKKxGznodrzCu8jHsP1Ne3mgrK20vbzQUUBdmxTCWO6x3a3//r4ZuPOuZd1ViycWjt6mRfRbBzNrHzP7NiyFuXjdlz74beHQQLcHwvZ3qFAWZK37uweiLiDPaMaEQlka2Bztqx4PsogmSdoVPSCxi5Cl1XlJmITA03LlKpO79+0rEPRamWO/DMCwvffn2/UUjJLog4/lYe16HQ6iq/6bjhffm2rLXDFKOGZmBVbLNMCfANRMtdFWHYdBXERoUo2zpM9tduOOUNLy7E7kRKVm/wy38s51ChFPlpORrhimN2j1caar+KAv2tAgMBAAGjgfswgfgwHQYDVR0OBBYEFBTIImiXp+57jjgn2N5wq93GgAAtMIHIBgNVHSMEgcAwgb2AFBTIImiXp+57jjgn2N5wq93GgAAtoYGZpIGWMIGTMQswCQYDVQQGEwJGUjEPMA0GA1UECBMGUmFkaXVzMRIwEAYDVQQHEwlTb21ld2hlcmUxFTATBgNVBAoTDEV4YW1wbGUgSW5jLjEgMB4GCSqGSIb3DQEJARYRYWRtaW5AZXhhbXBsZS5jb20xJjAkBgNVBAMTHUV4YW1wbGUgQ2VydGlmaWNhdGUgQXV0aG9yaXR5ggkAy56JarlYQgAwDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQUFAAOCAQEAnNd0YY7s2YVYPsgEgDS+rBNjcQloTFWgc9Hv4RWBjwcdJdSPIrpBp7LSjC96wH5U4eWpQjlWbOYQ9RBq9Z/RpuAPEjzRV78rIrQrCWQ3lxwywWEb5Th1EVJSN68eNv7Ke5BlZ2l9kfLRKFm5MEBXX9YoHMX0U8I8dPIXfTyevmKOT1PuEta5cQOM6/zH86XWn6WYx3EXkyjpeIbVOw49AqaEY8u70yBmut4MO03zz/pwLjV1BWyIkXhsrtuJyA+ZImvgLK2oAMZtGGFo7b0GW/sWY/P3R6Un3RFy35k6U3kXCDYYhgZEcS36lIqcj5y6vYUUVM732/etCsuOLz6ppw==" 
+    }
+  ]
+}
+  </pre>
+</section>
+
+<section>
+  <h1>Encrypted format example</h1>
+
+  <p>
+In this example a simple wireless network is added, but the file is encrypted
+with the passphrase "test0000".
+  </p>
+
+  <pre>
+{
+  "Cipher": "AES256",
+  "Ciphertext": "eQ9/r6v29/83M745aa0JllEj4lklt3Nfy4kPPvXgjBt1eTByxXB+FnsdvL6Uca5JBU5aROxfiol2+ZZOkxPmUNNIFZj70pkdqOGVe09ncf0aVBDsAa27veGIG8rG/VQTTbAo7d8QaxdNNbZvwQVkdsAXawzPCu7zSh4NF/hDnDbYjbN/JEm1NzvWgEjeOfqnnw3PnGUYCArIaRsKq9uD0a1NccU+16ZSzyDhX724JNrJjsuxohotk5YXsCK0lP7ZXuXj+nSR0aRIETSQ+eqGhrew2octLXq8cXK05s6ZuVAc0mFKPkntSI/fzBACuPi4ZaGd3YEYiKzNOgKJ+qEwgoE39xp0EXMZOZyjMOAtA6e1ZZDQGWG7vKdTLmLKNztHGrXvlZkyEf1RDs10YgkwwLgUhm0yBJ+eqbxO/RiBXz7O2/UVOkkkVcmeI6yh3BdL6HIYsMMygnZa5WRkd/2/EudoqEnjcqUyGsL+YUqV6KRTC0PH+z7zSwvFs2KygrSM7SIAZM2yiQHTQACkA/YCJDwACkkQOBFnRWTWiX0xmN55WMbgrs/wqJ4zGC9LgdAInOBlc3P+76+i7QLaNjMovQ==",
+  "HMAC": "3ylRy5InlhVzFGakJ/9lvGSyVH0=",
+  "HMACMethod": "SHA1",
+  "Iterations": 20000,
+  "IV": "hcm6OENfqG6C/TVO6p5a8g==",
+  "Salt": "/3O73QadCzA=",
+  "Stretch": "PBKDF2",
+  "Type": "EncryptedConfiguration"
+}
+  </pre>
+</section>
+
+</section>
+
+<section>
+  <h1>Standalone editor</h1>
+
+  <p>
+    The source code for a Chrome packaged app to generate ONC configuration can
+    be found here:
+    <a href="https://gerrit.chromium.org/gitweb/?p=chromiumos/platform/spigots.git;a=tree">"https://gerrit.chromium.org/gitweb/?p=chromiumos/platform/spigots.git;a=tree"</a>
+  </p>
+</section>
+
+<section>
+  <h1>Internationalization and Localization</h1>
+
+  <p>
+    UIs will need to have internationalization and localizations - the file
+    format will remain in English.
+  </p>
+</section>
+
+<section>
+  <h1>Security Considerations</h1>
+
+  <p>
+    Data stored inside of open network configuration files is highly sensitive
+    to users and enterprises. The file format itself provides adequate
+    encryption options to allow standalone use-cases to be secure. For automatic
+    updates sent by policy, the policy transport should be made secure. The file
+    should not be stored unencrypted on disk as part of policy fetching and
+    should be cleared from memory after use.
+  </p>
+</section>
+
+<section>
+  <h1>Privacy Considerations</h1>
+
+  <p>
+    Similarly to the security considerations, user names will be present in
+    these files for certain kinds of connections, so any places where the file
+    is transmitted or saved to disk should be secure. On client device, when
+    user names for connections that are user-specific are persisted to disk,
+    they should be stored in a location that is encrypted. Users can also opt in
+    these cases to not save their user credentials in the config file and will
+    instead be prompted when they are needed.
+  </p>
+</section>
+</section>
+</body>
+</html>

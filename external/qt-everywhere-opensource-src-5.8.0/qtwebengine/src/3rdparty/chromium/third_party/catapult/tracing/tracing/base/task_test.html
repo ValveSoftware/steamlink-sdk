@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2013 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<link rel="import" href="/tracing/base/task.html">
+
+<script>
+'use strict';
+
+tr.b.unittest.testSuite(function() {
+  var Task = tr.b.Task;
+
+  test('basicAllStepsPass', function() {
+    var results = [];
+
+    var startingTask = new Task(function(task) {
+      results.push('a');
+      task.subTask(function() {
+        results.push('a/1');
+      }, this);
+      task.subTask(function() {
+        results.push('a/2');
+      }, this);
+    }, this);
+    startingTask.after(function() {
+      results.push('b');
+    }, this).after(function() {
+      results.push('c');
+    }, this);
+
+    Task.RunSynchronously(startingTask);
+    assert.deepEqual(results, ['a', 'a/1', 'a/2', 'b', 'c']);
+  });
+
+  test('basicAllStepsPassAsync', function() {
+    var results = [];
+
+    var startingTask = new Task(function(task) {
+      results.push('a');
+      task.subTask(function() {
+        results.push('a/1');
+      }, this);
+      task.subTask(function() {
+        results.push('a/2');
+      }, this);
+    }, this);
+    startingTask.after(function() {
+      results.push('b');
+    }, this).after(function() {
+      results.push('c');
+    }, this);
+
+    var promise = Task.RunWhenIdle(startingTask);
+    promise.then(function() {
+      assert.deepEqual(results, ['a', 'a/1', 'a/2', 'b', 'c']);
+    });
+    return promise;
+  });
+
+  test('taskThatThrowsShouldRejectItsPromise', function() {
+    var startingTask = new Task(function(task) {
+      throw new Error(
+          'IGNORE. This is an expected error to test error handling.');
+    }, this);
+
+    var taskPromise = Task.RunWhenIdle(startingTask);
+
+    return new Promise(function(resolve, reject) {
+      taskPromise.then(function() {
+        reject(new Error('Should have thrown'));
+      }, function(err) {
+        resolve();
+      });
+    });
+  });
+
+  test('timedAfter', function() {
+    if (tr.isHeadless)
+      return;
+
+    var results = [];
+
+    var startingTask = new Task(function(task) {
+      results.push('a');
+    }, this);
+    startingTask.timedAfter('Test', function pushB() {
+      results.push('b');
+    }, this).after(function() {
+      results.push('c');
+    }, this);
+
+    Task.RunSynchronously(startingTask);
+    assert.deepEqual(results, ['a', 'b', 'c']);
+    var result = window.performance.getEntriesByName('Test:pushB');
+    var duration = parseFloat(result[0].duration);
+    assert.isAbove(duration, 0.0);
+  });
+
+  test('timedAfterWithSubTask', function() {
+    if (tr.isHeadless)
+      return;
+
+    var results = [];
+
+    var startingTask = new Task(function(task) {
+      results.push('a');
+      task.subTask(function(task) {
+        results.push('a/1');
+      }, this);
+      task.subTask(function(task) {
+        results.push('a/2');
+      }, this);
+    }, this);
+    startingTask.timedAfter('Test', function pushB() {
+      results.push('b');
+    }, this).after(function() {
+      results.push('c');
+    }, this);
+
+    Task.RunSynchronously(startingTask);
+    assert.deepEqual(results, ['a', 'a/1', 'a/2', 'b', 'c']);
+    var result = window.performance.getEntriesByName('Test:pushB');
+    var duration = parseFloat(result[0].duration);
+    assert.isAbove(duration, 0.0);
+  });
+
+  test('timedAfterWithAnoymousTask', function() {
+    if (tr.isHeadless)
+      return;
+
+    var results = [];
+
+    var startingTask = new Task(function(task) {
+      results.push('a');
+    }, this);
+    assert.throw(function() {
+      startingTask.timedAfter('Test', function() {
+        results.push('b');
+      }, this);
+    }, Error, 'Anonymous Task is not allowed');
+
+    Task.RunSynchronously(startingTask);
+    assert.deepEqual(results, ['a']);
+  });
+
+  test('namedTimedAfter', function() {
+    if (tr.isHeadless)
+      return;
+
+    var results = [];
+
+    var startingTask = new Task(function(task) {
+      results.push('a');
+    }, this);
+    startingTask.namedTimedAfter('Test', 'pushB', function() {
+      results.push('b');
+    }, this).after(function() {
+      results.push('c');
+    }, this);
+
+    Task.RunSynchronously(startingTask);
+    assert.deepEqual(results, ['a', 'b', 'c']);
+    var result = window.performance.getEntriesByName('Test:pushB');
+    var duration = parseFloat(result[0].duration);
+    assert.isAbove(duration, 0.0);
+  });
+
+});
+</script>

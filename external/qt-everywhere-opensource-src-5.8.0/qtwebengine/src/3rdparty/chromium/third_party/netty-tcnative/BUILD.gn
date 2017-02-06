@@ -1,0 +1,116 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Builds the Netty fork of Tomcat Native. See http://netty.io/wiki/forked-tomcat-native.html
+
+import("//build/config/android/config.gni")
+import("//build/config/android/rules.gni")
+
+# Builds the native part of netty-tcnative library.
+shared_library("netty-tcnative-so") {
+  output_name = "netty-tcnative"
+  sources = [
+    "src/c/address.c",
+    "src/c/bb.c",
+    "src/c/dir.c",
+    "src/c/error.c",
+    "src/c/file.c",
+    "src/c/info.c",
+    "src/c/jnilib.c",
+    "src/c/lock.c",
+    "src/c/misc.c",
+    "src/c/mmap.c",
+    "src/c/multicast.c",
+    "src/c/network.c",
+    "src/c/os.c",
+    "src/c/os_unix_system.c",
+    "src/c/os_unix_uxpipe.c",
+    "src/c/poll.c",
+    "src/c/pool.c",
+    "src/c/proc.c",
+    "src/c/shm.c",
+    "src/c/ssl.c",
+    "src/c/ssl_private.h",
+    "src/c/sslcontext.c",
+    "src/c/sslinfo.c",
+    "src/c/sslnetwork.c",
+    "src/c/sslutils.c",
+    "src/c/stdlib.c",
+    "src/c/tcn.h",
+    "src/c/tcn_api.h",
+    "src/c/tcn_version.h",
+    "src/c/thread.c",
+    "src/c/user.c",
+  ]
+  include_dirs = [ "../apache-portable-runtime/src/include" ]
+  defines = [ "HAVE_OPENSSL" ]
+  cflags = [ "-w" ]
+  configs -= [ "//build/config/android:hide_native_jni_exports" ]
+  deps = [
+    "../apache-portable-runtime:apr",
+    "../boringssl:boringssl",
+  ]
+}
+
+# Builds the Java part of netty-tcnative library.
+android_library("netty-tcnative") {
+  java_files = [
+    "src/java/src/org/apache/tomcat/Apr.java",
+    "src/java/src/org/apache/tomcat/jni/Address.java",
+    "src/java/src/org/apache/tomcat/jni/BIOCallback.java",
+    "src/java/src/org/apache/tomcat/jni/Buffer.java",
+    "src/java/src/org/apache/tomcat/jni/CertificateVerifier.java",
+    "src/java/src/org/apache/tomcat/jni/Directory.java",
+    "src/java/src/org/apache/tomcat/jni/Error.java",
+    "src/java/src/org/apache/tomcat/jni/FileInfo.java",
+    "src/java/src/org/apache/tomcat/jni/File.java",
+    "src/java/src/org/apache/tomcat/jni/Global.java",
+    "src/java/src/org/apache/tomcat/jni/Library.java",
+    "src/java/src/org/apache/tomcat/jni/LibraryNotFoundError.java",
+    "src/java/src/org/apache/tomcat/jni/Local.java",
+    "src/java/src/org/apache/tomcat/jni/Lock.java",
+    "src/java/src/org/apache/tomcat/jni/Mmap.java",
+    "src/java/src/org/apache/tomcat/jni/Multicast.java",
+    "src/java/src/org/apache/tomcat/jni/OS.java",
+    "src/java/src/org/apache/tomcat/jni/PasswordCallback.java",
+    "src/java/src/org/apache/tomcat/jni/Poll.java",
+    "src/java/src/org/apache/tomcat/jni/PoolCallback.java",
+    "src/java/src/org/apache/tomcat/jni/Pool.java",
+    "src/java/src/org/apache/tomcat/jni/Procattr.java",
+    "src/java/src/org/apache/tomcat/jni/ProcErrorCallback.java",
+    "src/java/src/org/apache/tomcat/jni/Proc.java",
+    "src/java/src/org/apache/tomcat/jni/Registry.java",
+    "src/java/src/org/apache/tomcat/jni/SessionTicketKey.java",
+    "src/java/src/org/apache/tomcat/jni/Shm.java",
+    "src/java/src/org/apache/tomcat/jni/Sockaddr.java",
+    "src/java/src/org/apache/tomcat/jni/socket/AprSocketContext.java",
+    "src/java/src/org/apache/tomcat/jni/socket/AprSocket.java",
+    "src/java/src/org/apache/tomcat/jni/socket/HostInfo.java",
+    "src/java/src/org/apache/tomcat/jni/Socket.java",
+    "src/java/src/org/apache/tomcat/jni/SSLContext.java",
+    "src/java/src/org/apache/tomcat/jni/SSLExt.java",
+    "src/java/src/org/apache/tomcat/jni/SSL.java",
+    "src/java/src/org/apache/tomcat/jni/SSLSocket.java",
+    "src/java/src/org/apache/tomcat/jni/Status.java",
+    "src/java/src/org/apache/tomcat/jni/Stdlib.java",
+    "src/java/src/org/apache/tomcat/jni/Thread.java",
+    "src/java/src/org/apache/tomcat/jni/Time.java",
+    "src/java/src/org/apache/tomcat/jni/User.java",
+  ]
+  run_findbugs_override = false
+  deps = [
+    "//base:base_java",
+  ]
+}
+
+# Builds both the Java and native parts of netty-tcnative library.
+group("netty-tcnative_all") {
+  deps = [
+    ":netty-tcnative",
+    ":netty-tcnative-so",
+  ]
+  public_deps = [
+    ":netty-tcnative-so",
+  ]
+}

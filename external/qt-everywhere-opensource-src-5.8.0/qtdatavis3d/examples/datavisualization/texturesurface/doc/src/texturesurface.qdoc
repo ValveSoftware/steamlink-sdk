@@ -1,0 +1,139 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example texturesurface
+    \title Textured Surface Example
+    \ingroup qtdatavisualization_examples
+    \brief Using texture with Q3DSurface.
+    \since QtDataVisualization 1.2
+
+    The textured surface example shows how to add an image as a texture for a surface. The example
+    shows also how to:
+
+    \list
+        \li Create a surface series from an image
+        \li Use custom input handler to enable zooming and panning
+        \li Highlight an area of the surface
+    \endlist
+
+    \image texturesurface-example.png
+
+    \include examples-run.qdocinc
+
+    \section1 Texture to a Surface Series
+
+    The image to be set as a texture to a surface can be set using QSurface3DSeries::setTextureFile().
+    In this example we have added a check box to control if the texture is set or not. The
+    following code extract is for reacting to the check box selections. The image in this
+    example is read from the resource file where it is as a JPG file. Setting an empty file
+    with the method clears the texture, and the surface uses the gradients or colors from the theme.
+
+    \snippet texturesurface/surfacegraph.cpp 0
+
+    \section1 Topographic Surface Series
+
+    The topographic data for this example is obtained from National Land Survey of Finland. It
+    provides a product called \c{Elevation Model 2 m}, which was suitable for our needs. We selected
+    Levi fell to be shown. The accuracy of the data was well beyond our needs and therefore it
+    is compressed and encoded into a PNG file. The height value from the original ASCII data is
+    encoded into RGB format using a multiplier, which you will see later on a code extract.
+    The multiplier is calculated simply by dividing the largest 24 bit value with the highest point
+    in Finland.
+
+    Qt Data Visualization has a special proxy for height map image files, but it converts
+    only one byte values. So to utilize the bigger accuracy on the data from National Land
+    Survey of Finland, we read the data from the PNG file and decode it into QSurface3DSeries.
+    The following code samples show how this is done.
+
+    First the encoding multiplier.
+    \snippet texturesurface/topographicseries.cpp 0
+
+    And then the actual decoding.
+    \snippet texturesurface/topographicseries.cpp 1
+
+    \section1 Use Custom Input Handler to Enable Zooming and Panning
+
+    For the panning the implementation is similar to the \l{Axis Range Dragging With Labels Example}.
+    The difference is that in this example we follow only dragging of X and Z axis and we don't
+    allow dragging the surface outside the graph. The control for this is very simple and done as
+    on the following example for the X axis.
+
+    \snippet texturesurface/custominputhandler.cpp 0
+
+    For the zooming we catch the \c wheelEvent and adjust the X and Y axis ranges according to delta
+    value on QWheelEvent. The Y axis is also adjusted so that the aspect ratio between Y axis and
+    XZ plane stays the same, and we don't get silly looking graph with height exaggerated too much.
+
+    \snippet texturesurface/custominputhandler.cpp 1
+
+    In this case we want to control the zoom level so that it won't get too near to or far from the
+    surface. For instance, if the value for the X axis gets below the allowed, i.e. zooming gets too
+    far, the value is set to the minimum allowed value. If the range is going to below the range
+    minimum, both ends of the axis are adjusted so that the range stays at the limit.
+
+    \snippet texturesurface/custominputhandler.cpp 2
+
+    \section1 Highlight an Area of the Surface
+
+    The main idea on creating a highlight on the surface is to create a copy of the series and add
+    a bit of offset to the y value. On this example the class \c HighlightSeries implements the
+    creation of the copy on its \c handlePositionChange method. Firstly the \c HighlightSeries
+    needs to get the pointer to the original series and then it starts to listen the
+    QSurface3DSeries::selectedPointChanged signal.
+
+    \snippet texturesurface/highlightseries.cpp 0
+
+    When the signal arrives, first thing is to check that the position is valid. Then the ranges
+    for the  copied area are calculated and checked that they stay within the bounds. Finally
+    we simply fill the data array of the highlight series with the range from the data array of
+    topography series.
+
+    \snippet texturesurface/highlightseries.cpp 1
+
+    \section1 A Gradient to the Highlight Series
+
+    Since the \c HighlightSeries is QSurface3DSeries, we can use all the decoration methods series can
+    have. In this example we added a gradient to emphasize the elevation. Because the suitable gradient
+    style depends on the range of the Y axis and we change the range when zooming, we need to adjust
+    the gradient color positions as the range change.
+
+    For the gradient color positions we define proportional values.
+
+    \snippet texturesurface/highlightseries.cpp 2
+
+    The gradient modification is done on \c handleGradientChange method and we connect it to react to
+    changes on Y axis.
+
+    \snippet texturesurface/surfacegraph.cpp 1
+
+    When a change on Y axis max value happens, we calculate the gradient color positions.
+
+    \snippet texturesurface/highlightseries.cpp 3
+*/

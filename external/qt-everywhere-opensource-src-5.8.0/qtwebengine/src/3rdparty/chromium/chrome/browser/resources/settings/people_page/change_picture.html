@@ -1,0 +1,139 @@
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/html/util.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-a11y-keys/iron-a11y-keys.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-selector/iron-selector.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="/i18n_setup.html">
+<link rel="import" href="/icons.html">
+<link rel="import" href="/people_page/camera.html">
+<link rel="import" href="/people_page/change_picture_browser_proxy.html">
+<link rel="import" href="/settings_shared_css.html">
+
+<dom-module id="settings-change-picture">
+  <template>
+    <style include="settings-shared">
+      #container {
+        -webkit-margin-start: 16px;
+        align-items: flex-start;
+        padding-top: 16px;
+      }
+
+      #availableIcons img,
+      #availableIcons iron-icon {
+        border-radius: 4px;
+        margin: 8px;
+      }
+
+      #availableIcons img {
+        height: 64px;
+        padding: 2px;
+        vertical-align: top;
+        width: 64px;
+      }
+
+      #availableIcons iron-icon {
+        border: 1px solid var(--google-grey-500);
+        padding: 17px;
+      }
+
+      #availableIcons .iron-selected {
+        border: 2px solid var(--google-blue-500);
+      }
+
+      #availableIcons img.iron-selected {
+        padding: 0;
+      }
+
+      #availableIcons iron-icon.iron-selected {
+        padding: 16px;
+      }
+
+      #authorCredit,
+      #authorCredit a {
+        color: var(--paper-grey-500);
+      }
+
+      #previewPane {
+        -webkit-margin-end: 10px;
+        flex-shrink: 0;
+        width: 228px;
+      }
+
+      #previewPane img {
+        display: block;
+        height: 228px;
+        width: 228px;
+      }
+
+      #discardControlBar {
+        background-color: var(--paper-grey-800);
+        border-bottom-left-radius: 2px;
+        border-bottom-right-radius: 2px;
+        padding: 8px;
+      }
+
+      #discardOldImage {
+        background-color: var(--paper-red-500);
+        border-radius: 50%;
+        color: white;
+        display: block;
+        margin: 0 auto 0 auto;
+      }
+    </style>
+    <div id="container" class="settings-box" tabindex="0">
+      <iron-a11y-keys keys="up down left right space enter"
+          on-keys-pressed="onKeysPress_">
+      </iron-a11y-keys>
+      <div id="availableIcons" class="start">
+        <iron-selector id="selector" on-iron-activate="onImageActivate_"
+            selected-item="{{selectedItem_}}">
+          <iron-icon id="cameraImage"
+              data-type$="[[selectionTypesEnum_.CAMERA]]"
+              icon="settings:camera-alt" alt="$i18n{takePhoto}"
+              hidden="[[!cameraPresent_]]">
+          </iron-icon>
+          <iron-icon data-type$="[[selectionTypesEnum_.FILE]]"
+              icon="settings:folder" alt="$i18n{chooseFile}">
+          </iron-icon>
+          <img id="profileImage"
+              data-type$="[[selectionTypesEnum_.PROFILE]]"
+              src="[[profileImageUrl_]]" alt="$i18n{profilePhotoLoading}">
+          <img id="oldImage" data-type$="[[selectionTypesEnum_.OLD]]"
+              src="[[oldImageUrl_]]" hidden="[[!oldImageUrl_]]">
+          <template is="dom-repeat" items="[[defaultImages_]]">
+            <img data-type$="[[selectionTypesEnum_.DEFAULT]]"
+                data-default-image-index$="[[index]]" src="[[item.url]]"
+                alt="[[item.title]]">
+          </template>
+        </iron-selector>
+        <template is="dom-if" if="[[isAuthorCreditShown_(selectedItem_)]]">
+          <div id="authorCredit">
+            $i18n{authorCredit}
+            [[getAuthorName_(selectedItem_, defaultImages_)]]
+            <a href="[[getAuthorWebsite_(selectedItem_, defaultImages_)]]"
+                target="_blank">
+              [[getAuthorWebsite_(selectedItem_, defaultImages_)]]
+            </a>
+          </div>
+        </template>
+      </div>
+      <div id="previewPane">
+        <img alt="$i18n{previewAltText}" src="[[selectedItem_.src]]"
+            hidden="[[isPreviewImageHidden_(selectedItem_)]]">
+        <div id="discardControlBar"
+            hidden="[[isDiscardHidden_(selectedItem_)]]">
+          <paper-icon-button id="discardOldImage" tabindex="0"
+              icon="settings:delete" title="$i18n{discardPhoto}"
+              on-tap="onTapDiscardOldImage_">
+          </paper-icon-button>
+        </div>
+        <settings-camera id="camera"
+            camera-active="[[isCameraActive_(cameraPresent_, selectedItem_)]]"
+            on-phototaken="onPhotoTaken_">
+      </div>
+    </div>
+  </template>
+  <script src="change_picture.js"></script>
+</dom-module>

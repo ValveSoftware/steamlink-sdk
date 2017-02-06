@@ -1,0 +1,161 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+
+component("display_compositor") {
+  sources = [
+    "buffer_queue.cc",
+    "buffer_queue.h",
+    "compositor_overlay_candidate_validator.h",
+    "display_compositor_export.h",
+    "gl_helper.cc",
+    "gl_helper.h",
+    "gl_helper_readback_support.cc",
+    "gl_helper_readback_support.h",
+    "gl_helper_scaling.cc",
+    "gl_helper_scaling.h",
+  ]
+
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  defines = [ "DISPLAY_COMPOSITOR_IMPLEMENTATION" ]
+
+  deps = [
+    "//base",
+    "//cc",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:gles2_interface",
+    "//gpu/command_buffer/common",
+    "//skia",
+    "//ui/gfx",
+  ]
+
+  if (is_mac) {
+    sources += [
+      "compositor_overlay_candidate_validator_mac.h",
+      "compositor_overlay_candidate_validator_mac.mm",
+    ]
+  }
+
+  if (is_android) {
+    sources += [
+      "compositor_overlay_candidate_validator_android.cc",
+      "compositor_overlay_candidate_validator_android.h",
+    ]
+  }
+
+  if (use_ozone) {
+    sources += [
+      "compositor_overlay_candidate_validator_ozone.cc",
+      "compositor_overlay_candidate_validator_ozone.h",
+    ]
+
+    deps += [ "//ui/ozone" ]
+  }
+}
+
+# These are part of the components_unittests build target.
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "buffer_queue_unittest.cc",
+  ]
+
+  if (!use_aura && !is_mac) {
+    sources -= [ "buffer_queue_unittest.cc" ]
+  }
+
+  configs += [
+    "//build/config/compiler:no_size_t_to_int_warning",
+    "//third_party/khronos:khronos_headers",
+  ]
+
+  deps = [
+    ":display_compositor",
+    "//base",
+    "//base/test:test_support",
+    "//cc:test_support",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:gl_in_process_context",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//media",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/gl:test_support",
+  ]
+
+  data_deps = [
+    "//third_party/mesa:osmesa",
+  ]
+}
+
+test("display_compositor_gl_tests") {
+  sources = [
+    "display_compositor_test_suite.cc",
+    "display_compositor_test_suite.h",
+    "gl_helper_unittest.cc",
+    "run_all_unittests.cc",
+    "yuv_readback_unittest.cc",
+  ]
+
+  configs += [
+    "//build/config/compiler:no_size_t_to_int_warning",
+    "//third_party/khronos:khronos_headers",
+  ]
+
+  deps = [
+    ":display_compositor",
+    "//base",
+    "//base/test:test_support",
+    "//cc:test_support",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:gl_in_process_context",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//media",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/gl:test_support",
+  ]
+
+  data_deps = [
+    "//third_party/mesa:osmesa",
+  ]
+}
+
+test("display_compositor_benchmark") {
+  sources = [
+    "display_compositor_test_suite.cc",
+    "display_compositor_test_suite.h",
+    "gl_helper_benchmark.cc",
+    "run_all_unittests.cc",
+  ]
+
+  configs += [
+    "//build/config/compiler:no_size_t_to_int_warning",
+    "//third_party/khronos:khronos_headers",
+  ]
+
+  deps = [
+    ":display_compositor",
+    "//base",
+    "//base/test:test_support",
+    "//cc:test_support",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:gl_in_process_context",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//media",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/gl:test_support",
+  ]
+
+  data_deps = [
+    "//third_party/mesa:osmesa",
+  ]
+}

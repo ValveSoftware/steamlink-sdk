@@ -1,0 +1,388 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page whatsnew50.html
+    \title What's New in Qt 5.0
+    \brief Lists the new features in Qt 5.0
+
+    \section1 Qt Core Changes
+    \section2 QStandardPaths
+    QStandardPaths is a more powerful version of QDesktopServices that was
+    present in Qt 4. Modeled after \l {http://api.kde.org/4.x-api/kdelibs-
+    apidocs/kdecore/html/classKStandardDirs.html}{KStandardDirs} from KDE 4, it
+    contains additional features such as searching for all occurrences of a
+    given file in the storage locations.
+
+    \section2 Compile-time Checks for Signal-slot Connections
+    QObject now supports an additional syntax for connecting signals to slots,
+    which forces the compiler to check whether the signal and the receiver
+    exist and their arguments are compatible.
+
+    This syntax allows connecting a signal to any kind of C++ receiver,
+    including C++11 lambdas, member functions, or static functions. The
+    receivers no longer need to be declared as slots, but such declarations
+    are still recommended for readability.
+
+    See \l{Differences between String-Based and Functor-Based Connections}
+    for more details.
+
+    \section2 Perl-Compatible Regular Expressions
+    QRegularExpression is introduced to provide better support for regular
+    expressions compatible with Perl. This class is more powerful and
+    faster than QRegExp, and supports more features such as lazy and possessive
+    quantifiers, lookbehinds, named capturing groups, and iteration of matches.
+
+    \section1 Qt GUI Changes
+    \section2 New Classes for Windowing and Rendering
+    A new set of enabler classes have been added, most importantly QWindow,
+    QScreen, QSurfaceFormat, and QOpenGLContext. These are now used as backends
+    for the \l{Qt Widgets} module and by \l {Qt Quick} 2.
+
+    \section2 OpenGL Classes
+    Most of the useful \l {Qt OpenGL} classes have been polished and moved into
+    \l{Qt GUI}. A few important ones are, QOpenGLFramebufferObject,
+    QOpenGLShaderProgram, QOpenGLFunctions, and so on. For the complete list,
+    refer to \l{Qt GUI C++ Classes}.
+
+    This change introduces QOpenGLContext as a replacement for QGLContext. This
+    replacement class is more generic and decoupled from QWindow, making it to
+    support more use cases such as using the same context for multiple surfaces.
+
+    \section2 QOpenGLPaintDevice
+    Instead of having QWindow and QOpenGLFramebufferObject be subclasses of
+    QPaintDevice, you can now use QOpenGLPaintDevice. This new alternative can
+    be created on the stack, makes it easier and flexible to render into the
+    currently bound context using QPainter.
+
+    \section1 Qt Network Changes
+    \section2 QDnsLookup
+    It is now possible to lookup DNS records using the new QDnsLookup API.
+    This does not replace QHostInfo, which is still the API to be used for
+    resolving a host name to an IP address. QDnsLookup is mainly used for other
+    types of DNS record, such as SRV, TXT and MX.
+
+    \note This new class replaces the Q3Dns API, which is removed in Qt 5.
+
+    \section2 Better Support for IPv6 and Dual-mode Networks
+    Most applications using host names and network layer transparent protocols,
+    will now gain IPv6 support transparently. This means, QTcpServer and
+    QUdpSocket bound to QHostAddress::Any can now receive both IPv4 and IPv6
+    connections, although, QHostAddress::AnyIPv4 and QHostAddress::AnyIPv6 can
+    be used to bind to only one protocol.
+
+    Outgoing http connections using QNetworkAccessManager will now attempt both
+    IPv4 and IPv6 connections in parallel, and use the one that succeeds first.
+
+    \section2 Binding TCP Sockets
+    QTcpSocket can be bound to an IP address before connecting, which is useful
+    for limiting connection to a specific interface in a multi-homed
+    environment.
+
+    \section2 SSL Certificates
+    SSL certificate extensions can now be accessed to enable further
+    development of SSL support in Qt.
+
+    Developers can also verify an SSL certificate chain programatically now.
+
+    \section2 Workarounds for Buggy SSL Servers
+    The QSsl::SslOption enum now allows a QSslSocket-based code to access
+    legacy systems by enabling bug workarounds.
+
+    \note This change is also back-ported to Qt 4.8.
+
+    \section2 Support for Opaque Private Keys
+    This allows applications to read private keys from devices such as PKCS#11
+    dongles, as illustrated by the \l{qsslkey example}
+
+    \section1 Qt QML Changes
+    This is a new module in Qt 5 that provides the QML engine and the backend
+    infrastructure.
+
+    \section2 QML Engine
+    \list
+     \li V8 JavaScript engine
+     \li Various parser and compiler optimizations have been implemented along
+         with the new bindings optimizer.
+     \li Loading/compilation can now be performed in a separate thread. This
+         can be enabled by loading a loader object asynchronously through its
+         source property, or by passing the Component.Asynchronous parameter to
+         \l{Qt::createComponent}{Qt.createComponent()}.
+     \li New QQmlEngine::trimComponentCache() function safely discards unused
+         data in the engine’s component cache to free memory.
+    \endlist
+
+    \section2 Type System
+    \list
+     \li New \l{var} property type can hold JavaScript references.
+     \li QML properties of type \l{var} and \l{variant} can now hold pixmaps.
+     \li Value type improvements:
+      \list
+       \li QColor is now a value type. The red, green, blue and alpha channels
+           of a “color” property can now be accessed using “r”, “g”, “b” and
+           “a” properties.
+       \li Improved support for QVector4D, now constructible in QML using
+           \l{Qt::vector4d}{Qt.vector4d()}.
+      \endlist
+     \li Support for certain sequence types (QList<int>, QList<qreal>,
+         QList<bool>, QList<QUrl>, QList<QString> and QStringList) has been
+         improved. QObjects can define Q_PROPERTYs of these types which can be
+         accessed from JavaScript.
+    \endlist
+
+    \section2 Other
+    \list
+     \li JavaScript (.js) files can now import QML modules and other JavaScript
+         files using the “import” statement.
+     \li QQmlExpression can now be constructed directly (and more efficiently)
+         from a QQmlScriptString.
+     \li The component returned by \l{Qt::createComponent}{Qt.createComponent()}
+         is no longer the owned by the engine. Be sure to hold a reference,or provide a parent.
+    \endlist
+
+
+    \section1 Qt Quick Changes
+    This is a new module in Qt 5 which provides the visual canvas and
+    scenegraph backend as well as the \c QtQuick QML module for QML-based
+    application development.
+
+    The module replaces the QDeclarative* equivalents in \e {QtQuick 1} with the
+    following:
+    \list
+     \li QQuickView
+     \li QQuickCanvas
+     \li QQuickItem
+     \li QQuickPaintedItem
+    \endlist
+    See \l{Qt Quick C++ Classes} for the complete list.
+
+    The QtQuick 2.0 QML module is a major update, and the following sections
+    outline the features that come with it:
+
+    \section2 New Graphics Architecture
+
+    \list
+
+    \li Qt Quick 2.0 uses a dedicated OpenGL (ES) 2.0 based \l{Qt
+    Quick Scene Graph} scene graph for all its rendering.
+
+    \endlist
+
+    \section2 Visual and Graphic Types
+    \list
+     \li New Canvas type for drawing, provides a HTML5 canvas-like API along
+         with the following additional features:
+     \list
+      \li Two render targets: \l{QtQuick::Canvas::renderTarget}{Canvas.Image} and
+          \l{QtQuick::Canvas::renderTarget}{Canvas.FramebufferObject}.
+      \li Background thread rendering.
+      \li Tiled canvas rendering.
+      \li Support for most of the HTML5 context2d APIs.
+     \endlist
+    \li Image type now has:
+     \list
+      \li New horizontal and vertical alignment properties, \l{Image::}
+          {horizontalAlignment} and \l{Image::}{verticalAlignment}.
+      \li \l{Image::fillMode}{Image.Pad} enum value for \c {fillMode}
+          property does not transform the image unlike the other \c {fillMode}
+          enum values.
+      \li \l{Image::sourceSize}{sourceSize.width} and \l{Image::sourceSize}
+          {sourceSize.height} now fits the image to size maintaining the aspect
+          ratio.
+     \endlist
+    \endlist
+
+    \section2 Animations
+    \list
+     \li New \l{SpriteSequence} type renders animated sprites and can
+         transition between animations.
+     \li New \l{Sprite} type that represents each animation in a
+         \l {SpriteSequence}.
+     \li New \l{AnimatedSprite} type for drawing single sprite animations.
+    \endlist
+
+    \section2 Text
+    \list
+     \li \l{Text}:
+      \list
+       \li \l{Text::textFormat}{AutoText} format now switches to \c StyledText
+           instead of \c{RichText}.
+       \li \l{Text::}{lineLaidOut} signal is emitted for every
+           line during the layout process to give the option of positioning
+           and/or resizing text as they are laid out.
+       \li \l{Text::doLayout}{doLayout()} method can now trigger the text
+           layout from JavaScript.
+       \li \l{Text::elide}{ElideRight} to support text that spans multiple
+           lines.
+       \li \l{Text::fontSizeMode}{fontSizeMode} property now supports wrapping
+           the text to the item size.
+       \li \l{Text::}{minimumPixelSize} and \l{Text::}{minimumPointSize} properties
+           can be used to specify a lower bound when auto-fitting.
+      \endlist
+     \li \l {QtQuick::TextEdit::textFormat}{TextEdit.textFormat} property now defaults
+         to \c PlainText instead  of \c AutoText.
+     \li \l{TextInput} now has \c wrapMode and verticalAlignment properties.
+     \li \c{TextInput.positionAt()} now takes \c y value.
+    \endlist
+
+    \section2 User Input
+    \list
+     \li New \l{MultiPointTouchArea} type can process multi-point touches and
+         provide information about the touch points including position,
+         pressure and velocity.
+     \li MouseArea type now:
+     \list
+      \li Propagates wheel events.
+      \li Propagates \c clicked, \c doubleClicked and \c pressAndHold events
+          differently to \c pressed. These events are propagated to the handler
+          of the topmost \l{MouseArea} in the stack-order.
+      \li Can ignore the propagated events using the
+          \c{propagateComposedEvents}. Such ignored events are propagated to
+          the next MouseArea handler in the stack-order.
+     \endlist
+    \endlist
+
+    \section2 Specialized Containers
+    \list
+     \li \l{Flickable} type now has:
+      \list
+       \li a new \c rebound property that enables you to specify the transition
+           type for the bounce back animation.
+       \li New \c topMargin, \c bottomMargin, \c leftMargin, and \c rightMargin
+           properties allow extra margin space to be specified. This is useful
+           to implement the pull-to-refresh functionality for a list.
+       \li New \c xOrigin and \c yOrigin properties provide the top left
+           position of the content item.
+       \li New \c dragging, \c draggingHorizontally, and \c draggingVertically
+           properties that provide information when the flickable area is
+           dragged.
+      \endlist
+    \endlist
+
+    \section2 Positioners
+    The following features are related to Row, Column, Grid, and Flow types:
+    \list
+     \li The “add” and “move” transitions can now access the \l{ViewTransition}
+         attached property, and also animate arbitrary item properties (instead
+         of being restricted to animating an item’s position).
+     \li New \c {Positioner.index}, \c {Positioner.isFirstItem} and
+         \c{Positioner.isLastItem} attached properties for items within a
+         positioner.
+     \li The \l{Grid} type has new \c rowSpacing and \c columnSpacing
+         properties.
+     \li All spacing properties on positioners now use real numbers instead of
+         integers.
+    \endlist
+
+    \section2 Models and Views
+    \list
+     \li \l{ListView} and \l{GridView}:
+      \list
+       \li Transitions can be specified to animate the adding, removing and
+           moving of items in a view. For details, see \l{ViewTransition},
+           \l{ListView::add}{ListView.add}, \l {ListView::addDisplaced}
+           {ListView.addDisplaced}, \l{GridView::add}{GridView.add}, and
+           \l{GridView::addDisplaced}{GridView.addDisplaced}.
+       \li New \c verticalLayoutDirection property enables items to be laid out
+           from bottom-to-top using the \c BottomToTop enum value.
+       \li The \c cacheBuffer property now has a non-zero default and delegates
+           in the \c cacheBuffer are created asynchronously.
+       \li New \c headerItem and \c footerItem properties provide access to the
+           instantiated header and footer items.
+       \li \c RightToLeft layout now also reverses the
+           \c preferredHighlightBegin and \c preferredHighlightEnd.
+      \endlist
+     \li \l{ListView}'s new \c {section.labelPositioning} property can fix the
+         current section label to the start of the view, and the next section
+         label to the end of the view, so that labels do not scroll while
+         section items are still in view.
+     \li \l{PathView} has two new properties, \c curretnItem and
+           \c maximumFlickVelocity.
+    \endlist
+
+    \section2 Particles System Support
+    The new QtQuick.Particles 2.0 module provides support for the composition
+    of a variety of 2D particle systems. See \c{Using the Qt Quick Particle
+    System} for more details.
+
+    \section2 Utility Types
+    \list
+     \li New \l{PathArc}, \l{PathCurve} and \l{PathSvg} types:
+     \list
+      \li \c PathArc and \c PathCurve support the construction of arcs and
+          catmull-rom curves, respectively. PathSvg supports the construction
+          of a path from an SVG string.
+     \endlist
+     \li Loader:
+     \list
+      \li New \c{asynchronous} property allows components to be instantiated
+          with a lower chance of blocking. With the \c {asynchronous} property
+          set to \c {true}, the component is compiled in a background thread.
+      \li New \c{active} property delays instantiation of a Loader object’s
+          item.
+      \li New \c {setSource(JSObject)} method to specify initial property
+          values for the loaded item, similar to
+          \l {QtQml::Component::createObject()} {Component.createObject()}.
+      \li \c sourceChanged signal is now only emitted when the source changes
+          and the \c sourceComponentChanged signal is now emitted when the
+          \c sourceComponent is changed. Ealier, these signals were emitted by
+          the Loader only when one of the two properties had changed.
+      \li Loader type can now be used as a value source, and it can restore any
+          previously set binding if its "when" clause becomes \c false.
+     \endlist
+    \endlist
+
+    \section1 Qt Multimedia Changes
+
+    Qt Multimedia is an essential module replacing the QtMultimedia library and
+    Qt MultimediaKit mobility API in Qt 4.8. It features full support for Audio
+    and Video playback, and recording. Support for web cameras is integrated.
+
+    Qt Multimedia uses the system’s native multimedia engine as a backend,
+    and does not come with its own audio or video codecs. Thus the supported
+    list of codecs is equivalent to the ones supported by the underlying OS.
+
+    It uses DirectShow and WMF on Windows, AVFoundation on Mac and gstreamer on
+    Linux.
+
+    \section1 New Classes and Functions
+    The section provides a comprehensive list of all new classes and functions
+    introduced in Qt 5.
+
+    \sincelist 5.0
+
+    \section1 Additions to Other Qt 5 Releases
+
+    \list
+    \li \l{What's New in Qt 5.6}
+    \li \l{What's New in Qt 5.5}
+    \li \l{What's New in Qt 5.4}
+    \li \l{What's New in Qt 5.3}
+    \li \l{What's New in Qt 5.2}
+    \li \l{What's New in Qt 5.1}
+    \endlist
+*/

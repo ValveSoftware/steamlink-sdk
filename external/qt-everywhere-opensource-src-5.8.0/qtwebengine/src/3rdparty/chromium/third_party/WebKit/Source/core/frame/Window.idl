@@ -1,0 +1,216 @@
+/*
+ * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+// https://html.spec.whatwg.org/#the-window-object
+
+// FIXME: explain all uses of [DoNotCheckSecurity]
+[
+    CheckSecurity=Receiver,
+    ImplementedAs=DOMWindow,
+    PrimaryGlobal,
+] interface Window : EventTarget {
+    // the current browsing context
+    // FIXME: The spec uses the WindowProxy type for this and many other attributes.
+    [Unforgeable, DoNotCheckSecurity] readonly attribute Window window;
+    [Replaceable, DoNotCheckSecurity] readonly attribute Window self;
+    [Unforgeable] readonly attribute Document document;
+    attribute DOMString name;
+    [PutForwards=href, Unforgeable, DoNotCheckSecurity] readonly attribute Location location;
+    readonly attribute History history;
+    [Replaceable, MeasureAs=BarPropLocationbar] readonly attribute BarProp locationbar;
+    [Replaceable, MeasureAs=BarPropMenubar] readonly attribute BarProp menubar;
+    [Replaceable, MeasureAs=BarPropPersonalbar] readonly attribute BarProp personalbar;
+    [Replaceable, MeasureAs=BarPropScrollbars] readonly attribute BarProp scrollbars;
+    [Replaceable, MeasureAs=BarPropStatusbar] readonly attribute BarProp statusbar;
+    [Replaceable, MeasureAs=BarPropToolbar] readonly attribute BarProp toolbar;
+    attribute DOMString status;
+    [DoNotCheckSecurity, CallWith=ExecutionContext] void close();
+    [DoNotCheckSecurity] readonly attribute boolean closed;
+    void stop();
+    [DoNotCheckSecurity, CallWith=ExecutionContext] void focus();
+    [DoNotCheckSecurity] void blur();
+
+    // other browsing contexts
+    [Replaceable, DoNotCheckSecurity] readonly attribute Window frames;
+    [Replaceable, DoNotCheckSecurity] readonly attribute unsigned long length;
+    [Unforgeable, DoNotCheckSecurity] readonly attribute Window top;
+    // FIXME: opener should be of type any.
+    [DoNotCheckSecurity, Custom=Setter] attribute Window opener;
+    [Replaceable, DoNotCheckSecurity] readonly attribute Window parent;
+    [CheckSecurity=ReturnValue, Custom=Getter] readonly attribute Element? frameElement;
+    // FIXME: open() should have 4 optional arguments with defaults.
+    [Custom] Window? open(DOMString url, DOMString target, optional DOMString features);
+    // FIXME: These getters should not have [NotEnumerable].
+    [NotEnumerable, DoNotCheckSecurity] getter Window (unsigned long index);
+    [Custom, NotEnumerable, DoNotCheckSecurity] getter object (DOMString name);
+
+    // the user agent
+    [LogActivity=GetterOnly] readonly attribute Navigator navigator;
+    [RuntimeEnabled=ApplicationCache, LogActivity=GetterOnly] readonly attribute ApplicationCache applicationCache;
+
+    // user prompts
+    [Measure, CallWith=ScriptState] void alert();
+    [Measure, CallWith=ScriptState] void alert(DOMString message);
+    [Measure, CallWith=ScriptState] boolean confirm(optional DOMString message = "");
+    [Measure, CallWith=ScriptState] DOMString? prompt(optional DOMString message = "", optional DOMString defaultValue = "");
+    [Measure, CallWith=ScriptState] void print();
+
+    [MeasureAs=UnprefixedRequestAnimationFrame] long requestAnimationFrame(FrameRequestCallback callback);
+    void cancelAnimationFrame(long handle);
+
+    [Measure, RuntimeEnabled=RequestIdleCallback] long requestIdleCallback(IdleRequestCallback callback, optional IdleRequestOptions options);
+    [RuntimeEnabled=RequestIdleCallback] void cancelIdleCallback(long handle);
+
+    [DoNotCheckSecurity, Custom, RaisesException] void postMessage(any message, DOMString targetOrigin, optional sequence<Transferable> transfer);
+
+    // Custom elements
+    // http://w3c.github.io/webcomponents/spec/custom/#custom-elements-api
+    [RuntimeEnabled=CustomElementsV1, CallWith=ScriptState] readonly attribute CustomElementsRegistry customElements;
+
+    // HTML obsolete features
+    // https://html.spec.whatwg.org/#Window-partial
+    [MeasureAs=WindowCaptureEvents] void captureEvents();
+    [MeasureAs=WindowReleaseEvents] void releaseEvents();
+
+    // CSS Object Model (CSSOM)
+    // http://dev.w3.org/csswg/cssom/#extensions-to-the-window-interface
+    // FIXME: The optional pseudoElt argument should have no default.
+    [NewObject] CSSStyleDeclaration getComputedStyle(Element elt, optional DOMString? pseudoElt = null);
+
+    // CSSOM View Module
+    // http://dev.w3.org/csswg/cssom-view/#extensions-to-the-window-interface
+    [NewObject] MediaQueryList matchMedia(DOMString query);
+    [SameObject, Replaceable] readonly attribute Screen screen;
+
+    // browsing context
+    void moveTo(long x, long y);
+    void moveBy(long x, long y);
+    void resizeTo(long x, long y);
+    void resizeBy(long x, long y);
+
+    // viewport
+    [Replaceable] readonly attribute long innerWidth;
+    [Replaceable] readonly attribute long innerHeight;
+
+    // viewport scrolling
+    [Replaceable] readonly attribute double scrollX;
+    [Replaceable] readonly attribute double pageXOffset;
+    [Replaceable] readonly attribute double scrollY;
+    [Replaceable] readonly attribute double pageYOffset;
+    [RuntimeEnabled=CSSOMSmoothScroll] void scroll(optional ScrollToOptions options);
+    void scroll(unrestricted double x, unrestricted double y);
+    [RuntimeEnabled=CSSOMSmoothScroll] void scrollTo(optional ScrollToOptions options);
+    void scrollTo(unrestricted double x, unrestricted double y);
+    [RuntimeEnabled=CSSOMSmoothScroll] void scrollBy(optional ScrollToOptions options);
+    void scrollBy(unrestricted double x, unrestricted double y);
+
+    // Visual Viewport API
+    // https://github.com/WICG/ViewportAPI
+    [RuntimeEnabled=VisualViewportAPI] readonly attribute DOMVisualViewport? visualViewport;
+
+    // client
+    [Replaceable] readonly attribute long screenX;
+    [Replaceable] readonly attribute long screenY;
+    [Replaceable] readonly attribute long outerWidth;
+    [Replaceable] readonly attribute long outerHeight;
+    [Replaceable] readonly attribute double devicePixelRatio;
+
+    // Selection API
+    // http://w3c.github.io/selection-api/#extensions-to-window-interface
+    Selection? getSelection();
+
+    // Console API
+    // https://console.spec.whatwg.org/#console-interface
+    // [Replaceable] readonly attribute Console console;
+    // Console is installed by v8 inspector when context is created
+    // and is left commented here just for documentation.
+
+    // Non-standard APIs
+    [MeasureAs=WindowClientInformation, Replaceable] readonly attribute Navigator clientInformation;
+    [MeasureAs=WindowEvent, Custom, NotEnumerable] attribute Event event;
+    [MeasureAs=WindowFind] boolean find([Default=Undefined] optional DOMString string,
+                                        [Default=Undefined] optional boolean caseSensitive,
+                                        [Default=Undefined] optional boolean backwards,
+                                        [Default=Undefined] optional boolean wrap,
+                                        [Default=Undefined] optional boolean wholeWord,
+                                        [Default=Undefined] optional boolean searchInFrames,
+                                        [Default=Undefined] optional boolean showDialog);
+    [MeasureAs=WindowOffscreenBuffering, Replaceable, NotEnumerable] readonly attribute boolean offscreenBuffering;
+    [MeasureAs=WindowScreenLeft, Replaceable] readonly attribute long screenLeft;
+    [MeasureAs=WindowScreenTop, Replaceable] readonly attribute long screenTop;
+    [MeasureAs=WindowDefaultStatus] attribute DOMString defaultStatus;
+    [MeasureAs=WindowDefaultstatus, ImplementedAs=defaultStatus] attribute DOMString defaultstatus;
+    [MeasureAs=StyleMedia] readonly attribute StyleMedia styleMedia;
+    [DeprecateAs=GetMatchedCSSRules, LegacyInterfaceTypeChecking] CSSRuleList getMatchedCSSRules([Default=Undefined] optional Element element,
+                                                                                                 [TreatUndefinedAs=NullString, Default=Undefined] optional DOMString? pseudoElement);
+    // This is the interface orientation in degrees. Some examples are:
+    //  0 is straight up; -90 is when the device is rotated 90 clockwise;
+    //  90 is when rotated counter clockwise.
+    [MeasureAs=WindowOrientation, RuntimeEnabled=OrientationEvent] readonly attribute long orientation;
+    [DeprecateAs=PrefixedRequestAnimationFrame] long webkitRequestAnimationFrame(FrameRequestCallback callback);
+    [DeprecateAs=PrefixedCancelAnimationFrame, ImplementedAs=cancelAnimationFrame] void webkitCancelAnimationFrame(long id);
+    [DeprecateAs=PrefixedCancelRequestAnimationFrame, ImplementedAs=cancelAnimationFrame] void webkitCancelRequestAnimationFrame(long id);
+    [MeasureAs=PrefixedTransitionEventConstructor] attribute TransitionEventConstructor WebKitTransitionEvent;
+    [Measure] attribute AnimationEventConstructor WebKitAnimationEvent;
+    [DeprecateAs=PrefixedWindowURL] attribute URLConstructor webkitURL;
+    [MeasureAs=PrefixedMutationObserverConstructor] attribute MutationObserverConstructor WebKitMutationObserver;
+
+    // Event handler attributes
+    attribute EventHandler onanimationend;
+    attribute EventHandler onanimationiteration;
+    attribute EventHandler onanimationstart;
+    [RuntimeEnabled=OrientationEvent] attribute EventHandler onorientationchange;
+    attribute EventHandler onsearch;
+    attribute EventHandler ontransitionend;
+    attribute EventHandler onwebkitanimationend;
+    attribute EventHandler onwebkitanimationiteration;
+    attribute EventHandler onwebkitanimationstart;
+    attribute EventHandler onwebkittransitionend;
+    attribute EventHandler onwheel;
+
+    // https://w3c.github.io/webappsec/specs/powerfulfeatures/#monkey-patching-global-object
+    readonly attribute boolean isSecureContext;
+};
+
+// http://www.whatwg.org/specs/web-apps/current-work/#transferable-objects
+//
+// Expressing the Transferable typedef in IDL depends on http://crbug.com/240176.
+// The postMessage() methods taking a Transferable array argument have custom
+// binding code that is able to handle the Transferables that we currently
+// recognize. To be able to declare a postMessage() signature that matches
+// the implementation, we provide a Transferable typedef but with an
+// incomplete type.
+//
+// FIXME: make this typedef accurate once enough of http://crbug.com/240176
+// is in place.
+// FIXME: consider putting this typedef in an .idl file containing spec-wide
+// utility type definitions.
+typedef MessagePort Transferable;
+
+Window implements GlobalEventHandlers;
+Window implements WindowBase64;
+Window implements WindowEventHandlers;
+Window implements WindowTimers;

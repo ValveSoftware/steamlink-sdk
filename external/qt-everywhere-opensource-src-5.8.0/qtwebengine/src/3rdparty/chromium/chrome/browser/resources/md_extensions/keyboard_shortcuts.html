@@ -1,0 +1,86 @@
+<link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/neon-animation/neon-animatable-behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-item/paper-item.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-listbox/paper-listbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-styles/color.html">
+<link rel="import" href="chrome://extensions/animation_helper.html">
+<link rel="import" href="chrome://extensions/shortcut_util.html">
+
+<dom-module id="extensions-keyboard-shortcuts">
+  <template>
+    <style>
+      [hidden] {
+        display: none !important;
+      }
+      .shortcut-card {
+        background-color: white;
+        box-shadow: 0 2px 2px 0 rgba(0, 0, 0, .05),
+                    0 1px 4px 0 rgba(0, 0, 0, .08),
+                    0 3px 1px -2px rgba(0, 0, 0, .2);
+        color: var(--paper-grey-600);
+        margin-bottom: 10px;
+        padding: 20px;
+        width: 90%;
+      }
+      .command-entry {
+        align-items: flex-end;
+        display: flex;
+      }
+      .command-name {
+        flex: 1;
+      }
+      .command-entry paper-dropdown-menu {
+        -webkit-margin-start: 40px;
+      }
+      .card-title {
+        align-items: center;
+        display: flex;
+      }
+      .icon {
+        -webkit-margin-end: 20px;
+        height: 24px;
+        width: 24px;
+      }
+      .card-controls {
+        /* We line up the controls with the name, which is after the
+           24px icon + 20px margin on the icon. */
+        -webkit-margin-start: 44px;
+      }
+    </style>
+    <div id="main">
+      <template is="dom-repeat" items="[[calculateShownItems_(items.*)]]">
+        <div class="shortcut-card">
+          <div class="card-title">
+            <img class="icon" src="[[item.iconUrl]]">
+            <span>[[item.name]]</span>
+          </div>
+          <div class="card-controls">
+            <template is="dom-repeat" items="[[item.commands]]" as="command">
+              <div class="command-entry">
+                <span class="command-name">[[command.description]]</span>
+                <span class="command-keys"
+                    hidden$="[[!hasKeybinding_(command.keybinding)]]">
+                  [[command.keybinding]]
+                </span>
+                <span class="no-command-set"
+                    hidden$="[[hasKeybinding_(command.keybinding)]]">
+                  $i18n{shortcutNotSet}
+                </span>
+                <paper-dropdown-menu label="$i18n{shortcutScopeLabel}">
+                  <paper-listbox class="dropdown-content"
+                      selected="[[computeSelectedScope_(command)]]">
+                    <paper-item>$i18n{shortcutScopeInChrome}</paper-item>
+                    <paper-item>$i18n{shortcutScopeGlobal}</paper-item>
+                  </paper-listbox>
+                </paper-dropdown>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
+  <script src="chrome://extensions/keyboard_shortcuts.js"></script>
+</dom-module>

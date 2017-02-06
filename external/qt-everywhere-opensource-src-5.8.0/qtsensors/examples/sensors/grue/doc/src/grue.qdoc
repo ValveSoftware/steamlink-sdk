@@ -1,0 +1,153 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example grue
+    \title Qt Sensors - Grue Sensor Example
+    \brief The Qt Sensors - Grue sensor example demonstrates all the steps from creating a new sensor to using it.
+    \ingroup qtsensors-examples
+
+    \image qtsensors-examples-grue.png
+
+    The Qt Sensors - Grue sensor example demonstrates all the steps from creating a new sensor to using it.
+
+    The sensor definition is placed in a library where client apps can access it. The actual implementation
+    lives in a plugin.
+
+    \list
+    \li \l{Grue Sensor Definition}
+    \li \l{Grue Sensor Implementation}
+    \endlist
+
+    The sensor can now be used by a C++ application, even if the application does not have access to the
+    definition.
+
+    \list
+    \li \l{Grue Sensor Console Application}
+    \endlist
+
+    To make the sensor available to a QML application an import must be created.
+
+    \list
+    \li \l{Grue Sensor QML Import}
+    \li \l{Grue Sensor QML Application}
+    \endlist
+
+    \section1 Grue Sensor Definition
+
+    The Grue sensor is defined in a library so that applications can use it.
+    The source code is available in the \c{grue/lib} subdirectory.
+
+    First up is the sensor type. This is the interface for sensors that report
+    on your likelihood of being eaten by a Grue. Such sensors are very important
+    to adventurers, particularly if they are going into dark places as this is
+    where Grues live.
+
+    The interface is a simple one. It provides only 1 piece of information, your
+    chance of being eaten. For the details on how this is property should be
+    interpreted please see the documentation in gruesensor.cpp.
+
+    This example was created using the make_sensor.pl script which can be found in
+    src/sensors. As such, it contains some generated code that defines the convenience
+    classes GrueFilter and GrueSensor.
+
+    \section1 Grue Sensor Implementation
+
+    The Grue sensor implementation lives in a plugin that is loaded by the Qt Sensors
+    library. The source code is available in the \c{grue/plugin} subdirectory.
+
+    The Grue sensor needs a backend before it can be used. The backend provided
+    is rather basic and it relies on some kind of light sensor to work but it
+    gets the job done. If new hardware that can detect the actual presence of Grues
+    becomes available a backend could be created that supports this hardware and
+    applications using the Grue sensor would be able to use it without any changes.
+
+    There are a few mandatory parts to a backend. They are the start and stop methods
+    and the setReading call. The start and stop methods are used to start and stop
+    any underlying hardware. In the case of this backend they start and stop a
+    light sensor. In the start method, the backend should be sure to call the
+    sensorStopped() or sensorBusy() methods if it cannot start.
+
+    \snippet grue/plugin/gruesensorimpl.cpp start
+
+    The setReading method is needed so that the sensors library knows where the
+    readings are coming from. This backend has a local copy of the reading so
+    it passes a pointer to the function.
+
+    \snippet grue/plugin/gruesensorimpl.cpp setReading
+
+    However it is also possible to pass null to the setReading method in which
+    case the sensors library will create an instance and return a pointer.
+
+    \code
+    // Create a reading instance for us to use
+    m_reading = setReading<GrueSensorReading>(0);
+    \endcode
+
+    The Grue sensor backend also supplies some metadata.
+
+    The backend checks 2 things, how dark it is and how long you have been in the dark.
+    It uses the readingChanged() signal to know when to check the light sensor's
+    value. Once it is dark, it uses a timer to increase your chance of being eaten.
+
+    The Grue sensor backend is delivered as a plugin. The plugin has a factory object
+    that registers the types available and does the actual instantiation of the backend.
+
+    \section1 Grue Sensor Console Application
+
+    The Grue sensor console application demonstrates use of the Grue sensor.
+    The source code is available in the \c{grue/console_app} subdirectory.
+
+    This is a simple commandline application. It demonstrates how to use the generic
+    access feature of Qt Sensors to avoid a link-time dependency on the Grue Sensor
+    library.
+
+    \section1 Grue Sensor QML Import
+
+    The Grue sensor QML import exports the GrueSensor class as a QML type.
+    The source code is available in the \c{grue/import} subdirectory.
+
+    This creates the \e {Grue 1.0} import.
+
+    \section1 Grue Sensor QML Application
+
+    The Grue sensor QML application demonstrates the use of GrueSensor QML type.
+
+    The application consists of a single QML file and an image. It is built as an
+    exucutable with C++ code that runs the QML, but it can also be launched directly
+    using the \c qmlscene tool.
+
+    You should build the top-level 'grue' project before trying to run
+    this example or it will not be able to find its dependencies.
+
+    \code
+    qmlscene -I . grue.qml
+    \endcode
+
+    Above, the \c{-I .} parameter adds the current directory as a module import
+    path to locate the Grue QML module.
+*/

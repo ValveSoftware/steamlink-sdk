@@ -1,0 +1,72 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module mus.gpu.mojom;
+
+import "cc/ipc/compositor_frame.mojom";
+import "cc/ipc/returned_resource.mojom";
+
+
+// Indicates whether the submitted CompositorFrame has been drawn to the display
+// or has been skipped (e.g. another frame may have been submitted before
+// vblank).
+enum CompositorFrameDrawStatus {
+  DRAW_SKIPPED,
+  DRAWN
+};
+
+// A CompositorFrameSinkFactory represents a single Display client.
+// The client (a process) can use this interface to create
+// CompositorFrameSinks.
+// TODO(fsamuel): This needs a better name.
+interface CompositorFrameSinkFactory {
+  // Requests a CompositorFrameSink interface from the display compositor.
+  // A CompositorFrameSink has an associated ID consisting of three components:
+  // 1. Namespace picked by the service associated with this
+  //    CompositorFrameSinkFactory.
+  // 2. |local_id| which is a monotonically increasing ID allocated by the
+  //    client.
+  // 3. |nonce| is a cryptographically secure random number making this Sink
+  //    unguessable by other clients.
+  CreateCompositorFrameSink(uint32 local_id,
+                            uint64 nonce,
+                            CompositorFrameSink& sink,
+                            CompositorFrameSinkClient client);
+};
+
+// A CompositorFrameSink is an interface for receiving CompositorFrame structs.
+// A CompositorFrame contains the complete output meant for display. Each time a
+// client has a graphical update, and receives an OnBeginFrame, it is
+// responsible for creating a CompositorFrame to update its portion of the
+// screen.
+interface CompositorFrameSink {
+  // After the submitted frame is either drawn for the first time by the display
+  // compositor or discarded, the callback will be called with the status of the
+  // submitted frame. Clients should use this acknowledgement to ratelimit frame
+  // submissions.
+  // TODO(fsamuel): We should support identifying the CF in the callback.
+  SubmitCompositorFrame(cc.mojom.CompositorFrame frame) =>
+      (CompositorFrameDrawStatus status);
+
+  // Lets the display compositor know that the client wishes to receive the next
+  // BeginFrame event.
+  SetNeedsBeginFrame(bool needs_begin_frame);
+
+  // TODO(fsamuel): ReadbackBitmap API would be useful here.
+};
+
+interface CompositorFrameSinkClient {
+  ReturnResources(array<cc.mojom.ReturnedResource> resources);
+};
+
+// This is a public interface implemented by Display clients.
+// Each client implements a single instance of the DisplayClient interface.
+interface DisplayClient {
+  // Clients can register CompositorFrameSinks via the provided |factory|.
+  OnClientCreated(uint32 client_id, CompositorFrameSinkFactory factory);
+
+  // TODO(fsamuel): OnBeginFrame needs to take a BeginFrameArgs instance per
+  // cc/output/begin_frame_args.h.
+  OnBeginFrame();
+};

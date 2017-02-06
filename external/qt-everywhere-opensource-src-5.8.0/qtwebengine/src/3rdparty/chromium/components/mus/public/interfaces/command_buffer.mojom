@@ -1,0 +1,62 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module mus.mojom;
+
+import "gpu/ipc/common/capabilities.mojom";
+import "gpu/ipc/common/command_buffer.mojom";
+import "gpu/ipc/common/mailbox.mojom";
+import "gpu/ipc/common/sync_token.mojom";
+import "ui/gfx/geometry/mojo/geometry.mojom";
+
+struct CommandBufferInitializeResult {
+  int32 command_buffer_namespace;
+  uint64 command_buffer_id;
+  gpu.mojom.Capabilities capabilities;
+};
+
+interface CommandBufferClient {
+  Destroyed(int32 context_lost_reason,
+            int32 error);
+  SignalAck(uint32 id);
+  // TODO(penghuang): support latency_info and use gfx::SwapResult for result.
+  SwapBuffersCompleted(/* array<ui.mojom.LatencyInfo> latency_info, */
+                       int32 result);
+  UpdateState(gpu.mojom.CommandBufferState state);
+  // TODO(penghuang): use base::TimeTicks & base::TimeDelta.
+  UpdateVSyncParameters(int64 timebase, int64 interval);
+};
+
+interface CommandBuffer {
+  // Initialize attempts to initialize the command buffer.
+  // If the context is lost after creation the LostContext method on the
+  // CommandBufferClient's will be called then this pipe will be
+  // closed.
+  Initialize(CommandBufferClient client,
+             handle<shared_buffer> shared_state,
+             array<int32> attribs) => (CommandBufferInitializeResult? result);
+  SetGetBuffer(int32 buffer);
+  Flush(int32 put_offset);
+  MakeProgress(int32 last_get_offset) => (gpu.mojom.CommandBufferState state);
+  RegisterTransferBuffer(
+      int32 id, handle<shared_buffer> transfer_buffer, uint32 size);
+  DestroyTransferBuffer(int32 id);
+  CreateImage(int32 id,
+              handle memory_handle,
+              int32 type,
+              gfx.mojom.Size size,
+              int32 format,
+              int32 internal_format);
+  DestroyImage(int32 id);
+  CreateStreamTexture(uint32 client_texture_id)
+      => (int32 stream_id, bool succeeded);
+  TakeFrontBuffer(gpu.mojom.Mailbox mailbox);
+  ReturnFrontBuffer(gpu.mojom.Mailbox mailbox, bool is_lost);
+  SignalQuery(uint32 query, uint32 signal_id);
+  SignalSyncToken(gpu.mojom.SyncToken sync_token, uint32 signal_id);
+  WaitForGetOffsetInRange(int32 start, int32 end)
+      => (gpu.mojom.CommandBufferState state);
+  WaitForTokenInRange(int32 start, int32 end)
+      => (gpu.mojom.CommandBufferState state);
+};

@@ -1,0 +1,316 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page qtquick-modelviewsdata-cppmodels.html
+\title Using C++ Models with Qt Quick Views
+\brief using Qt Quick views with models defined in C++
+
+
+\section1 Data Provided In A Custom C++ Model
+
+Models can be defined in C++ and then made available to QML. This is useful
+for exposing existing C++ data models or otherwise complex datasets to QML.
+
+A C++ model class can be defined as a \l QStringList, a QObjectList or a
+\l QAbstractItemModel. The first two are useful for exposing simpler datasets,
+while QAbstractItemModel provides a more flexible solution for more complex
+models.
+
+\section2 QStringList-based Model
+
+A model may be a simple \l QStringList, which provides the contents of the list
+via the \e modelData role.
+
+Here is a ListView with a delegate that references its model item's
+value using the \c modelData role:
+
+\snippet models/stringlistmodel/view.qml 0
+
+A Qt application can load this QML document and set the value of \c myModel
+to a QStringList:
+
+\snippet models/stringlistmodel/main.cpp 0
+
+The complete source code for this example is available in
+\l {models/stringlistmodel}{examples/quick/models/stringlistmodel}
+within the Qt install directory.
+
+\b{Note:} There is no way for the view to know that the contents of a QStringList
+have changed.  If the QStringList changes, it will be necessary to reset
+the model by calling QQmlContext::setContextProperty() again.
+
+
+\section2 QObjectList-based model
+
+A list of QObject* values can also be used as a model. A QList<QObject*> provides
+the properties of the objects in the list as roles.
+
+The following application creates a \c DataObject class with
+Q_PROPERTY values that will be accessible as named roles when a
+QList<DataObject*> is exposed to QML:
+
+\snippet models/objectlistmodel/dataobject.h 0
+\dots 4
+\snippet models/objectlistmodel/dataobject.h 1
+\codeline
+\snippet models/objectlistmodel/main.cpp 0
+\dots
+
+The QObject* is available as the \c modelData property.  As a convenience,
+the properties of the object are also made available directly in the
+delegate's context. Here, \c view.qml references the \c DataModel properties in
+the ListView delegate:
+
+\snippet models/objectlistmodel/view.qml 0
+
+Note the use of \c color property with qualifier.
+The properties of the object are not replicated in the \c model
+object, as they are easily available via the \c modelData
+object.
+
+The complete source code for this example is available in
+\l {models/objectlistmodel}{examples/quick/models/objectlistmodel}
+within the Qt install directory.
+
+Note: There is no way for the view to know that the contents of a QList
+has changed.  If the QList changes, it is necessary to reset
+the model by calling QQmlContext::setContextProperty() again.
+
+
+\section2 QAbstractItemModel subclass
+
+A model can be defined by subclassing QAbstractItemModel. This is the
+best approach if you have a more complex model that cannot be supported
+by the other approaches. A QAbstractItemModel can also automatically
+notify a QML view when the model data changes.
+
+The roles of a QAbstractItemModel subclass can be exposed to QML by
+reimplementing QAbstractItemModel::roleNames().
+
+Here is an application with a QAbstractListModel subclass named \c AnimalModel,
+which exposes the \e type and \e sizes roles. It reimplements
+QAbstractItemModel::roleNames() to expose the role names, so that they can be
+accessed via QML:
+
+\snippet models/abstractitemmodel/model.h 0
+\dots
+\snippet models/abstractitemmodel/model.h 1
+\dots
+\snippet models/abstractitemmodel/model.h 2
+\codeline
+\snippet models/abstractitemmodel/model.cpp 0
+\codeline
+\snippet models/abstractitemmodel/main.cpp 0
+\dots
+
+This model is displayed by a ListView delegate that accesses the \e type and \e size
+roles:
+
+\snippet models/abstractitemmodel/view.qml 0
+
+QML views are automatically updated when the model changes. Remember the model
+must follow the standard rules for model changes and notify the view when
+the model has changed by using QAbstractItemModel::dataChanged(),
+QAbstractItemModel::beginInsertRows(), and so on. See the \l {Model subclassing reference} for
+more information.
+
+The complete source code for this example is available in
+\l {models/abstractitemmodel}{examples/quick/models/abstractitemmodel}
+within the Qt install directory.
+
+QAbstractItemModel presents a hierarchy of tables, but the views currently provided by QML
+can only display list data.
+In order to display the child lists of a hierarchical model,
+use the DelegateModel QML type, which provides the following properties and functions to be used
+with list models of QAbstractItemModel type:
+
+\list
+\li \e hasModelChildren role property to determine whether a node has child nodes.
+\li \l DelegateModel::rootIndex allows the root node to be specified
+\li \l DelegateModel::modelIndex() returns a QModelIndex which can be assigned to DelegateModel::rootIndex
+\li \l DelegateModel::parentModelIndex() returns a QModelIndex which can be assigned to DelegateModel::rootIndex
+\endlist
+
+\section2 SQL Models
+
+Qt provides C++ classes that support SQL data models. These classes work
+transparently on the underlying SQL data, reducing the need to run SQL
+queries for basic SQL operations such as create, insert, or update.
+For more details about these classes, see \l{Using the SQL Model Classes}.
+
+Although the C++ classes provide complete feature sets to operate on SQL
+data, they do not provide data access to QML. So you must implement a
+C++ custom data model as a subclass of one of these classes, and expose it
+to QML either as a type or context property.
+
+\section3 Read-only Data Model
+
+The custom model must reimplement the following methods to enable read-only
+access to the data from QML:
+
+\list
+\li \l{QAbstractItemModel::}{roleNames}() to expose the role names to the
+    QML frontend. For example, the following version returns the selected
+    table's field names as role names:
+    \code
+     QHash<int, QByteArray> SqlQueryModel::roleNames() const
+     {
+        QHash<int, QByteArray> roles;
+        // record() returns an empty QSqlRecord
+        for (int i = 0; i < this->record().count(); i ++) {
+            roles.insert(Qt::UserRole + i + 1, record().fieldName(i).toUtf8());
+        }
+        return roles;
+    }
+    \endcode
+\li \l{QSqlQueryModel::}{data}() to expose SQL data to the QML frontend.
+    For example, the following implementation returns data for the given
+    model index:
+    \code
+    QVariant SqlQueryModel::data(const QModelIndex &index, int role) const
+    {
+        QVariant value;
+
+        if (index.isValid()) {
+            if (role < Qt::UserRole) {
+                value = QSqlQueryModel::data(index, role);
+            } else {
+                int columnIdx = role - Qt::UserRole - 1;
+                QModelIndex modelIndex = this->index(index.row(), columnIdx);
+                value = QSqlQueryModel::data(modelIndex, Qt::DisplayRole);
+            }
+        }
+        return value;
+    }
+    \endcode
+\endlist
+
+The QSqlQueryModel class is good enough to implement a custom read-only
+model that represents data in an SQL database. The
+\l{Qt Quick Controls 2 - Chat Tutorial}{chat tutorial} example
+demonstrates this very well by implementing a custom model to fetch the
+contact details from an SQLite database.
+
+\section3 Editable Data Model
+
+Besides the \c roleNames() and \c data(), the editable models must reimplement
+the \l{QSqlTableModel::}{setData} method to save changes to existing SQL data.
+The following version of the method checks if the given model index is valid
+and the \c role is equal to \l Qt::EditRole, before calling the parent class
+version:
+
+\code
+bool SqlEditableModel::setData(const QModelIndex &item, const QVariant &value, int role)
+{
+    if (item.isValid() && role == Qt::EditRole) {
+        QSqlTableModel::setData(item, value,role);
+        emit dataChanged(item, item);
+        return true;
+    }
+    return false;
+
+}
+\endcode
+
+\note It is important to emit the \l{QAbstractItemModel::}{dataChanged}()
+signal after saving the changes.
+
+Unlike the C++ item views such as QListView or QTableView, the \c setData()
+method must be explicitly invoked from QML whenever appropriate. For example,
+on the \l[QML]{TextField::}{editingFinished}() or \l[QML]{TextField::}{accepted}()
+signal of \l[QtQuickControls]{TextField}. Depending on the
+\l{QSqlTableModel::}{EditStrategy} used by the model, the changes are either
+queued for submission later or submitted immediately.
+
+You can also insert new data into the model by calling
+\l {QSqlTableModel::insertRecord}(). In the following example snippet,
+a QSqlRecord is populated with book details and appended to the
+model:
+
+\code
+    ...
+    QSqlRecord newRecord = record();
+    newRecord.setValue("author", "John Grisham");
+    newRecord.setValue("booktitle", "The Litigators");
+    insertRecord(rowCount(), newRecord);
+    ...
+\endcode
+
+\section2 Exposing C++ Data Models to QML
+
+The above examples use QQmlContext::setContextProperty() to set
+model values directly in QML components. An alternative to this is to
+register the C++ model class as a QML type (either
+\l{Defining QML Types from C++}{directly} from a C++ entry-point, or within
+the initialization function of a \l{Creating C++ Plugins for QML}
+{QML C++ plugin}, as shown below).  This would allow the model classes to be
+created directly as types within QML:
+
+\table
+\row
+
+\li C++
+\li
+\code
+class MyModelPlugin : public QQmlExtensionPlugin
+{
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID "org.qt-project.QmlExtension.MyModel" FILE "mymodel.json")
+public:
+    void registerTypes(const char *uri)
+    {
+        qmlRegisterType<MyModel>(uri, 1, 0,
+                "MyModel");
+    }
+}
+\endcode
+\row
+\li QML
+\li
+\qml
+MyModel {
+    id: myModel
+    ListElement { someProperty: "some value" }
+}
+\endqml
+
+\qml
+ListView {
+    width: 200; height: 250
+    model: myModel
+    delegate: Text { text: someProperty }
+}
+\endqml
+
+\endtable
+
+See \l {Writing QML Extensions with C++} for details on writing QML C++
+plugins.
+
+
+*/

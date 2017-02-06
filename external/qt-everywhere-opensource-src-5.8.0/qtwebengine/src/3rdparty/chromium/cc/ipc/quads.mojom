@@ -1,0 +1,153 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module cc.mojom;
+
+import "cc/ipc/filter_operations.mojom";
+import "cc/ipc/render_pass_id.mojom";
+import "cc/ipc/surface_id.mojom";
+import "ui/gfx/geometry/mojo/geometry.mojom";
+import "ui/gfx/mojo/transform.mojom";
+
+struct DebugBorderQuadState {
+  // Debug border color.
+  uint32 color;
+
+  // Debug border width.
+  int32 width;
+};
+
+struct RenderPassQuadState {
+  cc.mojom.RenderPassId render_pass_id;
+
+  // If nonzero, resource id of mask to use when drawing this pass.
+  uint32 mask_resource_id;
+  gfx.mojom.Vector2dF mask_uv_scale;
+  gfx.mojom.Size mask_texture_size;
+
+  // Post-processing filters, applied to the pixels in the render pass' texture.
+  cc.mojom.FilterOperations filters;
+
+  // The scale from layer space of the root layer of the render pass to
+  // the render pass physical pixels. This scale is applied to the filter
+  // parameters for pixel-moving filters. This scale should include
+  // content-to-target-space scale, and device pixel ratio.
+  gfx.mojom.Vector2dF filters_scale;
+
+  // Post-processing filters, applied to the pixels showing through the
+  // background of the render pass, from behind it.
+  cc.mojom.FilterOperations background_filters;
+};
+
+struct SolidColorQuadState {
+  uint32 color;
+  bool force_anti_aliasing_off;
+};
+
+struct SurfaceQuadState {
+  cc.mojom.SurfaceId surface;
+};
+
+struct TextureQuadState {
+  uint32 resource_id;
+  bool premultiplied_alpha;
+  gfx.mojom.PointF uv_top_left;
+  gfx.mojom.PointF uv_bottom_right;
+  uint32 background_color;
+  array<float, 4> vertex_opacity;
+  bool y_flipped;
+  bool nearest_neighbor;
+  bool secure_output_only;
+};
+
+struct TileQuadState {
+  gfx.mojom.RectF tex_coord_rect;
+  gfx.mojom.Size texture_size;
+  bool swizzle_contents;
+  uint32 resource_id;
+  bool nearest_neighbor;
+};
+
+struct StreamVideoQuadState {
+  uint32 resource_id;
+  gfx.mojom.Size resource_size_in_pixels;
+  gfx.mojom.Transform matrix;
+};
+
+enum YUVColorSpace {
+  REC_601,       // SDTV standard with restricted "studio swing" color range.
+  REC_709,       // HDTV standard with restricted "studio swing" color range.
+  JPEG,          // Full color range [0, 255] JPEG color space.
+};
+
+struct YUVVideoQuadState {
+  gfx.mojom.RectF ya_tex_coord_rect;
+  gfx.mojom.RectF uv_tex_coord_rect;
+  gfx.mojom.Size ya_tex_size;
+  gfx.mojom.Size uv_tex_size;
+  uint32 y_plane_resource_id;
+  uint32 u_plane_resource_id;
+  uint32 v_plane_resource_id;
+  uint32 a_plane_resource_id;
+  YUVColorSpace color_space;
+  float resource_offset;
+  float resource_multiplier;
+};
+
+enum Material {
+  INVALID,
+  DEBUG_BORDER,
+  PICTURE_CONTENT,
+  RENDER_PASS,
+  SOLID_COLOR,
+  STREAM_VIDEO_CONTENT,
+  SURFACE_CONTENT,
+  TEXTURE_CONTENT,
+  TILED_CONTENT,
+  YUV_VIDEO_CONTENT,
+};
+
+struct DrawQuad {
+  Material material;
+
+  // This rect, after applying the quad_transform(), gives the geometry that
+  // this quad should draw to. This rect lives in content space.
+  gfx.mojom.Rect rect;
+
+  // This specifies the region of the quad that is opaque. This rect lives in
+  // content space.
+  gfx.mojom.Rect opaque_rect;
+
+  // Allows changing the rect that gets drawn to make it smaller. This value
+  // should be clipped to |rect|. This rect lives in content space.
+  gfx.mojom.Rect visible_rect;
+
+  // Allows changing the rect that gets drawn to make it smaller. This value
+  // should be clipped to |rect|. This rect lives in content space.
+  bool needs_blending;
+
+  // Index into the containing pass' shared quad state array which has state
+  // (transforms etc) shared by multiple quads.
+  // TODO(fsamuel): This is not currently used because we store the
+  // indicies to SharedQuadStates in a separate array. This is more expensive
+  // than storing them inline here, but we need support for context propagation
+  // in Mojo StructTraits in order to store the sqs index here.
+  //uint32 shared_quad_state_index;
+
+  // Only one of the following will be set, depending on the material.
+  DebugBorderQuadState? debug_border_quad_state;
+  RenderPassQuadState? render_pass_quad_state;
+  SolidColorQuadState? solid_color_quad_state;
+  SurfaceQuadState? surface_quad_state;
+  TextureQuadState? texture_quad_state;
+  TileQuadState? tile_quad_state;
+  StreamVideoQuadState? stream_video_quad_state;
+  YUVVideoQuadState? yuv_video_quad_state;
+};
+
+struct QuadList {
+  array<Material> quad_types;
+  array<DrawQuad> quads;
+};
+

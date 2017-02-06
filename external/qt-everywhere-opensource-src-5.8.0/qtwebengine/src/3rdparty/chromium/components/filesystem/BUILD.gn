@@ -1,0 +1,94 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/mojo_application.gni")
+import("//mojo/public/mojo_application_manifest.gni")
+import("//testing/test.gni")
+
+source_set("lib") {
+  sources = [
+    "directory_impl.cc",
+    "directory_impl.h",
+    "file_impl.cc",
+    "file_impl.h",
+    "file_system_impl.cc",
+    "file_system_impl.h",
+    "lock_table.cc",
+    "lock_table.h",
+    "shared_temp_dir.cc",
+    "shared_temp_dir.h",
+    "util.cc",
+    "util.h",
+  ]
+
+  deps = [
+    "//base",
+    "//components/filesystem/public/interfaces",
+    "//mojo/common",
+    "//mojo/common:common_base",
+    "//mojo/public/cpp/system",
+    "//services/shell/public/cpp",
+    "//services/shell/public/interfaces",
+    "//url",
+  ]
+}
+
+mojo_native_application("filesystem") {
+  sources = [
+    "file_system_app.cc",
+    "file_system_app.h",
+    "main.cc",
+  ]
+
+  deps = [
+    ":lib",
+    "//base",
+    "//components/filesystem/public/interfaces",
+    "//mojo/common",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//services/shell/public/cpp",
+    "//services/tracing/public/cpp",
+  ]
+
+  data_deps = [
+    ":manifest",
+  ]
+}
+
+mojo_application_manifest("manifest") {
+  application_name = "filesystem"
+  source = "manifest.json"
+}
+
+test("filesystem_service_unittests") {
+  sources = [
+    "directory_impl_unittest.cc",
+    "file_impl_unittest.cc",
+    "files_test_base.cc",
+    "files_test_base.h",
+  ]
+
+  deps = [
+    "//base",
+    "//components/filesystem/public/interfaces",
+    "//mojo/common",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//services/shell/public/cpp:shell_test_support",
+    "//services/shell/public/cpp:sources",
+    "//services/shell/public/cpp/test:run_all_shelltests",
+  ]
+
+  data_deps = [
+    ":test_manifest",
+    ":filesystem",
+  ]
+}
+
+mojo_application_manifest("test_manifest") {
+  type = "exe"
+  application_name = "filesystem_service_unittests"
+  source = "test_manifest.json"
+}

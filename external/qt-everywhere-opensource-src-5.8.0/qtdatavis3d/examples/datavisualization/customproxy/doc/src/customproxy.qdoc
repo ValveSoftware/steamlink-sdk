@@ -1,0 +1,124 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example customproxy
+    \title Custom Proxy Example
+    \ingroup qtdatavisualization_examples
+    \brief Using Q3DBars with a custom proxy.
+
+    The custom proxy example shows how to create a custom proxy to use with Q3DBars.
+
+    \image customproxy-example.png
+
+    The interesting thing about custom proxy example is the custom dataset and the corresponding
+    proxy usage, so we concentrate on that and skip explaining the basic Q3DBars functionality
+    - for that see \l{Bars Example}.
+
+    This example defines a simple flexible data set \c VariantDataSet where each data item is a
+    a variant list. Each item can have multiple different values, identified by their index in
+    the list. In this example, the data set is storing monthly rainfall data, where the value in
+    index zero is the year, the value in index one is the month, and the value in index two is
+    the amount of rainfall in that month.
+
+    The custom proxy we provide here is similar to item model based proxies provided by Qt
+    Data Visualization in that it requires a mapping to interpret the data.
+
+    \include examples-run.qdocinc
+
+    \section1 VariantDataSet
+
+    \c VariantDataSet class provides a simple API:
+
+    \snippet customproxy/variantdataset.h 1
+    \dots 0
+    \codeline
+    \snippet customproxy/variantdataset.h 0
+
+    As you can see, the data items are simply QVariantList objects, and the data can be added either
+    singly or in lists. The only additional functionality provided is clearing the data set and querying
+    for a reference to the data contained in the set. Signals are emitted when data is added or the set
+    is cleared.
+
+    \section1 VariantBarDataProxy
+
+    \c VariantBarDataProxy is a subclass of QBarDataProxy and provides a simple API of just getters
+    and setters for the data set and the mapping:
+
+    \snippet customproxy/variantbardataproxy.h 0
+    \dots 0
+    \codeline
+    \snippet customproxy/variantbardataproxy.h 1
+
+    On the implementation side, the proxy listens for the changes in the data set and the mapping,
+    and resolves the data set if any changes are detected. It is not particularly efficient
+    implementation in that any change will cause re-resolving of the entire data set, but that is not
+    an issue for this example. The interesting part is the \c resolveDataSet() method:
+
+    \snippet customproxy/variantbardataproxy.cpp 0
+
+    In \c resolveDataSet() method we sort the variant data values into rows and columns based on the
+    mapping. This is very similar to how QItemModelBarDataProxy handles mapping, except we use
+    list indexes instead of item model roles here. Once the values are sorted, we generate \c QBarDataArray
+    out of them, and call \c resetArray() method on the parent class.
+
+    \section1 VariantBarDataMapping
+
+    \c VariantBarDataMapping stores the mapping information between \c VariantDataSet data item indexes
+    and rows, columns, and values of \c QBarDataArray. It also contains the lists of rows and columns to
+    be included in the resolved data:
+
+    \snippet customproxy/variantbardatamapping.h 0
+    \dots 0
+    \codeline
+    \snippet customproxy/variantbardatamapping.h 1
+    \dots 0
+    \codeline
+    \snippet customproxy/variantbardatamapping.h 2
+    \dots 0
+    \codeline
+    \snippet customproxy/variantbardatamapping.h 3
+
+    The primary way to use a \c VariantBarDataMapping object is to give the mappings already at the
+    constructor, though they can be set later individually or all together with the \c remap() method.
+    A signal is emitted if mapping changes. It is basically a simplified version of the mapping
+    functionality of QItemModelBarDataProxy adapted to work with variant lists instead of item models.
+
+    \section1 RainfallGraph
+
+    \c RainfallGraph class handles the setup of the graph. The interesting part is the \c addDataSet()
+    method:
+
+    \snippet customproxy/rainfallgraph.cpp 0
+
+    The bulk of that method is used for populating the variant data set. Once the set is populated,
+    visualizing the data is trivial with the help of our custom proxy:
+
+    \snippet customproxy/rainfallgraph.cpp 1
+*/

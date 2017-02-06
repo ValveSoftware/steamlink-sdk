@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import argparse
+import json
+import os
+import sys
+
+sys.path.insert(1, os.path.join(os.path.dirname(__file__), '..'))
+from tracing.metrics import metric_runner
+from tracing.metrics import discover
+
+def Main(argv):
+  all_metrics = discover.DiscoverMetrics(
+      ['/tracing/metrics/all_metrics.html'])
+  parser = argparse.ArgumentParser(
+      description='Runs metrics on local traces')
+  parser.add_argument('metric_name',
+                      help=('The function name of a registered metric, NOT '
+                      'filename. Available metrics are: %s' %
+                      ', '.join(all_metrics)),
+                      choices=all_metrics, metavar='metricName')
+  parser.add_argument('trace_file_or_dir',
+                      help='A trace file, or a dir containing trace files')
+
+  args = parser.parse_args(argv[1:])
+  metric = args.metric_name
+
+  if os.path.isdir(args.trace_file_or_dir):
+    trace_dir = args.trace_file_or_dir
+    traces = [os.path.join(trace_dir, trace) for trace in os.listdir(trace_dir)]
+  else:
+    traces = [args.trace_file_or_dir]
+
+  results = {k: v.AsDict()
+      for k, v in metric_runner.RunMetricOnTraces(traces, metric).iteritems()}
+
+  failures = []
+  for trace in traces:
+    failures.extend(results[trace].get('failures', []))
+  if failures:
+    print 'Running metric failed:'
+    for failure in failures:
+      print failure['stack']
+  else:
+    print json.dumps(results, indent=2, sort_keys=True, separators=(',', ': '))
+
+
+if __name__ == '__main__':
+  sys.exit(Main(sys.argv))

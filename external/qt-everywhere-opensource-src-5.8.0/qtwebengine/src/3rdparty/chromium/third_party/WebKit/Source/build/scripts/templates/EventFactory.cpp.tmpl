@@ -1,0 +1,37 @@
+{% from 'macros.tmpl' import license %}
+{{license()}}
+
+{% if suffix == 'Modules' %}
+#include "modules/{{namespace}}{{suffix}}Factory.h"
+{% else %}
+#include "core/events/{{namespace}}Factory.h"
+{% endif %}
+
+#include "{{namespace}}{{suffix}}Headers.h"
+#include "core/frame/Deprecation.h"
+#include "platform/RuntimeEnabledFeatures.h"
+
+namespace blink {
+
+{{namespace}}* {{namespace}}{{suffix}}Factory::create(ExecutionContext* executionContext, const String& type)
+{
+    {% for event in events %}
+    {% if event|script_name|create_event_whitelist %}
+    if (equalIgnoringCase(type, "{{event|script_name}}"){% if event.RuntimeEnabled %} && RuntimeEnabledFeatures::{{event.RuntimeEnabled|lower_first}}(){% endif %}) {
+    {% else %}
+    if (type == "{{event|script_name}}"{% if event.RuntimeEnabled %} && RuntimeEnabledFeatures::{{event.RuntimeEnabled|lower_first}}(){% endif %}) {
+    {% endif %}
+        {% if not event|script_name|create_event_whitelist %}
+        {% if event|script_name|create_event_deprecate_list %}
+        Deprecation::countDeprecation(executionContext, UseCounter::{{event|script_name|deprecate_name}});
+        {% else %}
+        UseCounter::count(executionContext, UseCounter::{{event|script_name|measure_name}});
+        {% endif %}
+        {% endif %}
+        return {{event|cpp_name}}::create();
+    }
+    {% endfor %}
+    return nullptr;
+}
+
+} // namespace blink

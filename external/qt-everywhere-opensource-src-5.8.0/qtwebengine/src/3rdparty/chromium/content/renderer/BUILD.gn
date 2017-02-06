@@ -1,0 +1,274 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//content/renderer/renderer.gni")
+import("//media/media_options.gni")
+import("//third_party/webrtc/build/webrtc.gni")
+import("//tools/ipc_fuzzer/ipc_fuzzer.gni")
+
+source_set("renderer") {
+  # Only the public target should depend on this. All other targets (even
+  # internal content ones) should depend on the public one.
+  visibility = [
+    ":for_content_tests",
+    "//content/public/renderer:renderer_sources",
+  ]
+
+  sources = rebase_path(content_renderer_gypi_values.private_renderer_sources,
+                        ".",
+                        "//content")
+
+  configs += [
+    "//content:content_implementation",
+    "//build/config/compiler:no_size_t_to_int_warning",
+    "//content/public/common:mojo_shell_client",
+  ]
+  defines = []
+
+  public_deps = []
+  deps = [
+    "//base:i18n",
+    "//cc",
+    "//cc/blink",
+    "//cc/ipc",
+    "//cc/proto",
+    "//cc/surfaces",
+    "//cc/surfaces:surface_id",
+    "//components/scheduler:scheduler",
+    "//components/url_formatter",
+    "//content:resources",
+    "//content/child",
+    "//content/common",
+    "//content/gpu:gpu_sources",
+    "//content/public/child:child_sources",
+    "//content/public/common:common_sources",
+    "//content/public/common:feature_h264_with_openh264_ffmpeg",
+    "//content/public/common:features",
+    "//crypto:platform",
+    "//device/battery:mojo_bindings",
+    "//device/bluetooth",
+    "//device/usb/public/interfaces",
+    "//device/vibration:mojo_bindings",
+    "//device/vr:mojo_bindings",
+    "//gin",
+    "//gpu",
+    "//gpu/command_buffer/client:gles2_interface",
+    "//jingle:jingle_glue",
+    "//media",
+    "//media/blink",
+    "//media/capture",
+    "//media/gpu",
+    "//media/gpu/ipc/client",
+    "//media/gpu/ipc/common",
+    "//media/midi",
+    "//mojo/common",
+    "//mojo/edk/js",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/js",
+    "//net",
+    "//sandbox",
+    "//services/shell/public/cpp",
+    "//services/shell/public/interfaces",
+    "//skia",
+    "//storage/common",
+    "//third_party/WebKit/public:blink",
+    "//third_party/WebKit/public:mojo_bindings",
+    "//third_party/WebKit/public:mojo_bindings_blink",
+    "//third_party/boringssl",
+    "//third_party/icu",
+    "//third_party/libjingle",
+    "//third_party/libyuv",
+    "//third_party/widevine/cdm:version_h",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/display",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events:events_base",
+    "//ui/events/blink",
+    "//ui/gfx/geometry/mojo",
+    "//ui/gl",
+    "//ui/native_theme",
+    "//ui/surface",
+    "//v8",
+  ]
+  allow_circular_includes_from = []
+
+  if (use_aura) {
+    public_deps += [ "//content/renderer/mus" ]
+    allow_circular_includes_from += [ "//content/renderer/mus" ]
+    deps += [ "//components/mus/common:mus_common" ]
+  }
+
+  if (use_external_popup_menu) {
+    sources += [
+      "external_popup_menu.cc",
+      "external_popup_menu.h",
+    ]
+  }
+
+  if (is_mac) {
+    sources -= [
+      "webscrollbarbehavior_impl_gtkoraura.cc",
+      "webscrollbarbehavior_impl_gtkoraura.h",
+    ]
+  }
+
+  if (is_android) {
+    # Add back the Linux file which Android shares.
+    set_sources_assignment_filter([])
+    sources += [ "render_view_linux.cc" ]
+
+    deps += [
+      "//third_party/android_tools:cpu_features",
+      "//third_party/libphonenumber",
+    ]
+  } else {
+    sources -= [
+      "java/gin_java_bridge_dispatcher.cc",
+      "java/gin_java_bridge_dispatcher.h",
+      "java/gin_java_bridge_object.cc",
+      "java/gin_java_bridge_object.h",
+      "java/gin_java_bridge_value_converter.cc",
+      "java/gin_java_bridge_value_converter.h",
+      "java/gin_java_function_invocation_helper.cc",
+      "java/gin_java_function_invocation_helper.h",
+    ]
+  }
+
+  # TODO(jrg): remove the OS=="android" section?
+  # http://crbug.com/113172
+  # Understand better how media_stream_ is tied into Chromium.
+  if (!enable_webrtc && is_android) {
+    sources -= [
+      "media/media_stream_audio_level_calculator.cc",
+      "media/media_stream_audio_level_calculator.h",
+      "media/media_stream_audio_track.cc",
+      "media/media_stream_audio_track.h",
+      "media/media_stream_center.h",
+      "media/media_stream_constraints_util.cc",
+      "media/media_stream_constraints_util.h",
+      "media/media_stream_dispatcher.h",
+      "media/media_stream_dispatcher_eventhandler.h",
+      "media/media_stream_track.cc",
+      "media/media_stream_track.h",
+    ]
+  }
+
+  if (enable_webrtc) {
+    sources += rebase_path(
+            content_renderer_gypi_values.private_renderer_webrtc_sources,
+            ".",
+            "//content")
+
+    deps += [
+      "//crypto",
+      "//third_party/libjingle:libjingle_webrtc",
+      "//third_party/libjingle:libstunprober",
+      "//third_party/libvpx",
+      "//third_party/webrtc/base:rtc_base",
+      "//third_party/webrtc/common_video",
+      "//third_party/webrtc/modules/audio_device",
+      "//third_party/webrtc/modules/audio_processing",
+      "//third_party/webrtc/modules/video_coding:webrtc_h264",
+      "//third_party/webrtc/system_wrappers",
+    ]
+    if (rtc_use_h264) {
+      deps += [ "//third_party/openh264:encoder" ]
+    }
+  } else {
+    sources += [
+      "media/webrtc_logging.h",
+      "media/webrtc_logging_noop.cc",
+    ]
+  }
+
+  if (enable_plugins) {
+    sources += rebase_path(
+            content_renderer_gypi_values.private_renderer_plugin_sources,
+            ".",
+            "//content")
+    deps += [
+      "//ppapi/host",
+      "//ppapi/proxy",
+      "//ppapi/shared_impl",
+      "//third_party/libvpx",
+      "//third_party/opus",
+    ]
+  }
+
+  if (enable_plugins && enable_webrtc) {
+    sources += rebase_path(
+            content_renderer_gypi_values.private_renderer_plugin_webrtc_sources,
+            ".",
+            "//content")
+  }
+
+  if (!enable_pepper_cdms) {
+    sources -= [
+      "media/cdm/pepper_cdm_wrapper.h",
+      "media/cdm/pepper_cdm_wrapper_impl.cc",
+      "media/cdm/pepper_cdm_wrapper_impl.h",
+      "media/cdm/ppapi_decryptor.cc",
+      "media/cdm/ppapi_decryptor.h",
+    ]
+  }
+
+  if (enable_basic_printing || enable_print_preview) {
+    deps += [ "//printing" ]
+  }
+
+  if (enable_browser_cdms) {
+    sources += [
+      "media/cdm/proxy_media_keys.cc",
+      "media/cdm/proxy_media_keys.h",
+      "media/cdm/renderer_cdm_manager.cc",
+      "media/cdm/renderer_cdm_manager.h",
+    ]
+  }
+
+  if (enable_mojo_media) {
+    sources += [
+      "media/media_interface_provider.cc",
+      "media/media_interface_provider.h",
+    ]
+
+    deps += [
+      "//media/mojo/interfaces",
+
+      # Defines in mojo_media_config are also pulled in here.
+      "//media/mojo/clients",
+    ]
+  }
+
+  if (use_seccomp_bpf) {
+    defines += [ "USE_SECCOMP_BPF" ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+
+  if (enable_ipc_fuzzer) {
+    configs += [ "//tools/ipc_fuzzer:ipc_fuzzer_config" ]
+  }
+}
+
+# See comment at the top of //content/BUILD.gn for how this works.
+group("for_content_tests") {
+  visibility = [ "//content/test/*" ]
+
+  if (enable_mojo_media) {
+    # For the defines in mojo_media_config.
+    public_configs = [ "//media/mojo/services:mojo_media_config" ]
+  }
+
+  if (!is_component_build) {
+    public_deps = [
+      ":renderer",
+    ]
+  }
+}

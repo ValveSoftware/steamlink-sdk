@@ -1,0 +1,48 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module media.mojom;
+
+// Equivalent to idl MediaSettingsRange, arbitrary range representing the
+// allowed variations of a Capability or an Option.
+// https://w3c.github.io/mediacapture-image/#mediasettingsrange
+struct Range {
+  uint32 max;
+  uint32 min;
+  uint32 current;
+};
+
+// Equivalent to idl PhotoCapabilities,
+// https://w3c.github.io/mediacapture-image/#photocapabilities
+struct PhotoCapabilities {
+  Range zoom;
+};
+
+// Equivalent to idl PhotoSettings,
+// https://w3c.github.io/mediacapture-image/index.html#photosettings
+struct PhotoSettings {
+  // uint32 cannot be nullable, i.e. uint32? does not work, use instead a flag.
+  bool has_zoom;
+  uint32 zoom;
+};
+
+// |source_id| is the renderer-side UUID identifier of the image capture device.
+interface ImageCapture
+{
+    // Retrieves the image capture device capabilities and current settings.
+    // https://w3c.github.io/mediacapture-image/index.html#widl-ImageCapture-getPhotoCapabilities-Promise-PhotoCapabilities
+    GetCapabilities(string source_id)
+        => (PhotoCapabilities capabilities);
+
+    // Sets the |settings| on the associated video capture device.
+    // https://w3c.github.io/mediacapture-image/index.html#widl-ImageCapture-setOptions-Promise-void--PhotoSettings-photoSettings
+    SetOptions(string source_id, PhotoSettings settings)
+        => (bool success);
+
+    // Takes a Photo from the given |source_id|, returning it encoded in |data|
+    // with the format specified in |mime_type|.
+    // https://w3c.github.io/mediacapture-image/index.html#widl-ImageCapture-takePhoto-Promise-Blob
+    TakePhoto(string source_id)
+        => (string mime_type, array<uint8> data);
+};

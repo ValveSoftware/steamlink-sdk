@@ -1,0 +1,69 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//base/android/linker/config.gni")
+import("//build/config/android/rules.gni")
+import("//chrome/common/features.gni")
+import("//third_party/leakcanary/config.gni")
+import("channel.gni")
+
+declare_args() {
+  # Whether chrome_public_apk should use the crazy linker.
+  chrome_public_apk_use_chromium_linker = chromium_linker_supported
+
+  # Whether chrome_public_apk should use the relocation packer.
+  # TODO: Enable packed relocations for x64. See: b/20532404
+  chrome_public_apk_use_relocation_packer =
+      chromium_linker_supported && current_cpu != "x64"
+
+  # Whether native libraries should be loaded from within the apk.
+  # Only attempt loading the library from the APK for 64 bit devices
+  # until the number of 32 bit devices which don't support this
+  # approach falls to a minimal level -  http://crbug.com/390618.
+  chrome_public_apk_load_library_from_apk =
+      chromium_linker_supported &&
+      (current_cpu == "arm64" || current_cpu == "x64")
+}
+
+default_chrome_public_jinja_variables = [
+  "channel=$android_channel",
+  "enable_leakcanary=$enable_leakcanary",
+]
+
+# GYP: //chrome/android/chrome_apk.gypi
+template("chrome_public_apk_tmpl") {
+  android_apk(target_name) {
+    forward_variables_from(invoker, "*")
+    _native_lib_file =
+        rebase_path("$root_gen_dir/CHROME_VERSION.json", root_out_dir)
+    native_lib_version_arg = "@FileArg($_native_lib_file:full-quoted)"
+
+    if (is_java_debug) {
+      enable_multidex = true
+    } else {
+      proguard_enabled = true
+      _prev_proguard_configs = []
+      if (defined(proguard_configs)) {
+        _prev_proguard_configs = proguard_configs
+      }
+      proguard_configs = []
+      proguard_configs =
+          [ "//chrome/android/java/proguard.flags" ] + _prev_proguard_configs
+    }
+
+    if (!defined(use_chromium_linker)) {
+      use_chromium_linker = chrome_public_apk_use_chromium_linker
+    }
+
+    if (use_chromium_linker) {
+      if (!defined(load_library_from_apk)) {
+        load_library_from_apk = chrome_public_apk_load_library_from_apk
+      }
+
+      if (!defined(enable_relocation_packing)) {
+        enable_relocation_packing = chrome_public_apk_use_relocation_packer
+      }
+    }
+  }
+}

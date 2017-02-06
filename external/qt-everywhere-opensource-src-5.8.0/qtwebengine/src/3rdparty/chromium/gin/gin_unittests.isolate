@@ -1,0 +1,56 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+{
+  'variables': {
+    'files': [
+      '<(PRODUCT_DIR)/gin_shell<(EXECUTABLE_SUFFIX)',
+      '<(PRODUCT_DIR)/gin_unittests<(EXECUTABLE_SUFFIX)',
+      'modules/module_registry_unittests.js',
+      'shell/hello_world.js',
+      'test/expect.js',
+      'test/file_unittests.js',
+      'test/gtest_unittests.js',
+      '../OWNERS',
+    ],
+  },
+  'conditions': [
+    ['OS=="linux" or OS=="mac" or OS=="win"', {
+      'variables': {
+        'files': [
+          '../testing/test_env.py',
+        ],
+        'command': [
+          '../testing/test_env.py',
+          '<(PRODUCT_DIR)/gin_unittests<(EXECUTABLE_SUFFIX)',
+          '--brave-new-test-launcher',
+          '--test-launcher-bot-mode',
+          '--asan=<(asan)',
+          '--msan=<(msan)',
+          '--tsan=<(tsan)',
+        ],
+      },
+    }],
+    ['OS=="mac" and asan==1 and fastbuild==0', {
+      'variables': {
+        'files': [
+          '<(PRODUCT_DIR)/gin_shell.dSYM/',
+          '<(PRODUCT_DIR)/gin_unittests.dSYM/',
+        ],
+      },
+    }],
+    ['OS=="win" and (fastbuild==0 or fastbuild==1)', {
+      'variables': {
+        'files': [
+          '<(PRODUCT_DIR)/gin_shell.exe.pdb',
+          '<(PRODUCT_DIR)/gin_unittests.exe.pdb',
+        ],
+      },
+    }],
+  ],
+  'includes': [
+    '../base/base.isolate',
+    '../gin/v8.isolate',
+  ],
+}

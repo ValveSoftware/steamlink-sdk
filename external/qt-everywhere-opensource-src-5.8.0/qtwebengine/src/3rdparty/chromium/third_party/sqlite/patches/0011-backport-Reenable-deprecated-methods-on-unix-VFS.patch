@@ -1,0 +1,42 @@
+From 664d0db451aeb1bb2bc808391a467a42eb8f4d23 Mon Sep 17 00:00:00 2001
+From: Scott Hess <shess@chromium.org>
+Date: Mon, 25 Jan 2016 14:03:41 -0800
+Subject: [PATCH 11/11] [backport] Reenable deprecated methods on unix VFS.
+
+In SQLite 3.10.2, the Unix VFS no longer defines unixCurrentTime(),
+instead relying on unixCurrentTimeInt64().  The websql vfs wrapper
+wraps at the v1 level, so expected to see xCurrentTime().
+
+http://www.sqlite.org/src/info/c11c85fdb6514cae
+
+"Reenable the xCurrentTime and xGetLastError methods on the
+unix VFSes as long as SQLITE_OMIT_DEPRECATED is not defined."
+---
+ third_party/sqlite/src/src/os_unix.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/third_party/sqlite/src/src/os_unix.c b/third_party/sqlite/src/src/os_unix.c
+index 523cad6..e1228e3 100644
+--- a/third_party/sqlite/src/src/os_unix.c
++++ b/third_party/sqlite/src/src/os_unix.c
+@@ -6216,7 +6216,7 @@ static int unixCurrentTimeInt64(sqlite3_vfs *NotUsed, sqlite3_int64 *piNow){
+   return rc;
+ }
+ 
+-#if 0 /* Not used */
++#ifndef SQLITE_OMIT_DEPRECATED
+ /*
+ ** Find the current time (in Universal Coordinated Time).  Write the
+ ** current time and date as a Julian Day number into *prNow and
+@@ -6234,7 +6234,7 @@ static int unixCurrentTime(sqlite3_vfs *NotUsed, double *prNow){
+ # define unixCurrentTime 0
+ #endif
+ 
+-#if 0  /* Not used */
++#ifndef SQLITE_OMIT_DEPRECATED
+ /*
+ ** We added the xGetLastError() method with the intention of providing
+ ** better low-level error messages when operating-system problems come up
+-- 
+2.7.0
+

@@ -1,0 +1,78 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+
+assert(!is_android && !is_ios)
+
+static_library("apps") {
+  sources = [
+    "app_lifetime_monitor.cc",
+    "app_lifetime_monitor.h",
+    "app_lifetime_monitor_factory.cc",
+    "app_lifetime_monitor_factory.h",
+    "app_load_service.cc",
+    "app_load_service.h",
+    "app_load_service_factory.cc",
+    "app_load_service_factory.h",
+    "app_restore_service.cc",
+    "app_restore_service.h",
+    "app_restore_service_factory.cc",
+    "app_restore_service_factory.h",
+    "browser_context_keyed_service_factories.cc",
+    "browser_context_keyed_service_factories.h",
+    "custom_launcher_page_contents.cc",
+    "custom_launcher_page_contents.h",
+    "launcher.cc",
+    "launcher.h",
+    "metrics_names.h",
+    "saved_files_service.cc",
+    "saved_files_service.h",
+    "saved_files_service_factory.cc",
+    "saved_files_service_factory.h",
+    "switches.cc",
+    "switches.h",
+  ]
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  deps = [
+    "//chrome/app/theme:theme_resources",
+    "//chrome/browser/extensions",
+    "//chrome/common/extensions/api:api",
+    "//components/web_modal",
+    "//skia",
+  ]
+
+  if (is_chromeos) {
+    #deps += [ "browser_chromeos" ]  TODO(GYP)
+  }
+
+  if (!enable_extensions) {
+    # When extensions are disabled, only the sizer file below is included.
+    deps -= [
+      "//chrome/browser/extensions",
+      "//chrome/common/extensions/api:api",
+    ]
+    sources = []
+  }
+
+  if (toolkit_views) {
+    sources += [
+      "ui/views/app_window_frame_view.cc",
+      "ui/views/app_window_frame_view.h",
+    ]
+    deps += [
+      "//ui/strings",
+      "//ui/views",
+    ]
+    if (enable_extensions) {
+      deps += [ "//extensions/browser" ]
+    }
+  }
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+}

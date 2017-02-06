@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- test that we intercept done.state for states which id contain dot -->
+<scxml xmlns="http://www.w3.org/2005/07/scxml" xmlns:conf="http://www.w3.org/2005/scxml-conformance" datamodel="ecmascript" version="1.0">
+    <datamodel>
+        <data id="Var1" expr="0"/>
+    </datamodel>
+    <state id="top">
+        <parallel id="p">
+            <onentry>
+                <send event="timeout" delay="2s"/>
+                <raise event="finishA"/>
+                <raise event="finishB"/>
+            </onentry>
+
+            <!-- record that we get the done events for all substates -->
+            <transition event="done.state.substate.*">
+                <assign location="Var1" expr="Var1+1"/>
+            </transition>
+
+            <transition event="timeout" target="fail"/>
+
+            <state id="substate.A" initial="a_initial">
+                <state id="a_initial">
+                    <transition event="finishA" target="a_final"/>
+                </state>
+                <final id="a_final"/>
+            </state>
+
+            <state id="substate.B" initial="b_initial">
+                <state id="b_initial">
+                    <transition event="finishB" target="b_final"/>
+                </state>
+                <final id="b_final"/>
+            </state>
+
+        </parallel>
+        <transition event="done.state.p" cond="Var1==2" target="pass"/>
+        <transition event="*" target="fail"/>
+    </state>
+
+    <final id="pass"><onentry><log label="Outcome" expr="'pass'"/></onentry></final>
+    <final id="fail"><onentry><log label="Outcome" expr="'fail'"/></onentry></final>
+
+</scxml>

@@ -1,0 +1,79 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/generate_library_loader/generate_library_loader.gni")
+import("//ui/ozone/ozone.gni")
+
+visibility = [ "//ui/ozone/*" ]
+
+source_set("egltest") {
+  sources = [
+    "client_native_pixmap_factory_egltest.cc",
+    "client_native_pixmap_factory_egltest.h",
+    "ozone_platform_egltest.cc",
+    "ozone_platform_egltest.h",
+  ]
+
+  configs += [ "//third_party/khronos:khronos_headers" ]
+
+  deps = [
+    ":eglplatform_shim",
+    "//base",
+    "//ui/events",
+    "//ui/events/devices",
+    "//ui/events/ozone:events_ozone",
+    "//ui/events/ozone:events_ozone_evdev",
+    "//ui/events/ozone:events_ozone_layout",
+    "//ui/events/platform",
+    "//ui/gfx",
+    "//ui/ozone:ozone_base",
+    "//ui/ozone/common",
+    "//ui/platform_window",
+  ]
+}
+
+generate_library_loader("eglplatform_shim") {
+  name = "LibeglplatformShimLoader"
+  output_h = "libeglplatform_shim.h"
+  output_cc = "libeglplatform_shim_loader.cc"
+  header = "\"ui/ozone/platform/egltest/eglplatform_shim.h\""
+
+  functions = [
+    "ShimQueryString",
+    "ShimInitialize",
+    "ShimTerminate",
+    "ShimCreateWindow",
+    "ShimQueryWindow",
+    "ShimDestroyWindow",
+    "ShimGetNativeDisplay",
+    "ShimGetNativeWindow",
+    "ShimReleaseNativeWindow",
+  ]
+}
+
+# TODO(spang): eglplatform_shim_x11 should become a loadable_module once
+# support lands: http://crbug.com/380327. Until then, it is not valid on
+# platforms other than Linux.
+
+# GYP version: "ui/ozone/platform/egltest/egltest.gypi:eglplatform_shim_x11"
+if (is_linux && ozone_platform_ozonex) {
+  shared_library("eglplatform_shim_x11") {
+    output_name = "libeglplatform_shim"
+
+    output_extension = "so.1"
+
+    sources = [
+      "eglplatform_shim.h",
+      "eglplatform_shim_xeleven.cc",
+    ]
+
+    configs += [ "//build/config/linux:x11" ]
+
+    deps = [
+      "//build/config/sanitizers:deps",
+    ]
+
+    visibility += [ "//chromecast/*" ]
+  }
+}

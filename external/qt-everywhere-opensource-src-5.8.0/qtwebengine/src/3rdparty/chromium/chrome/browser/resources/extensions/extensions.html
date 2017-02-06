@@ -1,0 +1,280 @@
+<!doctype html>
+<html i18n-values="dir:textdirection;lang:language">
+<head>
+<meta charset="utf-8">
+
+<link rel="stylesheet" href="extensions.css">
+<link rel="stylesheet" href="extension_commands_overlay.css">
+<link rel="stylesheet" href="extension_error.css">
+<link rel="stylesheet" href="extension_error_overlay.css">
+<link rel="stylesheet" href="extension_load_error.css">
+<link rel="stylesheet" href="extension_options_overlay.css">
+<link rel="stylesheet" href="pack_extension_overlay.css">
+<link rel="stylesheet" href="chrome://resources/css/alert_overlay.css">
+<link rel="stylesheet" href="chrome://resources/css/bubble.css">
+<link rel="stylesheet" href="chrome://resources/css/bubble_button.css">
+<link rel="stylesheet" href="chrome://resources/css/controlled_indicator.css">
+<link rel="stylesheet" href="chrome://resources/css/chrome_shared.css">
+<link rel="stylesheet" href="chrome://resources/css/overlay.css">
+<link rel="stylesheet" href="chrome://resources/css/spinner.css">
+<link rel="stylesheet" href="chrome://resources/css/trash.css">
+<link rel="stylesheet" href="../uber/uber_shared.css">
+
+<script src="chrome://resources/js/action_link.js"></script>
+<script src="chrome://resources/js/cr.js"></script>
+<script src="chrome://resources/js/event_tracker.js"></script>
+<script src="chrome://resources/js/load_time_data.js"></script>
+<script src="chrome://resources/js/util.js"></script>
+<script src="chrome://resources/js/cr/ui.js"></script>
+<script src="chrome://resources/js/cr/ui/alert_overlay.js"></script>
+<script src="chrome://resources/js/cr/ui/bubble.js"></script>
+<script src="chrome://resources/js/cr/ui/bubble_button.js"></script>
+<script src="chrome://resources/js/cr/ui/controlled_indicator.js"></script>
+<script src="chrome://resources/js/cr/ui/drag_wrapper.js"></script>
+<script src="chrome://resources/js/cr/ui/focus_manager.js"></script>
+<script src="chrome://resources/js/cr/ui/focus_outline_manager.js"></script>
+<script src="chrome://resources/js/cr/ui/node_utils.js"></script>
+<script src="chrome://resources/js/cr/ui/overlay.js"></script>
+
+<if expr="chromeos">
+<link rel="stylesheet" href="chrome://resources/css/list.css">
+<link rel="stylesheet" href="chromeos/kiosk_apps.css">
+<script src="chrome://resources/js/cr/event_target.js"></script>
+<script src="chrome://resources/js/cr/ui/array_data_model.js"></script>
+<script src="chrome://resources/js/cr/ui/list_selection_model.js"></script>
+<script src="chrome://resources/js/cr/ui/list_selection_controller.js"></script>
+<script src="chrome://resources/js/cr/ui/list_single_selection_model.js">
+</script>
+<script src="chrome://resources/js/cr/ui/list_item.js"></script>
+<script src="chrome://resources/js/cr/ui/list.js"></script>
+</if>
+
+<script src="chrome://extensions-frame/extensions.js"></script>
+</head>
+
+<body class="uber-frame">
+
+<div id="overlay" class="overlay" hidden>
+  <include src="extension_commands_overlay.html">
+  <include src="extension_error_overlay.html">
+  <include src="extension_options_overlay.html">
+  <include src="pack_extension_overlay.html">
+  <include src="../../../../ui/webui/resources/html/alert_overlay.html">
+<if expr="chromeos">
+    <include src="chromeos/kiosk_apps.html">
+    <include src="chromeos/kiosk_app_disable_bailout_confirm.html">
+</if>
+  <div id="drop-target-overlay" class="page">
+    <div>$i18n{extensionSettingsInstallDropTarget}</div>
+  </div>
+</div>
+
+<div class="page" id="extension-settings">
+  <header id="page-header">
+    <h1>$i18n{extensionSettings}</h1>
+    <div id="header-controls" class="header-extras">
+      <div id="dev-toggle" class="checkbox">
+        <label>
+          <input id="toggle-dev-on" type="checkbox">
+          <span>$i18n{extensionSettingsDeveloperMode}</span>
+        </label>
+      </div>
+    </div>
+    <div class="page-banner profile-is-supervised-banner">
+      <div class="page-banner-gradient">
+        <span class="page-banner-text">
+          $i18n{extensionSettingsSupervisedUser}
+        </span>
+      </div>
+    </div>
+  </header>
+  <div id="loading-spinner">
+    <div class="inline-spinner"></div>
+    <span>$i18n{loading}</span>
+  </div>
+  <div id="dev-controls" hidden>
+    <div class="button-container">
+      <button id="load-unpacked">
+        $i18n{extensionSettingsLoadUnpackedButton}
+      </button>
+      <button id="pack-extension">
+        $i18n{extensionSettingsPackButton}
+      </button>
+<if expr="chromeos">
+      <button id="add-kiosk-app" hidden>$i18n{addKioskAppButton}</button>
+</if>
+      <div id="dev-controls-spacer"></div>
+      <button id="update-extensions-now">
+        $i18n{extensionSettingsUpdateButton}
+      </button>
+    </div>
+  </div>
+  <include src="extension_load_error.html">
+  <div id="extension-list-wrapper" hidden>
+    <div id="footer-section">
+      <a target="_blank" class="more-extensions-link"
+          i18n-values="href:extensionSettingsGetMoreExtensionsUrl">
+        $i18n{extensionSettingsGetMoreExtensions}
+      </a>
+      <a is="action-link" class="extension-commands-config" hidden>
+        $i18n{extensionSettingsCommandsLink}
+      </a>
+    </div>
+  </div>
+  <div id="no-extensions" hidden>
+    <span id="no-extensions-message">$i18n{extensionSettingsNoExtensions}</span>
+    <span id="suggest-gallery" class="more-extensions-link"
+        i18n-values=".innerHTML:extensionSettingsSuggestGallery">
+    </span>
+  </div>
+</div>
+
+<span id="font-measuring-div"></span>
+
+<div id="templates" hidden>
+
+  <div class="extension-list-item-wrapper">
+    <div class="extension-list-item">
+      <div class="extension-details">
+        <div>
+          <h2 class="extension-title"></h2>
+          <span class="extension-version"></span>
+        </div>
+        <p class="corrupt-install-message"
+           hidden>$i18n{extensionSettingsCorruptInstall}</p>
+        <p class="extension-description"></p>
+        <div class="action-links">
+          <a is="action-link" class="permissions-link">
+            $i18n{extensionSettingsPermissions}
+          </a>
+          <a is="action-link" class="options-button" hidden>
+            $i18n{extensionSettingsOptions}
+          </a>
+          <a class="options-link" hidden>$i18n{extensionSettingsOptions}</a>
+          <a class="site-link" target="_parent" hidden></a>
+          <a is="action-link" class="launch-link" hidden>
+            $i18n{extensionSettingsLaunch}
+          </a>
+          <a is="action-link" role="button" class="reload-link" hidden>
+            $i18n{extensionSettingsReloadUnpacked}
+          </a>
+          <a is="action-link" role="button" class="errors-link">
+            <img class="extension-error-icon"></img>
+            <span>$i18n{extensionErrorHeading}</span>
+          </a>
+        </div>
+        <div class="permanent-warnings">
+          <div class="extension-warnings" hidden>
+            <span>$i18n{extensionSettingsWarningsTitle}</span>
+            <ul></ul>
+          </div>
+          <div class="suspicious-install-message" hidden>
+            <span>$i18n{extensionSettingsSuspiciousInstall}</span>
+            <a target="_blank" class="learn-more-link" href="#"
+                i18n-values="href:extensionSettingsSuspiciousInstallHelpUrl">
+              $i18n{extensionSettingsLearnMore}
+            </a>
+          </div>
+        </div>
+        <div class="dependent-extensions-message" hidden>
+          <span>$i18n{extensionSettingsDependentExtensions}</span>
+          <ul></ul>
+        </div>
+        <div class="developer-extras">
+          <div>
+            <span>$i18n{extensionSettingsExtensionId}</span>
+            <span class="extension-id"></span>
+          </div>
+          <div class="load-path" hidden>
+            <span>$i18n{extensionSettingsExtensionPath}</span>
+            <a is="action-link"></a>
+          </div>
+          <div class="managed-message" hidden>
+            $i18n{extensionSettingsPolicyControlled}
+          </div>
+          <div class="update-required-message" hidden>
+            $i18n{extensionSettingsUpdateRequiredBePolicy}
+          </div>
+          <div class="active-views" hidden>
+            <span>$i18n{extensionSettingsInspectViews}</span>
+            <a is="action-link"></a>
+          </div>
+          <div class="install-warnings" hidden>
+            <span>$i18n{extensionSettingsInstallWarnings}</span>
+            <ul></ul>
+          </div>
+        </div>
+        <div class="optional-controls">
+          <button class="show-button"
+              hidden>$i18n{extensionSettingsShowButton}</button>
+          <div class="checkbox">
+            <label class="incognito-control">
+              <input type="checkbox">
+              <span>$i18n{extensionSettingsEnableIncognito}</span>
+            </label>
+          </div>
+          <div class="checkbox error-collection-control" hidden>
+            <label>
+              <input type="checkbox">
+              <span>$i18n{extensionSettingsEnableErrorCollection}</span>
+            </label>
+          </div>
+          <div class="checkbox all-urls-control" hidden>
+            <label>
+              <input type="checkbox">
+              <span>$i18n{extensionSettingsAllowOnAllUrls}</span>
+            </label>
+          </div>
+          <div class="checkbox file-access-control" hidden>
+            <label>
+              <input type="checkbox">
+              <span>$i18n{extensionSettingsAllowFileAccess}</span>
+            </label>
+          </div>
+        </div>
+        <div class="butter-bar"
+            i18n-values=".innerHTML:extensionSettingsIncognitoWarning" hidden>
+        </div>
+      </div>
+      <div class="enable-controls">
+        <a is="action-link" role="button" class="terminated-reload-link" hidden>
+          $i18n{extensionSettingsReloadTerminated}
+        </a>
+        <a is="action-link" role="button" class="corrupted-repair-button"
+            hidden>
+          $i18n{extensionSettingsRepairCorrupted}
+        </a>
+        <div class="checkbox enable-checkbox" hidden><label>
+          <input type="checkbox">
+          <span class="enable-checkbox-text">
+            <span class="enabled-text">$i18n{extensionSettingsEnabled}</span>
+            <span class="enable-text">$i18n{extensionSettingsEnable}</span>
+          </span>
+        </label>
+        <span class="location-text"></span>
+        <span class="blacklist-text"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <li class="dependent-list-item">
+    <span class="dep-extension-title"></span>
+    <ul>
+      <li>
+        <span>$i18n{extensionSettingsExtensionId}</span>
+        <span class="dep-extension-id"></span>
+      </li>
+    </ul>
+  </li>
+
+
+  <include src="../../../../ui/webui/resources/html/trash.html">
+  <include src="extension_error.html">
+
+</div>
+
+<script src="chrome://extensions-frame/strings.js"></script>
+<script src="chrome://resources/js/i18n_template.js"></script>
+
+</body>
+</html>

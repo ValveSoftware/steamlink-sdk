@@ -1,0 +1,205 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 Aaron McCarthy <mccarthy.aaron@gmail.com>
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page location-plugin-osm.html
+\title Qt Location Open Street Map Plugin
+\ingroup QtLocation-plugins
+
+\brief Uses Open Street Map and related services.
+
+\section1 Overview
+
+This geo services plugin allows applications to access
+\l {http://openstreetmap.org}{Open Street Map} location based services using the Qt Location API.
+
+Data, imagery and map information provided by \l {http://korona.geog.uni-heidelberg.de/}{OpenMapSurfer},
+\l {http://www.thunderforest.com/}{ThunderForest}, OpenStreetMap and contributors. The data is
+available under the \l {http://www.opendatacommons.org/licenses/odbl}{Open Database License}.
+
+The Open Street Map geo services plugin can be loaded by using the plugin key "osm".
+
+\note Since Qt 5.6.2, the available map types offered by this plugin may change without notice depending on the
+actual availability of each provider. To prevent these changes, either a different geo service plugin should be used, or the plugin
+parameter \e osm.mapping.providersrepository.address should be set to a user-specified repository, in order to take full control over
+(and accept \b responsibility for) selecting the provider that is used for each map type.
+
+\section1 Parameters
+
+\section2 Optional parameters
+The following table lists optional parameters that can be passed to the Open Street Map plugin.
+
+\note Since Qt 5.5 all parameters below must be prefixed with \c osm. Previous versions did not require
+a prefix.
+
+\table
+\header
+    \li Parameter
+    \li Description
+\row
+    \li osm.useragent
+    \li User agent string set when making network requests.  This parameter should be set to a
+        value that uniquely identifies the application. Note that providers might block applications not setting this
+        parameter, leaving it to the stock plugin user agent (e.g., \l {http://wiki.openstreetmap.org/wiki/Nominatim_usage_policy}{Nominatim}
+        for geocoding)
+\row
+    \li osm.mapping.custom.host
+    \li Url string set when making network requests to the tile server.  This parameter should be set to a
+        valid server url with the correct osm api and the \l{Map::activeMapType} to the corresponding \l{MapType}.CustomMap.
+        The CustomMap will only be available if this parameter is set.
+        \note Setting the mapping.custom.host parameter to a new server renders the map tile cache useless for the old custommap style.
+\row
+    \li osm.mapping.custom.mapcopyright
+    \li Custom map copryright string is used when setting the \l{Map::activeMapType} to \l{MapType}.CustomMap via urlprefix parameter.
+        This copyright will only be used when using the CustomMap from above. If empty no map copyright will be displayed for the custom map.
+\row
+    \li osm.mapping.custom.datacopyright
+    \li Custom data copryright string is used when setting the \l{Map::activeMapType} to \l{MapType}.CustomMap via urlprefix parameter.
+        This copyright will only be used when using the CustomMap from above. If empty no data copyright will be displayed for the custom map.
+\row
+    \li osm.mapping.providersrepository.address
+    \li The OpenStreetMap plugin retrieves the provider's information from a remote repository. This is done to prevent using hardcoded
+    servers by default, which may become unavailable. By default this information is fetched from \l {http://maps-redirect.qt.io} {maps-redirect.qt.io}.
+    Setting this parameter changes the provider repository address to a user-specified one, which must contain the files
+    \tt{street}, \tt{satellite}, \tt{cycle}, \tt{transit}, \tt{night-transit}, \tt{terrain} and \tt{hiking}, each of which must contain valid provider information.
+\row
+    \li osm.mapping.providersrepository.disabled
+    \li By default, the OpenStreetMap plugin retrieves the provider's information from a remote repository to avoid a loss of service due to unavailability of hardcoded services.
+    The plugin, however, still contains fallback hardcoded provider data, in case the provider repository becomes unreachable.
+    Setting this parameter to \b true makes the plugin use the hardcoded urls only and therefore prevents the plugin from fetching provider data from the remote repository.
+\row
+    \li osm.mapping.highdpi_tiles
+    \li Whether or not to request high dpi tiles. Valid values are \b true and \b false. The default value is \b false.
+    Please note that not all map types are available in high dpi. Setting this parameter to true might even have no effect if
+    no map type is available in high dpi at the moment. Provider information files for high dpi tiles are named
+    \tt{street-hires}, \tt{satellite-hires}, \tt{cycle-hires}, \tt{transit-hires}, \tt{night-transit-hires}, \tt{terrain-hires} and \tt{hiking-hires}.
+    These are fetched from the same location used for the low dpi counterparts.
+\row
+    \li osm.routing.host
+    \li Url string set when making network requests to the routing server.  This parameter should be set to a
+        valid server url with the correct osrm API. If not specified the default \l {http://router.project-osrm.org/route/v1/driving/}{url} will be used.
+        \note The API documentation and sources are available at \l {http://project-osrm.org/}{Project OSRM}.
+
+\row
+    \li osm.routing.apiversion
+    \li String defining the api version of the (custom) OSRM server. Valid values are \b{v4} and \b{v5}. The default is \b{v5}.
+        This parameter should be set only if \tt{osm.routing.host} is set, and is an OSRM v4 server.
+
+\row
+    \li osm.geocoding.host
+    \li Url string set when making network requests to the geocoding server.  This parameter should be set to a
+        valid server url with the correct osm API. If not specified the default \l {http://nominatim.openstreetmap.org/}{url} will be used.
+        \note The API documentation is available at \l {https://wiki.openstreetmap.org/wiki/Nominatim}{Project OSM Nominatim}.
+\row
+    \li osm.places.host
+    \li Url string set when making network requests to the places server.
+        This parameter should be set to a valid server url with the correct osm API.
+        If not specified the default  \l {http://nominatim.openstreetmap.org/search}{url}
+        will be used.
+        \note The API documentation is available at \l {https://wiki.openstreetmap.org/wiki/Nominatim}{Project OSM Nominatim}.
+\row
+    \li osm.mapping.cache.directory
+    \li Absolute path to map tile cache directory used as network disk cache.
+
+    The default place for the cache is \c{QtLocation/osm} directory in \l {QStandardPaths::writableLocation()} {QStandardPaths::writableLocation}(\l{QStandardPaths::GenericCacheLocation}).
+    On systems that have no concept of a shared cache, the application-specific \l{QStandardPaths::CacheLocation} is used instead.
+\row
+    \li osm.mapping.offline.directory
+    \li Absolute path to a directory containing map tiles used as an offline storage. If specified, it will work together with the network disk cache, but tiles won't get automatically
+    inserted, removed or updated. The format of the tiles is the same used by the network disk cache.
+
+    There is no default value, and if this property is not set, no directory will be indexed and only the network disk cache will be used
+    to reduce network usage or to act as an offline storage for the currently cached tiles.
+\row
+    \li osm.mapping.cache.disk.cost_strategy
+    \li The cost strategy to use to cache map tiles on disk.
+    Valid values are \b bytesize and \b unitary.
+    Using \b bytesize, the related size parameter (\b osm.mapping.cache.disk.size) will
+    be interpreted as bytes.
+    Using \b unitary, they will be interpreted as number of tiles.
+    The default value for this parameter is \b bytesize.
+\row
+    \li osm.mapping.cache.disk.size
+    \li Disk cache size for map tiles. The default size of the cache is 50 MiB when \b bytesize is the cost
+    strategy for this cache, or 1000 tiles, when \b unitary is the cost strategy.
+\row
+    \li osm.mapping.cache.memory.cost_strategy
+    \li The cost strategy to use to cache map tiles in memory.
+    Valid values are \b bytesize and \b unitary.
+    Using \b bytesize, the related size parameter (\b osm.mapping.cache.memory.size) will
+    be interpreted as bytes.
+    Using \b unitary, they will be interpreted as number of tiles.
+    The default value for this parameter is \b bytesize.
+\row
+    \li osm.mapping.cache.memory.size
+    \li Memory cache size for map tiles. The default size of the cache is 3 MiB when \b bytesize is the cost
+    strategy for this cache, or 100 tiles, when \b unitary is the cost strategy.
+\row
+    \li osm.mapping.cache.texture.cost_strategy
+    \li The cost strategy to use to cache decompressed map tiles in memory.
+    Valid values are \b bytesize and \b unitary.
+    Using \b bytesize, the related size parameter (\b osm.mapping.cache.texture.size) will
+    be interpreted as bytes.
+    Using \b unitary, they will be interpreted as number of tiles.
+    The default value for this parameter is \b bytesize.
+\row
+    \li osm.mapping.cache.texture.size
+    \li Texture cache size for map tiles. The default size of the cache is 6 MiB when \b bytesize is the cost
+    strategy for this cache, or 30 tiles, when \b unitary is the cost strategy.
+    Note that the texture cache has a hard minimum size which depends on the size of the map viewport
+    (it must contain enough data to display the tiles currently visible on the display).
+    This value is the amount of cache to be used in addition to the bare minimum.
+
+\endtable
+
+\section1 Parameter Usage Example
+
+The following example shows how to create an OSM plugin instance with
+parameters supplied for an useragent, and if necessary, a custom server url plus the corresponding copyright information for the tile provider.
+Additionally, it is possible to choose another routing server than the public osrm one.
+
+\section2 QML
+
+\code
+Plugin {
+    name: "osm"
+    PluginParameter { name: "osm.useragent"; value: "My great Qt OSM application" }
+    PluginParameter { name: "osm.mapping.host"; value: "http://osm.tile.server.address/" }
+    PluginParameter { name: "osm.mapping.copyright"; value: "All mine" }
+    PluginParameter { name: "osm.routing.host"; value: "http://osrm.server.address/viaroute" }
+    PluginParameter { name: "osm.geocoding.host"; value: "http://geocoding.server.address" }
+}
+\endcode
+
+\section1 Other Plugin-specific Information
+
+\section2 Tile cache
+
+The tiles are cached in a \c{QtLocation/osm} directory in \l {QStandardPaths::writableLocation()}{QStandardPaths::writableLocation}
+(\l{QStandardPaths::GenericCacheLocation}). On systems that have no concept of a shared cache, the application-specific
+\l{QStandardPaths::CacheLocation} is used instead.
+*/

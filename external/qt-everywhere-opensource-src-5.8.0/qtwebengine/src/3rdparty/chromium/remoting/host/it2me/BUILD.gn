@@ -1,0 +1,149 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//remoting/remoting_enable.gni")
+import("//remoting/remoting_srcs.gni")
+import("//remoting/remoting_locales.gni")
+
+if (is_win) {
+  import("//remoting/host/predefines_win.gni")
+}
+if (is_mac) {
+  import("//build/config/mac/rules.gni")
+}
+
+source_set("common") {
+  sources = rebase_path(
+          remoting_host_srcs_gypi_values.remoting_it2me_host_static_sources,
+          ".",
+          "//remoting")
+
+  if (is_android) {
+    sources -= [
+      "it2me_native_messaging_host.cc",
+      "it2me_native_messaging_host.h",
+    ]
+  }
+
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//remoting:version",
+  ]
+
+  deps = [
+    "//base:i18n",
+    "//net:net",
+    "//remoting/base",
+    "//remoting/host",
+    "//remoting/protocol",
+    "//remoting/resources",
+  ]
+}
+
+if (!is_chromeos && !is_android && enable_remoting_host) {
+  if (is_win) {
+    # GYP version:
+    # //remoting/remoting_host_win.gypi:remoting_it2me_native_messaging_host
+    executable("remote_assistance_host") {
+      configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+      deps = [
+        "//base/allocator",
+        "//remoting/host:remoting_core",
+        "//remoting/host:remoting_windows_resources",
+      ]
+
+      sources = [
+        "$root_gen_dir/remoting/version.rc",
+        "it2me_native_messaging_host_entry_point.cc",
+      ]
+
+      defines = host_predefines + [ "BINARY=BINARY_REMOTE_ASSISTANCE_HOST" ]
+
+      ldflags = [
+        "/MANIFEST:EMBED",
+        "/MANIFESTINPUT:" +
+            rebase_path("../win/common-controls.manifest", root_build_dir),
+        "/MANIFESTINPUT:" +
+            rebase_path("../win/dpi_aware.manifest", root_build_dir),
+
+        # "/NODEFAULTLIB", TODO(zijiehe): Why IgnoreAllDefaultLibraries: true in
+        # GYP does not take effect?
+        "comctl32.lib",
+      ]
+    }
+  } else {
+    if (is_mac) {
+      app_target_type = "mac_app_bundle"
+
+      # remote_assistance_host-InfoPlist.strings
+      foreach(locale, remoting_locales_with_underscores) {
+        bundle_data("remote_assistance_host_strings_${locale}_bundle_data") {
+          sources = [
+            "$root_gen_dir/remoting/host/remote_assistance_host-InfoPlist.strings/$locale.lproj/InfoPlist.strings",
+          ]
+          outputs = [
+            "{{bundle_resources_dir}}/$locale.lproj/{{source_file_part}}",
+          ]
+          deps = [
+            "//remoting/host:remoting_infoplist_strings",
+          ]
+        }
+      }
+    } else {
+      app_target_type = "executable"
+    }
+
+    target(app_target_type, "remote_assistance_host") {
+      if (is_mac) {
+        info_plist = "remote_assistance_host-Info.plist"
+        extra_configs = [
+          "//build/config/compiler:wexit_time_destructors",
+          "//remoting:version",
+        ]
+      } else {
+        configs += [
+          "//build/config/compiler:wexit_time_destructors",
+          "//remoting:version",
+        ]
+      }
+
+      sources = [
+        "it2me_native_messaging_host_entry_point.cc",
+        "it2me_native_messaging_host_main.cc",
+        "it2me_native_messaging_host_main.h",
+      ]
+
+      deps = [
+        ":common",
+        "//build/config/sanitizers:deps",
+        "//remoting/host",
+        "//remoting/host/native_messaging",
+        "//remoting/proto",
+        "//ui/gfx",
+      ]
+      if (is_mac) {
+        foreach(locale, remoting_locales_with_underscores) {
+          deps += [
+            ":remote_assistance_host_strings_${locale}_bundle_data",
+            "//remoting/host:remoting_host_locale_${locale}_bundle_data",
+          ]
+        }
+        deps += [
+          "//remoting/host:remoting_infoplist_strings",
+          "//remoting/resources:copy_locales",
+        ]
+      }
+
+      if (enable_webrtc) {
+        deps += [ "//third_party/libjingle:libjingle_webrtc" ]
+      }
+
+      if (is_desktop_linux) {
+        deps += [ "//build/config/linux/gtk2" ]
+      }
+    }
+  }
+}

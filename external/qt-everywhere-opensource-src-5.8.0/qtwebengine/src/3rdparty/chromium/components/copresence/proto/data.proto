@@ -1,0 +1,138 @@
+syntax = "proto2";
+package copresence;
+option optimize_for = LITE_RUNTIME;
+import "config_data.proto";
+import "enums.proto";
+import "identity.proto";
+message ClientVersion {
+  optional string client = 1;
+  optional string version_name = 2;
+  optional int64 version_code = 3;
+  optional string certificate_fingerprint = 4;
+}
+message Status {
+  optional StatusCode code = 1;
+  optional string message = 2;
+}
+message PushServiceRegistration {
+  optional PushService service = 1;
+  optional GcmRegistration gcm_registration = 2;
+}
+message GcmRegistration {
+  optional string device_token = 1;
+}
+message DeviceIdentifiers {
+  optional int32 ulr_device_id = 1;
+  optional DeviceIdentity device_identity = 2;
+  optional Identity registrant = 3;
+}
+message Token {
+  message Debug {
+    repeated string email = 2;
+  }
+  optional string id = 1;
+  optional TokenStatus status = 3;
+  optional Debug debug = 4;
+}
+message DeviceFingerprint {
+  optional string manufacturer = 1;
+  optional string model = 2;
+  optional PlatformType type = 3;
+  optional string platform_version = 4;
+}
+message TokenTechnology {
+  optional TokenMedium medium = 1;
+  repeated TokenInstructionType instruction_type = 2;
+}
+message DeviceCapabilities {
+  repeated TokenTechnology token_technology = 2;
+}
+message TokenInstruction {
+  optional TokenInstructionType token_instruction_type = 1;
+  optional TokenMedium medium = 2;
+  optional string token_id = 4;
+}
+message Directive {
+  optional InstructionType instruction_type = 1;
+  optional TokenInstruction token_instruction = 2;
+  optional int64 delay_millis = 3;
+  optional int64 ttl_millis = 4;
+  optional string published_message_id = 5;
+  optional string subscription_id = 6;
+  optional DirectiveConfiguration configuration = 7;
+}
+message DeviceState {
+  optional DeviceCapabilities capabilities = 1;
+  repeated Directive active_directive = 2;
+}
+message DebugInfo {
+  optional string served_by_task = 1;
+  repeated string token_id = 3;
+  optional int64 request_time_millis = 4;
+}
+message TokenObservation {
+  optional string token_id = 1;
+  repeated TokenSignals signals = 2;
+}
+message TokenSignals {
+  optional TokenMedium medium = 1;
+  optional int32 rssi = 2;
+  optional int64 observed_time_millis = 3;
+}
+message AccessPolicy {
+  optional int64 ttl_millis = 1;
+  optional Acl acl = 2;
+}
+message Acl {
+  optional AclType acl_type = 1;
+  optional string named_acl_name = 2;
+  optional bytes referenced_acl_consistency_token = 5;
+}
+message PublishedMessage {
+  optional string id = 1;
+  optional AccessPolicy access_policy = 2;
+  optional Message message = 3;
+  optional TokenExchangeStrategy token_exchange_strategy = 5;
+  optional OptInStateFilter opt_in_state_filter = 6;
+}
+message TokenExchangeStrategy {
+  optional AudioConfiguration audio_configuration = 1;
+  optional BroadcastScanConfiguration broadcast_scan_configuration = 2;
+}
+message SubscribedMessage {
+  message Debug {
+    optional string published_message_id = 1;
+    optional string publisher_identity_id = 2;
+    optional string publisher_device_id = 3;
+    optional int64 creation_timestamp_millis = 4;
+    optional int64 ttl_millis = 5;
+    optional TokenExchangeStrategy token_exchange_strategy = 7;
+  }
+  repeated string subscription_id = 1;
+  optional Message published_message = 2;
+  optional Debug debug = 3;
+  repeated TokenObservation required_token = 5;
+}
+message Message {
+  optional MessageType type = 2;
+  optional bytes payload = 3;
+}
+message MessageType {
+  optional string type = 2;
+}
+message Subscription {
+  optional string id = 1;
+  optional int64 ttl_millis = 3;
+  optional MessageType message_type = 4;
+  optional TokenExchangeStrategy token_exchange_strategy = 7;
+  optional OptInStateFilter opt_in_state_filter = 8;
+}
+message MessageResult {
+  optional string published_message_id = 1;
+}
+message SubscriptionResult {
+  optional string subscription_id = 1;
+}
+message OptInStateFilter {
+  repeated OptInState allowed_opt_in_state = 1;
+}

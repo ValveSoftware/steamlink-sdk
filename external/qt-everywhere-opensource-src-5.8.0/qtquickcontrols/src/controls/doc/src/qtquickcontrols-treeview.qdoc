@@ -1,0 +1,297 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+   \qmltype TreeView
+   \inqmlmodule QtQuick.Controls
+   \inherits BasicTableView
+   \since 5.5
+   \ingroup views
+   \ingroup controls
+   \brief Provides a tree view with scroll bars, styling and header sections.
+
+   \image treeview.png
+
+   A TreeView implements a tree representation of items from a model.
+
+   Data for each row in the TreeView
+   is provided by the model. TreeView accepts models derived from the QAbstractItemModel class.
+
+   You provide title and size of a column header
+   by adding a \l TableViewColumn as demonstrated below.
+
+   \code
+   TreeView {
+       TableViewColumn {
+           title: "Name"
+           role: "fileName"
+           width: 300
+       }
+       TableViewColumn {
+           title: "Permissions"
+           role: "filePermissions"
+           width: 100
+       }
+       model: fileSystemModel
+   }
+   \endcode
+
+   The header sections are attached to values in the \l model by defining
+   the model role they attach to. Each property in the model will
+   then be shown in their corresponding column.
+
+   You can customize the look by overriding the \l [QML]{TreeView::}{itemDelegate},
+   \l {basictableview-rowdelegate}{rowDelegate}, or \l {basictableview-headerdelegate}{headerDelegate} properties.
+
+   The view itself does not provide sorting. This has to
+   be done on the model itself. However you can provide sorting
+   on the model, and enable sort indicators on headers.
+
+    \list
+    \li int sortIndicatorColumn - The index of the current sort column
+    \li bool sortIndicatorVisible - Whether the sort indicator should be enabled
+    \li enum sortIndicatorOrder - Qt.AscendingOrder or Qt.DescendingOrder depending on state
+    \endlist
+
+   You can create a custom appearance for a TreeView by
+   assigning a \l {TreeViewStyle}.
+*/
+
+/*!
+    \qmlproperty Component TreeView::itemDelegate
+
+    This property defines a delegate to draw a specific cell.
+
+    In the item delegate you have access to the following special properties:
+    \list
+    \li  styleData.selected - if the item is currently selected
+    \li  styleData.value - the value or text for this item
+    \li  styleData.textColor - the default text color for an item
+    \li  styleData.row - the index of the view row
+    \li  styleData.column - the index of the view column
+    \li  styleData.elideMode - the elide mode of the column
+    \li  styleData.textAlignment - the horizontal text alignment of the column
+    \li  styleData.pressed - true when the item is pressed
+    \li  styleData.hasActiveFocus - true when the row has focus
+    \li  styleData.index - the QModelIndex of the current item in the model
+    \li  styleData.depth - the depth of the current item in the model
+    \li  styleData.isExpanded - true when the item is expanded
+    \li  styleData.hasChildren - true if the model index of the current item has or can have children
+    \li  styleData.hasSibling - true if the model index of the current item has a sibling
+    \endlist
+
+    Example:
+    \code
+    itemDelegate: Item {
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            color: styleData.textColor
+            elide: styleData.elideMode
+            text: styleData.value
+        }
+    }
+    \endcode
+
+    \note For performance reasons, created delegates can be recycled
+    across multiple table rows. This implies that when you make use of implicit
+    properties such as \c styleData.row or \c model, these values can change
+    after the delegate has been constructed. This means that you should not assume
+    that content is fixed when \c Component.onCompleted is called, but instead rely on
+    bindings to such properties.
+*/
+
+/*!
+    \qmlpropertygroup QtQuick.Controls::TreeView::section
+    \qmlproperty string TreeView::section.property
+    \qmlproperty enumeration TreeView::section.criteria
+    \qmlproperty Component TreeView::section.delegate
+    \qmlproperty enumeration TreeView::section.labelPositioning
+
+    These properties determine the section labels.
+
+    \sa {QtQuick::ListView::section}{ListView.section}
+*/
+
+/*!
+    \qmlproperty QAbstractItemModel TreeView::model
+    This property holds the model providing data for the tree view.
+
+    The model provides the set of data that is displayed by the view.
+    The TreeView accept models derived from the QAbstractItemModel class.
+*/
+
+/*!
+    \qmlproperty QModelIndex TreeView::rootIndex
+    The model index of the root item in the tree view. The root item is the
+    parent item to the view's top-level items. Only items descending from the
+    root item will be visible in the view.
+
+    Its default value is an invalid QModelIndex, which means the whole
+    model data is shown by the tree view (assigning \c undefined to this
+    proprety resets it to its default value.)
+
+    \since QtQuick.Controls 1.5
+*/
+
+/*!
+    \qmlproperty QModelIndex TreeView::currentIndex
+    The model index of the current row in the tree view.
+*/
+
+/*!
+    \qmlproperty ItemSelectionModel TreeView::selection
+
+    By default the selection model is \c null and only single selection is supported.
+
+    To use a different selection mode as described in \l {BasicTableView::selectionMode}{selectionMode},
+    an ItemSelectionModel must by set to the selection.
+
+    For example:
+
+    \code
+    TreeView {
+       model: myModel
+       selection: ItemSelectionModel {
+            model: myModel
+       }
+       TableViewColumn {
+           role: "name"
+           title: "Name
+       }
+    }
+    \endcode
+
+    \sa {BasicTableView::selectionMode}{selectionMode}
+
+*/
+
+/*!
+    \qmlsignal TreeView::activated(QModelIndex index)
+
+    Emitted when the user activates a row in the tree by mouse or keyboard interaction.
+    Mouse activation is triggered by single- or double-clicking, depending on the platform.
+
+    \a index is the model index of the activated row in the tree.
+
+    \note This signal is only emitted for mouse interaction that is not blocked in the row or item delegate.
+
+    The corresponding handler is \c onActivated.
+*/
+
+/*!
+    \qmlsignal TreeView::clicked(QModelIndex index)
+
+    Emitted when the user clicks a valid row in the tree by single clicking
+
+    \a index is the model index of the clicked row in the tree.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onClicked.
+*/
+
+/*!
+    \qmlsignal TreeView::doubleClicked(QModelIndex index)
+
+    Emitted when the user double clicks a valid row.
+
+    \a index is the model index of the double clicked row in the tree.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onDoubleClicked.
+*/
+
+/*!
+    \qmlsignal TreeView::pressAndHold(QModelIndex index)
+
+    Emitted when the user presses and holds a valid row in the tree.
+
+    \a index is the model index of the pressed row in the tree.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onPressAndHold.
+*/
+
+/*!
+    \qmlsignal TreeView::expanded(QModelIndex index)
+
+    Emitted when a valid row in the tree is expanded, displaying its children.
+
+    \a index is the model index of the expanded row in the tree.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onExpanded.
+*/
+
+/*!
+    \qmlsignal TreeView::collapsed(QModelIndex index)
+
+    Emitted when a valid row in the tree is collapsed, hiding its children.
+
+    \a index is the model index of the collapsed row in the tree.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onCollapsed.
+*/
+
+/*!
+    \qmlmethod bool TreeView::isExpanded(QModelIndex index)
+
+    Returns true if the model item index is expanded; otherwise returns false.
+
+    \sa {expanded}, {expand}
+*/
+
+/*!
+    \qmlmethod void TreeView::collapse(QModelIndex index)
+
+    Collapses the model item specified by the index.
+
+    \sa {collapsed}, {isExpanded}
+*/
+
+/*!
+    \qmlmethod void TreeView::expand(QModelIndex index)
+
+    Expands the model item specified by the index.
+
+    \sa {expanded}, {isExpanded}
+*/
+
+/*!
+    \qmlmethod QModelIndex TreeView::indexAt( int x, int y )
+
+    Returns the model index of the visible row at the point \a x, \a y in content
+    coordinates. If there is no visible row at the point specified, an invalid
+    \l QModelIndex is returned.
+
+    \note This method should only be called after the component has completed.
+*/

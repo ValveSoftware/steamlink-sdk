@@ -1,0 +1,66 @@
+/*
+ * Copyright (C) 2008 Apple Inc.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+ *     its contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+// https://html.spec.whatwg.org/#the-location-interface
+
+[
+    CheckSecurity=Receiver,
+    Unforgeable,
+] interface Location {
+    // |assign|, |replace|, and *writing* |href| do not require a security
+    // check, as they *change* the page, and thus these do not change any
+    // property of an *existing* document at a different origin.
+    // However, *reading* |href|, or accessing any component, is a security
+    // problem, since that allows tracking navigation.
+    [CallWith=(CurrentWindow,EnteredWindow), DoNotCheckSecurity, RaisesException] void assign(DOMString url);
+    [CallWith=(CurrentWindow,EnteredWindow), DoNotCheckSecurity, RaisesException] void replace(DOMString url);
+    [CallWith=CurrentWindow] void reload();
+
+    // TODO(foolip): ancestorOrigins should have [SameObject] and be of type
+    // DOMString[], i.e. it should return the same array every time.
+    [Measure] readonly attribute DOMStringList ancestorOrigins;
+
+    // TODO(foolip): Per spec, Location implements URLUtils. The below is
+    // mostly like the URLUtils interface, but with some members missing and
+    // using DOMString instead of USVString.
+    [SetterCallWith=(CurrentWindow,EnteredWindow), DoNotCheckSecurity=Setter] attribute DOMString href;
+    [NotEnumerable, ImplementedAs=href] DOMString toString();
+    readonly attribute DOMString origin;
+
+    [SetterCallWith=(CurrentWindow,EnteredWindow), RaisesException=Setter] attribute DOMString protocol;
+    [SetterCallWith=(CurrentWindow,EnteredWindow)] attribute DOMString host;
+    [SetterCallWith=(CurrentWindow,EnteredWindow)] attribute DOMString hostname;
+    [SetterCallWith=(CurrentWindow,EnteredWindow)] attribute DOMString port;
+    [SetterCallWith=(CurrentWindow,EnteredWindow)] attribute DOMString pathname;
+    [SetterCallWith=(CurrentWindow,EnteredWindow)] attribute DOMString search;
+    [SetterCallWith=(CurrentWindow,EnteredWindow)] attribute DOMString hash;
+
+    // TODO(foolip): Location does not have a valueOf() override in the spec.
+    // See the comment in Location.h for the purpose of this.
+    [NotEnumerable, CallWith=ThisValue] any valueOf();
+};

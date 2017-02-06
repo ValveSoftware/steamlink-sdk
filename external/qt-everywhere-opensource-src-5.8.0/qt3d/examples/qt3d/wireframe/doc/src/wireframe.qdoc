@@ -1,0 +1,195 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 Klaralvdalens Datakonsult AB (KDAB).
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example wireframe
+    \title Qt 3D: Wireframe QML Example
+    \ingroup qt3d-examples-qml
+
+    \brief A Qt 3D QML application that implements a single-pass wireframe
+    rendering method.
+
+    \image qt3d-wireframe-rendering.png
+
+    \e {Qt 3D Wireframe Rendering} illustrates how to draw a single entity
+    (a trefoil knot) using a custom set of shaders to implement a single-pass
+    wireframe rendering method.
+
+    \include examples-run.qdocinc
+
+    \section1 Creating Entities
+
+    The renderer aspect looks for entities that have some geometry, a material,
+    and optionally a transformation. These are all specified in the form of
+    subclasses of QComponent that have been exported to the QML engine in the
+    form of \l Mesh, \l Material, and \l Transform. We use these components to
+    create a custom QML item in \e TrefoilKnot.qml.
+
+    We start off by importing the \c {Qt3D 2.0} module that provides the
+    \l Entity type and value type helpers, such as Qt.vector3d(). We also import
+    the \c {Qt3D.Renderer} module that provides the components and other types
+    picked up by the renderer aspect:
+
+    \quotefromfile wireframe/TrefoilKnot.qml
+    \skipto import Qt3D
+    \printuntil Render
+
+    To use components from other aspects, we would need to import the
+    corresponding QML module, too.
+
+    We then use an \l Entity type as the root element of the custom QML type
+    exposing some custom properties just as you would with any other type in
+    QML:
+
+    \printuntil Material
+
+    In addition to aggregating components, the \l Entity type can be used to
+    group child objects together. This is analogous to how the \l Item type is
+    used in Qt Quick 2.
+
+    \section1 Specifying Transformations
+
+    We instantiate a \l Transform component and a \l Mesh component. The
+    \l Transform component specifies how the renderer should transform the
+    geometry when it is drawn with the OpenGL pipeline. We combine an ordered
+    set of transformations into a single \l Transform component. This
+    information will be automatically available to our shaders through standard
+    named uniform variables:
+
+    \skipto Transform
+    \printuntil }
+
+    \section1 Loading Dynamic Per-Vertex Data
+
+    The \l Mesh component is very simple. We use its source property to load in
+    a static set of geometry (such as vertex positions, normal vectors, and
+    texture coordinates) from a file in the Wavefront Obj format. This data was
+    exported from the Blender application.
+
+    \printuntil }
+
+    In addition to the \l Mesh element, Qt 3D also enables dynamic generation of
+    per-vertex attribute data through C++ hooks that are called by the
+    task-based engine.
+
+    \section1 Aggregating Components
+
+    Simply instantiating components is not enough, however. In order for them to
+    imbue special behavior on an entity, the entity must aggregate the
+    components by means of its components property:
+
+    \quotefromfile wireframe/TrefoilKnot.qml
+    \skipto components
+    \printuntil ]
+
+    This allows components to be shared between multiple entities very easily.
+    In this example, we have components for the transform and mesh that are
+    contained within the TrefoilKnot custom type. The final component, of type
+    \l Material, is provided by a property of the TrefoilKnot custom type. We
+    will later customize the appearance of the entity.
+
+    \section1 Rendering from Cameras
+
+    We use the TrefoilKnot custom type in \e main.qml to draw the trefoil knot
+    on the screen.
+
+    We use the same import statements as in \e TrefoilKnot.qml, with the
+    addition of a namespaced import for the Qt Quick module that we will
+    need for animations:
+
+    \quotefromfile wireframe/main.qml
+    \skipto import QtQuick
+    \printuntil Render 2.0
+
+    We use an \l Entity type as the root type simply to act as a parent for
+    its children. In this sense, the \l Entity type is much like the \l Item
+    type:
+
+    \printuntil id
+
+    The RendererSettings component uses the ForwardRenderer type to completely
+    configure the renderer without touching any C++ code:
+
+    \printuntil ]
+
+    The BasicCamera type is a trivial wrapper around the built-in \l Camera
+    type that represents a virtual camera. It has properties for such things as
+    the near and far planes, field of view, aspect ratio, projection type,
+    position, and orientation:
+
+    \printuntil }
+
+    The \l Configuration type provides a temporary workaround for having mouse
+    control of the camera while the proper implementation that uses aspects and
+    components is being completed:
+
+    \printuntil }
+
+    It is trivial to use multiple cameras and choose between them using the
+    framegraph for all or part of the scene rendering.
+
+    \section1 Mapping Materials
+
+    Qt 3D has a robust and very flexible \l {Qt 3D Overview#Materials}{material
+    system} that allows multiple levels of customization. We use the
+    WireframeMaterial custom type to wrap the \l Material type:
+
+    \printuntil diffuse
+
+    We then instantiate the TrefoilKnot type and set the material on it:
+
+    \skipto TrefoilKnot
+    \printuntil }
+
+    The Qt 3D engine in conjunction with the renderer aspect now has enough
+    information to finally render our mesh using the material we specified.
+
+    \section1 Using Animation Elements
+
+    We use the animation elements provided by Qt Quick 2 to animate the
+    properties of the TrefoilKnot and WireframeMaterial types. The properties of
+    the components of a type are updated by using the QML property binding
+    mechanism:
+
+    \quotefromfile wireframe/main.qml
+    \skipto SequentialAnimation
+    \printuntil PauseAnimation
+    \printuntil }
+
+    The property updates are noticed by the \l{Qt3DCore::}{QNode} base class
+    and automatically sent through to the corresponding objects in the renderer
+    aspect. The renderer then takes care of translating the property updates
+    to new values for uniform variables in the GLSL shader programs.
+
+    Run the example to view the trefoil knot with the width of the wireframe
+    lines pulsing. All the heavy lifting is being done by the GPU. The CPU only
+    has to run the property animations and to translate the scenegraph and
+    framegraph into raw OpenGL calls.
+
+    It is also possible to animate on the GPU via a custom shader program and
+    material.
+*/

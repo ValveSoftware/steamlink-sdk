@@ -1,0 +1,115 @@
+// Copyright (c) 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// The <code>chrome.audio</code> API is provided to allow users to
+// get information about and control the audio devices attached to the
+// system. This API is currently only implemented for ChromeOS.
+namespace audio {
+
+  dictionary OutputDeviceInfo {
+    // The unique identifier of the audio output device.
+    DOMString id;
+    // The user-friendly name (e.g. "Bose Amplifier").
+    DOMString name;
+    // True if this is the current active device.
+    boolean isActive;
+    // True if this is muted.
+    boolean isMuted;
+    // The output volume ranging from 0.0 to 100.0.
+    double volume;
+  };
+
+  dictionary InputDeviceInfo {
+    // The unique identifier of the audio input device.
+    DOMString id;
+    // The user-friendly name (e.g. "USB Microphone").
+    DOMString name;
+    // True if this is the current active device.
+    boolean isActive;
+    // True if this is muted.
+    boolean isMuted;
+    // The input gain ranging from 0.0 to 100.0.
+    double gain;
+  };
+
+  dictionary AudioDeviceInfo {
+    // The unique identifier of the audio device.
+    DOMString id;
+    // True for input device; false for output device.
+    boolean isInput;
+    // Type of the device, including "INTERNAL_SPEAKER", "INTERNAL_MIC",
+    // "HEADPHONE", "USB", "BLUETOOTH", "HDMI", "MIC", "KEYBOARD_MIC",
+    // "AOKR", and "OTHER".
+    DOMString deviceType;
+    // The user-friendly name (e.g. "USB Microphone").
+    DOMString displayName;
+    // Device name.
+    DOMString deviceName;
+    // True if this is the current active device.
+    boolean isActive;
+    // True if this is muted.
+    boolean isMuted;
+    // The sound level of the device, volume for output, gain for input.
+    long level;
+    // The stable/persisted device id string when available.
+    DOMString? stableDeviceId;
+  };
+
+  dictionary DeviceProperties {
+    // True if this is muted.
+    boolean isMuted;
+    // If this is an output device then this field indicates the output volume.
+    // If this is an input device then this field is ignored.
+    double? volume;
+    // If this is an input device then this field indicates the input gain.
+    // If this is an output device then this field is ignored.
+    double? gain;
+  };
+
+  callback GetInfoCallback = void(OutputDeviceInfo[] outputInfo,
+                                  InputDeviceInfo[] inputInfo);
+  callback SetActiveDevicesCallback = void();
+  callback SetPropertiesCallback = void();
+
+  interface Functions {
+    // Gets the information of all audio output and input devices.
+    static void getInfo(GetInfoCallback callback);
+
+  // Sets the active devices to the devices specified by |ids|.
+  // It can pass in the "complete" active device id list of either input
+  // devices, or output devices, or both. If only input device ids are passed
+  // in, it will only change the input devices' active status, output devices will
+  // NOT be changed; similarly for the case if only output devices are passed.
+  // If the devices specified in |new_active_ids| are already active, they will
+  // remain active. Otherwise, the old active devices will be de-activated
+  // before we activate the new devices with the same type(input/output).
+    static void setActiveDevices(DOMString[] ids,
+                                 SetActiveDevicesCallback callback);
+
+    // Sets the properties for the input or output device.
+    static void setProperties(DOMString id,
+                              DeviceProperties properties,
+                              SetPropertiesCallback callback);
+     };
+
+  interface Events {
+    // Fired when anything changes to the audio device configuration.
+    static void onDeviceChanged();
+
+    // Fired when sound level changes for an active audio device.
+    // |id|: id of the audio device.
+    // |level|: new sound level of device(volume for output, gain for input).
+    static void OnLevelChanged(DOMString id, long level);
+
+    // Fired when the mute state of the audio input or output changes.
+    // |isInput|: true indicating audio input; false indicating audio output.
+    // |isMuted|: new value of mute state.
+    static void OnMuteChanged(boolean isInput, boolean isMuted);
+
+    // Fired when audio devices change, either new devices being added, or
+    // existing devices being removed.
+    // |devices|: List of all present audio devices after the change.
+    static void OnDevicesChanged(AudioDeviceInfo[] devices);
+  };
+};

@@ -1,0 +1,319 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+
+assert(!is_android || enable_plugins,
+       "//ppapi should not be referenced when is_android && !enable_plugins")
+
+if (is_mac) {
+  import("//build/config/mac/rules.gni")
+}
+
+copy("copy_test_files") {
+  visibility = [ ":*" ]
+  sources = [
+    # Keep "test_case.html.mock-http-headers" with "test_case.html".
+    "tests/test_case.html",
+    "tests/test_case.html.mock-http-headers",
+    "tests/test_page.css",
+    "tests/test_page.css.mock-http-headers",
+  ]
+  outputs = [
+    "$root_out_dir/{{source_file_part}}",
+  ]
+}
+
+copy("copy_test_files2") {
+  visibility = [ ":*" ]
+  sources = [
+    "tests/test_url_loader_data/hello.txt",
+  ]
+  outputs = [
+    "$root_out_dir/test_url_loader_data/{{source_file_part}}",
+  ]
+}
+
+import("//build/config/features.gni")
+import("//build/config/nacl/config.gni")
+import("//build/config/nacl/rules.gni")
+import("//ppapi/ppapi_sources.gni")
+import("//testing/test.gni")
+
+source_set("ppapi_tests_sources") {
+  sources = ppapi_sources.test_common_source_files +
+            ppapi_sources.test_trusted_source_files
+
+  configs += [
+    "//build/config:precompiled_headers",
+    "//v8:external_startup_data",
+  ]
+
+  defines = [ "GL_GLEXT_PROTOTYPES" ]
+  include_dirs = [ "lib/gl/include" ]
+
+  deps = [
+    ":copy_test_files",
+    ":copy_test_files2",
+    "//build/config/sanitizers:deps",
+    "//ppapi/cpp",
+    "//ppapi/shared_impl",
+  ]
+}
+
+if (!is_mac) {
+  shared_library("ppapi_tests") {
+    deps = [
+      ":ppapi_tests_sources",
+    ]
+  }
+} else {
+  mac_plugin_bundle("ppapi_tests") {
+    deps = [
+      ":ppapi_tests_sources",
+    ]
+  }
+}
+
+source_set("power_saver_test_plugin_sources") {
+  sources = [
+    "tests/power_saver_test_plugin.cc",
+    "tests/test_utils.cc",
+  ]
+
+  deps = [
+    "//build/config/sanitizers:deps",
+    "//ppapi/cpp",
+    "//ppapi/shared_impl",
+  ]
+}
+
+if (!is_mac) {
+  shared_library("power_saver_test_plugin") {
+    deps = [
+      ":power_saver_test_plugin_sources",
+    ]
+  }
+} else {
+  mac_plugin_bundle("power_saver_test_plugin") {
+    deps = [
+      ":power_saver_test_plugin_sources",
+    ]
+  }
+}
+
+source_set("blink_deprecated_test_plugin_sources") {
+  sources = [
+    "tests/blink_deprecated_test_plugin.cc",
+  ]
+
+  deps = [
+    "//base",
+    "//build/config/sanitizers:deps",
+    "//ppapi/cpp",
+    "//ppapi/shared_impl",
+  ]
+}
+
+if (!is_mac) {
+  loadable_module("blink_deprecated_test_plugin") {
+    deps = [
+      ":blink_deprecated_test_plugin_sources",
+    ]
+  }
+} else {
+  mac_plugin_bundle("blink_deprecated_test_plugin") {
+    deps = [
+      ":blink_deprecated_test_plugin_sources",
+    ]
+  }
+}
+
+source_set("blink_test_plugin_sources") {
+  sources = [
+    "tests/blink_test_plugin.cc",
+  ]
+
+  deps = [
+    "//base",
+    "//build/config/sanitizers:deps",
+    "//ppapi/cpp",
+    "//ppapi/shared_impl",
+  ]
+}
+
+if (!is_mac) {
+  loadable_module("blink_test_plugin") {
+    deps = [
+      ":blink_test_plugin_sources",
+    ]
+  }
+} else {
+  mac_plugin_bundle("blink_test_plugin") {
+    deps = [
+      ":blink_test_plugin_sources",
+    ]
+  }
+}
+
+test("ppapi_unittests") {
+  sources = [
+    "host/resource_message_filter_unittest.cc",
+    "proxy/device_enumeration_resource_helper_unittest.cc",
+    "proxy/file_chooser_resource_unittest.cc",
+    "proxy/file_system_resource_unittest.cc",
+    "proxy/flash_resource_unittest.cc",
+    "proxy/interface_list_unittest.cc",
+    "proxy/mock_resource.cc",
+    "proxy/mock_resource.h",
+    "proxy/nacl_message_scanner_unittest.cc",
+    "proxy/pdf_resource_unittest.cc",
+    "proxy/plugin_dispatcher_unittest.cc",
+    "proxy/plugin_resource_tracker_unittest.cc",
+    "proxy/plugin_var_tracker_unittest.cc",
+    "proxy/ppb_var_unittest.cc",
+    "proxy/ppp_instance_private_proxy_unittest.cc",
+    "proxy/ppp_instance_proxy_unittest.cc",
+    "proxy/ppp_messaging_proxy_unittest.cc",
+    "proxy/printing_resource_unittest.cc",
+    "proxy/raw_var_data_unittest.cc",
+    "proxy/serialized_var_unittest.cc",
+    "proxy/tracked_callback_unittest.cc",
+    "proxy/video_decoder_resource_unittest.cc",
+    "proxy/video_encoder_resource_unittest.cc",
+    "proxy/websocket_resource_unittest.cc",
+    "shared_impl/media_stream_audio_track_shared_unittest.cc",
+    "shared_impl/media_stream_buffer_manager_unittest.cc",
+    "shared_impl/media_stream_video_track_shared_unittest.cc",
+    "shared_impl/proxy_lock_unittest.cc",
+    "shared_impl/resource_tracker_unittest.cc",
+    "shared_impl/thread_aware_callback_unittest.cc",
+    "shared_impl/time_conversion_unittest.cc",
+    "shared_impl/var_tracker_unittest.cc",
+  ]
+
+  deps = [
+    "//base/test:test_support",
+    "//gpu/ipc/common:command_buffer_traits",
+    "//ipc",
+    "//ipc:run_all_unittests",
+    "//ipc:test_support",
+    "//media:shared_memory_support",
+    "//ppapi/host",
+    "//ppapi/proxy",
+    "//ppapi/proxy:test_support",
+    "//ppapi/shared_impl",
+    "//ppapi/shared_impl:test_support",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/surface",
+  ]
+}
+
+test("ppapi_perftests") {
+  sources = [
+    "proxy/ppapi_perftests.cc",
+    "proxy/ppp_messaging_proxy_perftest.cc",
+  ]
+
+  deps = [
+    "//base/test:test_support",
+    "//mojo/edk/system",
+    "//ppapi/proxy",
+    "//ppapi/proxy:test_support",
+    "//ppapi/shared_impl",
+    "//ppapi/shared_impl:test_support",
+    "//testing/gtest",
+  ]
+}
+
+executable("pepper_hash_for_uma") {
+  sources = [
+    "tools/pepper_hash_for_uma.cc",
+  ]
+
+  deps = [
+    "//base",
+    "//build/config/sanitizers:deps",
+    "//build/win:default_exe_manifest",
+  ]
+}
+
+if (is_nacl_glibc) {
+  shared_library("ppapi_cpp_lib") {
+    # When using gcc, we hide all symbols by default, but that breaks at
+    # link time as the test executable requires symbols defined in the
+    # shared library.
+    configs -= [ "//build/config/gcc:symbol_visibility_hidden" ]
+    configs += [ "//build/config/gcc:symbol_visibility_default" ]
+
+    sources = ppapi_sources.cpp_source_files
+    sources += [
+      "cpp/module_embedder.h",
+      "cpp/ppp_entrypoints.cc",
+    ]
+    cflags = [ "-fPIC" ]
+    deps = [
+      "//build/config/nacl:nacl_base",
+    ]
+  }
+} else {
+  static_library("ppapi_cpp_lib") {
+    # This library is distributed as a part of the SDK and as such has to
+    # be a static library rather than a source set.
+    sources = ppapi_sources.cpp_source_files
+    sources += [
+      "cpp/module_embedder.h",
+      "cpp/ppp_entrypoints.cc",
+    ]
+    deps = [
+      "//build/config/nacl:nacl_base",
+    ]
+  }
+}
+
+source_set("ppapi_gles2_lib") {
+  include_dirs = [ "lib/gl/include" ]
+  sources = [
+    "lib/gl/gles2/gl2ext_ppapi.c",
+    "lib/gl/gles2/gl2ext_ppapi.h",
+    "lib/gl/gles2/gles2.c",
+  ]
+  deps = [
+    "//ppapi/cpp",
+  ]
+}
+
+if (enable_nacl) {
+  import("//ppapi/native_client/nacl_test_data.gni")
+
+  if (is_nacl) {
+    nacl_test_data("ppapi_nacl_tests") {
+      include_dirs = [ "lib/gl/include" ]
+      sources = ppapi_sources.test_common_source_files +
+                ppapi_sources.test_nacl_source_files
+      defines = [
+        "GL_GLEXT_PROTOTYPES",
+        "PPAPI_TEST_IMPLEMENTATION",
+      ]
+      deps = [
+        ":ppapi_cpp_lib",
+      ]
+      if (current_cpu == "pnacl") {
+        pretranslate_pexe = true
+      }
+    }
+  }
+
+  group("ppapi_nacl_tests_all") {
+    data_deps = [
+      ":copy_test_files",
+      ":ppapi_nacl_tests(//build/toolchain/nacl:clang_newlib_${target_cpu})",
+      ":ppapi_nacl_tests(//build/toolchain/nacl:glibc_${target_cpu})",
+      ":ppapi_nacl_tests(//build/toolchain/nacl:newlib_pnacl)",
+      ":ppapi_nacl_tests(//build/toolchain/nacl:newlib_pnacl_nonsfi)",
+    ]
+  }
+}

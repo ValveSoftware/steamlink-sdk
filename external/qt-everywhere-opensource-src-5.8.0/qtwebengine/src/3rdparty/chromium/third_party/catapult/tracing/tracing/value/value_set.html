@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<!--
+Copyright 2016 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/base/iteration_helpers.html">
+<link rel="import" href="/tracing/value/numeric.html">
+<link rel="import" href="/tracing/value/unit.html">
+<link rel="import" href="/tracing/value/value.html">
+
+<script>
+'use strict';
+
+tr.exportTo('tr.v', function() {
+  var SUMMARY_VALUE_MAP_DIAGNOSTIC_NAME = 'summary values';
+  var ITERATION_INFO_DIAGNOSTIC_NAME = 'iteration';
+
+  function ValueSet(opt_values) {
+    this.values_ = {};
+
+    if (opt_values !== undefined)
+      opt_values.forEach(this.addValue, this);
+  }
+
+  ValueSet.prototype = {
+    get valueDicts() {
+      return this.map(function(v) {
+        return v.asDict();
+      });
+    },
+
+    lookup: function(guid) {
+      return this.values_[guid];
+    },
+
+    /**
+     * @param {!function(!tr.v.Value):*} callback
+     * @param {*=} opt_this
+     */
+    map: function(callback, opt_this) {
+      return tr.b.dictionaryValues(this.values_).map(
+          callback, opt_this || this);
+    },
+
+    get organizedByName() {
+      return this.getValuesOrganizedByCallback(function(value) {
+        return value.name;
+      });
+    },
+
+    /**
+     * @param {!function(!tr.v.Value):*} callback
+     * @param {*=} opt_this
+     * @return {!Object}
+     */
+    getValuesOrganizedByCallback: function(callback, opt_this) {
+      var valuesByCallback = {};
+      tr.b.iterItems(this.values_, function(guid, value) {
+        var key = callback.call(opt_this || this, value);
+        if (key === undefined)
+          return;
+        if (valuesByCallback[key] === undefined)
+          valuesByCallback[key] = [];
+        valuesByCallback[key].push(value);
+      });
+      return valuesByCallback;
+    },
+
+    /**
+     * Convert Values from dicts and add them.
+     * Resolve RelatedValueSet references.
+     *
+     * @param {Array.<Object>} dicts
+     */
+    addValuesFromDicts: function(dicts) {
+      dicts.forEach(function(dict) {
+        var value = tr.v.Value.fromDict(dict);
+        this.addValue(value);
+      }, this);
+
+      // Now resolve the RelatedValueSet references between values.
+      // This resolution process must wait until all new values are added in
+      // case a value refers to another that comes after it in dicts.
+      // Iterate over all values, old and new, in case an old value contained a
+      // reference to a new value. Don't worry, resolve() is idempotent.
+      // The expected running time is this: for each value (hundreds to
+      // thousands?), for each diagnostic that is a RelatedValueSet (0-5?), for
+      // each ValueRef (0-10?), do a hash lookup (constant time?).
+      tr.b.iterItems(this.values_, function(guid, value) {
+        value.diagnostics.forEach(function(name, diagnostic) {
+          if ((diagnostic instanceof tr.v.d.RelatedValueSet) ||
+              (diagnostic instanceof tr.v.d.RelatedValueMap))
+            diagnostic.resolve(this);
+        }, this);
+      }, this);
+    },
+
+    /**
+     * Find the Values that are not contained in any other Values'
+     * RelatedValueSet or RelatedValueMap diagnostics.
+     *
+     * @return {!Array.<!tr.v.Value>}
+     */
+    get sourceValues() {
+      var sourceValues = tr.b.cloneDictionary(this.values_);
+      // If a Value is in a RelatedValueSet or RelatedValueMap, then it is not a
+      // source Value.
+      this.map(function(value) {
+        value.diagnostics.forEach(function(name, diagnostic) {
+          if ((diagnostic instanceof tr.v.d.RelatedValueSet) ||
+              (diagnostic instanceof tr.v.d.RelatedValueMap)) {
+            diagnostic.values.forEach(function(relatedValue) {
+              delete sourceValues[relatedValue.guid];
+            });
+          }
+        }, this);
+      }, this);
+      return tr.b.dictionaryValues(sourceValues);
+    },
+
+    getValuesWithName: function(name) {
+      return tr.b.dictionaryValues(this.values_).filter(function(value) {
+        return value.name.indexOf(name) > -1;
+      });
+    },
+
+    addValue: function(v) {
+      if (this.values_[v.guid]) {
+        var err = new Error('Tried to add same value twice');
+        err.name = 'ValueError';
+        throw err;
+      }
+
+      this.values_[v.guid] = v;
+
+      if (v.numeric instanceof tr.v.Numeric) {
+        ValueSet.computeSummaryValuesForNumericValue(v).forEach(function(s) {
+          this.addValue(s);
+        }, this);
+      }
+    }
+  };
+
+  ValueSet.computeSummaryValuesForNumericValue = function(value) {
+    if (!(value instanceof tr.v.NumericValue &&
+          value.numeric instanceof tr.v.Numeric))
+      throw new Error('Tried to compute summary values for non-numeric');
+
+    var summaryValueMap = new tr.v.d.RelatedValueMap();
+    value.diagnostics.add(SUMMARY_VALUE_MAP_DIAGNOSTIC_NAME, summaryValueMap);
+    var options = {description: value.description};
+    var stats = value.numeric.getSummarizedScalarNumericsWithNames();
+    return stats.map(function(stat) {
+      var summaryValue = new tr.v.NumericValue(
+          value.name + '_' + stat.name, stat.scalar, options);
+      summaryValueMap.set(stat.name, summaryValue);
+      return summaryValue;
+    });
+  };
+
+  return {
+    SUMMARY_VALUE_MAP_DIAGNOSTIC_NAME: SUMMARY_VALUE_MAP_DIAGNOSTIC_NAME,
+    ITERATION_INFO_DIAGNOSTIC_NAME: ITERATION_INFO_DIAGNOSTIC_NAME,
+    ValueSet: ValueSet
+  };
+});
+</script>

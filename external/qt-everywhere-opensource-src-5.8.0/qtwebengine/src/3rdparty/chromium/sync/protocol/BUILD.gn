@@ -1,0 +1,28 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/protobuf/proto_library.gni")
+import("protocol_sources.gni")
+
+# This must be a component for the dependency structure we have now, but the
+# proto_library generates a source set. Link those into a component.
+component("protocol") {
+  public_deps = [
+    ":protocol_internal",
+  ]
+}
+
+proto_library("protocol_internal") {
+  visibility = [ ":protocol" ]
+
+  sources = sync_protocol_sources
+
+  cc_generator_options = "dllexport_decl=SYNC_PROTO_EXPORT:"
+  cc_include = "sync/protocol/sync_proto_export.h"
+  component_build_force_source_set = true
+
+  defines = [ "SYNC_PROTO_IMPLEMENTATION" ]
+
+  extra_configs = [ "//build/config/compiler:wexit_time_destructors" ]
+}

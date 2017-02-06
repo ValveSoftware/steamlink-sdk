@@ -1,0 +1,96 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//testing/test.gni")
+
+assert(use_aura)
+
+component("presenter") {
+  sources = [
+    "app_list_presenter.h",
+    "app_list_presenter_delegate.cc",
+    "app_list_presenter_delegate.h",
+    "app_list_presenter_delegate_factory.h",
+    "app_list_presenter_export.h",
+    "app_list_presenter_impl.cc",
+    "app_list_presenter_impl.h",
+    "app_list_view_delegate_factory.cc",
+    "app_list_view_delegate_factory.h",
+  ]
+
+  defines = [ "APP_LIST_PRESENTER_IMPLEMENTATION" ]
+
+  public_deps = [
+    "//base",
+    "//ui/app_list",
+    "//ui/aura",
+    "//ui/compositor",
+    "//ui/gfx/geometry",
+    "//ui/views",
+
+    # Temporary dependency to fix compile flake in http://crbug.com/611898.
+    # TODO(tapted): Remove once http://crbug.com/612382 is fixed.
+    "//ui/accessibility:ax_gen",
+  ]
+}
+
+mojom("mojom") {
+  sources = [
+    "app_list_presenter.mojom",
+  ]
+  deps = [
+    "//components/mus/public/interfaces",
+  ]
+}
+
+source_set("test_support") {
+  sources = [
+    "test/app_list_presenter_impl_test_api.cc",
+    "test/app_list_presenter_impl_test_api.h",
+
+    # Temporary dependency to fix compile flake in http://crbug.com/611898.
+    # TODO(tapted): Remove once http://crbug.com/612382 is fixed.
+    "//ui/accessibility:ax_gen",
+  ]
+
+  public_deps = [
+    ":presenter",
+  ]
+  deps = [
+    "//base",
+  ]
+}
+
+test("app_list_presenter_unittests") {
+  sources = [
+    "app_list_presenter_impl_unittest.cc",
+    "test/run_all_unittests.cc",
+  ]
+
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  deps = [
+    ":presenter",
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//testing/gtest",
+    "//ui/app_list:test_support",
+    "//ui/aura:aura",
+    "//ui/aura:test_support",
+    "//ui/base",
+    "//ui/gl:test_support",
+    "//ui/wm:wm",
+
+    # Temporary dependency to fix compile flake in http://crbug.com/611898.
+    # TODO(tapted): Remove once http://crbug.com/612382 is fixed.
+    "//ui/accessibility:ax_gen",
+  ]
+
+  data_deps = [
+    "//ui/resources:ui_test_pak_data",
+  ]
+}

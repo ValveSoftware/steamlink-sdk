@@ -1,0 +1,65 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/mojo_application.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//testing/test.gni")
+
+executable("standalone") {
+  output_name = "mojo_runner"
+  sources = [
+    "desktop/main.cc",
+  ]
+  deps = [
+    ":lib",
+    "//base",
+    "//build/config/sanitizers:deps",
+    "//build/win:default_exe_manifest",
+  ]
+}
+
+source_set("lib") {
+  sources = [
+    "desktop/launcher_process.cc",
+    "desktop/launcher_process.h",
+    "desktop/main_helper.cc",
+    "desktop/main_helper.h",
+    "tracer.cc",
+    "tracer.h",
+  ]
+
+  deps = [
+    "//base",
+    "//base:base_static",
+    "//base/third_party/dynamic_annotations",
+    "//components/tracing:startup_tracing",
+    "//mojo/edk/system",
+    "//services/catalog:lib",
+    "//services/shell",
+    "//services/shell/public/cpp",
+    "//services/shell/runner/host:lib",
+    "//services/tracing/public/cpp",
+    "//services/tracing/public/interfaces",
+    "//url",
+  ]
+
+  data_deps = [
+    "//services/tracing",
+  ]
+
+  if (!is_ios) {
+    sources += [
+      "context.cc",
+      "context.h",
+    ]
+  }
+
+  # This target includes some files behind #ifdef OS... guards. Since gn is not
+  # smart enough to understand preprocess includes, it does complains about
+  # these includes when not using the build files for that OS. Suppress checking
+  # so we can enable checking for the rest of the targets in this file.
+  # TODO: Might be better to split the files with OS-specific includes out to a
+  # separate source_set so we can leave checking on for the rest of the target.
+  check_includes = false
+}

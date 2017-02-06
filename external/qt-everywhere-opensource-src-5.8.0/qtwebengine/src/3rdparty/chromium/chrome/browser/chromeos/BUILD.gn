@@ -1,0 +1,229 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//chrome/chrome_tests.gni")
+import("//media/media_options.gni")
+import("//third_party/protobuf/proto_library.gni")
+
+assert(is_chromeos)
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("../../chrome_browser_chromeos.gypi") ],
+                          "scope",
+                          [ "../../chrome_browser_chromeos.gypi" ])
+
+source_set("chromeos") {
+  assert(enable_extensions, "ChromeOS Chrome has to be built with extensions")
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  public_deps = [
+    "//ash/resources",
+    "//ash/strings",
+    "//chrome:extra_resources",
+    "//chrome:resources",
+    "//chrome:strings",
+    "//chrome/app/resources:platform_locale_settings",
+    "//chrome/app/theme:theme_resources",
+    "//components/wallpaper",
+    "//content/app/resources",
+    "//ui/chromeos/resources",
+    "//ui/chromeos/strings",
+    "//ui/resources",
+    "//ui/strings",
+  ]
+
+  deps = [
+    # TODO(tbarzic): Cleanup this list.
+    ":attestation_proto",
+    ":device_policy_proto",
+    "//ash",
+    "//ash:ash_with_content",
+    "//ash/public/interfaces",
+    "//ash/sysui/public/interfaces",
+    "//build/linux:fontconfig",
+    "//chrome/browser/devtools",
+    "//chrome/browser/extensions",
+    "//chrome/browser/safe_browsing:chunk_proto",
+    "//chrome/common",
+    "//chrome/common/extensions/api",
+    "//chrome/common/extensions/api:api_registration",
+    "//chrome/common/net",
+    "//chrome/common/safe_browsing:proto",
+    "//chrome/installer/util:with_no_strings",
+    "//chromeos",
+    "//chromeos:cryptohome_proto",
+    "//chromeos:cryptohome_signkey_proto",
+    "//chromeos:power_manager_proto",
+    "//components/arc",
+    "//components/certificate_reporting:cert_logger_proto",
+    "//components/certificate_reporting:encrypted_cert_logger_proto",
+    "//components/drive",
+    "//components/drive:drive_chromeos",
+    "//components/feedback",
+    "//components/flags_ui",
+    "//components/login",
+    "//components/onc",
+    "//components/ownership",
+    "//components/pairing",
+    "//components/policy",
+    "//components/proxy_config",
+    "//components/safe_browsing_db:metadata_proto",
+    "//components/session_manager/core",
+    "//components/user_manager",
+    "//components/wifi_sync",
+
+    # This depends directly on the variations target, rather than just
+    # transitively via the common target because the proto sources need to
+    # be generated before code in this target can start building.
+    "//components/resources",
+    "//components/strings",
+    "//components/variations",
+    "//content/public/browser",
+    "//content/public/common",
+    "//crypto",
+    "//dbus",
+    "//device/bluetooth",
+    "//device/hid",
+    "//mash/public/interfaces",
+    "//media",
+    "//media/mojo/interfaces",
+    "//mojo/common",
+    "//net",
+    "//ppapi/proxy:ipc",  # For PpapiMsg_LoadPlugin
+    "//services/shell/public/cpp",
+
+    # TODO: care about enable_basic_printing and enable_print_preview.
+    "//printing",
+    "//skia",
+    "//storage/browser",
+    "//storage/common",
+    "//sync",
+    "//third_party/adobe/flash:flapper_version_h",
+    "//third_party/cacheinvalidation",
+    "//third_party/icu",
+    "//third_party/leveldatabase",
+    "//third_party/libjingle",
+    "//third_party/libusb",
+    "//third_party/protobuf:protobuf_lite",
+    "//third_party/protobuf:protoc($host_toolchain)",
+    "//third_party/re2",
+    "//third_party/zlib",
+    "//ui/app_list",
+    "//ui/app_list/presenter:mojom",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/chromeos:ui_chromeos",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events/devices",
+    "//ui/events/platform",
+    "//ui/file_manager",
+    "//ui/keyboard:mojom",
+    "//ui/message_center",
+    "//ui/surface",
+    "//ui/views",
+    "//ui/views/controls/webview",
+    "//ui/web_dialogs",
+    "//url",
+    "//v8",
+  ]
+
+  defines = [ "MOJO_SHELL_CLIENT" ]
+
+  sources = rebase_path(gypi_values.browser_chromeos_sources, ".", "//chrome") +
+            rebase_path(gypi_values.browser_chromeos_extension_sources,
+                        ".",
+                        "//chrome")
+  sources += [
+    "chrome_interface_factory.cc",
+    "chrome_interface_factory.h",
+  ]
+  if (use_x11) {
+    configs += [ "//build/config/linux:x11" ]
+    deps += [
+      "//ui/events/devices",
+      "//ui/events/devices/x11",
+    ]
+    sources -= [
+      "system/input_device_settings_impl_ozone.cc",
+      "system_logs/touch_log_source_ozone.cc",
+    ]
+  } else {
+    assert(use_ozone, "Either use_x11 or use_ozone has to be specified.")
+    deps += [ "//ui/ozone" ]
+    sources -= [
+      "device_uma.cc",
+      "device_uma.h",
+      "events/system_key_event_listener.cc",
+      "events/system_key_event_listener.h",
+      "events/xinput_hierarchy_changed_event_listener.cc",
+      "events/xinput_hierarchy_changed_event_listener.h",
+      "system/input_device_settings_impl_x11.cc",
+      "system_logs/touch_log_source_x11.cc",
+    ]
+  }
+
+  if (use_cras) {
+    defines += [ "USE_CRAS" ]
+  }
+
+  if (ui_compositor_image_transport) {
+    deps += [ "//ui/gl" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = rebase_path(
+          chrome_tests_unit_gypi_values.chrome_unit_tests_chromeos_sources +
+              chrome_tests_unit_gypi_values.chrome_unit_tests_arc_sources,
+          ".",
+          "//chrome")
+
+  public_deps = [
+    ":chromeos",
+  ]
+  deps = [
+    ":attestation_proto",
+    ":device_policy_proto",
+    "//ash/resources",
+    "//components/drive",
+    "//components/drive:test_support_chromeos",
+    "//components/invalidation/public",
+    "//components/policy",
+    "//components/resources",
+    "//crypto:platform",
+    "//dbus",
+    "//mojo/public/cpp/system:system",
+    "//skia",
+    "//sync",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/icu",
+    "//third_party/leveldatabase",
+    "//ui/chromeos/resources",
+  ]
+  data = [
+    "//chromeos/test/data/",
+  ]
+}
+
+proto_library("device_policy_proto") {
+  sources = [
+    "policy/proto/chrome_device_policy.proto",
+    "policy/proto/install_attributes.proto",
+  ]
+}
+
+proto_library("attestation_proto") {
+  sources = [
+    "attestation/attestation_key_payload.proto",
+    "attestation/attestation_signed_data.proto",
+  ]
+}

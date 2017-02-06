@@ -1,0 +1,378 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/linux/pkg_config.gni")
+import("//media/media_options.gni")
+
+# When libpulse is not directly linked, use stubs to allow for dlopening of the
+# binary.
+if (!link_pulseaudio) {
+  action("pulse_generate_stubs") {
+    extra_header = "pulse/pulse_stub_header.fragment"
+
+    script = "../../tools/generate_stubs/generate_stubs.py"
+    sources = [
+      "pulse/pulse.sigs",
+    ]
+    inputs = [
+      extra_header,
+    ]
+    stubs_filename_root = "pulse_stubs"
+
+    # TODO(ajwong): these need to be included in the pulse build.
+    outputs = [
+      "$target_gen_dir/pulse/$stubs_filename_root.cc",
+      "$target_gen_dir/pulse/$stubs_filename_root.h",
+    ]
+    args = [
+      "-i",
+      rebase_path("$target_gen_dir/pulse", root_build_dir),
+      "-o",
+      rebase_path("$target_gen_dir/pulse", root_build_dir),
+      "-t",
+      "posix_stubs",
+      "-e",
+      rebase_path(extra_header, root_build_dir),
+      "-s",
+      stubs_filename_root,
+      "-p",
+      "media/audio/pulse",
+    ]
+
+    args += rebase_path(sources, root_build_dir)
+  }
+}
+
+config("platform_config") {
+  if (use_alsa) {
+    defines = [ "USE_ALSA" ]
+  }
+}
+
+source_set("audio") {
+  visibility = [ "//media/*" ]
+  sources = [
+    "agc_audio_stream.h",
+    "audio_device_description.cc",
+    "audio_device_description.h",
+    "audio_device_name.cc",
+    "audio_device_name.h",
+    "audio_device_thread.cc",
+    "audio_device_thread.h",
+    "audio_input_controller.cc",
+    "audio_input_controller.h",
+    "audio_input_device.cc",
+    "audio_input_device.h",
+    "audio_input_ipc.cc",
+    "audio_input_ipc.h",
+    "audio_io.h",
+    "audio_manager.cc",
+    "audio_manager.h",
+    "audio_manager_base.cc",
+    "audio_manager_base.h",
+    "audio_output_controller.cc",
+    "audio_output_controller.h",
+    "audio_output_device.cc",
+    "audio_output_device.h",
+    "audio_output_dispatcher.cc",
+    "audio_output_dispatcher.h",
+    "audio_output_dispatcher_impl.cc",
+    "audio_output_dispatcher_impl.h",
+    "audio_output_ipc.cc",
+    "audio_output_ipc.h",
+    "audio_output_proxy.cc",
+    "audio_output_proxy.h",
+    "audio_output_resampler.cc",
+    "audio_output_resampler.h",
+    "audio_output_stream_sink.cc",
+    "audio_output_stream_sink.h",
+    "audio_power_monitor.cc",
+    "audio_power_monitor.h",
+    "audio_source_diverter.h",
+    "audio_streams_tracker.cc",
+    "audio_streams_tracker.h",
+    "clockless_audio_sink.cc",
+    "clockless_audio_sink.h",
+    "fake_audio_input_stream.cc",
+    "fake_audio_input_stream.h",
+    "fake_audio_log_factory.cc",
+    "fake_audio_log_factory.h",
+    "fake_audio_manager.cc",
+    "fake_audio_manager.h",
+    "fake_audio_output_stream.cc",
+    "fake_audio_output_stream.h",
+    "fake_audio_worker.cc",
+    "fake_audio_worker.h",
+    "null_audio_sink.cc",
+    "null_audio_sink.h",
+    "sample_rates.cc",
+    "sample_rates.h",
+    "scoped_task_runner_observer.cc",
+    "scoped_task_runner_observer.h",
+    "simple_sources.cc",
+    "simple_sources.h",
+    "sounds/audio_stream_handler.cc",
+    "sounds/audio_stream_handler.h",
+    "sounds/sounds_manager.cc",
+    "sounds/sounds_manager.h",
+    "sounds/wav_audio_handler.cc",
+    "sounds/wav_audio_handler.h",
+    "virtual_audio_input_stream.cc",
+    "virtual_audio_input_stream.h",
+    "virtual_audio_output_stream.cc",
+    "virtual_audio_output_stream.h",
+    "virtual_audio_sink.cc",
+    "virtual_audio_sink.h",
+  ]
+  deps = [
+    "//base",
+    "//media:shared_memory_support",
+    "//media/base",
+    "//url",
+  ]
+  libs = []
+  configs += [
+    ":platform_config",
+    "//media:media_config",
+    "//media:media_implementation",
+  ]
+
+  if (is_mac) {
+    sources += [
+      "mac/audio_auhal_mac.cc",
+      "mac/audio_auhal_mac.h",
+      "mac/audio_device_listener_mac.cc",
+      "mac/audio_device_listener_mac.h",
+      "mac/audio_input_mac.cc",
+      "mac/audio_input_mac.h",
+      "mac/audio_low_latency_input_mac.cc",
+      "mac/audio_low_latency_input_mac.h",
+      "mac/audio_manager_mac.cc",
+      "mac/audio_manager_mac.h",
+    ]
+    libs += [
+      "AudioToolbox.framework",
+      "AudioUnit.framework",
+      "CoreAudio.framework",
+    ]
+  }
+
+  if (is_win) {
+    sources += [
+      "win/audio_device_listener_win.cc",
+      "win/audio_device_listener_win.h",
+      "win/audio_low_latency_input_win.cc",
+      "win/audio_low_latency_input_win.h",
+      "win/audio_low_latency_output_win.cc",
+      "win/audio_low_latency_output_win.h",
+      "win/audio_manager_win.cc",
+      "win/audio_manager_win.h",
+      "win/avrt_wrapper_win.cc",
+      "win/avrt_wrapper_win.h",
+      "win/core_audio_util_win.cc",
+      "win/core_audio_util_win.h",
+      "win/device_enumeration_win.cc",
+      "win/device_enumeration_win.h",
+      "win/wavein_input_win.cc",
+      "win/wavein_input_win.h",
+      "win/waveout_output_win.cc",
+      "win/waveout_output_win.h",
+    ]
+
+    libs += [
+      "dxguid.lib",
+      "setupapi.lib",
+      "winmm.lib",
+    ]
+  }
+
+  if (is_android) {
+    sources += [
+      "android/audio_manager_android.cc",
+      "android/audio_manager_android.h",
+      "android/audio_record_input.cc",
+      "android/audio_record_input.h",
+      "android/opensles_input.cc",
+      "android/opensles_input.h",
+      "android/opensles_output.cc",
+      "android/opensles_output.h",
+      "android/opensles_util.cc",
+      "android/opensles_util.h",
+      "android/opensles_wrapper.cc",
+    ]
+    deps += [ "//media/base/android:media_jni_headers" ]
+  }
+
+  if (is_linux) {
+    sources += [ "linux/audio_manager_linux.cc" ]
+  }
+
+  if (use_alsa) {
+    libs += [ "asound" ]
+    sources += [
+      "alsa/alsa_input.cc",
+      "alsa/alsa_input.h",
+      "alsa/alsa_output.cc",
+      "alsa/alsa_output.h",
+      "alsa/alsa_util.cc",
+      "alsa/alsa_util.h",
+      "alsa/alsa_wrapper.cc",
+      "alsa/alsa_wrapper.h",
+      "alsa/audio_manager_alsa.cc",
+      "alsa/audio_manager_alsa.h",
+    ]
+  }
+
+  if (use_cras) {
+    sources += [
+      "cras/audio_manager_cras.cc",
+      "cras/audio_manager_cras.h",
+      "cras/cras_input.cc",
+      "cras/cras_input.h",
+      "cras/cras_unified.cc",
+      "cras/cras_unified.h",
+    ]
+    configs += [ ":libcras" ]
+    deps += [ "//chromeos:chromeos" ]
+  }
+
+  if (use_pulseaudio) {
+    sources += [
+      "pulse/audio_manager_pulse.cc",
+      "pulse/audio_manager_pulse.h",
+      "pulse/pulse_input.cc",
+      "pulse/pulse_input.h",
+      "pulse/pulse_output.cc",
+      "pulse/pulse_output.h",
+      "pulse/pulse_util.cc",
+      "pulse/pulse_util.h",
+    ]
+
+    if (link_pulseaudio) {
+      configs += [ ":libpulse" ]
+    } else {
+      # TODO(ajwong): Technically, this dl should go in the action.
+      libs += [ "dl" ]
+      deps += [ ":pulse_generate_stubs" ]
+      sources += get_target_outputs(":pulse_generate_stubs")
+    }
+  }
+
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+}
+
+if (use_cras) {
+  pkg_config("libcras") {
+    packages = [ "libcras" ]
+  }
+}
+
+if (use_pulseaudio && link_pulseaudio) {
+  pkg_config("libpulse") {
+    packages = [ "libpulse" ]
+  }
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "audio_unittest_util.cc",
+    "audio_unittest_util.h",
+    "mock_audio_manager.cc",
+    "mock_audio_manager.h",
+    "mock_audio_source_callback.cc",
+    "mock_audio_source_callback.h",
+    "test_audio_input_controller_factory.cc",
+    "test_audio_input_controller_factory.h",
+  ]
+  configs += [ ":platform_config" ]
+  deps = [
+    "//base",
+    "//media",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+  configs += [ "//media:media_config" ]
+}
+
+source_set("unittests") {
+  testonly = true
+  sources = [
+    "audio_input_controller_unittest.cc",
+    "audio_input_unittest.cc",
+    "audio_manager_unittest.cc",
+    "audio_output_controller_unittest.cc",
+    "audio_output_device_unittest.cc",
+    "audio_output_proxy_unittest.cc",
+    "audio_power_monitor_unittest.cc",
+    "audio_streams_tracker_unittest.cc",
+    "fake_audio_worker_unittest.cc",
+    "simple_sources_unittest.cc",
+    "virtual_audio_input_stream_unittest.cc",
+    "virtual_audio_output_stream_unittest.cc",
+  ]
+  deps = [
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//media",
+    "//media/base:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//url",
+  ]
+
+  configs += [
+    ":platform_config",
+    "//build/config/compiler:no_size_t_to_int_warning",
+    "//media:media_config",
+  ]
+
+  if (is_android) {
+    sources += [ "android/audio_android_unittest.cc" ]
+    deps += [ "//ui/gl" ]
+  }
+
+  if (is_mac) {
+    sources += [
+      "mac/audio_auhal_mac_unittest.cc",
+      "mac/audio_device_listener_mac_unittest.cc",
+      "mac/audio_low_latency_input_mac_unittest.cc",
+    ]
+  }
+
+  if (is_chromeos || is_chromecast) {
+    sources += [
+      "sounds/audio_stream_handler_unittest.cc",
+      "sounds/sounds_manager_unittest.cc",
+      "sounds/test_data.cc",
+      "sounds/test_data.h",
+      "sounds/wav_audio_handler_unittest.cc",
+    ]
+
+    if (use_cras) {
+      sources += [
+        "cras/cras_input_unittest.cc",
+        "cras/cras_unified_unittest.cc",
+      ]
+    }
+  }
+
+  if (is_win) {
+    sources += [
+      "win/audio_device_listener_win_unittest.cc",
+      "win/audio_low_latency_input_win_unittest.cc",
+      "win/audio_low_latency_output_win_unittest.cc",
+      "win/audio_output_win_unittest.cc",
+      "win/core_audio_util_win_unittest.cc",
+    ]
+  }
+
+  if (use_alsa) {
+    sources += [
+      "alsa/alsa_output_unittest.cc",
+      "audio_low_latency_input_output_unittest.cc",
+    ]
+  }
+}

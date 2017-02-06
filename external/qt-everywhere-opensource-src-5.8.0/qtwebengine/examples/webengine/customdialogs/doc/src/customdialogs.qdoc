@@ -1,0 +1,337 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webengine/customdialogs
+    \title WebEngine Qt Quick Custom Dialogs Example
+    \ingroup webengine-examples
+    \brief Customizes UI elements of Qt WebEngine's dialogs
+
+    \image customdialogs.png
+
+    A web page might request dialogs for various purposes, such as
+    authentication, picking colors, choosing files, and responding to JavaScript
+    alerts, confirmation requests, and prompts.
+
+    \e {Custom Dialogs} demonstrates how to use WebEngine dialog request objects
+    to implement custom dialogs for use instead of the default dialogs.
+
+    \include examples-run.qdocinc
+
+    \section1 UI Elements of WebEngineView
+
+    In this example, we create a simple \c index.html page that contains buttons
+    and text fields for triggering a context menu and the following dialogs:
+
+    \list
+        \li HTTP Authentication Dialog
+        \li Proxy Authentication Dialog
+        \li JavaScript Alert, Confirm, and Prompt Dialogs
+        \li Color Picker Dialog
+        \li File Picker Dialog
+        \li Form Validation Message
+    \endlist
+
+    \section1 Triggering Dialogs
+
+    The technical details on how the dialogs are triggered are beyond the scope
+    of this example. The only thing worth mentioning is that we fire up the
+    localhost TCP server when the example starts up. The server is needed to
+    get proxy and HTTP authentication requests.
+
+    \section1 Custom Dialogs
+
+    The custom dialogs are just \e {Qt Quick Designer UI Forms} without any
+    business logic. The point here is to present the glue code that is required
+    to display the custom dialog for a particular web engine dialog or a menu
+    request.
+
+    \section1 Creating the Main Window
+
+    In \c main.cpp, we initialize the WebEngine the same way as in the
+    \l {WebEngine Qt Quick Minimal Example}:
+
+    \quotefromfile webengine/customdialogs/main.cpp
+    \skipto main
+    \printuntil }
+
+    In addition, we set up a proxy and a TCP server to be able to simulate proxy
+    and HTTP authetication requests.
+
+    In \c main.qml, we create a top level window, which contains a StackView
+    with a SwitchButton and a WebView:
+
+    \quotefromfile webengine/customdialogs/main.qml
+    \skipto Window
+    \printuntil Component
+    \printuntil }
+    \printline }
+
+    \section1 Handling Web Engine Requests
+
+    In this example, we implement the handling of the following web engine
+    requests:
+
+    \list
+        \li ContextMenuRequest
+        \li AuthenticationDialogRequest
+        \li JavaScriptDialogRequest
+        \li ColorDialogRequest
+        \li FileDialogRequest
+        \li FormValidationMessageRequest
+    \endlist
+
+    \section2 Context Menu Requests
+
+    \l [QML]{ContextMenuRequest} is a request object that is passed as a
+    parameter of the WebEngineView::contextMenuRequested signal. We use the
+    \c onContextMenuRequested signal handler to handle requests for
+    \c #openMenu URL links:
+
+    \quotefromfile webengine/customdialogs/WebView.qml
+    \skipto WebEngineView
+    \printuntil {
+    \dots 4
+    \skipto onContextMenuRequested
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \dots 4
+    \skipuntil onFormValidationMessageRequested
+    \skipuntil }
+    \skipuntil }
+    \skipuntil }
+    \skipto }
+    \printline }
+
+    The first text field from the top on our page triggers the request. Next,
+    we check whether we should use the default menu. If not, we accept the
+    request and switch the view to show the \c MenuForm:
+
+     \image customdialogs-menu.png
+
+    \quotefromfile webengine/customdialogs/forms/Menu.qml
+    \skipto MenuForm
+    \printuntil }
+    \printuntil }
+
+    To keep things simple, we do not provide any logic on component completion,
+    and we simply close the form on any action.
+
+    \section2  Authentication Dialog Requests
+
+    \image customdialogs-auth1.png
+
+    \l [QML]{AuthenticationDialogRequest} is a request object that is passed
+    as a parameter of the WebEngineView::authenticationDialogRequested signal:
+
+    \quotefromfile webengine/customdialogs/WebView.qml
+    \skipto WebEngineView
+    \printuntil {
+    \dots 4
+    \skipto onAuthenticationDialogRequested
+    \printuntil }
+    \printuntil }
+    \dots 4
+    \skipuntil onFormValidationMessageRequested
+    \skipuntil }
+    \skipuntil }
+    \skipuntil }
+    \skipto }
+    \printline }
+
+    We use the \c onAuthenticationDialogRequested signal handler to check
+    whether we should use the default authentication dialog. If not, we accept
+    the request and switch the view to show the \c AuthenticationForm:
+
+    \image customdialogs-auth2.png
+
+    \quotefromfile webengine/customdialogs/forms/Authentication.qml
+    \skipto AuthenticationForm
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    On component completion, we log the request type. The user can fill in the
+    credentials and click \uicontrol Login. We provide \c onClicked handlers to
+    accept or reject the authentication dialog. The TCP server on localhost does
+    not handle real authentication, and therefore we call \c rejectDialog()
+    instead of \c acceptDialog() also for the login button \c clicked signal.
+
+    \section2  JavaScript Dialog Requests
+
+    \image customdialogs-prompt1.png
+
+    \l [QML]{JavaScriptDialogRequest} is a request object that is passed as a
+    parameter of the WebEngineView::javaScriptDialogRequested signal:
+
+    \quotefromfile webengine/customdialogs/WebView.qml
+    \skipto WebEngineView
+    \printuntil {
+    \dots 4
+    \skipto onJavaScriptDialogRequested
+    \printuntil }
+    \printuntil }
+    \dots 4
+    \skipuntil onFormValidationMessageRequested
+    \skipuntil }
+    \skipuntil }
+    \skipuntil }
+    \skipto }
+    \printline }
+
+    We use the \c onJavaScriptDialogRequested signal handler to check
+    whether we should use the default JavaScript dialog. If not, we accept the
+    request and switch the view to show the \c JavaScriptForm:
+
+    \image customdialogs-prompt2.png
+
+    \quotefromfile webengine/customdialogs/forms/JavaScript.qml
+    \skipto JavaScriptForm
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    On component completion, we customize the form based on the request type.
+    For a JavaScript prompt dialog we use \c dialogAccept() with the
+    \c prompt.text argument.
+
+    \section2  Color Dialog Requests
+
+    \image customdialogs-color1.png
+
+    \l [QML]{ColorDialogRequest} is a request object that is passed as a
+    parameter of the WebEngineView::colorDialogRequested signal:
+
+    \quotefromfile webengine/customdialogs/WebView.qml
+    \skipto WebEngineView
+    \printuntil {
+    \dots 4
+    \skipto onColorDialogRequested
+    \printuntil }
+    \printuntil }
+    \dots 4
+    \skipuntil onFormValidationMessageRequested
+    \skipuntil }
+    \skipuntil }
+    \skipuntil }
+    \skipto }
+    \printline }
+
+    We use the \c onColorDialogRequested signal handler to check whether
+    we should use the default color picker dialog. If not, we accept the request
+    and switch the view to show the \c ColorPickerForm:
+
+    \image customdialogs-color2.png
+
+    \quotefromfile webengine/customdialogs/forms/ColorPicker.qml
+    \skipto ColorPickerForm
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    On component completion, we create callbacks for all the color cells. When
+    the user selects the color and clicks \c OK, we pass the selected color to
+    the \c dialogAccept() method.
+
+    \section2  File Dialog Requests
+
+    \image customdialogs-file1.png
+
+    \l [QML]{FileDialogRequest} is a request object that is passed as a
+    parameter of the WebEngineView::fileDialogRequested signal:
+
+    \quotefromfile webengine/customdialogs/WebView.qml
+    \skipto WebEngineView
+    \printuntil {
+    \dots 4
+    \skipto onFileDialogRequested
+    \printuntil }
+    \printuntil }
+    \dots 4
+    \skipuntil onFormValidationMessageRequested
+    \skipuntil }
+    \skipuntil }
+    \skipuntil }
+    \skipto }
+    \printline }
+
+    We use the \c onFileDialogRequested signal handler to check whether
+    we should use the default color picker dialog. If not, we accept the request
+    and switch the view to show the \c FilePickerForm:
+
+    \image customdialogs-file2.png
+
+    \quotefromfile webengine/customdialogs/forms/FilePicker.qml
+    \skipto FilePickerForm
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    On component completion, we create callbacks for selecting files. When the user selects a
+    file and clicks \c OK, we pass the selected file to the \c dialogAccept
+    method.
+
+    \section2  Form Validation Message Requests
+
+    \image customdialogs-validation1.png
+
+    \l [QML]{FormValidationMessageRequest} is a request object that is passed as a
+    parameter of the WebEngineView::formValidationMessageRequested signal:
+
+    \quotefromfile webengine/customdialogs/WebView.qml
+    \skipto WebEngineView
+    \printuntil url
+    \dots 4
+    \skipto onFormValidationMessageRequested
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \skipto }
+    \printline }
+
+    We use the \c onFormValidationMessageRequested signal handler to check
+    whether we should use the default message bubble. If not, we accept the
+    request and customize \c validationMessage. Depending on the type of the
+    request, we show, move, or hide the message.
+
+    \image customdialogs-validation2.png
+*/

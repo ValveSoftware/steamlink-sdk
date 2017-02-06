@@ -1,0 +1,794 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtquickcontrols2-customize.html
+    \title Customizing Qt Quick Controls 2
+    \brief A set of UI controls to create user interfaces in Qt Quick
+
+    Qt Quick Controls 2 consist of a hierarchy (tree) of items. In order to
+    provide a custom look and feel, the default QML implementation of each
+    item can be replaced with a custom one.
+
+    \section1 Customizing a Control
+
+    Sometimes you'll want to create a "one-off" look for a specific part of
+    your UI, and use a complete style everywhere else. Perhaps you're happy
+    with the style you're using, but there's a certain button that has some
+    special significance.
+
+    The first way to create this button is to simply define it in-place,
+    wherever it is needed. For example, perhaps you're not satisfied with the
+    default style's Button having square corners. To make them rounded, you
+    can override the \l {Control::}{background} item and set the radius
+    property of Rectangle:
+
+    \qml
+    import QtQuick 2.6
+    import QtQuick.Controls 2.1
+
+    ApplicationWindow {
+        width: 400
+        height: 400
+        visible: true
+
+        Button {
+            id: button
+            text: "A Special Button"
+            background: Rectangle {
+                implicitWidth: 100
+                implicitHeight: 40
+                color: button.down ? "#d6d6d6" : "#f6f6f6"
+                border.color: "#26282a"
+                border.width: 1
+                radius: 4
+            }
+        }
+    }
+    \endqml
+
+    The second way to create the button is good if you plan to use your rounded
+    button in several places. It involves moving the code into its own QML file
+    within your project.
+
+    For this approach, we'll copy the background code from the default style's
+    \c Button.qml. This file can be found in the following path in your Qt
+    installation:
+
+    \c {$QTDIR/qml/QtQuick/Controls.2/Button.qml}
+
+    After doing that, we'll simply add the following line:
+
+    \code
+    radius: 4
+    \endcode
+
+    To avoid confusion with the controls in the
+    module itself, we'll call the file \c MyButton.qml. To use the control in
+    your application, refer to it by its filename:
+
+    \qml
+    import QtQuick.Controls 2.1
+
+    ApplicationWindow {
+        MyButton {
+            text: qsTr("A Special Button")
+        }
+    }
+    \endqml
+
+    The third way to create the button is a bit more structured, both in terms
+    of where the file sits in the file system and how it is used in QML. First,
+    copy an existing file as you did above, but this time, put it into a
+    subfolder in your project named (for example) \c controls. To use the
+    control, first import the folder into a namespace:
+
+    \qml
+    import QtQuick.Controls 2.1
+    import "controls" as MyControls
+
+    ApplicationWindow {
+        MyControls.Button {
+            text: qsTr("A Special Button")
+        }
+    }
+    \endqml
+
+    As you now have the \c MyControls namespace, you can name the controls after
+    their actual counterparts in the Qt Quick Controls 2 module. You can repeat
+    this process for any control that you wish to add.
+
+    \section1 Creating a Custom Style
+
+    There are several ways to go about creating your own styles. Below, we'll
+    explain the various approaches.
+
+    \section2 Definition of a Style
+
+    In Qt Quick Controls 2, a style is essentially an interchangeable set of
+    QML files within a single directory. There are two requirements for a style
+    to be \l {Using Styles in Qt Quick Controls 2}{usable}:
+
+    \list
+    \li At least one QML file whose name matches a control (for example,
+        \c Button.qml) must exist.
+    \li The files must be in a directory in the filesystem or in the
+        \l {The Qt Resource System}{resource system}.
+
+        For example, these are all valid paths to a style:
+
+        \list
+        \li \c {./myapp -style /home/absolute/path/to/my/style}
+        \li \c {./myapp -style :/mystyle}
+        \li \c {./myapp -style relative/path/to/my/style}
+        \li \c {./myapp -style MyStyle}
+        \endlist
+
+        The third and fourth paths will be looked up within the QML engine's import path
+        list. This is the same as what happens when you pass \c Material as the style,
+        for example.
+    \endlist
+
+    By default, the styling system uses the Default style as a fallback for
+    controls that aren't implemented. To customize or extend any other built-in
+    style, it is possible to specify a different fallback style using \l QQuickStyle.
+
+    What this means is that you can implement as many controls as you like for
+    your custom style, and place them almost anywhere. It also allows users to
+    create their own styles for your application.
+
+    \section2 Style-specific C++ Extensions
+
+    Sometimes you may need to use C++ to extend your custom style. There are two
+    ways to expose such types to QML:
+
+    \list
+    \li If the style that uses the type is the only style used by an application,
+        it's enough to register it with the QML engine via qmlRegisterType():
+
+        \code
+        qmlRegisterType<ACoolCppItem>("MyApp", 1, 0, "ACoolItem");
+        \endcode
+
+        See \l {Using C++ Data From QML} for more information about this.
+    \li If the style that uses the type is one of many styles used by an
+        application, it may be better to only register it when necessary. This
+        is the point at which it would make sense to implement your own
+        \l {Creating C++ Plugins for QML}{QML plugin}.
+
+        Using a plugin as part of your style is not that much different from
+        using a set of QML files. The only difference is that the plugin and
+        its \c qmldir file must be present in the same directory as the QML
+        files.
+    \endlist
+
+    \section3 Attached properties
+
+    It is common for a style to have certain properties or attributes that
+    apply to all controls. \l {Attached Properties and Attached Signal
+    Handlers}{Attached properties} are a great way of extending an item in QML
+    without having to modify any existing C++ belonging to that item. For
+    example, both the \l {Material Style}{Material} and \l {Universal
+    Style}{Universal} styles have an attached theme property that controls
+    whether an item and its children will be rendered in a light or dark theme.
+
+    As an example, let's add an attached property that controls elevation. Our
+    style will illustrate the elevation with a drop shadow; the higher the
+    elevation, the larger the shadow.
+
+    The first step is to add a C++ type that stores the elevation. Since the
+    type will be used for every control supported by our style, and because we
+    may wish to add other attached properties later on, we'll call it
+    MyStyle. Here is \c MyStyle.h:
+
+    \code
+    #ifndef MYSTYLE_H
+    #define MYSTYLE_H
+
+    #include <QObject>
+    #include <QtQml>
+
+    class MyStyle : public QObject
+    {
+        Q_OBJECT
+        Q_PROPERTY(int elevation READ elevation WRITE setElevation NOTIFY elevationChanged)
+
+    public:
+        explicit MyStyle(QObject *parent = nullptr);
+
+        static MyStyle *qmlAttachedProperties(QObject *object);
+
+        int elevation() const;
+        void setElevation(int elevation);
+
+    signals:
+        void elevationChanged();
+
+    private:
+        int m_elevation;
+    };
+
+    QML_DECLARE_TYPEINFO(MyStyle, QML_HAS_ATTACHED_PROPERTIES)
+
+    #endif // MYSTYLE_H
+    \endcode
+
+    \c MyStyle.cpp:
+
+    \code
+    #include "mystyle.h"
+
+    MyStyle::MyStyle(QObject *parent) :
+        QObject(parent),
+        m_elevation(0)
+    {
+    }
+
+    MyStyle *MyStyle::qmlAttachedProperties(QObject *object)
+    {
+        return new MyStyle(object);
+    }
+
+    int MyStyle::elevation() const
+    {
+        return m_elevation;
+    }
+
+    void MyStyle::setElevation(int elevation)
+    {
+        if (elevation == m_elevation)
+            return;
+
+        m_elevation = elevation;
+        emit elevationChanged();
+    }
+    \endcode
+
+    The \c MyStyle type is special in the sense that it shouldn't be
+    instantiated, but rather used for its attached properties. For that reason,
+    we register it in the following manner:
+
+    \code
+    qmlRegisterUncreatableType<MyStyle>("MyStyle", 1, 0, "MyStyle", "MyStyle is an attached property");
+    \endcode
+
+    We then copy the existing default Button style, and add the code for a drop
+    shadow (which was taken from the Material Button style). We modify that
+    slightly to ensure that we:
+
+    \list
+    \li Don't bother using the drop shadow when the elevation is \c 0
+    \li Change the shadow's color depending on whether or not the button has
+        focus
+    \li Make the size of the shadow depend on the elevation
+    \endlist
+
+    \code
+        layer.enabled: control.enabled && control.MyStyle.elevation > 0
+        layer.effect: DropShadow {
+            verticalOffset: 1
+            color: control.visualFocus ? "#330066ff" : "#aaaaaa"
+            samples: control.MyStyle.elevation
+            spread: 0.5
+        }
+    \endcode
+
+    With that in place, we can try out our new elevation feature:
+
+    \qml
+    import QtQuick 2.6
+    import QtQuick.Controls 2.1
+
+    import MyStyle 1.0
+
+    ApplicationWindow {
+        id: window
+        width: 400
+        height: 400
+        visible: true
+
+        Row {
+            spacing: 20
+            anchors.centerIn: parent
+
+            Button {
+                text: "Button 1"
+            }
+            Button {
+                text: "Button 2"
+                MyStyle.elevation: 10
+            }
+        }
+    }
+    \endqml
+
+    The end result:
+
+    \image qtquickcontrols2-customize-buttons.png
+
+    \section1 Customization Reference
+
+    The following snippets present examples where the default style's controls
+    have been customized using the same approach as the
+    \l {Customizing a Control} section. The code can be used as a starting
+    point to implement a custom look and feel.
+
+    \section2 Customizing ApplicationWindow
+
+        ApplicationWindow consists of one visual item:
+        \l {ApplicationWindow::background}{background}. It is also possible
+        to customize the \l {ApplicationWindow::overlay}{modal} and
+        \l {ApplicationWindow::overlay}{modeless} items.
+
+        \code
+        import QtQuick 2.7
+        import QtQuick.Controls 2.0
+
+        ApplicationWindow {
+            visible: true
+
+            background: Rectangle {
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "#ffffff" }
+                    GradientStop { position: 1; color: "#c1bbf9" }
+                }
+            }
+
+            overlay.modal: Rectangle {
+                color: "#8f28282a"
+            }
+
+            overlay.modeless: Rectangle {
+                color: "#2f28282a"
+            }
+        }
+        \endcode
+
+
+    \section2 Customizing BusyIndicator
+
+        BusyIndicator consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{contentItem}.
+
+        \image qtquickcontrols2-busyindicator-custom.png
+
+        \snippet qtquickcontrols2-busyindicator-custom.qml file
+
+
+    \section2 Customizing Button
+
+        Button consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-button-custom.png
+
+        \snippet qtquickcontrols2-button-custom.qml file
+
+
+    \section2 Customizing CheckBox
+
+        CheckBox consists of three visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{contentItem} and \l {AbstractButton::indicator}{indicator}.
+
+        \image qtquickcontrols2-checkbox-custom.png
+
+        \snippet qtquickcontrols2-checkbox-custom.qml file
+
+    \section2 Customizing CheckDelegate
+
+        CheckDelegate consists of three visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{contentItem} and \l {AbstractButton::indicator}{indicator}.
+
+        \image qtquickcontrols2-checkdelegate-custom.png
+
+        \snippet qtquickcontrols2-checkdelegate-custom.qml file
+
+
+    \section2 Customizing ComboBox
+
+        ComboBox consists of \l {Control::background}{background},
+        \l {Control::contentItem}{content item}, \l {ComboBox::popup}{popup},
+        and \l {ComboBox::delegate}{delegate}.
+
+        \image qtquickcontrols2-combobox-custom.png
+
+        \snippet qtquickcontrols2-combobox-custom.qml file
+
+
+    \section2 Customizing Dial
+
+        Dial consists of two visual items: \l {Control::background}{background}
+        and \l {Dial::handle}{handle}.
+
+        \image qtquickcontrols2-dial-custom.png
+
+        \snippet qtquickcontrols2-dial-custom.qml file
+
+
+    \section2 Customizing Drawer
+
+        Drawer can have a visual \l {Control::background}{background}
+        item.
+
+        \code
+        background: Rectangle {
+            Rectangle {
+                x: parent.width - 1
+                width: 1
+                height: parent.height
+                color: "#21be2b"
+            }
+        }
+        \endcode
+
+
+    \section2 Customizing Frame
+
+        Frame consists of one visual item: \l {Control::background}{background}.
+
+        \image qtquickcontrols2-frame-custom.png
+
+        \snippet qtquickcontrols2-frame-custom.qml file
+
+
+    \section2 Customizing GroupBox
+
+        GroupBox consists of two visual items: \l {Control::background}{background}
+        and \l {GroupBox::label}{label}.
+
+        \image qtquickcontrols2-groupbox-custom.png
+
+        \snippet qtquickcontrols2-groupbox-custom.qml file
+
+
+    \section2 Customizing ItemDelegate
+
+        ItemDelegate consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-itemdelegate-custom.png
+
+        \snippet qtquickcontrols2-itemdelegate-custom.qml file
+
+
+    \section2 Customizing Label
+
+        Label can have a visual \l {Label::background}{background} item.
+
+        \image qtquickcontrols2-label-custom.png
+
+        \snippet qtquickcontrols2-label-custom.qml file
+
+
+    \section2 Customizing Menu
+
+        Menu consists of a \l {Popup::}{contentItem}.
+
+        \quotefromfile qtquickcontrols2-menu-custom.qml
+        \skipto import QtQuick 2.6
+        \printuntil import QtQuick.Controls 2.1
+        \skipto Menu
+        \printto contentItem.parent: window
+        \skipline contentItem.parent: window
+        \printuntil text: qsTr("Save")
+        \printuntil }
+        \printuntil }
+
+
+    \section2 Customizing MenuItem
+
+        MenuItem can be customized in the same manner as
+        \l {Customizing Button}{Button}.
+
+
+    \section2 Customizing MenuSeparator
+
+        MenuSeparator consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-menuseparator-custom.png
+
+        \quotefromfile qtquickcontrols2-menuseparator-custom.qml
+        \skipto import QtQuick 2.6
+        \printuntil import QtQuick.Controls 2.1
+        \skipto Menu
+        \printto contentItem.parent: window
+        \skipline contentItem.parent: window
+        \printuntil text: qsTr("Exit")
+        \printuntil }
+        \printuntil }
+
+    \section2 Customizing PageIndicator
+
+        PageIndicator consists of a \l {Control::background}{background}, \l {Control::contentItem}{content item}, and \l {PageIndicator::delegate}{delegate}.
+
+        \image qtquickcontrols2-pageindicator-custom.png
+
+        \snippet qtquickcontrols2-pageindicator-custom.qml file
+
+
+    \section2 Customizing Pane
+
+        Pane consists of a \l {Control::background}{background}.
+
+        \image qtquickcontrols2-pane-custom.png
+
+        \snippet qtquickcontrols2-pane-custom.qml file
+
+
+    \section2 Customizing Popup
+
+        Popup consists of a \l {Popup::background}{background} and
+        \l {Popup::contentItem}{content item}.
+
+        \image qtquickcontrols2-popup-custom.png
+
+        \quotefromfile qtquickcontrols2-popup-custom.qml
+        \skipto import QtQuick 2.6
+        \printuntil import QtQuick.Controls 2.0
+        \codeline
+        \skipto Popup
+        \printuntil {
+        \printuntil }
+        \printuntil }
+        \printuntil }
+
+
+    \section2 Customizing ProgressBar
+
+        ProgressBar consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-progressbar-custom.png
+
+        \snippet qtquickcontrols2-progressbar-custom.qml file
+
+
+    \section2 Customizing RadioButton
+
+        RadioButton consists of three visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{content item} and \l {AbstractButton::indicator}{indicator}.
+
+        \image qtquickcontrols2-radiobutton-custom.png
+
+        \snippet qtquickcontrols2-radiobutton-custom.qml file
+
+
+    \section2 Customizing RadioDelegate
+
+        RadioDelegate consists of three visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{contentItem} and \l {AbstractButton::indicator}{indicator}.
+
+        \image qtquickcontrols2-radiodelegate-custom.png
+
+        \snippet qtquickcontrols2-radiodelegate-custom.qml file
+
+
+    \section2 Customizing RangeSlider
+
+        RangeSlider consists of three visual items:
+        \l {Control::background}{background},
+        \l {RangeSlider::first}{first.handle} and
+        \l {RangeSlider::second.handle}{second.handle}.
+
+        \image qtquickcontrols2-rangeslider-custom.png
+
+        \snippet qtquickcontrols2-rangeslider-custom.qml file
+
+
+    \section2 Customizing RoundButton
+
+        RoundButton can be customized in the same manner as
+        \l {Customizing Button}{Button}.
+
+
+    \section2 Customizing ScrollBar
+
+        ScrollBar consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-scrollbar-custom.png
+
+        \snippet qtquickcontrols2-scrollbar-custom.qml file
+
+
+    \section2 Customizing ScrollIndicator
+
+        ScrollIndicator consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-scrollindicator-custom.png
+
+        \snippet qtquickcontrols2-scrollindicator-custom.qml file
+
+
+    \section2 Customizing Slider
+
+        Slider consists of two visual items: \l {Control::background}{background},
+        and \l {Slider::handle}{handle}.
+
+        \image qtquickcontrols2-slider-custom.png
+
+        \snippet qtquickcontrols2-slider-custom.qml file
+
+
+    \section2 Customizing SpinBox
+
+        SpinBox consists of four visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{contentItem}, \l {SpinBox::up.indicator}{up indicator},
+        and \l {SpinBox::down.indicator}{down indicator}.
+
+        \image qtquickcontrols2-spinbox-custom.png
+
+        \snippet qtquickcontrols2-spinbox-custom.qml file
+
+
+    \section2 Customizing StackView
+
+        StackView can have a visual \l {Control::background}{background}
+        item, and it allows customizing the transitions that are used for
+        push, pop, and replace operations.
+
+        \snippet qtquickcontrols2-stackview-custom.qml file
+
+
+    \section2 Customizing SwipeDelegate
+
+        SwipeDelegate consists of six visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{content item}, \l {AbstractButton::indicator}{indicator},
+        \c swipe.left, \c swipe.right, and \c swipe.behind.
+
+        \image qtquickcontrols2-swipedelegate-custom.png
+
+        \snippet qtquickcontrols2-swipedelegate-custom.qml file
+
+
+    \section2 Customizing SwipeView
+
+        SwipeView can have a visual \l {Control::background}{background}
+        item. The navigation is implemented by the \l {Control::contentItem}
+        {content item}.
+
+        \snippet qtquickcontrols2-swipeview-custom.qml file
+
+
+    \section2 Customizing Switch
+
+        Switch consists of three visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{content item} and \l {AbstractButton::indicator}{indicator}.
+
+        \image qtquickcontrols2-switch-custom.png
+
+        \snippet qtquickcontrols2-switch-custom.qml file
+
+    \section2 Customizing SwitchDelegate
+
+        SwitchDelegate consists of three visual items: \l {Control::background}{background},
+        \l {Control::contentItem}{contentItem} and \l {AbstractButton::indicator}{indicator}.
+
+        \image qtquickcontrols2-switchdelegate-custom.png
+
+        \snippet qtquickcontrols2-switchdelegate-custom.qml file
+
+
+    \section2 Customizing TabBar
+
+        TabBar consists of two visual items: \l {Control::background}{background},
+        and \l {Control::contentItem}{contentItem}.
+
+        \image qtquickcontrols2-tabbar-custom.png
+
+        \snippet qtquickcontrols2-tabbar-custom.qml file
+
+
+    \section2 Customizing TabButton
+
+        TabButton can be customized in the same manner as
+        \l {Customizing Button}{Button}.
+
+
+    \section2 Customizing TextArea
+
+        TextArea consists of a \l {TextArea::background}{background} item.
+
+        \image qtquickcontrols2-textarea-custom.png
+
+        \snippet qtquickcontrols2-textarea-custom.qml file
+
+
+    \section2 Customizing TextField
+
+        TextField consists of a \l {TextField::background}{background} item.
+
+        \image qtquickcontrols2-textfield-custom.png
+
+        \snippet qtquickcontrols2-textfield-custom.qml file
+
+
+    \section2 Customizing ToolBar
+
+        ToolBar consists of one visual item: \l {Control::background}{background}.
+
+        \image qtquickcontrols2-toolbar-custom.png
+
+        \snippet qtquickcontrols2-toolbar-custom.qml file
+
+
+    \section2 Customizing ToolButton
+
+        ToolButton consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-toolbutton-custom.png
+
+        \snippet qtquickcontrols2-toolbutton-custom.qml file
+
+
+    \section2 Customizing ToolSeparator
+
+        ToolSeparator consists of two visual items: \l {Control::background}{background}
+        and \l {Control::contentItem}{content item}.
+
+        \image qtquickcontrols2-toolseparator-custom.png
+
+        \snippet qtquickcontrols2-toolseparator-custom.qml file
+
+
+    \section2 Customizing ToolTip
+
+        ToolTip consists of two visual items: \l {Popup::background}{background}
+        and \l {Popup::contentItem}{content item}.
+
+        \quotefromfile qtquickcontrols2-tooltip-custom.qml
+        \skipto import QtQuick 2.6
+        \printuntil import QtQuick.Controls 2.1
+        \skipto ToolTip
+        \printuntil }
+        \printuntil }
+        \printuntil }
+
+
+    \section2 Customizing Tumbler
+
+        Tumbler consists of three visual items:
+        \l {Control::background}{background},
+        \l {Control::contentItem}{contentItem}, and
+        \l {Tumbler::delegate}{delegate}.
+
+        \image qtquickcontrols2-tumbler-custom.png
+
+        \snippet qtquickcontrols2-tumbler-custom.qml file
+
+        If you want to define your own contentItem, use either a \l ListView or
+        \l PathView as the root item. For a wrapping Tumbler, use PathView:
+
+        \snippet qtquickcontrols2-tumbler-pathView.qml contentItem
+
+        For a non-wrapping Tumbler, use ListView:
+
+        \snippet qtquickcontrols2-tumbler-listView.qml contentItem
+*/

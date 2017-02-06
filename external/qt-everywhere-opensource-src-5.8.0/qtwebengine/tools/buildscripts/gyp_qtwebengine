@@ -1,0 +1,178 @@
+#!/usr/bin/env python
+
+import glob
+import os
+import sys
+import subprocess
+
+print 'using python: ' + sys.executable + ' version: ' + str(sys.version_info.major) + '.' + str(sys.version_info.minor) + '.' + str(sys.version_info.micro)
+
+if sys.platform == "darwin":
+  print 'xcode version: ' + subprocess.check_output(['xcodebuild', '-version']).replace('\n', ' ')
+
+qtwebengine_root = os.path.normcase(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+import qtwebengine_utils as utils
+chrome_src = utils.getChromiumSrcDir()
+
+script_dir = os.path.abspath(os.path.join(chrome_src, 'build'))
+if not os.path.isdir(script_dir):
+  print script_dir + " is not a valid directory"
+  sys.exit(1)
+root_dir = os.path.normcase(os.path.abspath(os.path.join(os.getcwd(), os.pardir, os.pardir)))
+
+if sys.platform in ('cygwin', 'win32'):
+  gnuwin_tools_dir = os.path.normcase(os.path.abspath(os.path.join(qtwebengine_root, "../gnuwin32/bin")))
+  if os.path.isdir(gnuwin_tools_dir):
+    os.environ['PATH'] = gnuwin_tools_dir + os.pathsep + os.environ['PATH']
+
+sys.path.insert(1, script_dir)
+import gyp_helper
+sys.path.insert(1, os.path.join(chrome_src, 'tools', 'gyp', 'pylib'))
+import gyp
+
+# Add paths so that pymod_do_main(...) can import files.
+sys.path.insert(1, os.path.join(chrome_src, 'tools', 'grit'))
+sys.path.insert(1, os.path.join(chrome_src, 'tools', 'generate_shim_headers'))
+sys.path.insert(1, os.path.join(chrome_src, 'third_party', 'WebKit', 'Source', 'build', 'scripts'))
+
+def additional_include_files(args=[]):
+  """
+  Returns a list of additional (.gypi) files to include, without
+  duplicating ones that are already specified on the command line.
+  """
+  # Determine the include files specified on the command line.
+  # This doesn't cover all the different option formats you can use,
+  # but it's mainly intended to avoid duplicating flags on the automatic
+  # makefile regeneration which only uses this format.
+  specified_includes = set()
+  for arg in args:
+    if arg.startswith('-I') and len(arg) > 2:
+      specified_includes.add(os.path.realpath(arg[2:]))
+
+  result = []
+  def AddInclude(path):
+    if os.path.realpath(path) not in specified_includes:
+      result.append(path)
+
+  # Always include common.gypi.
+  AddInclude(os.path.join(script_dir, 'common.gypi'))
+
+  # Include extra gypi files for additional build tweaks such as file exclusions
+  # and platform specific drop-in files.
+  build_extras = glob.glob(os.path.join(qtwebengine_root, 'src', 'core', '*_extras.gypi'))
+  for build in build_extras:
+    print "Using extra options found in " + build
+    AddInclude(build)
+
+  # Include extra gypi files for common stuff we generate and extract from qmake.
+  build_extras = glob.glob(os.path.join(output_dir, '*_extras.gypi'))
+  for build in build_extras:
+    print "Using extra options found in " + build
+    AddInclude(build)
+
+  # Optionally add supplemental .gypi files if present.
+  supplements = glob.glob(os.path.join(chrome_src, '*', 'supplement.gypi'))
+  for supplement in supplements:
+    AddInclude(supplement)
+
+  return result
+
+def purifyGypVarPath(path):
+  # Backslash escapings are somehow reduced once every time a variable is resolved
+  # Python is able to understand mixed slash paths anyway, so don't use backslashes.
+  return path.replace('\\', '/')
+
+if __name__ == '__main__':
+  output_dir = sys.argv[1]
+  if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+  args = sys.argv[2:]
+
+  if 'qt_cross_compile=1' in sys.argv:
+    os.environ['GYP_CROSSCOMPILE'] = '1'
+
+  sysroot = 'sysroot='
+  for opt in sys.argv:
+    if opt.startswith(sysroot):
+        os.environ['PKG_CONFIG_SYSROOT_DIR'] = opt[len(sysroot):]
+
+  gyp_helper.apply_chromium_gyp_env()
+
+  # This could give false positives since it doesn't actually do real option
+  # parsing.  Oh well.
+  gyp_file_specified = False
+  for arg in args:
+    if arg.endswith('.gyp'):
+      gyp_file_specified = True
+      break
+
+  if not gyp_file_specified:
+      args.append(os.path.join(root_dir, 'src/core/resources/resources.gyp'))
+      args.append(os.path.join(output_dir, 'core_generated.gyp'))
+
+  args.extend(['-I' + i for i in additional_include_files(args)])
+
+  # We always have to disable tcmalloc.
+  # Allocating with tcmalloc in chromium code and freeing without
+  # tcmalloc outside of chromium code would cause erratic behavior.
+  args.extend(['-D', 'use_allocator=none'])
+
+  # On Mac we want to build in x64 mode. And we want to use libc++.
+  if sys.platform in ('darwin',) and not 'GYP_CROSSCOMPILE' in os.environ:
+      args.extend(['-D', 'host_arch=x64', '-D', 'use_libcpp=1'])
+
+  # There shouldn't be a circular dependency relationship between .gyp files,
+  # but in Chromium's .gyp files, on non-iOS platforms, circular relationships
+  # currently exist.  The check for circular dependencies is currently
+  # bypassed on other platforms, but is left enabled on iOS, where a violation
+  # of the rule causes Xcode to misbehave badly.
+  # TODO(mark): Find and kill remaining circular dependencies, and remove this
+  # option.  http://crbug.com/35878.
+  # TODO(tc): Fix circular dependencies in ChromiumOS then add linux2 to the
+  # list.
+  args.append('--no-circular-check')
+
+  # libtool on Mac warns about duplicate basenames in static libraries, so
+  # they're disallowed in general by gyp. We are lax on this point, so disable
+  # this check other than on Mac. GN does not use static libraries as heavily,
+  # so over time this restriction will mostly go away anyway, even on Mac.
+  # https://code.google.com/p/gyp/issues/detail?id=384
+  if sys.platform != 'darwin':
+    args.append('--no-duplicate-basename-check')
+
+  args.extend(['-D', 'webkit_src_dir=' + chrome_src + '/third_party/WebKit'])
+  # the top_level source directory is the first common ancestor of our module and the chromium source tree for the build to be sane.
+  # commonprefix works on a character basis, so it might return a phony common prefix (not the common parent directory we expect),
+  toplevel= os.path.commonprefix([root_dir, chrome_src])
+  if not os.path.exists(toplevel):
+    toplevel = os.path.join(toplevel, os.pardir)
+  args.extend(["--toplevel-dir=" + purifyGypVarPath(toplevel)])
+  # Chromium specific Hack: for Chromium to build, the depth has to be set to the chromium src dir.
+  args.extend(["--depth=" + purifyGypVarPath(chrome_src)])
+  args.extend(['-D', 'qtwebengine_root=' + purifyGypVarPath(qtwebengine_root)])
+  args.extend(['-D', 'chromium_src_dir=' + purifyGypVarPath(chrome_src)])
+
+  # Tweak the output location and format (hardcode ninja for now if not set)
+  args.extend(['--generator-output', '.'])
+  args.extend(['-Goutput_dir='+ purifyGypVarPath(os.path.relpath(output_dir, qtwebengine_root))])
+
+  # Tell gyp not to try finding cl.exe on Windows, Qt already requires the env to be set prior to the build.
+  args.extend(['-G', 'ninja_use_custom_environment_files'])
+
+  if not os.environ.get('GYP_GENERATORS'):
+    args.extend(['--format=ninja'])
+  if "QTWEBENGINE_GYP_DEBUG" in os.environ:
+    args.append("--check")
+    args.append("-d all")
+    print args
+    ret_code = gyp.main(args)
+    sys.exit(ret_code)
+
+  ###################################
+
+  print 'Updating projects from gyp files...'
+  #sys.stdout.flush()
+
+  # Off we go...
+  sys.exit(gyp.main(args))

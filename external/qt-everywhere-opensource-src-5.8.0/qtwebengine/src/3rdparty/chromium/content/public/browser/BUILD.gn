@@ -1,0 +1,75 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//content/browser/browser.gni")
+import("//build/config/ui.gni")
+
+# See //content/BUILD.gn for how this works.
+group("browser") {
+  if (is_component_build) {
+    public_deps = [
+      "//content",
+    ]
+  } else {
+    public_deps = [
+      ":browser_sources",
+    ]
+  }
+}
+
+source_set("browser_sources") {
+  # External code should depend on via ":browser" above.
+  visibility = [ "//content/*" ]
+
+  sources = rebase_path(content_browser_gypi_values.public_browser_sources,
+                        ".",
+                        "//content")
+
+  configs += [
+    "//build/config:precompiled_headers",
+    "//build/config/compiler:wexit_time_destructors",
+    "//content:content_implementation",
+  ]
+
+  public_deps = [
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//services/shell/public/cpp",
+
+    # We expose skia headers in the public API.
+    "//skia",
+    "//third_party/WebKit/public:mojo_bindings",
+  ]
+  deps = [
+    "//cc",
+    "//content/browser",  # Must not be public_deps!
+    "//content/public/common:common_sources",
+    "//device/power_save_blocker",
+    "//gpu",
+    "//media",
+    "//net",
+    "//ppapi/c",
+    "//storage/browser",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/events",
+    "//ui/gl",
+    "//ui/surface",
+  ]
+
+  allow_circular_includes_from = [
+    # This target is a pair with content/browser. They always go together and
+    # include headers from each other.
+    "//content/browser",
+  ]
+
+  if (is_android) {
+    deps += [ "//ui/android" ]
+  }
+
+  if (use_aura) {
+    sources -= [ "context_factory.h" ]
+    deps += [ "//ui/aura" ]
+  }
+}

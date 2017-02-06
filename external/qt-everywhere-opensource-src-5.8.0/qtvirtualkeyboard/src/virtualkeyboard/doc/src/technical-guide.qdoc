@@ -1,0 +1,633 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Virtual Keyboard module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+
+\page technical-guide.html
+\contentspage {Technical Guide} {Contents}
+
+\title Technical Guide
+
+\section1 Overview
+
+This document provides a technical overview of the Qt Virtual Keyboard plugin.
+
+\section1 Basic Concepts
+
+The Qt Virtual Keyboard project is a Qt 5 input context plugin which implements
+QPlatformInputContextPlugin and QPlatformInputContext interfaces.
+These interfaces allow the plugin to be used as a platform input
+context plugin in Qt 5 applications.
+
+The plugin itself provides an input framework supporting multiple
+input methods as well as a QML UI for the virtual keyboard.
+
+The input framework provides the following main interfaces:
+
+\list
+    \li InputContext: provides contextual information for the virtual keyboard
+        and other input components.
+    \li InputEngine: exposes an API to integrate user input events (key
+        presses, etc.) and acts as a host for input methods.
+    \li InputMethod: a base type for QML based input methods.
+\endlist
+
+\section1 The Input Context
+
+The input context is used by the keyboard as well as concrete input methods.
+
+\section2 Contextual Information
+
+The input context provides access to contextual information that originates
+from the application. This information includes, but is not limited to:
+
+\list
+    \li InputContext::cursorPosition
+    \li InputContext::cursorRectangle
+    \li InputContext::inputMethodHints
+    \li InputContext::preeditText
+    \li InputContext::selectedText
+    \li InputContext::surroundingText
+\endlist
+
+\section2 Locale
+
+The list of supported locales is specified by the existence of a locale specific
+layout directory in "layouts/*". Each layout directory may contain one
+or more layouts, for example fi_FI/main.qml or symbols.qml.
+
+The application can specify the initial layout by changing the default locale.
+However, this needs to be done before the application is initialized and the
+input method plugin is loaded. If no changes are made to the default locale, the
+current system locale is used.
+
+The keyboard locale matching is performed in the following sequence:
+
+\list
+    \li layouts/language_country
+    \li layouts/language_*
+    \li layouts/en_GB
+\endlist
+
+The locale is first matched against the full locale name. If a full match is
+not found, then only the locale language is matched. If a partial match is
+not found, then the "en_GB" locale is used as a fallback.
+
+After the locale selection is done, the keyboard updates the input locale and
+input direction to match the current layout. The application can receive this
+information through the QInputMethod interface.
+
+Internally, the current input locale is also updated to the InputEngine
+and the current InputMethod instances.
+
+\section2 UI Animations
+
+The keyboard should notify the input context about UI transitions and
+animations. The InputContext::animating property sets the animating property of
+the input context.
+
+\section1 The Input Engine
+
+The input engine object is owned by InputContext. The input engine contains
+API functions which the keyboard can use to map user interactions such as key
+press and key release events.
+
+The input events are mapped through the following methods:
+
+\list
+    \li InputEngine::virtualKeyPress
+    \li InputEngine::virtualKeyRelease
+\endlist
+
+The above-mentioned methods are intended for the integration of the virtual
+keyboard, hence the word "virtual" in the methods' names. This also means that
+the methods are not suitable for mapping the physical keystrokes. This is a
+consequence of the fact that the actual action is performed only when the key
+is released.
+
+If the user releases the key without having to perform the actual action, the
+key can be interrupted by using the InputEngine::virtualKeyCancel method.
+
+\section2 Activating an Input Method
+
+Activating an input method is straightforward. The required steps are:
+
+\list
+    \li Instantiate a concrete implementation of InputMethod
+    \li Assign the instance to InputEngine::inputMethod
+    \li Set the proper input mode with InputEngine::inputMode
+\endlist
+
+When the input method is active, it receives key events from the input engine
+and can produce text.
+
+\section1 Implementing a Custom Input Method
+
+The implementation of input methods starts by deciding which interface is used;
+QML or C++. In this example the QML interface is used.
+
+The following example shows the minimum functionality that is required
+from an input method:
+
+\quotefile CustomInputMethod.qml
+
+The InputMethod::inputModes() method is called by the input engine before
+an input mode is set. The method returns a list of input modes available in
+the given locale.
+
+An input method is initialized in InputMethod::setInputMode() method with
+a locale and input mode. After setting the locale and input mode, the input
+method should be ready for use.
+
+InputMethod::reset() is called when an input method needs to be reset. The reset
+must only reset the internal state of the input method, and not the user text.
+
+InputMethod::update() is called when the input context is updated and
+the input state is possibly out of sync. The input method should commit
+the current text.
+
+The keystorke events are handled in InputMethod::keyEvent(). This method handles
+a single keystroke event and returns \c true if the event was processed.
+Otherwise the keystroke is handled by the default input method.
+
+\section2 Selection Lists
+
+Selection lists are an optional feature that can be integrated into the input
+method. The input framework supports various types of lists, such as the word
+candidate list. Responsibilities in implementing the lists are handled such
+that the input method is responsible for the content and activities, such as the
+click behavior. The input framework is responsible for maintaining the list
+model and delivery to the user interface.
+
+\section3 Allocating the Selection Lists
+
+Selection lists are allocated when the input method is activated. The
+InputMethod::selectionLists() method returns a list of the required selection
+list types:
+
+\code
+function selectionLists() {
+    return [SelectionListModel.WordCandidateList];
+}
+\endcode
+
+In the above example, the input method allocates the word candidate list for its
+use.
+
+\section3 Updating the Selection Lists
+
+When the input method requires the UI to update the contents of a selection
+list, it will emit the InputMethod::selectionListChanged signal. Likewise, if
+the input method requires the UI to highlight an item in the list, it will emit
+the InputMethod::selectionListActiveItemChanged signal.
+
+\code
+selectionListChanged(SelectionListModel.WordCandidateList)
+selectionListActiveItemChanged(SelectionListModel.WordCandidateList, wordIndex)
+\endcode
+
+\section3 Populating Items in the Selection Lists
+
+The items are populated with method callbacks which will provide the number of
+items in a list as well as the data for individual items.
+
+The InputMethod::selectionListItemCount callback requests the number of
+items in the list identified by the given type.
+
+\code
+function selectionListItemCount(type) {
+    if (type == SelectionListModel.WordCandidateList) {
+        return wordList.length
+    }
+    return 0
+}
+\endcode
+
+The InputMethod::selectionListData callback requests the data for items.
+
+\code
+function selectionListData(type, index, role) {
+    var result = null
+    if (type == SelectionListModel.WordCandidateList) {
+        switch (role) {
+        case SelectionListModel.DisplayRole:
+            result = wordList[index]
+            break
+        default:
+            break
+        }
+    }
+    return result
+}
+\endcode
+
+The \a role parameter identifies which data is requested for an item. For
+example, the SelectionListModel.DisplayRole requests the display text data.
+
+\section3 Responding to User Actions
+
+When the user selects an item in the list, the input method responds to the
+event in the InputMethod::selectionListItemSelected method callback.
+
+\code
+function selectionListItemSelected(type, index) {
+    if (type == SelectionListModel.WordCandidateList) {
+        inputContext.commit(wordlist[index])
+        update()
+    }
+}
+\endcode
+
+\section1 Integrating Selection Lists into the UI
+
+The input engine provides a list model for each selection list type.
+The model is null while the list is not allocated, allowing the UI
+to hide the list if necessary.
+
+The list model's word candidate list is provided by the
+InputEngine::wordCandidateListModel property.
+
+\section1 Integrating Handwriting Recognition
+
+Since version 2.0 of the virtual keyboard, input methods can consume
+touch input data from touch screens or other input devices.
+
+Handwriting recognition works on the same principle as handling of
+normal keyboard input, i.e. input data is collected by the keyboard layout
+and transferred by the input engine to the input method for further processing.
+
+In case of a regular keyboard, the amount of data transferred from the keyboard
+to input method is minimal (namely the keycode and text), but in the case of
+handwriting recognition the data volume is much bigger. Therefore, the touch
+input is stored in a particular data model.
+
+The input method does not participate in the actual collection of touch data.
+However, the input method has full control over touch input since it can
+either accept or reject touch. This allows for precise control over how many
+fingers can be used simultaneously.
+
+The input method can collect as many traces as it deems necessary and begin
+processing them at will. The processing can even be performed in parallel with
+the touch input, although it is not recommended because of the potential side
+effects. A recommended way is to start processing in a background thread
+after a suitable delay, so that it does not negatively affect the performance
+of the user interface.
+
+\section2 Data Model for the Handwriting Input
+
+The data collected from the input source is stored in an object named QtVirtualKeyboard::Trace (C++) or \l Trace (QML).
+
+By definition, \e trace is a set of data collected in one touch. In addition to
+the basic coordinate data, it can also include other types of data, such as
+the time of each data point. The input method can define the desired input channels
+at the beginning of a touch event.
+
+\section2 Trace API for Input Methods
+
+The trace API consists of the following virtual methods, which the input method
+must implement in order to receive and process touch input data.
+
+\list
+    \li \l { QtVirtualKeyboard::AbstractInputMethod::patternRecognitionModes } { patternRecognitionModes }
+    \li \l { QtVirtualKeyboard::AbstractInputMethod::traceBegin } { traceBegin }
+    \li \l { QtVirtualKeyboard::AbstractInputMethod::traceEnd } { traceEnd }
+\endlist
+
+By implementing these methods, the input method can receive and process data
+from a variety of input sources.
+
+The patternRecognitionModes method returns a list of pattern recognition modes,
+which are supported by the input method. A pattern recognition mode, such as
+\l { QtVirtualKeyboard::InputEngine::HandwritingRecoginition } { HandwritingRecoginition },
+defines the method by which the input method processes the data.
+
+The trace interaction is started when an input source detects a new contact point, and
+calls the traceBegin method for a new trace object. If the input method accepts the
+interaction, it creates a new trace object and returns it to the caller. From this point
+on, trace data is collected until the traceEnd method is called.
+
+When the traceEnd method is called, the input method may begin processing of the data
+contained in the trace object. After processing the data, the input method should destroy
+the object. This also removes the trace rendered to the screen.
+
+\section1 Keyboard Layouts
+
+Keyboard layouts are located in the \e src/virtualkeyboard/content/layouts
+directory. Each subdirectory of the layout directory represents a locale.
+The locale directory is a string of the form "language_country", where
+language is a lowercase, two-letter ISO 639 language code, and country is an
+uppercase, two or three-letter ISO 3166 country code.
+
+\section2 Layout Types
+
+Different keyboard layout types are used in different input modes. The default
+layout which is used for regular text input, is called the "main" layout.
+The layout type is determined by the layout file name. Therefore, the "main" layout
+file is called the "main.qml".
+
+List of supported layout types:
+
+\list
+    \li \c main The main layout for normal text input
+    \li \c symbols Symbol layout for special characters etc. (activated from main layout)
+    \li \c numbers Numeric layout for formatted numbers (activated by Qt::ImhFormattedNumbersOnly)
+    \li \c digits Digits only layout (activated by Qt::ImhDigitsOnly)
+    \li \c dialpad Dialpad layout for phone number input (activated by Qt::ImhDialableCharactersOnly)
+    \li \c handwriting Handwriting layout for handwriting recognition (activated from main layout)
+\endlist
+
+\section2 Adding New Keyboard Layouts
+
+The keyboard layout element must be based on the KeyboardLayout QML type.
+This type defines the root item of the layout. The root item has the following
+optional properties which can be set if necessary:
+
+\table
+    \row
+        \li \c {property var inputMethod}
+        \li Specifies an input method for this layout. If the input method is
+            not defined, then the current input method is used.
+    \row
+        \li \c {property int inputMode}
+        \li Specifies an input mode for this layout.
+    \row
+        \li \c {property real keyWeight}
+        \li Specifies the default key weight used for all keys in this keyboard
+            layout. The key weight is a proportional value which affects the size
+            of individual keys in relation to each other.
+\endtable
+
+New rows are added to the keyboard layout by using the KeyboardRow type. The
+KeyboardRow can also specify the default key weight for its child elements.
+Otherwise, the key weight is inherited from its parent element.
+
+New keys are added to the keyboard row using the Key type or one of the
+specialized key types. Below is the list of all key types:
+
+\list
+    \li \l Key
+    \li \l BackspaceKey
+    \li \l ChangeLanguageKey
+    \li \l EnterKey
+    \li \l FillerKey
+    \li \l HideKeyboardKey
+    \li \l NumberKey
+    \li \l ShiftKey
+    \li \l SpaceKey
+    \li \l SymbolModeKey
+    \li \l HandwritingModeKey
+    \li \l TraceInputKey
+\endlist
+
+For example, to add a regular key which sends a key event to the input method:
+
+\code
+    import QtQuick 2.0
+    import QtQuick.Layouts 1.0
+    import QtQuick.VirtualKeyboard 2.1
+
+    // file: layouts/en_GB/main.qml
+
+    KeyboardLayout {
+        keyWeight: 160
+        KeyboardRow {
+            Key {
+                key: Qt.Key_Q
+                text: "q"
+            }
+        }
+    }
+\endcode
+
+\section2 Key Size Calculation
+
+The keyboard layouts are scalable, which means that there cannot be any fixed
+sizes set for any items in the layout. Instead, the key widths are calculated
+from key weight in relation to each other and the height by dividing the space
+equally among the keyboard rows.
+
+In the above example, the key size is inherited from parent elements in this
+order:
+
+Key > KeyboardRow > KeyboardLayout
+
+The effective value for the key weight will be 160. For the sake of the
+example, we add another key which specifies a custom key weight:
+
+\code
+    import QtQuick 2.0
+    import QtQuick.Layouts 1.0
+    import QtQuick.VirtualKeyboard 2.1
+
+    // file: layouts/en_GB/main.qml
+
+    KeyboardLayout {
+        keyWeight: 160
+        KeyboardRow {
+            Key {
+                key: Qt.Key_Q
+                text: "q"
+            }
+            Key {
+                key: Qt.Key_W
+                text: "w"
+                keyWeight: 200
+            }
+        }
+    }
+\endcode
+
+Now the total key weight of a row is \e {160 + 200 = 360}. When the keyboard
+layout is activated, the width of an individual key is calculated as follows:
+
+\e {key width in pixels = key weight / SUM(key weights in a row) * row width in pixels}
+
+This means that the keyboard can be scaled to any size, while the relative key
+sizes remain the same.
+
+\section2 Alternative Keys
+
+Key can specify an alternativeKeys property, which results in a popup that
+lists alternative keys when the user presses and holds the key.
+The alternativeKeys can specify either a string, or a list of strings.
+If alternativeKeys is a string, the user can select between the characters in
+the string.
+
+\section2 Styles and Layouts
+
+The keyboard layouts cannot specify any visual elements. Instead, the layout is
+visualized by the keyboard style. On the other hand, the keyboard style cannot
+affect the size of the keyboard layout.
+
+\section2 Keyboard Layouts with Multiple Pages of Keys
+
+Some keyboard layouts, such as symbol layouts, may contain more keys than it is
+feasible to present on a single keyboard layout. A solution is to embed multiple
+keyboard layouts into the same context by using the KeyboardLayoutLoader.
+
+When the KeyboardLayoutLoader is used as a root item of a keyboard layout, the
+actual keyboard layouts are wrapped inside Component elements. The keyboard
+layout is activated by assigning the id of an active component to the
+sourceComponent property.
+
+For example:
+
+\code
+    import QtQuick 2.0
+    import QtQuick.Layouts 1.0
+    import QtQuick.VirtualKeyboard 2.1
+
+    // file: layouts/en_GB/symbols.qml
+
+    KeyboardLayoutLoader {
+        property bool secondPage
+        onVisibleChanged: if (!visible) secondPage = false
+        sourceComponent: secondPage ? page2 : page1
+        Component {
+            id: page1
+            KeyboardLayout {
+                KeyboardRow {
+                    Key {
+                        displayText: "1/2"
+                        functionKey: true
+                        onClicked: secondPage = !secondPage
+                    }
+                }
+            }
+        }
+        Component {
+            id: page2
+            KeyboardLayout {
+                KeyboardRow {
+                    Key {
+                        displayText: "2/2"
+                        functionKey: true
+                        onClicked: secondPage = !secondPage
+                    }
+                }
+            }
+        }
+    }
+\endcode
+
+\section2 Handwriting Keyboard Layout
+
+Each language which supports handwriting recognition must provide a
+special keyboard layout named \e handwriting.qml.
+
+This type of keyboard layout must meet the following requirements:
+\list
+\li contains a TraceInputKey in the keyboard layout
+\li provides an instance of HandwritingInputMethod as the input method.
+\endlist
+
+The handwriting layout may also include ChangeLanguageKey. For this purpose, it is
+important to use the \l {ChangeLanguageKey::customLayoutsOnly} {customLayoutsOnly} attribute, which will filter out languages
+that do not use handwriting.
+
+Both the main and handwriting layouts should contain a key to activate
+and deactivate the handwriting input mode. This can be done by adding a
+HandwritingModeKey to the layout.
+
+\section1 Keyboard Styles
+
+The virtual keyboard styling system supports built-in styles as well
+as custom styles. The built-in styles are embedded as Qt Resources
+into the plugin binary and the custom styles are located in the file system
+and can be installed without recompiling the virtual keyboard itself.
+
+The selection of the runtime style is affected by an environment
+variable QT_VIRTUALKEYBOARD_STYLE, which can be set to the name of
+the built-in style, e.g. "retro", or any of the custom styles installed
+into the Styles directory:
+
+\code
+$$[QT_INSTALL_QML]/QtQuick/VirtualKeyboard/Styles
+\endcode
+
+In case the environment variable is not set, or contains an invalid
+style name, the virtual keyboard falls back in the default built-in style.
+
+\section2 Adding Custom Styles
+
+The process of creating a new style begins by creating a new subdirectory
+for the style in a QML import path under the URL-based directory structure
+QtQuick/VirtualKeyboard/Styles/. See \l {QML Import Path}
+for information about QML import paths. The directory
+name can not contain spaces or special characters other than underscore.
+Also, the directory name can not be the same as one of the built-in style,
+which currently includes "default" and "retro".
+
+A good starting point for creating a new style is to use an existing
+built-in style as a template and edit it. You can find the built-in
+styles from the virtual keyboard sources directory
+src/virtualkeyboard/content/styles. Copy one of the directories containing
+a built-in style into the \e Styles directory and rename it to "test".
+The directory structure should now be as follows:
+
+\code
+test/default_style.qrc
+test/style.qml
+test/images
+test/images/backspace.png
+test/images/check.png
+test/images/enter.png
+test/images/globe.png
+test/images/hidekeyboard.png
+test/images/search.png
+test/images/shift.png
+\endcode
+
+The QRC configuration file, which is unnecessary in this case, can
+be safely removed.
+
+\note The style.qml file should not be renamed, or otherwise the virtual
+      keyboard cannot load the style.
+
+Next, open the style.qml in your favorite editor and set the
+resourcePrefix property to an empty string. The resource prefix
+is not needed as the resources are contained in the same directory
+as the style.qml file.
+
+Also, to make it more obvious to see that the custom style is actually
+being loaded and used, set the keyboard background to a different color:
+
+\code
+keyboardBackground: Rectangle {
+    color: "gray"
+}
+\endcode
+
+The final step is to run the example application with your custom style:
+
+\code
+QT_VIRTUALKEYBOARD_STYLE=test virtualkeyboard
+\endcode
+
+*/

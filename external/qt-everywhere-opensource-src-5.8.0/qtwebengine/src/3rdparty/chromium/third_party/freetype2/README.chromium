@@ -1,0 +1,59 @@
+Name: freetype2
+URL: git://git.sv.nongnu.org/freetype/freetype2.git
+Version: 2.4.8-1ubuntu2.3
+Security Critical: no
+License: BSD
+License File: NOT_SHIPPED
+
+Description:
+
+This mirrors the version of Freetype2 that was distributed with Ubuntu Precise
+(Version 2.4.8, git hash 9d7f0957fbd10fdbabf9815e37857a910ad4f4ac, plus
+applicable debian/patches-freetype as seen in
+https://launchpad.net/ubuntu/lucid/+source/freetype ).
+
+To get the code and patches:
+
+sudo apt-add-repository -s "deb http://archive.ubuntu.com/ubuntu precise-security main"
+sudo apt-key update
+sudo apt-get update
+apt-get source -t precise freetype=2.4.8-1ubuntu2.3
+
+and then to apply the patches (quilt):
+
+cd freetype-2.4.8/
+./debian/rules patch
+
+The tree produced by this should match the tree in this repo on the
+chromium/ubuntu/precise branch.
+
+The build files should approximate the output of
+
+make -Bn | rev | cut -d ' ' -f 1 | rev | grep "\.c$" | sort
+
+Currently the cache, validators, patent checker (no longer used), and bzip2
+are excluded.
+
+We link this library into DumpRenderTree so that we can run the layout tests
+on later versions of Ubuntu and still get the same font rendering so that
+we don't have to support two sets of pixel test baselines.
+
+Freetype depends on two header files to be supplied by the user to specify
+how to build the library, ftconfig.h and ftmodule.h (or equivalent filenames
+as defined by the FT_CONFIG_CONFIG_H and FT_CONFIG_MODULES_H #defines).
+
+The versions in include/ were generated as follows (on a Precise machine):
+
+  % cd ext
+  % bash autogen.sh
+  % ./configure
+  % cp objs/ftmodule.h ../include
+  % cp builds/unix/ftconfig.h ../include
+  % git apply freetype2.patch
+
+(Basically we use the stock list of modules, and define the FT_EXPORT
+and FT_EXPORT_DEF macros to work properly when building a linux shared lib.)
+
+This code is not considered security critical since it is only to be linked
+into test binaries! This should never be linked into chrome or any production
+code.

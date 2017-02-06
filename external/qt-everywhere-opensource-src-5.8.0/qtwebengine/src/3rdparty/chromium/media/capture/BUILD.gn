@@ -1,0 +1,179 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//media/media_options.gni")
+import("//testing/test.gni")
+
+component("capture") {
+  defines = [ "CAPTURE_IMPLEMENTATION" ]
+  sources = [
+    "capture_export.h",
+    "content/animated_content_sampler.cc",
+    "content/animated_content_sampler.h",
+    "content/capture_resolution_chooser.cc",
+    "content/capture_resolution_chooser.h",
+    "content/feedback_signal_accumulator.h",
+    "content/screen_capture_device_core.cc",
+    "content/screen_capture_device_core.h",
+    "content/smooth_event_sampler.cc",
+    "content/smooth_event_sampler.h",
+    "content/thread_safe_capture_oracle.cc",
+    "content/thread_safe_capture_oracle.h",
+    "content/video_capture_oracle.cc",
+    "content/video_capture_oracle.h",
+    "device_monitor_mac.h",
+    "device_monitor_mac.mm",
+    "system_message_window_win.cc",
+    "system_message_window_win.h",
+    "video/fake_video_capture_device.cc",
+    "video/fake_video_capture_device.h",
+    "video/fake_video_capture_device_factory.cc",
+    "video/fake_video_capture_device_factory.h",
+    "video/file_video_capture_device.cc",
+    "video/file_video_capture_device.h",
+    "video/file_video_capture_device_factory.cc",
+    "video/file_video_capture_device_factory.h",
+    "video/linux/v4l2_capture_delegate.cc",
+    "video/linux/video_capture_device_chromeos.cc",
+    "video/linux/video_capture_device_chromeos.h",
+    "video/linux/video_capture_device_factory_linux.cc",
+    "video/linux/video_capture_device_factory_linux.h",
+    "video/linux/video_capture_device_linux.cc",
+    "video/linux/video_capture_device_linux.h",
+    "video/mac/video_capture_device_avfoundation_mac.h",
+    "video/mac/video_capture_device_avfoundation_mac.mm",
+    "video/mac/video_capture_device_decklink_mac.h",
+    "video/mac/video_capture_device_decklink_mac.mm",
+    "video/mac/video_capture_device_factory_mac.h",
+    "video/mac/video_capture_device_factory_mac.mm",
+    "video/mac/video_capture_device_mac.h",
+    "video/mac/video_capture_device_mac.mm",
+    "video/scoped_result_callback.h",
+    "video/video_capture_device.cc",
+    "video/video_capture_device.h",
+    "video/video_capture_device_factory.cc",
+    "video/video_capture_device_factory.h",
+    "video/video_capture_device_info.cc",
+    "video/video_capture_device_info.h",
+    "video/win/capability_list_win.cc",
+    "video/win/capability_list_win.h",
+    "video/win/filter_base_win.cc",
+    "video/win/filter_base_win.h",
+    "video/win/pin_base_win.cc",
+    "video/win/pin_base_win.h",
+    "video/win/sink_filter_observer_win.h",
+    "video/win/sink_filter_win.cc",
+    "video/win/sink_filter_win.h",
+    "video/win/sink_input_pin_win.cc",
+    "video/win/sink_input_pin_win.h",
+    "video/win/video_capture_device_factory_win.cc",
+    "video/win/video_capture_device_factory_win.h",
+    "video/win/video_capture_device_mf_win.cc",
+    "video/win/video_capture_device_mf_win.h",
+    "video/win/video_capture_device_win.cc",
+    "video/win/video_capture_device_win.h",
+  ]
+
+  public_deps = []
+  deps = [
+    "//base",
+    "//base:i18n",
+    "//media",
+    "//media/mojo/interfaces:image_capture",
+    "//skia",
+    "//ui/display",
+    "//ui/gfx",
+  ]
+
+  configs += [
+    # TODO(mcasas): media/base should be a component and not a source_set, but
+    # it depends on parts of media/filters, media/ffmpeg etc. Until then, we
+    # pretend to be inside media.dll and duplicate the few symbols needed, see
+    # https://crbug.com/590017.
+    "//media:media_implementation",
+  ]
+
+  if (is_android) {
+    public_deps += [
+      "video/android",
+      "video/android:capture_java",
+    ]
+    deps += [ "video/android:capture_jni_headers" ]
+  }
+
+  if (is_mac) {
+    deps += [ "//third_party/decklink" ]
+    libs = [
+      "ApplicationServices.framework",  # Temporary hack around https://crbug.com/620127. Remove after https://crbug.com/622481 is fixed.
+      "CoreFoundation.framework",
+      "CoreGraphics.framework",
+      "CoreVideo.framework",
+      "Foundation.framework",
+    ]
+  }
+
+  if (use_udev) {
+    deps += [ "//device/udev_linux" ]
+    sources += [
+      "device_monitor_udev.cc",
+      "device_monitor_udev.h",
+    ]
+  }
+
+  if (is_win) {
+    deps += [
+      "//media/base",  # For media_switches.
+      "//media/base/win",
+    ]
+    libs = [
+      "mf.lib",
+      "mfplat.lib",
+      "mfreadwrite.lib",
+      "mfuuid.lib",
+    ]
+    ldflags = [
+      "/DELAYLOAD:mf.dll",
+      "/DELAYLOAD:mfplat.dll",
+      "/DELAYLOAD:mfreadwrite.dll",
+    ]
+
+    # TODO(jschuh): https://crbug.com/167187 fix size_t to int truncations.
+    configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+  }
+}
+
+test("capture_unittests") {
+  sources = [
+    "content/animated_content_sampler_unittest.cc",
+    "content/capture_resolution_chooser_unittest.cc",
+    "content/feedback_signal_accumulator_unittest.cc",
+    "content/smooth_event_sampler_unittest.cc",
+    "content/video_capture_oracle_unittest.cc",
+    "system_message_window_win_unittest.cc",
+    "video/fake_video_capture_device_unittest.cc",
+    "video/mac/video_capture_device_factory_mac_unittest.mm",
+    "video/video_capture_device_unittest.cc",
+  ]
+
+  deps = [
+    ":capture",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//media/base:test_support",
+    "//media/mojo/interfaces:image_capture",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/gfx:test_support",
+  ]
+
+  if (is_android) {
+    deps += [ "//media/capture/video/android:capture_java" ]
+  }
+
+  if (is_win) {
+    # TODO(jschuh): https://crbug.com/167187 fix size_t to int truncations.
+    configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+  }
+}

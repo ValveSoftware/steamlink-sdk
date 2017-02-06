@@ -1,0 +1,216 @@
+<link rel="import" href="/import_supervised_user.html">
+<link rel="import" href="/profile_browser_proxy.html">
+<link rel="import" href="/shared_styles.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_profile_avatar_selector/cr_profile_avatar_selector.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/html/action_link.html">
+<link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/html/util.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-input/paper-input.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-item/paper-item.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-listbox/paper-listbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-spinner/paper-spinner.html">
+
+<dom-module id="create-profile">
+  <template>
+    <style include="shared-styles iron-positioning">
+      .container {
+        color: var(--primary-text-color);
+        width: var(--page-width);
+      }
+
+      #message-container {
+        -webkit-transition: top 400ms cubic-bezier(.4, 0, .2, 1),
+                            visibility 0s linear 400ms;
+        align-items: center;
+        background-color: var(--paper-red-50);
+        color: var(--google-red-700);
+        display: flex;
+        height: 40px;
+        left: 0;
+        overflow: hidden;
+        padding: 0 16px;
+        position: absolute;
+        right: 0;
+        top: -40px;
+        visibility: hidden;
+      }
+
+      #message-container[visible] {
+        -webkit-transition: top 400ms cubic-bezier(.4, 0, .2, 1),
+                            visibility 0s linear 0s;
+        top: 0;
+        visibility: visible;
+      }
+
+      #message-container iron-icon {
+        --iron-icon-height: 20px;
+        --iron-icon-width: 20px;
+      }
+
+      #message-container #message {
+        -webkit-margin-start: 16px;
+      }
+
+      #message-container a {
+        color: inherit;
+        text-decoration: underline;
+      }
+
+      #title-bar {
+        border-bottom: var(--user-manager-separator-line);
+        font-size: 16px;
+        font-weight: 500;
+        padding: 104px 0 16px;
+      }
+
+      #nameInput,
+      paper-dropdown-menu {
+        --paper-input-container-focus-color: var(--google-blue-500);
+        --paper-input-container-input: {
+          font-size: inherit;
+        };
+        --paper-input-container-label: {
+          font-size: inherit;
+        };
+      }
+
+      #nameInput {
+        margin-bottom: 24px;
+        margin-top: 32px;
+        width: 300px;
+      }
+
+      paper-checkbox {
+        --paper-checkbox-checked-color: var(--google-blue-500);
+        --paper-checkbox-label-spacing: 16px;
+        --paper-checkbox-size: 16px;
+        --paper-checkbox-unchecked-color: var(--paper-grey-600);
+        margin-top: 24px;
+      }
+
+      #supervised-user-container {
+        -webkit-padding-start: 32px;
+      }
+
+      #supervised-user-container #learn-more {
+        line-height: 20px;
+      }
+
+      #supervised-user-container paper-dropdown-menu {
+        margin-top: 4px;
+        width: 200px;
+      }
+
+      #supervised-user-container paper-listbox paper-item {
+        --paper-item: {
+          font-size: inherit;
+          min-height: 40px;
+        };
+        --paper-item-focused-before: {
+          background: none;
+        };
+      }
+
+      #supervised-user-container paper-listbox paper-item:hover {
+        background: rgba(0, 0, 0, .12);
+      };
+
+      #supervised-user-container #import-user {
+        -webkit-margin-start: 16px;
+      }
+
+      #supervised-user-container #sign-in-howto-message {
+        margin-top: 12px;
+      }
+
+      #actions {
+        bottom: 16px;
+        display: flex;
+        position: absolute;
+        right: 16px;
+      }
+
+      :host-context([dir='rtl']) #actions {
+        left: 16px;
+        right: auto;
+      }
+
+      #actions paper-spinner {
+        -webkit-margin-end: 8px;
+        align-self: center;
+        height: 20px;
+        width: 20px;
+      }
+    </style>
+    <div id="message-container" visible$="[[isMessageVisble_]]">
+      <iron-icon icon="cr:warning"></iron-icon>
+      <span id="message" inner-h-t-m-l="[[message_]]"></span>
+    </div>
+    <div class="container">
+      <div id="title-bar">$i18n{createProfileTitle}</div>
+      <paper-input id="nameInput" value="{{profileName_}}" pattern=".*\S.*"
+          no-label-float auto-validate>
+      </paper-input>
+      <cr-profile-avatar-selector avatars="[[availableIcons_]]"
+          selected-avatar-url="{{profileIconUrl_}}">
+      </cr-profile-avatar-selector>
+      <paper-checkbox checked="{{isSupervised_}}">
+        $i18n{manageProfilesSupervisedSignedInLabel}
+      </paper-checkbox>
+      <div id="supervised-user-container">
+        <div id="learn-more" >
+          <a is="action-link" on-tap="onLearnMoreTap_">$i18n{learnMore}</a>
+        </div>
+        <template is="dom-if" if="[[isSupervised_]]">
+          <template is="dom-if" if="[[isSignedIn_(signedInUsers_)]]">
+            <paper-dropdown-menu label="$i18n{selectAnAccount}" no-label-float>
+              <paper-listbox class="dropdown-content"
+                  selected="{{signedInUserIndex_}}"
+                  attr-for-selected="data-user-index">
+                <template is="dom-repeat" items="[[signedInUsers_]]">
+                  <paper-item data-user-index$="[[index]]">
+                    [[item.username]]
+                  </paper-item>
+                </template>
+              </paper-listbox>
+            </paper-dropdown-menu>
+            <a id="import-user" is="action-link" on-tap="onImportUserTap_"
+                hidden="[[isImportUserLinkHidden_(createInProgress_,
+                                                  signedInUserIndex_)]]">
+              $i18n{importExistingSupervisedUserLink}
+            </a>
+          </template>
+          <div id="sign-in-howto-message"
+              hidden="[[isSignedIn_(signedInUsers_)]]"
+              inner-h-t-m-l="[[i18nAllowIDAttr_('noSignedInUserMessage')]]">
+          </div>
+        </template>
+      </div>
+      <div id="actions">
+        <paper-spinner active="[[isSpinnerActive_(createInProgress_,
+                                                  loadingSupervisedUsers_)]]">
+        </paper-spinner>
+        <paper-button id="cancel" class="action secondary"
+            on-tap="onCancelTap_">
+          $i18n{cancel}
+        </paper-button>
+        <paper-button id="save" class="action primary" on-tap="onSaveTap_"
+            disabled="[[isSaveDisabled_(createInProgress_,
+                                        loadingSupervisedUsers_,
+                                        profileName_)]]">
+          $i18n{createProfileConfirm}
+        </paper-button>
+      </div>
+      <import-supervised-user id="importUserPopup"></import-supervised-user>
+    </div>
+  </template>
+  <script src="create_profile.js"></script>
+</dom-module>

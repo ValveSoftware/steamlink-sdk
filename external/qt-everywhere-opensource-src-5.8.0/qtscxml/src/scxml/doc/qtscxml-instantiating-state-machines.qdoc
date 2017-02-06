@@ -1,0 +1,169 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtscxml-instantiating-state-machines.html
+    \title Instantiating State Machines
+    \brief Instantiating dynamically created and compiled state machines in C++
+    and QML
+
+    Both the dynamically created and the compiled state machines behave in the
+    same way, have the same properties, states, data model, and so on. They only
+    differ in the way they are instantiated. To dynamically create one in C++
+    from an SCXML file, you can use:
+
+    \code
+    auto *stateMachine = QScxmlStateMachine::fromFile("MyStatemachine.scxml");
+    \endcode
+
+    Or, in QML:
+
+    \qml
+    import QtScxml 5.8
+
+    Item {
+        property QtObject stateMachine: scxmlLoader.stateMachine
+
+        StateMachineLoader {
+            id: scxmlLoader
+            filename: "statemachine.scxml"
+        }
+    }
+    \endqml
+
+    A compiled state machine can be instantiated the same way as any C++
+    object:
+
+    \code
+    auto *stateMachine = new MyStatemachine;
+    \endcode
+
+    Or:
+
+    \code
+    MyStatemachine stateMachine;
+    \endcode
+
+    To use a compiled state machine in QML, you can register it as a QML type:
+
+    \code
+    qmlRegisterType<MyStateMachine>("MyStateMachine", 1, 0, "MyStateMachine");
+    \endcode
+
+    Then you can instantiate it in QML, like this:
+
+    \qml
+    import MyStateMachine 1.0
+
+    MyStateMachine {
+        id: stateMachine
+    }
+    \endqml
+
+    To compile a state machine, the following lines have to be added to a
+    .pro file:
+
+    \badcode
+    QT += scxml
+    STATECHARTS = MyStatemachine.scxml
+    \endcode
+
+    This will tell qmake to run \e qscxmlc which generates MyStatemachine.h
+    and MyStatemachine.cpp, and adds them to \l [QMake] HEADERS and
+    \l [QMake] SOURCES variables. By default, the generated files are saved in
+    the build directory. The \e QSCXMLC_DIR variable can be set to specify
+    another directory. The \e QSCXMLC_NAMESPACE variable can be set to put the
+    state machine code into a C++ namespace.
+
+    After instantiating a state machine, you can connect to any state's
+    active property as follows. For example, if the state machine for a
+    traffic light has a state indicating that the light is red (which has the
+    convenient id "red" in the scxml file), you can write:
+
+    \code
+    stateMachine->connectToState("red", [](bool active) {
+        qDebug() << (active ? "entered" : "exited") << "the red state";
+    \endcode
+
+    And in QML:
+
+    \qml
+    Light {
+        id: greenLight
+        color: "green"
+        visible: stateMachine.green
+    }
+    \endqml
+
+    If you want to be notified when a state machine sends out an event, you
+    can connect to the corresponding signal. For example, for a media player
+    state machine which indicates that playback has stopped by sending an
+    event, you can write:
+
+    \code
+    stateMachine->connectToEvent("playbackStopped", [](const QScxmlEvent &){
+        qDebug() << "Stopped!";
+    });
+    \endcode
+
+    And in QML:
+
+    \qml
+    import QtScxml 5.8
+
+    EventConnection {
+        stateMachine: stateMachine
+        events: ["playbackStopped"]
+        onOccurred: console.log("Stopped!")
+    }
+    \endqml
+
+    Sending events to a state machine is equally simple:
+
+    \code
+    stateMachine->submitEvent("tap", QVariantMap({
+        std::make_pair("artist", "Fatboy Slim"),
+        std::make_pair("title", "The Rockafeller Skank")
+    });
+    \endcode
+
+    This will generate a "tap" event with the map contents available in
+    _event.data inside the state machine. In QML:
+
+    \code
+    stateMachine.submitEvent("tap", {
+        "artist": "Fatboy Slim"
+        "title": "The Rockafeller Skank"
+    })
+    \endcode
+
+    \note A state machine needs a \c QEventLoop to work correctly. The event loop is used
+    to implement the \c delay attribute for events and to schedule the processing of a state machine
+    when events are received from nested (or parent) state machines. A QML application or a widget
+    application will always have an event loop running, so nothing extra is needed. For other
+    applications, \c QApplication::run will have to be called to start the event loop processing.
+*/

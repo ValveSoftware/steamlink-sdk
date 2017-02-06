@@ -1,0 +1,101 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef MEDIA_AUDIO_PULSE_AUDIO_MANAGER_PULSE_H_
+#define MEDIA_AUDIO_PULSE_AUDIO_MANAGER_PULSE_H_
+
+#include <pulse/pulseaudio.h>
+#include <string>
+
+#include "base/compiler_specific.h"
+#include "base/macros.h"
+#include "base/memory/ref_counted.h"
+#include "media/audio/audio_manager_base.h"
+
+namespace media {
+
+class MEDIA_EXPORT AudioManagerPulse : public AudioManagerBase {
+ public:
+  AudioManagerPulse(
+      scoped_refptr<base::SingleThreadTaskRunner> task_runner,
+      scoped_refptr<base::SingleThreadTaskRunner> worker_task_runner,
+      AudioLogFactory* audio_log_factory);
+
+  bool Init();
+
+  // Implementation of AudioManager.
+  bool HasAudioOutputDevices() override;
+  bool HasAudioInputDevices() override;
+  void ShowAudioInputSettings() override;
+  void GetAudioInputDeviceNames(AudioDeviceNames* device_names) override;
+  void GetAudioOutputDeviceNames(AudioDeviceNames* device_names) override;
+  AudioParameters GetInputStreamParameters(
+      const std::string& device_id) override;
+
+  // Implementation of AudioManagerBase.
+  AudioOutputStream* MakeLinearOutputStream(
+      const AudioParameters& params,
+      const LogCallback& log_callback) override;
+  AudioOutputStream* MakeLowLatencyOutputStream(
+      const AudioParameters& params,
+      const std::string& device_id,
+      const LogCallback& log_callback) override;
+  AudioInputStream* MakeLinearInputStream(
+      const AudioParameters& params,
+      const std::string& device_id,
+      const LogCallback& log_callback) override;
+  AudioInputStream* MakeLowLatencyInputStream(
+      const AudioParameters& params,
+      const std::string& device_id,
+      const LogCallback& log_callback) override;
+
+ protected:
+  ~AudioManagerPulse() override;
+
+  AudioParameters GetPreferredOutputStreamParameters(
+      const std::string& output_device_id,
+      const AudioParameters& input_params) override;
+
+ private:
+  bool InitPulse();
+  void DestroyPulse();
+
+  void GetAudioDeviceNames(bool input, media::AudioDeviceNames* device_names);
+
+  // Callback to get the devices' info like names, used by GetInputDevices().
+  static void InputDevicesInfoCallback(pa_context* context,
+                                       const pa_source_info* info,
+                                       int error, void* user_data);
+  static void OutputDevicesInfoCallback(pa_context* context,
+                                        const pa_sink_info* info,
+                                        int error, void* user_data);
+
+  // Callback to get the native sample rate of PulseAudio, used by
+  // GetNativeSampleRate().
+  static void SampleRateInfoCallback(pa_context* context,
+                                     const pa_server_info* info,
+                                     void* user_data);
+
+  // Called by MakeLinearOutputStream and MakeLowLatencyOutputStream.
+  AudioOutputStream* MakeOutputStream(const AudioParameters& params,
+                                      const std::string& device_id);
+
+  // Called by MakeLinearInputStream and MakeLowLatencyInputStream.
+  AudioInputStream* MakeInputStream(const AudioParameters& params,
+                                    const std::string& device_id);
+
+  // Gets the native sample rate of Pulse.
+  int GetNativeSampleRate();
+
+  pa_threaded_mainloop* input_mainloop_;
+  pa_context* input_context_;
+  AudioDeviceNames* devices_;
+  int native_input_sample_rate_;
+
+  DISALLOW_COPY_AND_ASSIGN(AudioManagerPulse);
+};
+
+}  // namespace media
+
+#endif  // MEDIA_AUDIO_PULSE_AUDIO_MANAGER_PULSE_H_

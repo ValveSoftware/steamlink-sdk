@@ -1,0 +1,77 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/grit/grit_rule.gni")
+import("//tools/grit/repack.gni")
+import("//ui/base/ui_features.gni")
+
+assert(enable_hidpi)
+
+grit("resources") {
+  source = "ash_resources.grd"
+  outputs = [
+    "grit/ash_resources.h",
+    "ash_resources_100_percent.pak",
+    "ash_resources_200_percent.pak",
+  ]
+}
+
+# Generates a rule to repack ash resources for a given percentage (e.g. "100").
+# TODO(msw): Use ui_test.pak instead of its pieces? (no 200% support?)
+template("ash_test_resources") {
+  percent = invoker.percent
+
+  repack("ash_test_resources_${target_name}") {
+    output = "$root_build_dir/ash_test_resources_${percent}_percent.pak"
+
+    sources = [
+      "$root_gen_dir/ash/resources/ash_resources_${percent}_percent.pak",
+      "$root_gen_dir/ui/resources/ui_resources_${percent}_percent.pak",
+    ]
+
+    if (percent == "100") {
+      sources += [
+        "$root_gen_dir/content/content_resources.pak",
+        "$root_gen_dir/ui/resources/webui_resources.pak",
+      ]
+    }
+
+    deps = [
+      "//ash/resources",
+      "//content:resources",
+      "//ui/resources",
+    ]
+
+    if (toolkit_views) {
+      deps += [
+        "//ui/app_list/resources",
+        "//ui/views/resources",
+      ]
+      sources += [
+        "$root_gen_dir/ui/app_list/resources/app_list_resources_${percent}_percent.pak",
+        "$root_gen_dir/ui/views/resources/views_resources_${percent}_percent.pak",
+      ]
+
+      if (percent == "100") {
+        # TODO(msw): This seems bad, but follows repack_ui_test_pak's example.
+        deps += [ "//third_party/WebKit/public:resources_grit" ]
+        sources +=
+            [ "$root_gen_dir/blink/public/resources/blink_resources.pak" ]
+      }
+    }
+
+    if (is_chromeos) {
+      sources += [ "$root_gen_dir/ui/chromeos/resources/ui_chromeos_resources_${percent}_percent.pak" ]
+      deps += [ "//ui/chromeos/resources" ]
+    }
+  }
+}
+
+ash_test_resources("100_percent") {
+  percent = "100"
+}
+
+ash_test_resources("200_percent") {
+  percent = "200"
+}

@@ -1,0 +1,227 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//tools/grit/grit_rule.gni")
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("../chrome_renderer.gypi") ],
+                          "scope",
+                          [ "../chrome_renderer.gypi" ])
+
+# GYP version: chrome/chrome_resources.gyp:chrome_resources
+# (generate_renderer_resources action)
+grit("resources") {
+  source = "resources/renderer_resources.grd"
+  output_dir = "$root_gen_dir/chrome"
+  output_name = "renderer_resources"
+  outputs = [
+    "grit/renderer_resources.h",
+    "renderer_resources_100_percent.pak",
+    "renderer_resources_200_percent.pak",
+    "renderer_resources_300_percent.pak",
+  ]
+}
+
+static_library("renderer") {
+  sources = rebase_path(gypi_values.chrome_renderer_sources, ".", "..")
+
+  defines = []
+
+  deps = [
+    "//chrome:resources",
+    "//chrome:strings",
+    "//chrome/common",
+    "//chrome/common:mojo_bindings",
+    "//components/autofill/content/renderer",
+    "//components/cdm/renderer",
+    "//components/content_settings/content/common",
+    "//components/data_reduction_proxy/content/common",
+    "//components/data_reduction_proxy/core/common",
+    "//components/dom_distiller/content/renderer",
+    "//components/error_page/renderer",
+    "//components/guest_view/renderer",
+    "//components/network_hints/renderer",
+    "//components/omnibox/common",
+    "//components/page_load_metrics/renderer",
+    "//components/password_manager/content/renderer",
+    "//components/plugins/renderer",
+    "//components/printing/renderer",
+    "//components/resources:components_resources",
+    "//components/startup_metric_utils/common:interfaces",
+    "//components/subresource_filter/content/renderer",
+    "//components/translate/content/renderer",
+    "//components/translate/core/common",
+    "//components/translate/core/language_detection",
+    "//components/visitedlink/renderer",
+    "//components/web_cache/renderer",
+    "//content/app/resources",
+    "//content/app/strings",
+    "//content/public/renderer",
+    "//net",
+    "//skia",
+    "//storage/common",
+    "//third_party/WebKit/public:blink",
+    "//third_party/WebKit/public:image_resources",
+    "//third_party/WebKit/public:resources",
+    "//third_party/icu",
+    "//third_party/re2",
+    "//third_party/widevine/cdm:version_h",
+    "//ui/surface",
+    "//v8:v8",
+  ]
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  if (!is_ios) {
+    deps += [
+      "//chrome/common/net",
+      "//components/contextual_search:renderer",
+      "//media",
+    ]
+  }
+
+  if (enable_nacl) {
+    deps += [
+      "//components/nacl/loader",
+      "//components/nacl/renderer",
+    ]
+  }
+
+  if (enable_plugins) {
+    sources +=
+        rebase_path(gypi_values.chrome_renderer_plugin_sources, ".", "..")
+    deps += [
+      "//components/pdf/renderer",
+      "//components/strings",
+      "//ppapi/host",
+      "//ppapi/proxy",
+      "//ppapi/proxy:ipc",
+      "//ppapi/shared_impl",
+    ]
+  }
+
+  if (safe_browsing_mode != 0) {
+    sources +=
+        rebase_path(gypi_values.chrome_renderer_basic_safe_browsing_sources,
+                    ".",
+                    "..")
+    if (safe_browsing_mode == 1) {
+      sources +=
+          rebase_path(gypi_values.chrome_renderer_full_safe_browsing_sources,
+                      ".",
+                      "..")
+      deps += [
+        "//chrome/common/safe_browsing:proto",
+        "//third_party/smhasher:murmurhash3",
+      ]
+    }
+  }
+
+  if (enable_extensions) {
+    sources +=
+        rebase_path(gypi_values.chrome_renderer_extensions_sources, ".", "..")
+    deps += [
+      # TODO(hclam): See crbug.com/298380 for details.
+      # We should isolate the APIs needed by the renderer.
+      "//chrome/common/extensions/api",
+      "//extensions:extensions_resources",
+      "//extensions/renderer",
+      "//media/cast:net",
+      "//media/cast:receiver",
+      "//media/cast:sender",
+    ]
+    if (!enable_webrtc) {
+      sources -= [
+        "media/cast_receiver_session.cc",
+        "media/cast_receiver_session.h",
+        "media/cast_rtp_stream.cc",
+        "media/cast_rtp_stream.h",
+      ]
+    }
+  }
+  if (enable_webrtc) {
+    sources +=
+        rebase_path(gypi_values.chrome_renderer_webrtc_sources, ".", "..")
+  }
+  if (enable_extensions && enable_webrtc) {
+    sources +=
+        rebase_path(gypi_values.chrome_renderer_webrtc_extensions_sources,
+                    ".",
+                    "..")
+  }
+  if (enable_spellcheck) {
+    sources +=
+        rebase_path(gypi_values.chrome_renderer_spellchecker_sources, ".", "..")
+    if (!is_android) {
+      deps += [ "//third_party/hunspell" ]
+    }
+    if (!use_browser_spellchecker) {
+      sources -= [
+        "spellchecker/platform_spelling_engine.cc",
+        "spellchecker/platform_spelling_engine.h",
+      ]
+  }
+  }
+  if (enable_basic_printing || enable_print_preview) {
+    deps += [ "//printing" ]
+    sources +=
+        rebase_path(gypi_values.chrome_renderer_printing_sources, ".", "..")
+    if (enable_print_preview) {
+      sources += rebase_path(gypi_values.chrome_renderer_full_printing_sources,
+                             ".",
+                             "..")
+    }
+  }
+
+  if (is_win) {
+    deps += [ "//third_party/wtl" ]
+  }
+  if (is_android) {
+    sources -= [
+      "spellchecker/hunspell_engine.cc",
+      "spellchecker/hunspell_engine.h",
+    ]
+  }
+}
+
+# In GYP this is part of test_support_common.
+source_set("test_support") {
+  testonly = true
+  visibility = [ "//chrome/test:test_support" ]
+
+  sources = [
+    "chrome_mock_render_thread.cc",
+    "chrome_mock_render_thread.h",
+    "safe_browsing/mock_feature_extractor_clock.cc",
+    "safe_browsing/mock_feature_extractor_clock.h",
+    "safe_browsing/test_utils.cc",
+    "safe_browsing/test_utils.h",
+  ]
+
+  deps = [
+    ":renderer",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+
+  if (enable_print_preview) {
+    deps += [ "//chrome/service" ]
+  }
+
+  if (enable_webrtc) {
+    sources += [
+      "media/mock_webrtc_logging_message_filter.cc",
+      "media/mock_webrtc_logging_message_filter.h",
+    ]
+  }
+
+  if (is_android) {
+    sources -= [
+      "safe_browsing/mock_feature_extractor_clock.cc",
+      "safe_browsing/mock_feature_extractor_clock.h",
+    ]
+  }
+}

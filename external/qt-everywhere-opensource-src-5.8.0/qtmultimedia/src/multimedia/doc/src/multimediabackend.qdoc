@@ -1,0 +1,139 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+
+/*!
+
+\title Multimedia Backend Development
+\page multimediabackend.html
+\brief Information for implementing a new multimedia backend.
+\ingroup mobility
+
+\tableofcontents
+
+\section1 Overview
+
+A multimedia backend provides the glue between platform-specific libraries, and
+Qt Multimedia. In some cases the available cross-platform Multimedia APIs or
+implementations are not sufficient, or not immediately available on a certain
+platform. Alternatively, the multimedia implementation on a platform might expose
+certain extra properties or functionality that other platforms do not, or a finer
+degree of control might be possible.  For these cases, it is possible to use
+extended controls directly.
+\omit
+In addition, if you plan to port the Qt Multimedia APIs to a new platform, you do
+this by implementing certain control and service classes, as detailed below.
+
+\section1 Extending the API
+
+For the developer who wishes to extend the functionality of the Qt Multimedia
+classes there are several classes of particular importance. The classes
+providing default functionality are QMediaService, QMediaServiceProvider and
+QMediaControl.  Some of these classes are not in the public API since they
+are very seldom useful to application developers.
+
+To extend the Multimedia API you would use the following three classes or
+classes derived from them.
+
+    \list
+    \li QMediaServiceProvider is used by the top level client class to
+    request a service. The top level class knowing what kind of service it needs.
+
+    \li \l QMediaService provides a service and when asked by the top level
+    object, say a component, will return a QMediaControl object.
+
+    \li \l QMediaControl allows the control of the service using a known interface.
+    \endlist
+
+Consider a developer creating, for example, a media player class called MyPlayer.
+It may have special requirements beyond ordinary media players and so may
+need a custom service and a custom control. We can subclass QMediaServiceProvider
+to create our MyServiceProvider class. Also we will create a
+MyMediaService, and the MyMediaControl to manipulate the media service.
+
+The MyPlayer object calls MyServiceProvider::requestService() to get an
+instance of MyMediaService. Then the MyPlayer object calls this service
+object it has just received and calling \l {QMediaService::requestControl()}{requestControl()}
+it will receive the control object derived from QMediaControl.
+
+Now we have all the parts necessary for our media application. We have the service
+provider, the service it provides and the control used to manipulate the
+service. Since our MyPlayer object has instances of the service and its
+control then it would be possible for these to be used by associated classes
+that could do additional actions, perhaps with their own control since the
+parameter to requestControl() is a zero-terminated string, \e {const char *},
+for the interface.
+
+\section2 Adding a Media Service Provider
+
+In general, adding a new media service provider is outside the scope of this documentation.
+For best results, consult the existing provider source code, and seek assistance on the relevant
+mailing lists and IRC channels.
+
+The base class for creating new service providers is \l{QMediaServiceProvider}.
+The user must implement the \l{QMediaServiceProvider::requestService()}{requestService()}
+function
+
+\code
+    QMediaService* requestService(const QByteArray &type, const QMediaServiceProviderHint &hint);
+\endcode
+
+The details of implementation will depend on the provider. Looking at the
+class \l QMediaServiceProvider for the default implementation. Notice that
+\l {QMediaServiceProvider::requestService()}{requestService()} uses the
+\l QMediaServiceProviderHint to look for the appropriate plugin and then to
+insert it into the plugin map. However, for a specific service provider there
+is probably no need for this approach, it will simply depend on what the
+developer wants to implement.
+
+Other methods that may be overloaded
+\code
+    void releaseService(QMediaService *service);
+
+    QtMediaServices::SupportEstimate hasSupport(const QByteArray &serviceType,
+                                        const QString &mimeType,
+                                        const QStringList& codecs,
+                                        int flags) const;
+
+    QStringList supportedMimeTypes(const QByteArray &serviceType, int flags) const;
+
+    QList<QByteArray> devices(const QByteArray &serviceType) const;
+
+    QString deviceDescription(const QByteArray &serviceType, const QByteArray &device);
+\endcode
+
+The choice of what needs to be done depends on what the developer wishes to do with the service.
+
+\endomit
+
+\section2 Classes for service implementers.
+
+\annotatedlist multimedia_control
+
+*/
+
+

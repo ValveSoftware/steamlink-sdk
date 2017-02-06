@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2014 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/ui/base/chart_base_2d_brushable_x.html">
+
+<script>
+'use strict';
+
+tr.exportTo('tr.ui.b', function() {
+  var ColorScheme = tr.b.ColorScheme;
+  var ChartBase2DBrushX = tr.ui.b.ChartBase2DBrushX;
+  var getColorOfKey = tr.ui.b.getColorOfKey;
+
+  // @constructor
+  var BarChart = tr.ui.b.define('bar-chart', ChartBase2DBrushX);
+
+  BarChart.prototype = {
+    __proto__: ChartBase2DBrushX.prototype,
+
+    decorate: function() {
+      ChartBase2DBrushX.prototype.decorate.call(this);
+      this.classList.add('bar-chart');
+      this.xCushion_ = 0;
+      this.isStacked_ = false;
+    },
+
+    set isStacked(stacked) {
+      this.isStacked_ = true;
+      this.updateContents_();
+    },
+
+    get isStacked() {
+      return this.isStacked_;
+    },
+
+    isDatumFieldSeries_: function(fieldName) {
+      return fieldName != 'x';
+    },
+
+    getXForDatum_: function(datum, index) {
+      return datum.x;
+    },
+
+    updateScales_: function() {
+      if (this.data_.length === 0)
+        return;
+
+      var xDifferences = 0;
+      var currentX = undefined;
+      var previousX = undefined;
+      var yRange = new tr.b.Range();
+      this.data_.forEach(function(datum, index) {
+        previousX = currentX;
+        currentX = this.getXForDatum_(datum, index);
+        if (previousX !== undefined) {
+          xDifferences += currentX - previousX;
+        }
+
+        this.seriesKeys_.forEach(function(key) {
+          // Allow for sparse data
+          if (datum[key] !== undefined)
+            yRange.addValue(datum[key]);
+        });
+      }, this);
+
+      // X.
+      // Leave a cushion on the right so that the last rect doesn't
+      // exceed the chart boundaries. The last rect's width is set to the
+      // average width of the rects, which is chart.width / data.length.
+      var width = this.chartAreaSize.width;
+      this.xScale_.range([0, width]);
+      var domain = d3.extent(this.data_, this.getXForDatum_.bind(this));
+      this.xCushion_ = xDifferences / (this.data_.length - 1);
+      this.xScale_.domain([domain[0], domain[1] + this.xCushion_]);
+
+      // Y.
+      this.yScale_.range([this.chartAreaSize.height, 0]);
+      this.yScale_.domain(this.getYScaleDomain_(yRange.min, yRange.max));
+    },
+
+    getYScaleDomain_: function(minValue, maxValue) {
+      if (!this.isStacked) {
+        return ChartBase2DBrushX.prototype.getYScaleDomain_.call(
+            this, minValue, maxValue);
+      }
+
+      var range = new tr.b.Range();
+      range.addValue(0);
+      this.data_.forEach(function(datum, index) {
+        var sum = 0;
+        this.seriesKeys_.forEach(function(key) {
+          if (datum[key] === undefined)
+            return;
+          sum += datum[key];
+        }, this);
+        range.addValue(sum);
+      }, this);
+      return [range.min, range.max];
+    },
+
+    getStackedRectsForDatum_: function(datum, index) {
+      var stacks = [];
+      var bottom = this.yScale_.range()[0];
+      var sum = 0;
+      this.seriesKeys_.forEach(function(key) {
+        if (datum[key] === undefined)
+          return;
+        sum += datum[key];
+        var heightPx = bottom - this.yScale_(sum);
+        bottom -= heightPx;
+        stacks.push({
+          color: getColorOfKey(key),
+          heightPx: heightPx,
+          topPx: bottom
+        });
+      }, this);
+      return stacks;
+    },
+
+    getRectsForDatum_: function(datum, index) {
+      if (this.isStacked)
+        return this.getStackedRectsForDatum_(datum, index);
+
+      var stacks = [];
+      this.seriesKeys_.forEach(function(key) {
+        if (datum[key] === undefined)
+          return;
+        var topPx = this.yScale_(Math.max(datum[key], this.getYScaleMin_()));
+        stacks.push({
+          topPx: topPx,
+          heightPx: this.yScale_.range()[0] - topPx,
+          color: getColorOfKey(key)
+        });
+      }, this);
+      stacks.sort(function(a, b) {
+        return b.topPx - a.topPx;
+      });
+      return stacks;
+    },
+
+    updateDataContents_: function(dataSel) {
+      dataSel.selectAll('*').remove();
+      var rectsSel = dataSel.selectAll('path').data(this.seriesKeys_);
+      this.data_.forEach(function(datum, index) {
+        var currentX = this.getXForDatum_(datum, index);
+        var width = undefined;
+        if (index < (this.data_.length - 1)) {
+          var nextX = this.getXForDatum_(this.data_[index + 1], index + 1);
+          width = nextX - currentX;
+        } else {
+          width = this.xCushion_;
+        }
+        this.getRectsForDatum_(datum, index).forEach(function(rect) {
+          var leftPx = this.xScale_(currentX);
+          var rightPx = this.xScale_(currentX + width);
+          var widthPx = rightPx - leftPx;
+          rectsSel.enter()
+              .append('rect')
+              .attr('fill', rect.color)
+              .attr('x', leftPx)
+              .attr('y', rect.topPx)
+              .attr('width', widthPx)
+              .attr('height', rect.heightPx);
+        }, this);
+      }, this);
+      rectsSel.exit().remove();
+    }
+  };
+
+  return {
+    BarChart: BarChart
+  };
+});
+</script>

@@ -1,0 +1,66 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chromecast_build.gni")
+
+assert(is_android || is_chromecast,
+       "This library is only used on Android or Chromecast")
+
+config("freetype_config") {
+  include_dirs = [
+    "include",
+    "src/include",
+  ]
+}
+
+source_set("freetype") {
+  sources = [
+    # The following files are not sorted alphabetically, but in the
+    # same order as in Android.mk to ease maintenance.
+    "src/src/autofit/autofit.c",
+    "src/src/base/ftbase.c",
+    "src/src/base/ftbbox.c",
+    "src/src/base/ftbitmap.c",
+    "src/src/base/ftfntfmt.c",
+    "src/src/base/ftfstype.c",
+    "src/src/base/ftgasp.c",
+    "src/src/base/ftglyph.c",
+    "src/src/base/ftinit.c",
+    "src/src/base/ftlcdfil.c",
+    "src/src/base/ftmm.c",
+    "src/src/base/ftstroke.c",
+    "src/src/base/ftsystem.c",
+    "src/src/base/fttype1.c",
+    "src/src/cff/cff.c",
+    "src/src/gzip/ftgzip.c",
+    "src/src/pshinter/pshinter.c",
+    "src/src/psnames/psnames.c",
+    "src/src/raster/raster.c",
+    "src/src/sfnt/sfnt.c",
+    "src/src/smooth/smooth.c",
+    "src/src/truetype/truetype.c",
+  ]
+
+  if (is_chromecast) {
+    sources += [ "src/src/base/ftbdf.c" ]
+  }
+
+  defines = [
+    "FT2_BUILD_LIBRARY",
+    "DARWIN_NO_CARBON",
+
+    # Long directory name to avoid accidentally using wrong headers.
+    "FT_CONFIG_MODULES_H=<freetype-android-config/ftmodule.h>",
+    "FT_CONFIG_OPTIONS_H=<freetype-android-config/ftoption.h>",
+  ]
+
+  public_configs = [ ":freetype_config" ]
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+
+  deps = [
+    "//third_party/libpng",
+    "//third_party/zlib",
+  ]
+}

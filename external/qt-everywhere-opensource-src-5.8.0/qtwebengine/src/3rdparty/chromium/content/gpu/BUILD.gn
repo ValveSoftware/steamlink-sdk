@@ -1,0 +1,104 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//media/media_options.gni")
+
+# See //content/BUILD.gn for how this works.
+group("gpu") {
+  visibility = [ "//content/*" ]  # This is an internal content API.
+
+  if (is_component_build) {
+    public_deps = [
+      "//content",
+    ]
+  } else {
+    public_deps = [
+      ":gpu_sources",
+    ]
+  }
+}
+
+source_set("gpu_sources") {
+  # This is an internal content API. Code outside of the content "component"
+  # (like content/test and content/shell) should depend on ":gpu" above.
+  visibility = [ "//content/*" ]
+
+  sources = [
+    "gpu_child_thread.cc",
+    "gpu_child_thread.h",
+    "gpu_main.cc",
+    "gpu_process.cc",
+    "gpu_process.h",
+    "gpu_process_control_impl.cc",
+    "gpu_process_control_impl.h",
+    "gpu_watchdog_thread.cc",
+    "gpu_watchdog_thread.h",
+    "in_process_gpu_thread.cc",
+    "in_process_gpu_thread.h",
+  ]
+
+  configs += [ "//content:content_implementation" ]
+
+  deps = [
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//components/tracing",
+    "//content:export",
+    "//content:export",
+    "//content/child",
+    "//content/common",
+    "//content/public/child:child_sources",
+    "//content/public/common:common_sources",
+    "//gpu:gpu",
+    "//gpu/ipc/common:command_buffer_traits",
+    "//gpu/ipc/service",
+    "//ipc",
+    "//media/gpu",
+    "//media/gpu/ipc/service",
+    "//services/shell/public/interfaces",
+    "//skia",
+    "//ui/events/ipc",
+    "//ui/gfx/ipc",
+    "//ui/gl",
+    "//ui/gl/init",
+  ]
+
+  if (is_android) {
+    deps += [ "//media/base/android" ]
+  }
+
+  if (mojo_media_host == "gpu") {
+    deps += [ "//media/mojo/services" ]
+  }
+
+  if (is_win) {
+    configs += [
+      "//third_party/khronos:khronos_headers",
+      "//third_party/wtl:wtl_includes",
+    ]
+    libs = [ "setupapi.lib" ]
+    deps += [
+      "//sandbox",
+      "//third_party/angle:libEGL",
+      "//third_party/angle:libGLESv2",
+    ]
+  }
+
+  if (is_chromeos && current_cpu != "arm") {
+    configs += [ "//third_party/libva:libva_config" ]
+  }
+
+  if (use_x11) {
+    deps += [ "//ui/events/platform/x11" ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+
+  if (enable_vulkan) {
+    deps += [ "//gpu/vulkan" ]
+  }
+}

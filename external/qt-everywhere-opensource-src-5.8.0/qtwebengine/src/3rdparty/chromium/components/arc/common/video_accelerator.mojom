@@ -1,0 +1,105 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// This file defined the mojo interface between Android and Chromium for video
+// decoding and encoding. See comments of ArcVideoAccelerator for more info.
+
+module arc.mojom;
+
+[Extensible]
+enum HalPixelFormatExtension {
+  HAL_PIXEL_FORMAT_YCbCr_420_888 = 0x23,
+  HAL_PIXEL_FORMAT_H264 = 0x34363248,
+  HAL_PIXEL_FORMAT_VP8 = 0x00385056,
+};
+
+enum PortType {
+  PORT_INPUT = 0,
+  PORT_OUTPUT = 1,
+};
+
+struct BufferMetadata {
+  int64 timestamp;  // in microseconds
+  uint32 bytes_used;
+};
+
+struct VideoFormat {
+  uint32 pixel_format;
+  uint32 buffer_size;
+
+  // minimal number of buffers required to process the video.
+  uint32 min_num_buffers;
+  uint32 coded_width;
+  uint32 coded_height;
+  uint32 crop_left;
+  uint32 crop_width;
+  uint32 crop_top;
+  uint32 crop_height;
+};
+
+struct ArcVideoAcceleratorConfig {
+  enum DeviceType {
+    DEVICE_ENCODER = 0,
+    DEVICE_DECODER = 1,
+  };
+
+  DeviceType device_type;
+  uint32 num_input_buffers;
+  uint32 input_pixel_format;
+};
+
+struct ArcVideoAcceleratorDmabufPlane {
+  int32 offset;
+  int32 stride;
+};
+
+interface VideoAcceleratorService {
+  enum Result {
+    SUCCESS = 0,
+    ILLEGAL_STATE = 1,
+    INVALID_ARGUMENT = 2,
+    UNREADABLE_INPUT = 3,
+    PLATFORM_FAILURE = 4,
+    INSUFFICIENT_RESOURCES = 5,
+  };
+
+  [MinVersion=2]
+  Initialize@8(ArcVideoAcceleratorConfig config,
+               VideoAcceleratorServiceClient client) => (Result result);
+
+  [MinVersion=1]
+  DeprecatedInitialize@7(ArcVideoAcceleratorConfig config) => (Result result);
+
+  BindSharedMemory@1(PortType port, uint32 index, handle ashmem_fd,
+                     uint32 offset, uint32 length);
+
+  DeprecatedBindDmabuf@2(PortType port, uint32 index, handle dmabuf_fd,
+                         int32 stride);
+
+  [MinVersion=3]
+  BindDmabuf@9(PortType port, uint32 index, handle dmabuf_fd,
+               array<ArcVideoAcceleratorDmabufPlane> dmabuf_planes);
+
+  UseBuffer@3(PortType port, uint32 index, BufferMetadata metadata);
+
+  SetNumberOfOutputBuffers@4(uint32 number);
+
+  Reset@5();
+
+  Flush@6();
+};
+
+interface VideoAcceleratorServiceClient {
+  DeprecatedInit@0(VideoAcceleratorService service_ptr);
+
+  OnError@1(VideoAcceleratorService.Result error);
+
+  OnBufferDone@2(PortType port, uint32 index, BufferMetadata metadata);
+
+  OnResetDone@3();
+
+  OnOutputFormatChanged@4(VideoFormat format);
+
+  OnFlushDone@5();
+};

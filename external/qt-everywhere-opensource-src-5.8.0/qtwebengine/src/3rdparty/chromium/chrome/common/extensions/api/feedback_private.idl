@@ -1,0 +1,125 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.feedbackPrivate</code> API to provide Chrome [OS]
+// feedback to the Google Feedback servers.
+namespace feedbackPrivate {
+
+  dictionary AttachedFile {
+    DOMString name;
+    [instanceOf=Blob] object? data;
+  };
+
+  dictionary SystemInformation {
+    DOMString key;
+    DOMString value;
+  };
+
+  // Supported feedback flows.
+  enum FeedbackFlow {
+    // Flow for regular user. This is the default.
+    regular,
+
+    // Flow on the ChromeOS login screen. URL entry, file attaching and landing
+    // page is disabled for this flow.
+    login,
+
+    // Flow where a prompt to download the Chrome Cleanup Tool is displayed
+    // prior to showing the feedback form.
+    showSrtPrompt
+  };
+
+  dictionary FeedbackInfo {
+    // File to attach to the feedback report.
+    AttachedFile? attachedFile;
+
+    // An optional tag to label what type this feedback is.
+    DOMString? categoryTag;
+
+    // The feedback text describing the user issue.
+    DOMString description;
+
+    // The e-mail of the user that initiated this feedback.
+    DOMString? email;
+
+    // The URL of the page that this issue was being experienced on.
+    DOMString? pageUrl;
+
+    // Optional product ID to override the Chrome [OS] product id that is
+    // usually passed to the feedback server.
+    DOMString? productId;
+
+    // Screenshot to send with this feedback.
+    [instanceOf=Blob] object? screenshot;
+
+    // Optional id for performance trace data that can be included in this
+    // report.
+    long? traceId;
+
+    // An array of key/value pairs providing system information for this
+    // feedback report.
+    SystemInformation[]? systemInformation;
+
+    // True if we have permission to add histograms to this feedback report.
+    boolean sendHistograms;
+
+    // Optional feedback UI flow. Default is the regular user flow.
+    FeedbackFlow? flow;
+
+    // TODO(rkc): Remove these once we have bindings to send blobs to Chrome.
+    // Used internally to store the blob uuid after parameter customization.
+    DOMString? attachedFileBlobUuid;
+    DOMString? screenshotBlobUuid;
+  };
+
+  // Status of the sending of a feedback report.
+  enum Status {success, delayed};
+
+  // Result of presenting the user with a prompt to download SRT.
+  enum SrtPromptResult {
+    // User clicked the "Learn More" button.
+    accepted,
+
+    // User declined the prompt and proceeded to the feedback page.
+    declined,
+
+    // User closed the window altogether.
+    closed
+  };
+
+  callback GetUserEmailCallback = void(DOMString email);
+  callback GetSystemInformationCallback =
+      void(SystemInformation[] systemInformation);
+  callback SendFeedbackCallback = void(Status status);
+  callback GetStringsCallback = void(object result);
+
+  interface Functions {
+    // Returns the email of the currently active or logged in user.
+    static void getUserEmail(GetUserEmailCallback callback);
+
+    // Returns the system information dictionary.
+    static void getSystemInformation(GetSystemInformationCallback callback);
+
+    // Sends a feedback report.
+    static void sendFeedback(FeedbackInfo feedback,
+                             SendFeedbackCallback callback);
+
+    // Gets localized translated strings for feedback. It returns the
+    // strings as a dictionary mapping from string identifier to the
+    // translated string to use in the feedback app UI.
+    static void getStrings(GetStringsCallback callback);
+
+    // Logs whether the user accepted a prompt to try the Software Removal
+    // Tool.
+    static void logSrtPromptResult(SrtPromptResult result);
+  };
+
+  interface Events {
+    // Fired when the a user requests the launch of the feedback UI. We're
+    // using an event for this versus using the override API since we want
+    // to be invoked, but not showing a UI, so the feedback extension can
+    // take a screenshot of the user's desktop.
+    static void onFeedbackRequested(FeedbackInfo feedback);
+  };
+};

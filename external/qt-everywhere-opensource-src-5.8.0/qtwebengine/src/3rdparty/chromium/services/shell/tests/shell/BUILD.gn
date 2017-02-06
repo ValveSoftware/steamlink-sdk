@@ -1,0 +1,98 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/mojo_application.gni")
+import("//mojo/public/mojo_application_manifest.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//testing/test.gni")
+
+source_set("shell") {
+  testonly = true
+  sources = [
+    "shell_unittest.cc",
+  ]
+
+  deps = [
+    ":interfaces",
+    "//base",
+    "//base/test:test_config",
+    "//mojo/common:common_base",
+    "//services/shell/public/cpp:shell_test_support",
+    "//services/shell/public/cpp:sources",
+    "//services/shell/public/interfaces",
+  ]
+
+  data_deps = [
+    ":manifest",
+    ":shell_unittest_driver",
+    ":shell_unittest_target",
+  ]
+}
+
+mojom("interfaces") {
+  sources = [
+    "shell_unittest.mojom",
+  ]
+}
+
+mojo_application_manifest("manifest") {
+  application_name = "shell_unittest"
+  source = "shell_unittest_manifest.json"
+}
+
+executable("shell_unittest_driver") {
+  testonly = true
+
+  sources = [
+    "driver.cc",
+  ]
+
+  deps = [
+    ":interfaces",
+    "//base",
+    "//build/win:default_exe_manifest",
+    "//mojo/edk/system",
+    "//services/shell/public/cpp",
+    "//services/shell/public/interfaces",
+    "//services/shell/runner:init",
+    "//services/shell/runner/child:test_native_main",
+    "//services/shell/runner/common",
+  ]
+
+  data_deps = [
+    ":driver_manifest",
+  ]
+}
+
+mojo_application_manifest("driver_manifest") {
+  type = "exe"
+  application_name = "shell_unittest_driver"
+  source = "driver_manifest.json"
+}
+
+executable("shell_unittest_target") {
+  testonly = true
+
+  sources = [
+    "target.cc",
+  ]
+
+  deps = [
+    ":interfaces",
+    "//base",
+    "//build/win:default_exe_manifest",
+    "//services/shell/public/cpp",
+    "//services/shell/runner/child:test_native_main",
+  ]
+
+  data_deps = [
+    ":target_manifest",
+  ]
+}
+
+mojo_application_manifest("target_manifest") {
+  type = "exe"
+  application_name = "shell_unittest_target"
+  source = "target_manifest.json"
+}

@@ -1,0 +1,214 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(!is_ios)
+if (is_android) {
+  import("//build/config/android/config.gni")
+}
+
+source_set("lib") {
+  sources = [
+    "crash_keys_win.cc",
+    "crash_keys_win.h",
+    "crash_reporter_client.cc",
+    "crash_reporter_client.h",
+  ]
+
+  include_dirs = [ "../../../../breakpad/src" ]
+
+  deps = [
+    "//base",
+  ]
+
+  if (is_win) {
+    deps += [ "//breakpad:breakpad_handler" ]
+  }
+}
+
+# GYP version: components/crash.gypi:crash_component
+source_set("app") {
+  sources = [
+    "crash_switches.cc",
+    "crash_switches.h",
+    "crashpad.h",
+    "crashpad_mac.mm",
+    "crashpad_win.cc",
+    "run_as_crashpad_handler_win.cc",
+    "run_as_crashpad_handler_win.h",
+  ]
+
+  if (is_mac || is_win) {
+    sources += [ "crashpad.cc" ]
+  }
+
+  defines = [ "CRASH_IMPLEMENTATION" ]
+
+  public_deps = [
+    ":app_non_mac_win",
+    ":lib",
+    "//third_party/kasko",
+  ]
+  deps = [
+    "//base",
+  ]
+
+  if (is_mac || is_win) {
+    deps += [
+      "//third_party/crashpad/crashpad/client",
+      "//third_party/crashpad/crashpad/snapshot:snapshot_api",
+    ]
+  }
+  if (is_win) {
+    deps += [ "//third_party/crashpad/crashpad/handler:handler_lib" ]
+  }
+}
+
+# TODO(mark): https://crbug.com/466890: merge this target with
+# crash_component.
+#
+# This is a temporary base target that is depended on by both
+# crash_component and crash_component_breakpad_mac_to_be_deleted. It
+# provides everything common to both of those targets. For a short period,
+# there are two Mac crash component implementations. The new one uses a
+# Crashpad implementation and is used by Chrome. The old one uses a
+# Breakpad implementation and is used by content_shell. Consumers should
+# depend on the desired target. All three targets behave identically on
+# non-Mac. When content_shell and any other consumers are migrated to the
+# Crashpad implementation on Mac, crash_component will merge back into
+# this target, crash_component_non_mac, which will be renamed
+# crash_component. crash_component_breakpad_mac_to_be_deleted will be
+# deleted.
+#
+# While this situation exists:
+#
+# Do not depend on this target directly! Depend on
+# crash_component_breakpad_mac_to_be_deleted for old Breakpad behavior on
+# all platforms, or preferably, depend on crash_component to get Breakpad
+# everywhere except for Mac, where you will get Crashpad.
+source_set("app_non_mac_win") {
+  visibility = [
+    ":*",
+    "//components/crash/content/browser",
+  ]
+
+  sources = [
+    "breakpad_linux_impl.h",
+    "hard_error_handler_win.cc",
+    "hard_error_handler_win.h",
+  ]
+
+  if (is_android) {
+    libs = [ "log" ]
+  }
+
+  if (is_android || is_linux) {
+    # Want these files on both Linux and Android.
+    set_sources_assignment_filter([])
+    sources += [
+      "breakpad_linux.cc",
+      "breakpad_linux.h",
+    ]
+  }
+
+  defines = [ "CRASH_IMPLEMENTATION" ]
+
+  deps = [
+    ":lib",
+    "//base",
+    "//base:base_static",
+    "//components/crash/core/common",
+    "//content/public/common:content_descriptors",
+    "//content/public/common:result_codes",
+  ]
+
+  # Clang's -mstackrealign doesn't work well with
+  # linux_syscall_support.h hand written asm syscalls.
+  # See https://crbug.com/556393
+  configs -= [ "//build/config/compiler:clang_stackrealign" ]
+
+  if (is_win) {
+    deps += [
+      "//breakpad:breakpad_handler",
+      "//sandbox",
+
+      #'../breakpad/breakpad.gyp:breakpad_sender',  TODO(GYP)
+    ]
+  } else if (is_posix && !is_ios) {
+    deps += [ "//breakpad:client" ]
+  }
+}
+
+# TODO(mark): https://crbug.com/466890: remove this target.
+#
+# This is a temporary target provided for Mac Breakpad users that have not
+# yet migrated to Crashpad (namely content_shell). This target will be
+# removed shortly and all consumers will be expected to use Crashpad as
+# the Mac crash-reporting client. See the comment in the
+# crash_component_non_mac target for more details.
+source_set("app_breakpad_mac_win_to_be_deleted") {
+  deps = [
+    ":app_non_mac_win",
+  ]
+
+  if (is_mac || is_win) {
+    sources = [
+      "breakpad_mac.h",
+      "breakpad_mac.mm",
+      "breakpad_win.cc",
+      "breakpad_win.h",
+    ]
+
+    defines = [ "CRASH_IMPLEMENTATION" ]
+
+    deps += [
+      ":lib",
+      "//base",
+      "//base:base_static",
+      "//breakpad:client",
+      "//components/crash/core/common",
+      "//content/public/common:result_codes",
+      "//sandbox",
+    ]
+
+    if (is_mac) {
+      deps += [ "//breakpad" ]
+    }
+
+    if (is_win) {
+      deps += [ "//breakpad:breakpad_handler" ]
+      libs = [ "userenv.lib" ]
+    }
+  }
+}
+
+if (is_mac) {
+  source_set("breakpad_stubs") {
+    sources = [
+      "breakpad_mac.h",
+      "breakpad_mac_stubs.mm",
+      "crash_reporter_client.cc",
+      "crash_reporter_client.h",
+    ]
+    deps = [
+      "//base",
+    ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "crash_keys_win_unittest.cc",
+  ]
+  deps = [
+    ":lib",
+    "//base",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+
+  if (is_win) {
+    deps += [ "//breakpad:client" ]
+  }
+}

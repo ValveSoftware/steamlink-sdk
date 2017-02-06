@@ -1,0 +1,495 @@
+﻿/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtqml-cppintegration-exposecppattributes.html
+\title Exposing Attributes of C++ Types to QML
+\brief Description of how to expose the attributes of a C++ type to QML
+
+QML can easily be extended with functionality defined in C++ code. Due to the
+tight integration of the QML engine with the \l{The Meta-Object System}{Qt
+meta-object system}, any functionality that is appropriately exposed by a
+QObject-derived class is accessible from QML code. This enables C++ data and
+functions to be accessible directly from QML, often with little or no
+modification.
+
+The QML engine has the ability to introspect QObject instances through the
+meta-object system. This means any QML code can access the following members of
+an instance of a QObject-derived class:
+
+\list
+\li Properties
+\li Methods (providing they are public slots or flagged with Q_INVOKABLE)
+\li Signals
+\endlist
+
+(Additionally, enums are available if they have been declared with Q_ENUMS.
+See \l{qtqml-cppintegration-data.html}{Data Type Conversion Between QML and C++}
+for more details.)
+
+In general, these are accessible from QML regardless of whether a
+QObject-derived class has been \l{Registering C++ types with the QML type
+system}{registered with the QML type system}. However, if a class is to be
+used in a way that requires the engine to access additional type information
+— for example, if the class itself is to be used as a method parameter or
+property, or if one of its enum types is to be used in this way — then the
+class may need to be registered.
+
+Also note that a number of the important concepts covered in this document are
+demonstrated in the \l{Writing QML Extensions with C++} tutorial.
+
+
+\section1 Data Type Handling and Ownership
+
+Any data that is transferred from C++ to QML, whether as a property value, a
+method parameter or return value, or a signal parameter value, must be of a
+type that is supported by the QML engine.
+
+By default, the engine supports a number of Qt C++ types and can automatically
+convert them as appropriately when used from QML. Additionally, C++ classes
+that are \l{Registering C++ types with the QML type system}{registered} with
+the QML type system can be used as data types, as can their enums if
+appropriately registered. See \l{qtqml-cppintegration-data.html}{Data Type
+Conversion Between QML and C++} for further information.
+
+Additionally, data ownership rules are taken into consideration when data is
+transferred from C++ to QML. See \l {Data Ownership} for more details.
+
+
+\section1 Exposing Properties
+
+A \e property can be specified for any QObject-derived class using the
+Q_PROPERTY() macro. A property is a class data member with an associated read
+function and optional write function.
+
+All properties of a QObject-derived class are accessible from QML.
+
+For example, below is a \c Message class with an \c author property. As
+specified by the Q_PROPERTY macro call, this property is readable through
+the \c author() method, and writable through the \c setAuthor() method:
+
+\code
+class Message : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString author READ author WRITE setAuthor NOTIFY authorChanged)
+public:
+    void setAuthor(const QString &a) {
+        if (a != m_author) {
+            m_author = a;
+            emit authorChanged();
+        }
+    }
+    QString author() const {
+        return m_author;
+    }
+signals:
+    void authorChanged();
+private:
+    QString m_author;
+};
+\endcode
+
+If an instance of this class was \l{Embedding C++ Objects into QML with Context
+Properties}{set as a context property} when loading a file named \c MyItem.qml
+from C++:
+
+\code
+ int main(int argc, char *argv[]) {
+     QGuiApplication app(argc, argv);
+
+     QQuickView view;
+     Message msg;
+     view.engine()->rootContext()->setContextProperty("msg", &msg);
+     view.setSource(QUrl::fromLocalFile("MyItem.qml"));
+     view.show();
+
+     return app.exec();
+ }
+\endcode
+
+Then, the \c author property could be read from \c MyItem.qml:
+
+\qml
+// MyItem.qml
+import QtQuick 2.0
+
+Text {
+    width: 100; height: 100
+    text: msg.author    // invokes Message::author() to get this value
+
+    Component.onCompleted: {
+        msg.author = "Jonah"  // invokes Message::setAuthor()
+    }
+}
+\endqml
+
+For maximum interoperability with QML, \b {any property that is writable should
+have an associated NOTIFY signal} that is emitted whenever the property value
+has changed. This allows the property to be used with \l{Property
+Binding}{property binding}, which is an essential feature of QML that enforces
+relationships between properties by automatically updating a property whenever
+any of its dependencies change in value.
+
+In the above example, the associated NOTIFY signal for the \c author property is
+\c authorChanged, as specified in the Q_PROPERTY() macro call. This means that
+whenever the signal is emitted — as it is when the author changes
+in Message::setAuthor() — this notifies the QML engine that any
+bindings involving the \c author property must be updated, and in turn, the
+engine will update the \c text property by calling \c Message::author() again.
+
+If the \c author property was writable but did not have an associated NOTIFY
+signal, the \c text value would be initialized with the initial value returned
+by \c Message::author() but would not be updated with any later changes to this
+property. In addition, any attempts to bind to the property from QML will
+produce a runtime warning from the engine.
+
+\note It is recommended that the NOTIFY signal be named \e <property>Changed
+where \c <property> is the name of the property. The associated property
+change signal handler generated by the QML engine will always take the form
+\c on<Property>Changed, regardless of the name of the related C++ signal, so
+it is recommended that the signal name follows this convention to avoid any
+confusion.
+
+
+\section3 Notes on Use of Notify Signals
+
+To prevent loops or excessive evaluation, developers should ensure that the
+property change signal is only emitted when the property value has actually
+changed. Also, if a property or group of properties is infrequently used, it
+is permitted to use the same NOTIFY signal for several properties. This should
+be done with care to ensure that performance doesn't suffer.
+
+The presence of a NOTIFY signal does incur a small overhead. There are cases
+where a property's value is set at object construction time, and does not
+subsequently change. The most common case of this is when a type uses \l
+{Grouped Properties}, and the grouped property object is allocated once, and
+only freed when the object is deleted. In these cases, the CONSTANT
+attribute may be added to the property declaration instead of a NOTIFY
+signal.
+
+The CONSTANT attribute should only be used for properties whose value is set,
+and finalized, only in the class constructor.  All other properties that want
+to be used in bindings should have a NOTIFY signal instead.
+
+
+\section2 Properties with Object Types
+
+Object-type properties are accessible from QML providing that the object type
+has been appropriately \l{Registering C++ types with the QML type
+system}{registered} with the QML type system.
+
+For example, the \c Message type might have a \c body property of type
+\c MessageBody*:
+
+\code
+class Message : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(MessageBody* body READ body WRITE setBody NOTIFY bodyChanged)
+public:
+    MessageBody* body() const;
+    void setBody(MessageBody* body);
+};
+
+class MessageBody : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString text READ text WRITE text NOTIFY textChanged)
+// ...
+}
+\endcode
+
+Suppose the \c Message type was \l{Registering C++ types with the QML type
+system}{registered} with the QML type system, allowing it to be used as an
+object type from QML code:
+
+\qml
+Message {
+    // ...
+}
+\endqml
+
+If the \c MessageBody type was also registered with the type system, it would be
+possible to assign \c MessageBody to the \c body property of a \c Message, all
+from within QML code:
+
+\qml
+Message {
+    body: MessageBody {
+        text: "Hello, world!"
+    }
+}
+\endqml
+
+
+\section2 Properties with Object-List Types
+
+Properties containing lists of QObject-derived types can also be exposed to
+QML. For this purpose, however, one should use QQmlListProperty rather than
+QList<T> as the property type. This is because QList is not a QObject-derived
+type, and so cannot provide the necessary QML property characteristics
+through the Qt meta object system, such as signal notifications when a list
+is modified.
+
+QQmlListProperty is a template class that can be conveniently constructed from
+a QList value.
+
+For example, the \c MessageBoard class below has a \c messages property of
+type QQmlListProperty that stores a list of \c Message instances:
+
+\code
+class MessageBoard : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QQmlListProperty<Message> messages READ messages)
+public:
+    QQmlListProperty<Message> messages() const;
+
+private:
+    static void append_message(QQmlListProperty<Message> *list, Message *msg);
+
+    QList<Message *> m_messages;
+};
+\endcode
+
+The MessageBoard::messages() function simply creates and returns a
+QQmlListProperty from its QList<T> \c m_messages member, passing the
+appropriate list modification functions as required by the QQmlListProperty
+constructor:
+
+\code
+QQmlListProperty<Message> MessageBoard::messages()
+{
+    return QQmlListProperty<Message>(this, 0, &MessageBoard::append_message);
+}
+
+void MessageBoard::append_message(QQmlListProperty<Message> *list, Message *msg)
+{
+    MessageBoard *msgBoard = qobject_cast<MessageBoard *>(list->object);
+    if (msg)
+        msgBoard->m_messages.append(msg);
+}
+\endcode
+
+Note that the template class type for the QQmlListProperty — in this case,
+\c Message — must be \l{Registering C++ types with the QML type system}
+{registered} with the QML type system.
+
+
+\section2 Grouped Properties
+
+Any read-only object-type property is accessible from QML code as a
+\e {grouped property}. This can be used to expose a group of related
+properties that describe a set of attributes for a type.
+
+For example, suppose the \c Message::author property was of type
+\c MessageAuthor rather than a simple string, with sub-properties
+of \c name and \c email:
+
+\code
+class MessageAuthor : public QObject
+{
+    Q_PROPERTY(QString name READ name WRITE setName)
+    Q_PROPERTY(QString email READ email WRITE setEmail)
+public:
+    ...
+};
+
+class Message : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(MessageAuthor* author READ author)
+public:
+    Message(QObject *parent)
+        : QObject(parent), m_author(new MessageAuthor(this))
+    {
+    }
+    MessageAuthor *author() const {
+        return m_author;
+    }
+private:
+    MessageAuthor *m_author;
+};
+\endcode
+
+The \c author property could be written to using the
+\l{qtqml-syntax-objectattributes.html#grouped-properties}{grouped property
+syntax}
+in QML, like this:
+
+\qml
+Message {
+    author.name: "Alexandra"
+    author.email: "alexandra@mail.com"
+}
+\endqml
+
+A type that is exposed as a grouped property differs from an \l{Properties with
+Object Types}{object-type property} in that the grouped property is read-only,
+and is initialized to a valid value by the parent object at construction. The
+grouped property's sub-properties may be modified from QML but the grouped
+property object itself will never change, whereas an object-type property may be
+assigned a new object value from QML at any time. Thus, the lifetime of a
+grouped property object is controlled strictly by the C++ parent
+implementation, whereas an object-type property can be freely created and
+destroyed through QML code.
+
+
+\section1 Exposing Methods (Including Qt Slots)
+
+Any method of a QObject-derived type is accessible from QML code if it is:
+
+\list
+\li A public method flagged with the Q_INVOKABLE() macro
+\li A method that is a public Qt \l{Signals & Slots}{slot}
+\endlist
+
+For example, the \c MessageBoard class below has a \c postMessage() method that
+has been flagged with the Q_INVOKABLE macro, as well as a \c refresh() method
+that is a public slot:
+
+\code
+ class MessageBoard : public QObject
+ {
+     Q_OBJECT
+ public:
+     Q_INVOKABLE bool postMessage(const QString &msg) {
+         qDebug() << "Called the C++ method with" << msg;
+         return true;
+     }
+
+ public slots:
+     void refresh() {
+         qDebug() << "Called the C++ slot";
+     }
+ };
+\endcode
+
+If an instance of \c MessageBoard was set as the context data for a file \c
+MyItem.qml, as shown below left, then \c MyItem.qml could invoke the two
+methods, as shown below right:
+
+\table
+\row
+\li C++
+\li
+\code
+ int main(int argc, char *argv[]) {
+     QGuiApplication app(argc, argv);
+
+     MessageBoard msgBoard;
+     QQuickView view;
+     view.engine()->rootContext()->setContextProperty("msgBoard", &msgBoard);
+     view.setSource(QUrl::fromLocalFile("MyItem.qml"));
+     view.show();
+
+     return app.exec();
+ }
+\endcode
+\row
+\li QML
+\li
+\qml
+// MyItem.qml
+import QtQuick 2.0
+
+Item {
+    width: 100; height: 100
+
+    MouseArea {
+        anchors.fill: parent
+        onClicked: {
+            var result = msgBoard.postMessage("Hello from QML")
+            console.log("Result of postMessage():", result)
+            msgBoard.refresh();
+        }
+    }
+}
+\endqml
+\endtable
+
+If a C++ method has a parameter with a \c QObject* type, the parameter value
+can be passed from QML using an object \c id or a JavaScript \l var value
+that references the object.
+
+QML supports the calling of overloaded C++ functions. If there are multiple C++
+functions with the same name but different arguments, the correct function will
+be called according to the number and the types of arguments that are provided.
+
+Values returned from C++ methods are converted to JavaScript values when
+accessed from JavaScript expressions in QML.
+
+
+\section1 Exposing Signals
+
+Any public \l{Signals & Slots}{signal} of a QObject-derived type is accessible
+from QML code.
+
+The QML engine automatically creates a \l{Signal and Handler Event
+System}{signal handler} for any signal of a QObject-derived type that is used
+from QML. Signal handlers are always named \e on<Signal> where \c <Signal> is
+the name of the signal, with the first letter capitalized. All parameters passed
+by the signal are available in the signal handler through the parameter names.
+
+For example, suppose the \c MessageBoard class has a \c newMessagePosted()
+signal with a single parameter, \c subject:
+
+\code
+ class MessageBoard : public QObject
+ {
+     Q_OBJECT
+ public:
+    // ...
+ signals:
+    void newMessagePosted(const QString &subject);
+ };
+\endcode
+
+If the \c MessageBoard type was \l{Registering C++ types with the QML type
+system}{registered} with the QML type system, then a \c MessageBoard object
+declared in QML could receive the \c newMessagePosted() signal using a signal
+handler named \c onNewMessagePosted, and examine the \c subject parameter
+value:
+
+\qml
+MessageBoard {
+    onNewMessagePosted: console.log("New message received:", subject)
+}
+\endqml
+
+As with property values and method parameters, a signal parameter must have a
+type that is supported by the QML engine; see
+\l {Data Type Conversion Between QML and C++}. (Using an
+unregistered type will not generate an error, but the parameter value will
+not be accessible from the handler.)
+
+Classes may have multiple signals with the same name, but only the final
+signal is accessible as a QML signal. Note that signals with the same name
+but different parameters cannot be distinguished from one another.
+
+
+*/

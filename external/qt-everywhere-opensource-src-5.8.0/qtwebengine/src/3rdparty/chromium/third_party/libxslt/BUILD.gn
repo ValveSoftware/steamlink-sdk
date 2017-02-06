@@ -1,0 +1,103 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+config("libxslt_config") {
+  defines = [ "LIBXSLT_STATIC" ]
+  include_dirs = [ "." ]
+}
+
+config("libxslt_warnings") {
+  if (is_clang) {
+    cflags = [
+      # libxslt stores a char[3] in a `const unsigned char*`.
+      "-Wno-pointer-sign",
+
+      # xsltDefaultRegion and xsltCalibrateTimestamps are only
+      # used with certain preprocessor defines set.
+      "-Wno-unused-function",
+    ]
+  }
+}
+
+static_library("libxslt") {
+  sources = [
+    "libxslt/attributes.c",
+    "libxslt/attributes.h",
+    "libxslt/attrvt.c",
+    "libxslt/documents.c",
+    "libxslt/documents.h",
+    "libxslt/extensions.c",
+    "libxslt/extensions.h",
+    "libxslt/extra.c",
+    "libxslt/extra.h",
+    "libxslt/functions.c",
+    "libxslt/functions.h",
+    "libxslt/imports.c",
+    "libxslt/imports.h",
+    "libxslt/keys.c",
+    "libxslt/keys.h",
+    "libxslt/libxslt.h",
+    "libxslt/namespaces.c",
+    "libxslt/namespaces.h",
+    "libxslt/numbers.c",
+    "libxslt/numbersInternals.h",
+    "libxslt/pattern.c",
+    "libxslt/pattern.h",
+    "libxslt/preproc.c",
+    "libxslt/preproc.h",
+    "libxslt/security.c",
+    "libxslt/security.h",
+    "libxslt/templates.c",
+    "libxslt/templates.h",
+    "libxslt/transform.c",
+    "libxslt/transform.h",
+    "libxslt/trio.h",
+    "libxslt/triodef.h",
+    "libxslt/variables.c",
+    "libxslt/variables.h",
+    "libxslt/win32config.h",
+    "libxslt/xslt.c",
+    "libxslt/xslt.h",
+    "libxslt/xsltInternals.h",
+    "libxslt/xsltconfig.h",
+    "libxslt/xsltexports.h",
+    "libxslt/xsltlocale.c",
+    "libxslt/xsltlocale.h",
+    "libxslt/xsltutils.c",
+    "libxslt/xsltutils.h",
+    "libxslt/xsltwin32config.h",
+    "linux/config.h",
+    "mac/config.h",
+    "win32/config.h",
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    "//build/config/compiler:no_chromium_code",
+
+    # Must be after no_chromium_code for warning flags to be ordered correctly.
+    ":libxslt_warnings",
+  ]
+  public_configs = [ ":libxslt_config" ]
+
+  cflags = []
+  if (is_linux || is_android) {
+    include_dirs = [ "linux" ]
+  } else if (is_win) {
+    include_dirs = [ "win32" ]
+    cflags += [
+      "/wd4267",  # size_t to int.
+
+      # TODO(brucedawson): http://crbug.com/554200 4311 is a VS
+      # 2015 64-bit warning for pointer truncation
+      "/wd4311",
+    ]
+  } else if (is_mac) {
+    include_dirs = [ "mac" ]
+  }
+
+  deps = [
+    "//third_party/libxml",
+  ]
+}

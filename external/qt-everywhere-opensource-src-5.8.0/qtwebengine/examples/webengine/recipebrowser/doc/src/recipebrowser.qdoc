@@ -1,0 +1,216 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webengine/recipebrowser
+    \title WebEngine Recipe Browser
+    \ingroup webengine-examples
+    \brief A small hybrid application based on the WebEngineView QML type and Qt Quick Controls 2.
+
+    \image recipebrowser-demo.jpg
+
+    \e {Recipe Browser} demonstrates how to use the \l{WebEngineView} item, \l{Qt Quick} items, and
+    \l{Qt Quick Controls 2} items to develop a small hybrid web browser application.
+    A \l{ListView}-based item is used to display a list of recipe names. Clicking on
+    a name causes the web view to load the respective recipe page. The overall appearance
+    of the application is provided by the \l{Qt Quick Controls 2} items, which have their active
+    style set to the \l{Material Style}{Material} style. The web content is a mix of HTML and
+    Markdown source compiled to HTML, along with CSS and JavaScript.
+
+    \include examples-run.qdocinc
+
+    \section1 C++ Code
+
+    In \c main.cpp, we use the \l{QGuiApplication} and \l{QQmlApplicationEngine}
+    classes to set up and load the main QML file. We call \l{QtWebEngine::initialize} so we can use
+    \l{WebEngineView} in our QML code. We enable high DPI screen support by setting the
+    \l{Qt::AA_EnableHighDpiScaling} attribute. We set the default Qt Quick Controls 2 style
+    to the Material style, so we do not have to specify it for each new item we add. Finally, we use
+    a C++ define to check whether the application is compiled for an embedded platform.
+    The value will be used in the main QML code to determine the window size.
+
+    \quotefromfile webengine/recipebrowser/main.cpp
+    \skipto #include
+    \printuntil }
+
+    \section1 QML Code
+
+    In the \c main.qml file, we first create a top-level window and set a title for it. We also set
+    up the size of the window depending on its primary orientation as well as the platform, so that
+    the application is usable on both desktop and embedded platforms. On desktop, the size
+    is constrained by a minimum of 320x480 pixels up to the maximum size that the screen supports.
+    The default window size is 1024 pixels wide and 768 pixels high in landscape orientation.
+    On embedded devices, the window will occupy the whole screen.
+
+    \quotefromfile webengine/recipebrowser/resources/qml/main.qml
+    \skipto ApplicationWindow
+    \printuntil minimumHeight
+
+    Next, we add a \l{RowLayout} item so we can divide the window into two parts: one being a
+    custom \c RecipeList item containing the recipe titles, and the other being the
+    \l{WebEngineView}, which shows the recipe details. The spacing is set to zero so the items are
+    positioned directly next to each other.
+
+    \printuntil RecipeList
+    \dots 16
+    \skipuntil onRecipeSelected
+    \printline }
+    \printuntil WebEngineView
+    \dots 16
+    \skipuntil busy.running = true
+    \skipline }
+    \skipline }
+    \printline }
+    \printline }
+
+    The \c RecipeList item has a few \l{Layout}{attached Layout properties}, in order to scale the
+    item to a maximum of one third of the layout width. We give the item focus, so that the keyboard
+    can be used to navigate the recipes, in addition to using mouse and touch. We also add a handler
+    for the custom \c recipeSelected signal, to tell the WebEngineView to load the URL of the
+    selected recipe.
+
+    \quotefromfile webengine/recipebrowser/resources/qml/main.qml
+    \skipto RecipeList
+    \printuntil }
+
+    The WebEngineView has similar layout properties, to make it occupy two thirds of the layout
+    width.
+
+    \skipto WebEngineView
+    \printuntil KeyNavigation.priority
+
+    We then disable the \l{WebEngineSettings::focusOnNavigationEnabled}{focusOnNavigationEnabled}
+    setting to make sure that the \l{WebEngineView} does not steal focus from the \c RecipeList
+    item every time its URL is changed. This allows the user to continue navigating through the
+    recipes using the keyboard. We also disable the default context menu by accepting the
+    ContextMenuRequest.
+
+    \skipto focusOnNavigationEnabled
+    \printto firstLoadComplete
+
+    When the application starts, instead of directly showing the \l{WebEngineView}, we show a
+    placeholder \l{Rectangle} with a \l{BusyIndicator} to provide a nicer user experience while the
+    application is loading. Once the first page in the view is loaded, we start a \l{Timer} that
+    will hide the placeholder and show the actual page. The delay provides more time for the recipe
+    images to load, so that when the view is shown, the page is completely rendered. The timer also
+    shows a help \l{ToolTip} that informs the user on how to navigate the recipes.
+
+    \printuntil busy.running = true
+    \printline }
+    \printline }
+    \printline }
+
+    Let's see what the \c RecipeList item looks like from the inside. The root item is a
+    FocusScope to allow transferring focus to the child ListView whenever the root item receives
+    focus. We also declare a custom \c recipeSelected signal, which will be emitted when the current
+    item of the ListView changes.
+
+    \quotefromfile webengine/recipebrowser/resources/qml/RecipeList.qml
+    \skipto FocusScope
+    \printuntil recipeSelected
+
+    A ColumnLayout holds a header \l{Label} above the ListView, and the ListView itself.
+    Again, we set the spacing to zero and make sure the layout occupies the whole space of
+    the parent item.
+
+    \skipto ColumnLayout
+    \printuntil anchors.fill
+
+    Inside the layout there is a styled \l{ToolBar} item, with a \l{Label} inside of it serving as
+    the ListView header.
+
+    \skipto ToolBar
+    \printuntil Label
+    \printuntil }
+    \printuntil }
+
+    The second item inside the layout is a \l{ListView}, whose contents will fill the remaining
+    space in the layout. We set \l{Item::}{clip} to true, so that the delegates that are scrolled
+    up are not seen under the ToolBar item. We set \l{Item::}{focus} to true, so the ListView gains
+    focus when the FocusScope does. We add a vertical scroll bar, so the user can scroll through the
+    recipes if the window size is small. We also specify the recipe model to be used by the
+    ListView as described later in this topic.
+
+    \skipto ListView
+    \printuntil model
+
+    We have an \l{ItemDelegate} set as the ListView delegate, which displays the
+    recipe title. The contentItem is a \l{Text} item, customized with a few properties to adjust the
+    visual appearance and position of the text. We create a binding to the current delegate's model
+    URL, so we can access the respective URL outside the delegate itself. We set the
+    \l{ItemDelegate::}{highlighted} property to \c true whenever the item is the current one in the
+    ListView to provide visual feedback. And we set the focus on the ListView whenever a delegate
+    is clicked, so that keyboard navigation works in case the focus was previously in the
+    WebEngineView.
+
+    \skipto delegate
+    \printuntil onClicked
+    \printuntil }
+    \printuntil }
+
+    A handler is defined for the \c currentItemChanged signal to emit our own \c recipeSelected
+    signal with the URL that the WebEngineView should load.
+
+    \skipto onCurrentItemChanged
+    \printuntil }
+
+    We use a \l{ListModel} with seven \l{ListElement}s, each of which contains a recipe
+    title and the URL to an HTML page contained in a resource file. The model is used to populate
+    the ListView with the recipes and to show the recipe details in the WebEngineView.
+
+    \skipto ListModel
+    \printuntil Cupcakes
+    \printuntil }
+    \printuntil }
+
+    We use a \l{ToolTip} item that is displayed on application startup to inform the users
+    how they can navigate and view the details of each recipe. The ToolTip is shown using the
+    \c showHelp method, which is invoked by the \l{Timer} in the main.qml file.
+
+    \skipto ToolTip
+    \printuntil help.open()
+    \printuntil }
+    \printuntil }
+
+    An example of a recipe page can be seen below. The page uses two stylesheets and
+    two JavaScript files:
+    \list
+        \li \l{http://kevinburke.bitbucket.org/markdowncss/}{markdown.css} is
+            a markdown-friendly stylesheet created by Kevin Burke
+        \li \l{https://github.com/chjj/marked}{marked.min.js} is a markdown parser and
+            compiler designed for speed written by Christopher Jeffrey
+        \li custom.css makes some small styling adjustments to the final recipe page
+        \li custom.js is used to invoke the conversion of the recipe content (which is written in
+            markdown syntax) into HTML
+    \endlist
+
+    The images on the pages are loaded from the compiled resource file.
+
+    \quotefromfile webengine/recipebrowser/resources/pages/soup.html
+    \printuntil </html>
+
+*/

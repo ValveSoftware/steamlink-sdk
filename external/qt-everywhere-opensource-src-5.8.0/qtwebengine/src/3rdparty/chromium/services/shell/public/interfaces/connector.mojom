@@ -1,0 +1,144 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module shell.mojom;
+
+import "services/shell/public/interfaces/interface_provider.mojom";
+
+const string kRootUserID = "505C0EE9-3013-43C0-82B0-A84F50CF8D84";
+const string kInheritUserID = "D26290E4-4485-4EAE-81A2-66D1EEB40A9D";
+
+const uint32 kInvalidInstanceID = 0;
+
+enum ConnectResult {
+  // The connection was established successfully.
+  SUCCEEDED,
+
+  // The name or user id supplied was malformed, or the application specified
+  // by |name| could not be loaded.
+  INVALID_ARGUMENT,
+
+  // The connection was blocked by policy. Either connections to |name| are
+  // forbidden from this app by the CapabilityFilter, or the application
+  // attempted to connect using a user id other than its own,
+  // kInheritUserID or kRootUserID.
+  ACCESS_DENIED
+};
+
+// A collection of metadata that disambiguates instances in the shell.
+struct Identity {
+  // A mojo: or exe: name identifying an application.
+  string name;
+
+  // The user id of the target application instance to connect to. If no such
+  // instance exists, the shell may start one. This user id will be passed to
+  // the new instance via Initialize().
+  // When connecting to other applications, applications must generally pass
+  // kInheritUserID for this value, and the shell will either connect to an
+  // existing instance matching the caller's user id, create a new instance
+  // matching the caller's user id, or connect to an existing instance running
+  // as kRootUserID. By default, applications do not have the ability to set
+  // arbitrary values to this field, and doing so will result in a connection
+  // error on the remote service provider. An application with the ability to
+  // launch applications with arbitrary user ids (e.g. a login app) may set this
+  // value to something meaningful to it. The user id string is a valid guid of
+  // the form "%08X-%04X-%04X-%04X-%012llX", and (aside from the root user whose
+  // guid is defined above) intended to be not-guessable.
+  // When an application is initialized or receives a connection from another
+  // application, this value is always the resolved user id, never
+  // kInheritUserID.
+  string user_id;
+
+  // An application may spawn multiple instances with the same name,user_id
+  // pair, provided they are started with unique values of this field.
+  // TODO(beng): enforce the emptiness of this parameter unless the client bears
+  //             the appropriate capability.
+  string instance;
+};
+
+// Implemented by an object in the shell associated with a specific instance.
+// Tells it the PID for a process launched by the client. See
+// ClientProcessConnection.
+interface PIDReceiver {
+  SetPID(uint32 pid);
+};
+
+// Typically, the shell will start a process for a service the first time it
+// receives a connection request for it. This struct allows a client to start
+// the process itself and provide the shell the pipes it needs to communicate
+// with it. When an instance of this struct is supplied to Connect(), the client
+// owns the lifetime of the child process, not the shell. The shell binds the
+// |shell_client| pipe, and when it closes destroys the associated  instance but
+// the process stays alive.
+struct ClientProcessConnection {
+  // Provides the shell the ability to bind a ShellClient from the client
+  // process to the instance it creates.
+  handle<message_pipe> shell_client;
+
+  // Allows the client process launcher to tell the shell the PID of the process
+  // it created (the pid isn't supplied directly here as the process may not
+  // have been launched by the time Connect() is called.)
+  handle<message_pipe> pid_receiver_request;
+};
+
+// Encapsulates establishing connections with other Mojo applications.
+interface Connector {
+  // Requests a connection with another application. The application originating
+  // the request is referred to as the "source" and the one receiving the
+  // "target".
+  //
+  // The connection is embodied by a pair of message pipes binding the
+  // InterfaceProvider interface, which allows both the source and target
+  // applications to export interfaces to one another. The interfaces bound via
+  // these InterfaceProviders are brokered by the shell according to the
+  // security policy defined by each application in its manifest .
+  //
+  // If the target application is not running, the shell will run it, calling
+  // its Initialize() method before completing the connection.
+  //
+  // Parameters:
+  //
+  //  target
+  //    Identifies the target application instance to connect to.
+  //
+  //  remote_interfaces
+  //    Allows the source application access to interface implementations
+  //    exposed by the target application. The interfaces accessible via this
+  //    InterfaceParameter are filtered by the security policy described by the
+  //    source and target application manifests.
+  //
+  //  local_interfaces
+  //    Allows the remote application access to interface implementations
+  //    exposed by the source application. The interfaces accessible via this
+  //    InterfaceProvider are filtered by the security policy described by the
+  //    source and target application manifests.
+  //
+  //  client_process_connection
+  //    When non-null, supplies control pipes the shell can use to bind a
+  //    process created by the client, instead of creating one itself.
+  //    TODO(beng): access to this parameter should be restricted by a
+  //                capability.
+  //
+  // Response parameters:
+  //
+  //  result
+  //    Indicates the result of the Connect() operation.
+  //
+  //  user_id
+  //    The user id the shell ran the target application as. Typically a client
+  //    passes kInheritUserID as the user id to Connect() which is resolved by
+  //    the shell into a valid user id returned through this callback.
+  //
+  //  application_id
+  //    A unique identifier for the instance that was connected to.
+  //
+  Connect(Identity target,
+          InterfaceProvider&? remote_interfaces,
+          InterfaceProvider? local_interfaces,
+          ClientProcessConnection? client_process_connection) =>
+      (ConnectResult result, string user_id, uint32 application_id);
+
+  // Clones this Connector so it can be passed to another thread.
+  Clone(Connector& request);
+};

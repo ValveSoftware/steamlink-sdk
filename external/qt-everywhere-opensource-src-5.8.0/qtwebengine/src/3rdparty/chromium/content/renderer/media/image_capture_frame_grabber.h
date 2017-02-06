@@ -1,0 +1,58 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CONTENT_RENDERER_MEDIA_IMAGE_CAPTURE_FRAME_GRABBER_H_
+#define CONTENT_RENDERER_MEDIA_IMAGE_CAPTURE_FRAME_GRABBER_H_
+
+#include "base/compiler_specific.h"
+#include "base/macros.h"
+#include "base/memory/weak_ptr.h"
+#include "base/threading/thread_checker.h"
+#include "content/child/scoped_web_callbacks.h"
+#include "content/common/content_export.h"
+#include "content/public/renderer/media_stream_video_sink.h"
+#include "third_party/WebKit/public/platform/WebImageCaptureFrameGrabber.h"
+
+namespace blink {
+class WebMediaStreamTrack;
+}
+
+namespace media {
+class VideoFrame;
+}
+
+namespace content {
+
+// This class grabs Video Frames from a given Media Stream Video Track, binding
+// a function every time grabFrame() is called. This function receives an
+// incoming VideoFrame on a background thread and converts it into the
+// appropriate SkBitmap which is sent back to OnSkBitmap(). This class is single
+// threaded throughout.
+class CONTENT_EXPORT ImageCaptureFrameGrabber final
+    : NON_EXPORTED_BASE(public blink::WebImageCaptureFrameGrabber),
+      NON_EXPORTED_BASE(public MediaStreamVideoSink) {
+ public:
+  using SkImageDeliverCB = base::Callback<void(sk_sp<SkImage>)>;
+
+  ImageCaptureFrameGrabber();
+  ~ImageCaptureFrameGrabber() override;
+
+  // blink::WebImageCaptureFrameGrabber implementation.
+  void grabFrame(blink::WebMediaStreamTrack* track,
+                 blink::WebImageCaptureGrabFrameCallbacks* callbacks) override;
+
+ private:
+  void OnSkImage(
+      ScopedWebCallbacks<blink::WebImageCaptureGrabFrameCallbacks> callbacks,
+      sk_sp<SkImage> image);
+
+  base::ThreadChecker thread_checker_;
+  base::WeakPtrFactory<ImageCaptureFrameGrabber> weak_factory_;
+
+  DISALLOW_COPY_AND_ASSIGN(ImageCaptureFrameGrabber);
+};
+
+}  // namespace content
+
+#endif  // CONTENT_RENDERER_MEDIA_IMAGE_CAPTURE_FRAME_GRABBER_H_

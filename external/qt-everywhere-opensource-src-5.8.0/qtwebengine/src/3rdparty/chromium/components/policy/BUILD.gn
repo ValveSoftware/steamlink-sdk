@@ -1,0 +1,426 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chrome_build.gni")
+import("//build/config/features.gni")
+import("//components/policy/resources/policy_templates.gni")
+import("//third_party/protobuf/proto_library.gni")
+import("//tools/grit/grit_rule.gni")
+
+if (is_mac) {
+  import("//build/util/branding.gni")
+}
+
+# About the policy component:
+#
+# There should really be two components. One called "policy" that includes all
+# generated code, and one "policy/proto" like we have now. The proto needs to
+# be separate for cases like SesssionManagerClient which uses the protos to
+# communicate with the Chrome OS system layer, but doesn't need the rest of the
+# policy stuff).
+#
+# The reason the rest of the targets exist are artifacts of the way the GYP
+# build works. The current "policy" target which is really just some generated
+# code (which should be folded into the new "policy" component described above)
+# exists so code outside which depends on the generated headers can depend on
+# the hard policy target without having to make all policy targets hard
+# dependencies (GN will do the right thing without this extra target).
+if (is_component_build) {
+  component("policy_component") {
+    public_deps = [
+      "//components/policy/core/browser",
+      "//components/policy/core/common",
+    ]
+  }
+  group("policy_component_browser") {
+    public_deps = [
+      ":policy_component",
+    ]
+  }
+  group("policy_component_common") {
+    public_deps = [
+      ":policy_component",
+    ]
+  }
+} else {  # Compile to separate libraries.
+  group("policy_component") {
+    public_deps = [
+      ":policy_component_browser",
+      ":policy_component_common",
+    ]
+  }
+  component("policy_component_browser") {
+    public_deps = [
+      "//components/policy/core/browser",
+    ]
+  }
+  component("policy_component_common") {
+    public_deps = [
+      "//components/policy/core/common",
+    ]
+  }
+}
+
+if (enable_configuration_policy) {
+  # TODO(GYP_GONE) this component should use target_gen_dir instead but the GYP
+  # build puts everything into the following directory. We do the same for now.
+  # Fix when GYP is gone.
+  policy_gen_dir = "$root_gen_dir/policy"
+
+  # This protobuf is equivalent to chrome_settings.proto but shares messages
+  # for policies of the same type, so that less classes have to be generated
+  # and compiled.
+  cloud_policy_proto_path = "$policy_gen_dir/cloud_policy.proto"
+
+  # This is the "full" protobuf, which defines one protobuf message per
+  # policy. It is also the format currently used by the server.
+  chrome_settings_proto_path = "$policy_gen_dir/chrome_settings.proto"
+
+  constants_header_path = "$policy_gen_dir/policy_constants.h"
+  constants_source_path = "$policy_gen_dir/policy_constants.cc"
+  protobuf_decoder_path = "$policy_gen_dir/cloud_policy_generated.cc"
+  app_restrictions_path = "$policy_gen_dir/app_restrictions.xml"
+  risk_tag_header_path = "$policy_gen_dir/risk_tag.h"
+
+  action("cloud_policy_code_generate") {
+    script = "tools/generate_policy_source.py"
+    chrome_version_abspath = "//chrome/VERSION"
+    chrome_version_path = rebase_path(chrome_version_abspath, root_build_dir)
+
+    if (is_chromeos) {
+      chromeos_flag = "1"
+    } else {
+      chromeos_flag = "0"
+    }
+
+    inputs = [
+      chrome_version_abspath,
+      "resources/policy_templates.json",
+    ]
+    outputs = [
+      constants_header_path,
+      constants_source_path,
+      protobuf_decoder_path,
+      chrome_settings_proto_path,
+      cloud_policy_proto_path,
+      app_restrictions_path,
+      risk_tag_header_path,
+    ]
+
+    if (target_os != "android") {
+      outputs -= [ app_restrictions_path ]
+    }
+
+    args = [
+      "--policy-constants-header=" +
+          rebase_path(constants_header_path, root_build_dir),
+      "--policy-constants-source=" +
+          rebase_path(constants_source_path, root_build_dir),
+      "--chrome-settings-protobuf=" +
+          rebase_path(chrome_settings_proto_path, root_build_dir),
+      "--cloud-policy-protobuf=" +
+          rebase_path(cloud_policy_proto_path, root_build_dir),
+      "--cloud-policy-decoder=" +
+          rebase_path(protobuf_decoder_path, root_build_dir),
+      "--app-restrictions-definition=" +
+          rebase_path(app_restrictions_path, root_build_dir),
+      "--risk-tag-header=" + rebase_path(risk_tag_header_path, root_build_dir),
+      chrome_version_path,
+      target_os,
+      chromeos_flag,
+      rebase_path("resources/policy_templates.json", root_build_dir),
+    ]
+  }
+
+  policy_templates_grd_file = "resources/policy_templates.grd"
+  grit("policy_templates") {
+    source = policy_templates_grd_file
+    use_qualified_include = true
+    output_dir = "$root_gen_dir/chrome"
+    outputs = policy_templates_doc_outputs
+    if (is_android) {
+      outputs += policy_templates_android_outputs
+    }
+    if (is_linux) {
+      outputs += policy_templates_linux_outputs
+    }
+    if (is_mac) {
+      outputs += policy_templates_mac_outputs
+
+      defines = [ "mac_bundle_id=$chrome_mac_bundle_id" ]
+    }
+    if (is_win) {
+      outputs += policy_templates_windows_outputs
+    }
+  }
+
+  # Run the proto compiler over the generated file and make it a component.
+  component("cloud_policy_proto_generated_compile") {
+    public_deps = [
+      ":cloud_policy_proto_generated_compile_proto",
+    ]
+  }
+  proto_library("cloud_policy_proto_generated_compile_proto") {
+    visibility = [ ":cloud_policy_proto_generated_compile" ]
+    sources = [
+      cloud_policy_proto_path,
+    ]
+
+    proto_out_dir = "policy/proto"
+    cc_generator_options = "dllexport_decl=POLICY_PROTO_EXPORT:"
+    cc_include = "components/policy/policy_proto_export.h"
+    component_build_force_source_set = true
+    defines = [ "POLICY_PROTO_COMPILATION" ]
+
+    deps = [
+      ":cloud_policy_code_generate",
+    ]
+  }
+
+  # This target builds the "full" protobuf, used for tests only.
+  proto_library("chrome_settings_proto_generated_compile") {
+    sources = [
+      chrome_settings_proto_path,
+    ]
+    proto_out_dir = "policy/proto"
+
+    deps = [
+      ":cloud_policy_code_generate",
+      ":cloud_policy_proto_generated_compile",
+    ]
+  }
+
+  # The dependencies here are kind of messed up.
+  #
+  # //components/policy/core/browser and .../common depend on this target,
+  # and require it to be compiled with POLICY_COMPONENT_IMPLEMENTATION to
+  # export the necessary symbols in a component build. But other targets like
+  # //chrome/browser also depend on this target, which in component build
+  # ends up in another shared library, but with the IMPLEMENTATION flag set
+  # incorrectly.
+  #
+  # This only reason this works is that this target is a shared library and
+  # the compilation units that this depends on in policy/core/common happen to
+  # not be brought in in the "bad" case. This needs serious untangling, maybe
+  # these files can just be put into policy/core/common?
+  static_library("policy") {
+    sources = [
+      constants_header_path,
+      constants_source_path,
+      protobuf_decoder_path,
+      risk_tag_header_path,
+    ]
+
+    defines = [ "POLICY_COMPONENT_IMPLEMENTATION" ]
+
+    public_deps = [
+      ":cloud_policy_code_generate",
+      ":cloud_policy_proto_generated_compile",
+      "//base",
+      "//third_party/protobuf:protobuf_lite",
+    ]
+  }
+
+  group("test_support") {
+    public_deps = [
+      ":chrome_settings_proto_generated_compile",
+      ":policy_component",
+    ]
+  }
+
+  source_set("policy_component_test_support") {
+    testonly = true
+    sources = [
+      "core/browser/configuration_policy_pref_store_test.cc",
+      "core/browser/configuration_policy_pref_store_test.h",
+      "core/common/cloud/mock_cloud_external_data_manager.cc",
+      "core/common/cloud/mock_cloud_external_data_manager.h",
+      "core/common/cloud/mock_cloud_policy_client.cc",
+      "core/common/cloud/mock_cloud_policy_client.h",
+      "core/common/cloud/mock_cloud_policy_store.cc",
+      "core/common/cloud/mock_cloud_policy_store.h",
+      "core/common/cloud/mock_device_management_service.cc",
+      "core/common/cloud/mock_device_management_service.h",
+      "core/common/cloud/mock_user_cloud_policy_store.cc",
+      "core/common/cloud/mock_user_cloud_policy_store.h",
+      "core/common/cloud/policy_builder.cc",
+      "core/common/cloud/policy_builder.h",
+      "core/common/configuration_policy_provider_test.cc",
+      "core/common/configuration_policy_provider_test.h",
+      "core/common/fake_async_policy_loader.cc",
+      "core/common/fake_async_policy_loader.h",
+      "core/common/mock_configuration_policy_provider.cc",
+      "core/common/mock_configuration_policy_provider.h",
+      "core/common/mock_policy_service.cc",
+      "core/common/mock_policy_service.h",
+      "core/common/policy_test_utils.cc",
+      "core/common/policy_test_utils.h",
+      "core/common/preferences_mock_mac.cc",
+      "core/common/preferences_mock_mac.h",
+      "core/common/remote_commands/test_remote_command_job.cc",
+      "core/common/remote_commands/test_remote_command_job.h",
+      "core/common/remote_commands/testing_remote_commands_server.cc",
+      "core/common/remote_commands/testing_remote_commands_server.h",
+    ]
+
+    if (is_chromeos) {
+      sources -= [
+        "core/common/cloud/mock_user_cloud_policy_store.cc",
+        "core/common/cloud/mock_user_cloud_policy_store.h",
+      ]
+    }
+
+    public_deps = [
+      ":policy",
+      ":policy_component",
+      ":test_support",
+      "//base",
+      "//components/policy/proto",
+      "//crypto",
+      "//net",
+      "//testing/gmock",
+      "//testing/gtest",
+    ]
+  }
+
+  if (is_android) {
+    import("//build/config/android/rules.gni")
+
+    _generated_resources_dir = "$root_gen_dir/chrome/app/policy/android"
+
+    copy("app_restrictions_resources_copy") {
+      sources = [
+        app_restrictions_path,
+      ]
+      outputs = [
+        "$_generated_resources_dir/xml-v21/app_restrictions.xml",
+      ]
+      deps = [
+        ":cloud_policy_code_generate",
+        ":policy_templates",
+      ]
+    }
+
+    android_resources("app_restrictions_resources") {
+      resource_dirs = []
+      generated_resource_dirs = [
+        "$policy_templates_base_dir/android",
+        _generated_resources_dir,
+      ]
+      generated_resource_files =
+          policy_templates_android_outputs +
+          [ "$_generated_resources_dir/xml-v21/app_restrictions.xml" ]
+      deps = [
+        ":app_restrictions_resources_copy",
+        ":policy_templates_grit",
+      ]
+    }
+  } else if (is_mac) {
+    action("convert_mcx_plist") {
+      script = "//build/config/mac/xcrun.py"
+      sources = [
+        "$policy_templates_base_dir/mac/app-Manifest.plist",
+      ]
+      inputs = [
+        script,
+      ]
+      outputs = [
+        "$target_gen_dir/$chrome_mac_bundle_id.manifest",
+      ]
+
+      args = [
+               "xcrun",
+               "plutil",
+               "-convert",
+               "xml1",
+             ] + rebase_path(sources, root_out_dir) + [ "-o" ] +
+             rebase_path(outputs, root_out_dir)
+
+      deps = [
+        ":policy_templates",
+      ]
+    }
+
+    bundle_data("manifest_bundle_data") {
+      sources = get_target_outputs(":convert_mcx_plist")
+      outputs = [
+        "{{bundle_resources_dir}}/{{source_file_part}}",
+      ]
+      public_deps = [
+        ":convert_mcx_plist",
+      ]
+    }
+
+    # The reason we are not enumerating all the locales is that
+    # the translations would eat up 3.5MB disk space in the
+    # application bundle.
+    bundle_data("manifest_strings_bundle_data") {
+      sources = [
+        "$policy_templates_base_dir/mac/strings/en.lproj/Localizable.strings",
+      ]
+      outputs = [
+        "{{bundle_resources_dir}}/en.lproj/{{source_file_part}}",
+      ]
+      public_deps = [
+        ":policy_templates",
+      ]
+    }
+
+    create_bundle("chrome_manifest_bundle") {
+      bundle_root_dir = "$root_out_dir/$chrome_mac_bundle_id.manifest/Contents"
+      bundle_resources_dir = "$bundle_root_dir/Resources"
+
+      deps = [
+        ":manifest_bundle_data",
+        ":manifest_strings_bundle_data",
+      ]
+    }
+  }
+
+  if (is_win) {
+    version_file = "VERSION"
+    version_path = "$policy_templates_base_dir/$version_file"
+
+    copy("add_version") {
+      sources = [
+        "//chrome/VERSION",
+      ]
+      outputs = [
+        version_path,
+      ]
+    }
+
+    action("pack_policy_templates") {
+      output_zip_file = "$root_out_dir/policy_templates.zip"
+      script = "tools/make_policy_zip.py"
+      inputs =
+          [
+            version_path,
+            policy_templates_grd_file,
+            grit_info_script,
+          ] + policy_templates_windows_outputs + policy_templates_doc_outputs
+      outputs = [
+        output_zip_file,
+      ]
+      args = [
+               "--output",
+               rebase_path(output_zip_file, root_build_dir),
+               "--basedir",
+               rebase_path(policy_templates_base_dir, root_build_dir),
+               "--grd_input",
+               rebase_path(policy_templates_grd_file, root_build_dir),
+               "--grd_strip_path_prefix",
+               "app/policy",
+               "--extra_input",
+               version_file,
+               "--grit_info",
+               rebase_path(grit_info_script, root_build_dir),
+             ] + grit_defines
+      deps = [
+        ":add_version",
+        ":policy_templates",
+      ]
+    }
+  }
+}

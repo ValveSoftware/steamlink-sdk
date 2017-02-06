@@ -1,0 +1,42 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+
+assert(enable_extensions)
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("schemas.gypi") ],
+                          "scope",
+                          [ "schemas.gypi" ])
+
+# Common sources that are both bundled and compiled.
+sources = gypi_values.main_schema_files
+if (enable_task_manager) {
+  sources += gypi_values.task_manager_dependent_schema_files
+}
+if (is_chromeos) {
+  sources += gypi_values.chromeos_schema_files
+} else if (is_linux || is_win) {
+  sources += gypi_values.input_ime_schema_file
+}
+if (enable_service_discovery) {
+  sources += gypi_values.service_discovery_schema_files
+}
+if (enable_webrtc) {
+  sources += gypi_values.webrtc_schema_files
+}
+if (enable_app_list) {
+  sources += gypi_values.app_list_schema_files
+}
+
+uncompiled_sources = gypi_values.main_non_compiled_schema_files
+if (is_chromeos) {
+  uncompiled_sources += gypi_values.chromeos_non_compiled_schema_files
+}
+
+root_namespace = "extensions::api::%(namespace)s"
+schema_include_rules = "extensions/common/api:extensions::api::%(namespace)s"
+schema_dependencies = [ "//extensions/common/api" ]

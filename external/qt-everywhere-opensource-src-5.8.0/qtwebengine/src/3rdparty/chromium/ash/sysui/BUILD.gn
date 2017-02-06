@@ -1,0 +1,136 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//mojo/public/mojo_application.gni")
+import("//mojo/public/mojo_application_manifest.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//tools/grit/repack.gni")
+
+source_set("lib") {
+  sources = [
+    "app_list_presenter_mus.cc",
+    "app_list_presenter_mus.h",
+    "context_menu_mus.cc",
+    "context_menu_mus.h",
+    "keyboard_ui_mus.cc",
+    "keyboard_ui_mus.h",
+    "pointer_watcher_delegate_mus.cc",
+    "pointer_watcher_delegate_mus.h",
+    "shelf_delegate_mus.cc",
+    "shelf_delegate_mus.h",
+    "shell_delegate_mus.cc",
+    "shell_delegate_mus.h",
+    "stub_context_factory.cc",
+    "stub_context_factory.h",
+    "sysui_application.cc",
+    "sysui_application.h",
+    "user_wallpaper_delegate_mus.cc",
+    "user_wallpaper_delegate_mus.h",
+  ]
+
+  deps = [
+    "//ash",
+    "//ash/public/interfaces",
+    "//cc",
+    "//cc/surfaces",
+    "//components/mus/common:mus_common",
+    "//components/mus/public/cpp",
+    "//components/mus/public/cpp/input_devices",
+    "//components/mus/public/interfaces",
+    "//components/user_manager",
+    "//components/wallpaper",
+    "//device/bluetooth",
+    "//mojo/common:common_base",
+    "//services/catalog/public/cpp",
+    "//services/shell/public/cpp",
+    "//services/tracing/public/cpp",
+    "//ui/app_list/presenter",
+    "//ui/app_list/presenter:mojom",
+    "//ui/aura",
+    "//ui/events",
+    "//ui/events/devices",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gfx/geometry/mojo",
+    "//ui/keyboard:mojom",
+    "//ui/message_center",
+    "//ui/platform_window/stub",
+    "//ui/resources",
+    "//ui/strings",
+    "//ui/views",
+    "//ui/views/mus:for_mojo_application",
+    "//ui/wm",
+  ]
+
+  public_deps = [
+    "//ash/sysui/public/interfaces",
+    "//mash/shelf/public/interfaces",
+  ]
+
+  if (is_chromeos) {
+    deps += [ "//chromeos" ]
+  }
+}
+
+mojo_application_manifest("manifest") {
+  application_name = "ash_sysui"
+  source = "manifest.json"
+}
+
+mojo_native_application("sysui") {
+  output_name = "ash_sysui"
+  sources = [
+    "main.cc",
+  ]
+  deps = [
+    ":lib",
+    ":resources_100",
+    ":resources_200",
+    ":resources_strings",
+    "//services/shell/public/cpp",
+  ]
+
+  data_deps = [
+    ":manifest",
+    "//components/mus",
+  ]
+
+  resources = [
+    "$root_out_dir/ash_resources_strings.pak",
+    "$root_out_dir/ash_resources_100_percent.pak",
+    "$root_out_dir/ash_resources_200_percent.pak",
+  ]
+}
+
+#TODO(msw): Do not load 'test' resources (include sys lang?).
+repack("resources_strings") {
+  sources = [
+    "$root_out_dir/ash_test_strings.pak",
+  ]
+  output = "$root_out_dir/ash_resources_strings.pak"
+  deps = [
+    "//ash/strings:ash_test_strings",
+  ]
+}
+
+repack("resources_100") {
+  sources = [
+    "$root_out_dir/ash_test_resources_100_percent.pak",
+  ]
+  output = "$root_out_dir/ash_resources_100_percent.pak"
+  deps = [
+    "//ash/resources:ash_test_resources_100_percent",
+  ]
+}
+
+repack("resources_200") {
+  sources = [
+    "$root_out_dir/ash_test_resources_200_percent.pak",
+  ]
+  output = "$root_out_dir/ash_resources_200_percent.pak"
+  deps = [
+    "//ash/resources:ash_test_resources_200_percent",
+  ]
+}

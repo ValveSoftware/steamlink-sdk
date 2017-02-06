@@ -1,0 +1,60 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/locales.gni")
+import("//tools/grit/grit_rule.gni")
+import("//ios/chrome/app/resources/ios_chrome_repack.gni")
+
+grit("resources") {
+  source = "ios_resources.grd"
+  output_dir = "$root_gen_dir/ios/chrome"
+  use_qualified_include = true
+  outputs = [
+    "grit/ios_resources.h",
+    "ios_resources.pak",
+  ]
+}
+
+group("packed_resources") {
+  public_deps = [
+    ":repack_locales",
+    ":repack_scalable_resources",
+    ":repack_unscaled_resources",
+  ]
+}
+
+ios_chrome_repack_locales("repack_locales") {
+  visibility = [ ":packed_resources" ]
+  input_locales = ios_packed_locales
+  output_locales = ios_packed_locales_as_mac_outputs
+}
+
+ios_chrome_repack_all_scales("repack_scalable_resources") {
+  visibility = [ ":packed_resources" ]
+  scales = [
+    "100",
+    "200",
+    "300",
+  ]
+}
+
+ios_repack("repack_unscaled_resources") {
+  visibility = [ ":packed_resources" ]
+  sources = [
+    "$root_gen_dir/components/components_resources.pak",
+    "$root_gen_dir/ios/chrome/ios_resources.pak",
+    "$root_gen_dir/ios/web/ios_web_resources.pak",
+    "$root_gen_dir/net/net_resources.pak",
+    "$root_gen_dir/ui/resources/webui_resources.pak",
+  ]
+  deps = [
+    ":resources",
+    "//components/resources",
+    "//ios/web:resources",
+    "//net:net_resources",
+    "//ui/resources",
+  ]
+  output = "$target_gen_dir/resources.pak"
+  bundle_output = "{{bundle_resources_dir}}/{{source_file_part}}"
+}

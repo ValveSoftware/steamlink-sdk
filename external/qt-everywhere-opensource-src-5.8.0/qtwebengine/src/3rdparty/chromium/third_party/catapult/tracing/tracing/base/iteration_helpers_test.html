@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2014 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<link rel="import" href="/tracing/base/iteration_helpers.html">
+<script>
+'use strict';
+
+tr.b.unittest.testSuite(function() {
+  var comparePossiblyUndefinedValues = tr.b.comparePossiblyUndefinedValues;
+  var compareArrays = tr.b.compareArrays;
+  var asArray = tr.b.asArray;
+  var getOnlyElement = tr.b.getOnlyElement;
+  var every = tr.b.every;
+  var getFirstElement = tr.b.getFirstElement;
+
+  test('asArray_indexed', function() {
+    assert.deepEqual(asArray({'0': 2, '1': 4, '2': 6, 'length': 3}), [2, 4, 6]);
+  });
+
+  test('asArray_iterable', function() {
+    function *iterfunc() {
+      yield 2;
+      yield 4;
+      yield 6;
+    }
+    assert.deepEqual(asArray({[Symbol.iterator]: iterfunc}), [2, 4, 6]);
+  });
+
+  test('comparePossiblyUndefinedValues', function() {
+    function cmp(x, y) {
+      assert.isDefined(x);
+      assert.isDefined(y);
+      return x - y;
+    }
+
+    assert.isBelow(comparePossiblyUndefinedValues(0, 1, cmp), 0);
+    assert.isAbove(comparePossiblyUndefinedValues(1, 0, cmp), 0);
+    assert.equal(comparePossiblyUndefinedValues(1, 1, cmp), 0);
+
+    assert.isBelow(comparePossiblyUndefinedValues(0, undefined, cmp), 0);
+    assert.isAbove(comparePossiblyUndefinedValues(undefined, 0, cmp), 0);
+    assert.equal(comparePossiblyUndefinedValues(undefined, undefined, cmp), 0);
+  });
+
+  test('compareArrays', function() {
+    function cmp(x, y) {
+      assert.isDefined(x);
+      assert.isDefined(y);
+      return x - y;
+    }
+
+    assert.isBelow(compareArrays([1], [2], cmp), 0);
+    assert.isAbove(compareArrays([2], [1], cmp), 0);
+
+    assert.isBelow(compareArrays([1], [1, 2], cmp), 0);
+    assert.isAbove(compareArrays([1, 2], [1], cmp), 0);
+
+    assert.isBelow(compareArrays([], [1], cmp), 0);
+    assert.isAbove(compareArrays([1], [], cmp), 0);
+
+    assert.isAbove(compareArrays([2], [1], cmp), 0);
+
+    assert.equal(compareArrays([], [], cmp), 0);
+    assert.equal(compareArrays([1], [1], cmp), 0);
+  });
+
+  test('every_empty', function() {
+    assert.isTrue(every([], x => false));
+  });
+
+  test('every_true', function() {
+    assert.isTrue(every([2, 4, 6], x => x % 2 === 0));
+  });
+
+  test('every_false', function() {
+    assert.isTrue(!every([2, 3, 4], x => x % 2 === 0));
+  });
+
+  test('getOnlyElement_throwsIfEmpty', function() {
+    assert.throws(() => getOnlyElement([]),
+        'getOnlyElement was passed an empty iterable.');
+  });
+
+  test('getOnlyElement_oneItem', function() {
+    assert.equal(getOnlyElement([1]), 1);
+  });
+
+  test('getOnlyElement_twoItems', function() {
+    assert.throws(() => getOnlyElement([1, 2]),
+        'getOnlyElement was passed an iterable with multiple elements.');
+  });
+
+  test('getFirstElement_throwsIfEmpty', function() {
+    assert.throws(() => getFirstElement([]),
+        'getFirstElement was passed an empty iterable.');
+  });
+
+  test('getFirstElement_oneItem', function() {
+    assert.equal(getFirstElement([1]), 1);
+  });
+
+  test('getFirstElement_twoItems', function() {
+    assert.equal(getFirstElement([1, 2]), 1);
+  });
+
+  test('group', function() {
+    // Empty array
+    var srcArray = [];
+    var fn = function(curr) { return (curr % 2); };
+    var dstDict = {};
+
+    assert.deepEqual(tr.b.group(srcArray, fn), dstDict);
+
+    // Non-empty array
+    var srcArray = [0, 1, 2, 3, 4, 5, 6];
+    var dstDict = {
+      0: [0, 2, 4, 6],
+      1: [1, 3, 5]
+    };
+
+    assert.deepEqual(tr.b.group(srcArray, fn), dstDict);
+  });
+
+  test('mapItems', function() {
+    // Empty dictionary.
+    var srcDict = {};
+    var dstDict = tr.b.mapItems(srcDict, function(key, value) {
+      return value;
+    });
+    assert.lengthOf(Object.keys(srcDict), 0);
+    assert.lengthOf(Object.keys(dstDict), 0);
+    assert.notStrictEqual(dstDict, srcDict);
+
+    // Non-empty dictionary.
+    var srcDict = {a: 0, b: 30};
+    var dstDict = tr.b.mapItems(srcDict, function(key, value) {
+      return 9 * value / 5 + 32;
+    });
+    assert.lengthOf(Object.keys(srcDict), 2);
+    assert.equal(srcDict.a, 0);
+    assert.equal(srcDict.b, 30);
+    assert.lengthOf(Object.keys(dstDict), 2);
+    assert.equal(dstDict.a, 32);
+    assert.equal(dstDict.b, 86);
+    assert.notStrictEqual(dstDict, srcDict);
+
+    // Optional 'this' argument.
+    var srcDict = {c: '?', d: '!', e: '.'};
+    var dstDict = tr.b.mapItems(srcDict, function(key, value) {
+      return key + this.delimiter + value;
+    }, {delimiter: '='});
+    assert.lengthOf(Object.keys(srcDict), 3);
+    assert.equal(srcDict.c, '?');
+    assert.equal(srcDict.d, '!');
+    assert.equal(srcDict.e, '.');
+    assert.lengthOf(Object.keys(dstDict), 3);
+    assert.equal(dstDict.c, 'c=?');
+    assert.equal(dstDict.d, 'd=!');
+    assert.equal(dstDict.e, 'e=.');
+    assert.notStrictEqual(dstDict, srcDict);
+
+    // Inherited properties should not be mapped.
+    var srcDict = {__proto__: {a: 10}};
+    var dstDict = tr.b.mapItems(srcDict, function(key, value) {
+      return value;
+    });
+    assert.lengthOf(Object.keys(srcDict), 0);
+    assert.lengthOf(Object.keys(dstDict), 0);
+  });
+
+  test('filterItemsSimple', function() {
+    var someThisArg = {};
+    var srcDict = {a: 0, b: 30};
+    var dstDict = tr.b.filterItems(srcDict, function(key, value) {
+      assert.equal(this, someThisArg);
+      return value >= 30;
+    }, someThisArg);
+    assert.lengthOf(Object.keys(dstDict), 1);
+    assert.equal(dstDict.b, 30);
+  });
+
+  test('filterItemsInheritedProps', function() {
+    var srcDict = {
+      a: 0,
+      b: 30,
+      __proto__: {
+        c: 40
+      }
+    };
+    var dstDict = tr.b.filterItems(srcDict, function(key, value) {
+      return value >= 30;
+    });
+    assert.lengthOf(Object.keys(dstDict), 1);
+    assert.equal(dstDict.b, 30);
+  });
+
+  test('invertArrayOfDicts_defaultGetter', function() {
+    var array = [
+      {a: 6, b: 5},
+      undefined,
+      {a: 4, b: 3, c: 2},
+      {b: 1, c: 0}
+    ];
+    var dict = tr.b.invertArrayOfDicts(array);
+    assert.sameMembers(Object.keys(dict), ['a', 'b', 'c']);
+    assert.deepEqual(tr.b.asArray(dict['a']), [6, undefined, 4, undefined]);
+    assert.deepEqual(tr.b.asArray(dict['b']), [5, undefined, 3, 1]);
+    assert.deepEqual(tr.b.asArray(dict['c']), [undefined, undefined, 2, 0]);
+  });
+
+  test('invertArrayOfDicts_customGetter', function() {
+    var fakeThis = { itemToDict: JSON.parse };
+    var array = [
+      '{"a": "test", "b": true}',
+      '{}',
+      '{invalid-json}',
+      '{"a": 42, "c": false}'
+    ];
+    var dict = tr.b.invertArrayOfDicts(array, function(item) {
+      try {
+        return this.itemToDict(item);
+      } catch (e) {
+        return undefined;
+      }
+    }, fakeThis);
+    assert.sameMembers(Object.keys(dict), ['a', 'b', 'c']);
+    assert.deepEqual(
+        tr.b.asArray(dict['a']), ['test', undefined, undefined, 42]);
+    assert.deepEqual(
+        tr.b.asArray(dict['b']), [true, undefined, undefined, undefined]);
+    assert.deepEqual(
+        tr.b.asArray(dict['c']), [undefined, undefined, undefined, false]);
+  });
+
+  test('arrayToDict', function() {
+    var fakeThis = { prefix: 'key_' };
+    var array = [5, undefined, 'test'];
+    var dict = tr.b.arrayToDict(array, function(value) {
+      return this.prefix + value;
+    }, fakeThis);
+    assert.deepEqual(dict, {
+      'key_5': 5,
+      'key_undefined': undefined,
+      'key_test': 'test'
+    });
+  });
+
+  test('identity', function() {
+    // Undefined value.
+    assert.isUndefined(tr.b.identity(undefined));
+
+    // Primitive value.
+    assert.equal(tr.b.identity(-273.15), -273.15);
+
+    // List.
+    var list = ['list', 'with', 1, undefined, 'value'];
+    assert.strictEqual(tr.b.identity(list), list);
+
+    // Object.
+    var object = {'hasItems': true};
+    assert.strictEqual(tr.b.identity(object), object);
+  });
+
+  test('findFirstKeyInDictMatching', function() {
+    var dict = {a: 1, b: 2, c: 3};
+
+    var that = this;
+    var k = tr.b.findFirstKeyInDictMatching(dict, function(key, value) {
+      assert.equal(this, that);
+      return value == 2;
+    }, this);
+    assert.equal(k, 'b');
+
+    var k = tr.b.findFirstKeyInDictMatching(dict, function(key, value) {
+      assert.equal(this, that);
+      return false;
+    }, this);
+    assert.equal(k, undefined);
+  });
+
+  test('dictionaryContainsValue', function() {
+    var emptyDict = {};
+    assert.isFalse(tr.b.dictionaryContainsValue(emptyDict, 'missing'));
+
+    var nonEmptyDict = {a: 42, b: 'value'};
+    assert.isTrue(tr.b.dictionaryContainsValue(nonEmptyDict, 42));
+    assert.isTrue(tr.b.dictionaryContainsValue(nonEmptyDict, 'value'));
+    assert.isFalse(tr.b.dictionaryContainsValue(nonEmptyDict, 'a'));
+    assert.isFalse(tr.b.dictionaryContainsValue(nonEmptyDict, 'b'));
+    assert.isFalse(tr.b.dictionaryContainsValue(nonEmptyDict, 'missing'));
+  });
+
+  test('mapValues', function() {
+    var map = new Map();
+    map.set('a', 1);
+    map.set('b', 2);
+    map.set('c', 3);
+    var values = tr.b.mapValues(map);
+    assert.strictEqual(values.length, 3);
+    assert.sameMembers([1, 2, 3], values);
+  });
+
+  test('iterMapItems', function() {
+    var map = new Map();
+    map.set('a', 'aa');
+    map.set('b', 'bb');
+    map.set('c', 'cc');
+    var counter = 0;
+    var keyCheck = ['a', 'b', 'c'];
+    var valueCheck = ['aa', 'bb', 'cc'];
+    tr.b.iterMapItems(map, function(key, value) {
+      assert.strictEqual(key, keyCheck[counter]);
+      assert.strictEqual(value, valueCheck[counter]);
+      ++counter;
+    });
+    assert.strictEqual(counter, 3);
+
+    // Optional 'this' argument.
+    var retObj = {delimiter: '=', result: {}};
+    assert.lengthOf(Object.keys(retObj.result), 0);
+    tr.b.iterMapItems(map, function(key, value) {
+      this.result[key] = key + this.delimiter + value;
+    }, retObj);
+    assert.lengthOf(Object.keys(retObj.result), 3);
+    assert.equal(retObj.result.a, 'a=aa');
+    assert.equal(retObj.result.b, 'b=bb');
+    assert.equal(retObj.result.c, 'c=cc');
+  });
+});
+</script>

@@ -1,0 +1,230 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/grit/repack.gni")
+import("//build/config/chrome_build.gni")
+
+# Template to repack resources and copy them to the application bundles.
+#
+# Arguments
+#
+#     deps
+#         list of strings corresponding to target labels.
+#
+#     sources
+#         list of strings corresponding to path to resources pak to pack.
+#
+#     output
+#         string, path of the packed resources.
+#
+#     bundle_output
+#         string, path of the packed resources in the bundle.
+#
+# Generates a bundle_data target for convenience.
+template("ios_repack") {
+  assert(defined(invoker.deps), "deps must be defined for $target_name")
+  assert(defined(invoker.sources), "sources must be defined for $target_name")
+  assert(defined(invoker.output), "output must be defined for $target_name")
+  assert(defined(invoker.bundle_output),
+         "bundle_output must be defined for $target_name")
+
+  _target_name = target_name
+
+  repack("${_target_name}_pack") {
+    forward_variables_from(invoker, [ "testonly" ])
+
+    visibility = [ ":${_target_name}" ]
+    sources = invoker.sources
+    output = invoker.output
+    deps = invoker.deps
+  }
+
+  bundle_data(_target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+    public_deps = [
+      ":${_target_name}_pack",
+    ]
+    sources = [
+      invoker.output,
+    ]
+    outputs = [
+      invoker.bundle_output,
+    ]
+  }
+}
+
+# Template to repack all resources for a given locale.
+#
+# Arguments
+#
+#     input_locale
+#         string, name of the locale to pack.
+#
+#     output_locale
+#         string, name of the locale (may be different from input_locale
+#         as iOS and Chrome not use the same convention for naming locales
+#         with country variant).
+#
+# Generates a bundle_data target for convenience.
+template("_ios_chrome_repack_one_locale") {
+  assert(defined(invoker.input_locale),
+         "input_locale must be defined for ${target_name}")
+  assert(defined(invoker.output_locale),
+         "output_locale must be defined for ${target_name}")
+
+  ios_repack(target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+
+    sources = [
+      "${root_gen_dir}/components/strings/components_${branding_path_component}_strings_${invoker.input_locale}.pak",
+      "${root_gen_dir}/components/strings/components_locale_settings_${invoker.input_locale}.pak",
+      "${root_gen_dir}/components/strings/components_strings_${invoker.input_locale}.pak",
+      "${root_gen_dir}/ios/chrome/ios_${branding_path_component}_strings_${invoker.input_locale}.pak",
+      "${root_gen_dir}/ios/chrome/ios_strings_${invoker.input_locale}.pak",
+      "${root_gen_dir}/ui/strings/app_locale_settings_${invoker.input_locale}.pak",
+      "${root_gen_dir}/ui/strings/ui_strings_${invoker.input_locale}.pak",
+    ]
+
+    deps = [
+      "//components/strings:components_${branding_path_component}_strings",
+      "//components/strings:components_locale_settings",
+      "//components/strings:components_strings",
+      "//ios/chrome/app/strings:ios_${branding_path_component}_strings",
+      "//ios/chrome/app/strings:ios_strings",
+      "//ui/strings:app_locale_settings",
+      "//ui/strings:ui_strings",
+    ]
+
+    output = "${target_gen_dir}/${invoker.output_locale}.lproj/locale.pak"
+    bundle_output = "{{bundle_resources_dir}}/${invoker.output_locale}.lproj" +
+                    "/{{source_file_part}}"
+  }
+}
+
+# Template to repack all resources for all locales.
+#
+# Arguments
+#
+#     input_locales
+#         list of strings corresponding to all locales to pack.
+#
+#     output_locales
+#         list of strings corresponding to all locales to pack (may be
+#         different from input_locales as iOS and Chrome do not use the
+#         same convention for naming locales with country variant).
+#
+#         Must be the same length as input_locales.
+#
+# Generates a collection of bundle_data targets for convenience.
+template("ios_chrome_repack_locales") {
+  assert(defined(invoker.input_locales),
+         "input_locales must be defined for ${target_name}")
+  assert(defined(invoker.output_locales),
+         "output_locales must be defined for ${target_name}")
+
+  _target_name = target_name
+
+  _locale_targets = []
+  _output_locales = invoker.output_locales
+
+  _current_index = 0
+  foreach(_input_locale, invoker.input_locales) {
+    _output_locale = _output_locales[_current_index]
+    _locale_targets += [ ":${_target_name}_${_input_locale}" ]
+
+    _ios_chrome_repack_one_locale("${_target_name}_${_input_locale}") {
+      forward_variables_from(invoker, [ "testonly" ])
+      visibility = [ ":${_target_name}" ]
+      input_locale = _input_locale
+      output_locale = _output_locale
+    }
+
+    _current_index = _current_index + 1
+  }
+
+  group(_target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+    public_deps = _locale_targets
+  }
+}
+
+# Template to repack all scalable resources at a given scale.
+#
+# Arguments
+#
+#     scale
+#         string, scale as a percentage, e.g. "200" corresponds to @2x scale.
+#
+# Generates a bundle_data target for convenience.
+template("_ios_chrome_repack_one_scale") {
+  assert(defined(invoker.scale), "scale must be defined for ${target_name}")
+
+  ios_repack(target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+
+    sources = [
+      "${root_gen_dir}/components/components_resources_${invoker.scale}_percent.pak",
+      "${root_gen_dir}/ios/chrome/ios_theme_resources_${invoker.scale}_percent.pak",
+      "${root_gen_dir}/ui/resources/ui_resources_${invoker.scale}_percent.pak",
+    ]
+    deps = [
+      "//components/resources",
+      "//ios/chrome/app/theme",
+      "//ui/resources",
+    ]
+
+    output = "$target_gen_dir/chrome_${invoker.scale}_percent.pak"
+    bundle_output = "{{bundle_resources_dir}}/{{source_file_part}}"
+  }
+}
+
+# Template to repack all scalable resources at all scales.
+#
+# Arguments
+#
+#     scales
+#       list of strings corresponding to scales as percentage, e.g. "200"
+#       corresponds to @2x scale.
+#
+# Generates a collection of bundle_data targets for convenience.
+template("ios_chrome_repack_all_scales") {
+  assert(defined(invoker.scales), "scales must be defined for ${target_name}")
+
+  _scale_targets = []
+  _target_name = target_name
+
+  foreach(_scale, invoker.scales) {
+    _scale_targets += [ ":${_target_name}_${_scale}_percent" ]
+    _ios_chrome_repack_one_scale("${_target_name}_${_scale}_percent") {
+      forward_variables_from(invoker, [ "testonly" ])
+      visibility = [ ":${_target_name}" ]
+      scale = _scale
+    }
+  }
+
+  group(_target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+    public_deps = _scale_targets
+  }
+}

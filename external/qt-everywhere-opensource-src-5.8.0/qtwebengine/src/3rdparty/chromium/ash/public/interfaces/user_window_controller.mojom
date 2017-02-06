@@ -1,0 +1,38 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module ash.mojom;
+
+struct UserWindow {
+  uint32 window_id;  // The local window id, defined by UserWindowController.
+  string window_title;  // The window title.
+  bool window_has_focus;  // A flag; true if the window is currently focused.
+  array<uint8> window_app_icon;  // A serialized SkBitmap.
+  string window_app_id;  // The window application ID (ie. 'mojo:foo').
+  bool ignored_by_shelf; // A flag; true to avoid showing a shelf item.
+};
+
+// An observer of user windows within mojom::Container::USER_WINDOWS.
+// TODO(msw): Observe focus changes, title/icon changes, etc.
+interface UserWindowObserver {
+  // Called when the observer is first added to supply the initial state.
+  OnUserWindowObserverAdded(array<UserWindow> user_windows);
+
+  OnUserWindowAdded(UserWindow user_window);
+  OnUserWindowRemoved(uint32 window_id);
+
+  OnUserWindowTitleChanged(uint32 window_id, string window_title);
+
+  // |app_icon| is a serialized SkBitmap.
+  OnUserWindowAppIconChanged(uint32 window_id, array<uint8> app_icon);
+
+  OnUserWindowFocusChanged(uint32 window_id, bool has_focus);
+};
+
+// An interface allowing system UIs to manage the set of user windows.
+// TODO(msw): Add minimization, restoration, opening a chooser view, etc.
+interface UserWindowController {
+  AddUserWindowObserver(UserWindowObserver observer);
+  FocusUserWindow(uint32 window_id);
+};

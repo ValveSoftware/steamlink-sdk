@@ -1,0 +1,69 @@
+diff --git a/third_party/libopenjpeg20/0018-tcd_get_decoded_tile_size.patch b/third_party/libopenjpeg20/0018-tcd_get_decoded_tile_size.patch
+new file mode 100644
+index 0000000..e69de29
+diff --git a/third_party/libopenjpeg20/README.pdfium b/third_party/libopenjpeg20/README.pdfium
+index 97e6e8c..a9e289d 100644
+--- a/third_party/libopenjpeg20/README.pdfium
++++ b/third_party/libopenjpeg20/README.pdfium
+@@ -27,4 +27,5 @@ Local Modifications:
+ 0015-read_SPCod_SPCoc_overflow.patch: Prevent a buffer overflow in opj_j2k_read_SPCod_SPCoc.
+ 0016-read_SQcd_SQcc_overflow.patch: Prevent a buffer overflow in opj_j2k_read_SQcd_SQcc.
+ 0017-tcd_init_tile.patch: Prevent integer overflows during calculation of |l_nb_precinct_size|.
++0018-tcd_get_decoded_tile_size.patch: Fix an integer overflow in opj_tcd_get_decoded_tile_size.
+ TODO(thestig): List all the other patches.
+diff --git a/third_party/libopenjpeg20/j2k.c b/third_party/libopenjpeg20/j2k.c
+index b5f6fe9..6346c21 100644
+--- a/third_party/libopenjpeg20/j2k.c
++++ b/third_party/libopenjpeg20/j2k.c
+@@ -8028,6 +8028,10 @@ OPJ_BOOL opj_j2k_read_tile_header(      opj_j2k_t * p_j2k,
+         *p_tile_index = p_j2k->m_current_tile_number;
+         *p_go_on = OPJ_TRUE;
+         *p_data_size = opj_tcd_get_decoded_tile_size(p_j2k->m_tcd);
++        if (*p_data_size == (OPJ_UINT32)-1) {
++                return OPJ_FALSE;
++        }
++
+         *p_tile_x0 = p_j2k->m_tcd->tcd_image->tiles->x0;
+         *p_tile_y0 = p_j2k->m_tcd->tcd_image->tiles->y0;
+         *p_tile_x1 = p_j2k->m_tcd->tcd_image->tiles->x1;
+diff --git a/third_party/libopenjpeg20/tcd.c b/third_party/libopenjpeg20/tcd.c
+index 673633c..cd1c439 100644
+--- a/third_party/libopenjpeg20/tcd.c
++++ b/third_party/libopenjpeg20/tcd.c
+@@ -1150,6 +1150,7 @@ OPJ_UINT32 opj_tcd_get_decoded_tile_size ( opj_tcd_t *p_tcd )
+         opj_tcd_tilecomp_t * l_tile_comp = 00;
+         opj_tcd_resolution_t * l_res = 00;
+         OPJ_UINT32 l_size_comp, l_remaining;
++        OPJ_UINT32 l_temp;
+ 
+         l_tile_comp = p_tcd->tcd_image->tiles->comps;
+         l_img_comp = p_tcd->image->comps;
+@@ -1167,7 +1168,18 @@ OPJ_UINT32 opj_tcd_get_decoded_tile_size ( opj_tcd_t *p_tcd )
+                 }
+ 
+                 l_res = l_tile_comp->resolutions + l_tile_comp->minimum_num_resolutions - 1;
+-                l_data_size += l_size_comp * (OPJ_UINT32)((l_res->x1 - l_res->x0) * (l_res->y1 - l_res->y0));
++                l_temp = (OPJ_UINT32)((l_res->x1 - l_res->x0) * (l_res->y1 - l_res->y0)); /* x1*y1 can't overflow */
++
++                if (l_size_comp && ((OPJ_UINT32)-1) / l_size_comp < l_temp) {
++                        return (OPJ_UINT32)-1;
++                }
++                l_temp *= l_size_comp;
++
++                if (l_temp > ((OPJ_UINT32)-1) - l_data_size) {
++                        return (OPJ_UINT32)-1;
++                }
++                l_data_size += l_temp;
++
+                 ++l_img_comp;
+                 ++l_tile_comp;
+         }
+@@ -1362,7 +1374,7 @@ OPJ_BOOL opj_tcd_update_tile_data ( opj_tcd_t *p_tcd,
+         OPJ_UINT32 l_stride, l_width,l_height;
+ 
+         l_data_size = opj_tcd_get_decoded_tile_size(p_tcd);
+-        if (l_data_size > p_dest_length) {
++        if (l_data_size == (OPJ_UINT32)-1 || l_data_size > p_dest_length) {
+                 return OPJ_FALSE;
+         }
+ 

@@ -1,0 +1,77 @@
+{#---
+  Macro for enum definition, and the declaration of associated functions.
+---#}
+{%- macro enum_decl(enum) %}
+enum class {{enum.name}} : int32_t {
+{%- for field in enum.fields %}
+{%-    if field.value %}
+  {{field.name}} = {{field.value|expression_to_text}},
+{%-    else %}
+  {{field.name}},
+{%-    endif %}
+{%- endfor %}
+};
+{%- endmacro %}
+
+{%- macro enum_data_decl(enum) %}
+struct {{enum.name}}_Data {
+ public:
+  static bool const kIsExtensible = {% if enum.extensible %}true{% else %}false{% endif %};
+
+  static bool IsKnownValue(int32_t value) {
+{%- if enum.fields %}
+    switch (value) {
+{%-   for enum_field in enum.fields|groupby('numeric_value') %}
+      case {{enum_field[0]}}:
+{%-   endfor %}
+        return true;
+    }
+{%- endif %}
+    return false;
+  }
+
+  static bool Validate(int32_t value,
+                       mojo::internal::ValidationContext* validation_context) {
+    if (kIsExtensible || IsKnownValue(value))
+      return true;
+
+    ReportValidationError(validation_context,
+                          mojo::internal::VALIDATION_ERROR_UNKNOWN_ENUM_VALUE);
+    return false;
+  }
+};
+{%- endmacro %}
+
+{#--- macros for enum-associated functions. Namely:
+  * operator<<(): outputs the given enum value.
+  * IsKnownEnumValue(): returns true if the given enum value exists in this
+        generated version of enum.
+---#}
+
+{%- macro enum_stream_operator(enum) %}
+inline std::ostream& operator<<(std::ostream& os, {{enum|get_name_for_kind}} value) {
+  switch(value) {
+{%- for _, values in enum.fields|groupby('numeric_value') %}
+    case {{enum|get_name_for_kind}}::{{values[0].name}}:
+      return os << "{{enum|get_name_for_kind}}::
+{%-   if values|length > 1 -%}
+      {{'{'}}
+{%-   endif -%}
+      {{values|map(attribute='name')|join(', ')}}
+{%-   if values|length > 1 -%}
+      {{'}'}}
+{%-   endif -%}
+      ";
+{%- endfor %}
+    default:
+      return os << "Unknown {{enum|get_name_for_kind}} value: " << static_cast<int32_t>(value);
+  }
+}
+{%- endmacro %}
+
+{%- macro is_known_enum_value(enum) %}
+inline bool IsKnownEnumValue({{enum|get_name_for_kind}} value) {
+  return {{enum|get_qualified_name_for_kind(internal=True)}}::IsKnownValue(
+      static_cast<int32_t>(value));
+}
+{%- endmacro %}

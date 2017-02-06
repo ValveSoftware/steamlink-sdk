@@ -1,0 +1,299 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+   \qmltype TableView
+   \inqmlmodule QtQuick.Controls
+   \inherits BasicTableView
+   \since 5.1
+   \ingroup views
+   \ingroup controls
+   \brief Provides a list view with scroll bars, styling and header sections.
+
+   \image tableview.png
+
+   A TableView is similar to \l ListView, and adds scroll bars, selection, and
+   resizable header sections. As with \l ListView, data for each row is provided through a \l model:
+
+   \code
+   ListModel {
+       id: libraryModel
+       ListElement {
+           title: "A Masterpiece"
+           author: "Gabriel"
+       }
+       ListElement {
+           title: "Brilliance"
+           author: "Jens"
+       }
+       ListElement {
+           title: "Outstanding"
+           author: "Frederik"
+       }
+   }
+   \endcode
+
+   You provide title and size of a column header
+   by adding a \l TableViewColumn as demonstrated below.
+
+   \code
+   TableView {
+       TableViewColumn {
+           role: "title"
+           title: "Title"
+           width: 100
+       }
+       TableViewColumn {
+           role: "author"
+           title: "Author"
+           width: 200
+       }
+       model: libraryModel
+   }
+   \endcode
+
+   The header sections are attached to values in the \l model by defining
+   the model role they attach to. Each property in the model will
+   then be shown in their corresponding column.
+
+   You can customize the look by overriding the \l {BasicTableView::}{itemDelegate},
+   \l {BasicTableView::}{rowDelegate}, or \l {BasicTableView::}{headerDelegate} properties.
+
+   The view itself does not provide sorting. This has to
+   be done on the model itself. However you can provide sorting
+   on the model, and enable sort indicators on headers.
+
+    \list
+        \li int sortIndicatorColumn - The index of the current sort column
+        \li bool sortIndicatorVisible - Whether the sort indicator should be enabled
+        \li enum sortIndicatorOrder - Qt.AscendingOrder or Qt.DescendingOrder depending on state
+    \endlist
+
+    You can create a custom appearance for a TableView by
+    assigning a \l {TableViewStyle}.
+*/
+
+/*! \qmlproperty model TableView::model
+    This property holds the model providing data for the table view.
+
+    The model provides the set of data that is used to create the items in the view.
+    Models can be created directly in QML using ListModel, XmlListModel or VisualItemModel,
+    or provided by C++ model classes. \sa ListView::model
+
+    Example model:
+
+    \code
+    model: ListModel {
+        ListElement {
+            column1: "value 1"
+            column2: "value 2"
+        }
+        ListElement {
+            column1: "value 3"
+            column2: "value 4"
+        }
+    }
+    \endcode
+    \sa {qml-data-models}{Data Models}
+*/
+
+/*! \qmlproperty int TableView::rowCount
+    The current number of rows
+*/
+
+/*! \qmlproperty int TableView::currentRow
+    The current row index of the view.
+    The default value is \c -1 to indicate that no row is selected.
+*/
+
+/*! \qmlsignal TableView::activated(int row)
+
+    Emitted when the user activates an item by mouse or keyboard interaction.
+    Mouse activation is triggered by single- or double-clicking, depending on the platform.
+
+    \a row int provides access to the activated row index.
+
+    \note This signal is only emitted for mouse interaction that is not blocked in the row or item delegate.
+
+    The corresponding handler is \c onActivated.
+*/
+
+/*! \qmlsignal TableView::clicked(int row)
+
+    Emitted when the user clicks a valid row by single clicking
+
+    \a row int provides access to the clicked row index.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onClicked.
+*/
+
+/*! \qmlsignal TableView::doubleClicked(int row)
+
+    Emitted when the user double clicks a valid row.
+
+    \a row int provides access to the clicked row index.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onDoubleClicked.
+*/
+
+/*! \qmlsignal TableView::pressAndHold(int row)
+    \since QtQuick.Controls 1.3
+
+    Emitted when the user presses and holds a valid row.
+
+    \a row int provides access to the pressed row index.
+
+    \note This signal is only emitted if the row or item delegate does not accept mouse events.
+
+    The corresponding handler is \c onPressAndHold.
+*/
+
+/*!
+    \qmlmethod void TableView::positionViewAtRow( int row, PositionMode mode )
+
+    Positions the view such that the specified \a row is at the position defined by \a mode:
+       \list
+       \li ListView.Beginning - position item at the top of the view.
+       \li ListView.Center - position item in the center of the view.
+       \li ListView.End - position item at bottom of the view.
+       \li ListView.Visible - if any part of the item is visible then take no action, otherwise bring the item into view.
+       \li ListView.Contain - ensure the entire item is visible. If the item is larger than the view the item is positioned
+           at the top of the view.
+       \endlist
+
+    If positioning the \a row creates an empty space at the beginning
+    or end of the view, then the view is positioned at the boundary.
+
+    For example, to position the view at the end at startup:
+
+    \code
+    Component.onCompleted: table.positionViewAtRow(rowCount -1, ListView.Contain)
+    \endcode
+
+    Depending on how the model is populated, the model may not be ready when
+    TableView Component.onCompleted is called. In that case you may need to
+    delay the call to positionViewAtRow by using a \l [QtQml]{Timer}.
+
+    \note This method should only be called after the component has completed.
+*/
+
+/*!
+    \qmlmethod int TableView::rowAt( int x, int y )
+
+    Returns the index of the visible row at the point \a x, \a y in content
+    coordinates. If there is no visible row at the point specified, \c -1 is returned.
+
+    \note This method should only be called after the component has completed.
+*/
+
+/*! \qmlproperty Selection TableView::selection
+    \since QtQuick.Controls 1.1
+
+    This property contains the current row-selection of the \l TableView.
+    The selection allows you to select, deselect or iterate over selected rows.
+
+    \list
+    \li function \b clear() - deselects all rows
+    \li function \b selectAll() - selects all rows
+    \li function \b select(from, to) - selects a range
+    \li function \b deselect(from, to) - deselects a range
+    \li function \b forEach(callback) - iterates over all selected rows
+    \li function \b contains(index) - checks whether the selection includes the given index
+    \li signal \b selectionChanged() - the current row selection changed
+    \li readonly property int \b count - the number of selected rows
+    \endlist
+
+    \b Example:
+    \code
+        tableview.selection.select(0)       // select row index 0
+
+        tableview.selection.select(1, 3)    // select row indexes 1, 2 and 3
+
+        tableview.selection.deselect(0, 1)  // deselects row index 0 and 1
+
+        tableview.selection.deselect(2)     // deselects row index 2
+    \endcode
+
+    \b Example: To iterate over selected indexes, you can pass a callback function.
+                \a rowIndex is passed as an argument to the callback function.
+    \code
+        tableview.selection.forEach( function(rowIndex) {console.log(rowIndex)} )
+    \endcode
+*/
+
+/*!
+    \qmlproperty Component TableView::itemDelegate
+
+    This property defines a delegate to draw a specific cell.
+
+    In the item delegate you have access to the following special properties:
+    \list
+    \li  styleData.selected - if the item is currently selected
+    \li  styleData.value - the value or text for this item
+    \li  styleData.textColor - the default text color for an item
+    \li  styleData.row - the index of the view row
+    \li  styleData.column - the index of the view column
+    \li  styleData.elideMode - the elide mode of the column
+    \li  styleData.textAlignment - the horizontal text alignment of the column
+    \li  styleData.pressed - true when the item is pressed (since QtQuick.Controls 1.3)
+    \li  styleData.hasActiveFocus - true when the row has focus (since QtQuick.Controls 1.3)
+    \endlist
+
+    Example:
+    \code
+    itemDelegate: Item {
+        Text {
+            anchors.verticalCenter: parent.verticalCenter
+            color: styleData.textColor
+            elide: styleData.elideMode
+            text: styleData.value
+        }
+    }
+    \endcode
+
+    \note For performance reasons, created delegates can be recycled
+    across multiple table rows. This implies that when you make use of implicit
+    properties such as \c styleData.row or \c model, these values can change
+    after the delegate has been constructed. This means that you should not assume
+    that content is fixed when \c Component.onCompleted is called, but instead rely on
+    bindings to such properties.
+*/
+
+/*!
+    \qmlpropertygroup QtQuick.Controls::TableView::section
+    \qmlproperty string TableView::section.property
+    \qmlproperty enumeration TableView::section.criteria
+    \qmlproperty Component TableView::section.delegate
+    \qmlproperty enumeration TableView::section.labelPositioning
+
+    These properties determine the section labels.
+    \sa {QtQuick::ListView::section}{ListView.section}
+*/

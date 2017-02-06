@@ -1,0 +1,102 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+
+component("snapshot") {
+  sources = [
+    "screenshot_grabber.cc",
+    "screenshot_grabber.h",
+    "screenshot_grabber_observer.h",
+    "snapshot.h",
+    "snapshot_android.cc",
+    "snapshot_async.cc",
+    "snapshot_async.h",
+    "snapshot_aura.cc",
+    "snapshot_export.h",
+    "snapshot_ios.mm",
+    "snapshot_mac.mm",
+  ]
+
+  defines = [ "SNAPSHOT_IMPLEMENTATION" ]
+
+  deps = [
+    "//base",
+    "//skia",
+    "//ui/base",
+    "//ui/display",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (is_android && !use_aura) {
+    deps += [ "//ui/android" ]
+  }
+
+  if (use_aura || is_android) {
+    deps += [
+      "//cc",
+      "//gpu/command_buffer/common",
+    ]
+  } else {
+    sources -= [
+      "snapshot_async.cc",
+      "snapshot_async.h",
+    ]
+  }
+
+  if (is_android && use_aura) {
+    sources -= [ "snapshot_android.cc" ]
+  }
+
+  if (use_aura) {
+    deps += [
+      "//ui/aura",
+      "//ui/compositor",
+    ]
+  } else {
+    sources -= [ "snapshot_aura.cc" ]
+  }
+
+  if (is_mac) {
+    libs = [
+      "AppKit.framework",
+      "ApplicationServices.framework",  # Temporary hack around https://crbug.com/620127. Remove after https://crbug.com/622481 is fixed.
+      "CoreGraphics.framework",
+    ]
+  }
+}
+
+test("snapshot_unittests") {
+  sources = [
+    "snapshot_aura_unittest.cc",
+    "snapshot_mac_unittest.mm",
+    "test/run_all_unittests.cc",
+  ]
+
+  deps = [
+    ":snapshot",
+    "//base",
+    "//base/test:test_support",
+    "//skia",
+    "//testing/gtest",
+    "//ui/base",
+    "//ui/compositor:test_support",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gl",
+  ]
+
+  if (use_aura) {
+    deps += [
+      "//ui/aura:test_support",
+      "//ui/compositor",
+      "//ui/compositor:test_support",
+      "//ui/wm",
+    ]
+  } else {
+    sources -= [ "snapshot_aura_unittest.cc" ]
+  }
+}

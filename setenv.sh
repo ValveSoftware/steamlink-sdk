@@ -10,12 +10,13 @@ if [ ! -d $MARVELL_ROOTFS ]; then
 fi
 
 # Set up Qt environment
-QT_HOST_PREFIX=$MARVELL_SDK_PATH/external/qt-everywhere-opensource-src-5.4.1/build/host
+QT_VERSION=5.8.0
+QT_HOST_PREFIX=$MARVELL_SDK_PATH/external/qt-everywhere-opensource-src-$QT_VERSION/build/host
 QT_HOST_BINS=$QT_HOST_PREFIX/bin
 cat <<__EOF__ >$QT_HOST_BINS/qt.conf
 [Paths]
 Sysroot = $MARVELL_ROOTFS
-Prefix = /usr/local/Qt-5.4.1
+Prefix = /usr/local/Qt-$QT_VERSION
 HostPrefix = $QT_HOST_PREFIX
 __EOF__
 export PATH=$QT_HOST_BINS:$PATH
@@ -42,7 +43,7 @@ unset path_to_executable
 
 export SOC_BUILD=armv7a-cros-linux-gnueabi
 
-export PKG_CONFIG_LIBDIR="$MARVELL_ROOTFS/usr/lib/pkgconfig:$MARVELL_ROOTFS/usr/local/Qt-5.4.1/lib/pkgconfig"
+export PKG_CONFIG_LIBDIR="$MARVELL_ROOTFS/usr/lib/pkgconfig:$MARVELL_ROOTFS/usr/local/Qt-$QT_VERSION/lib/pkgconfig"
 export PKG_CONFIG_SYSROOT_DIR=$MARVELL_ROOTFS
 
 export STEAMLINK_CONFIGURE_OPTS="--host=$SOC_BUILD \

@@ -1,0 +1,889 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \title Qt Quick Demo - Maroon in Trouble
+    \ingroup qtquickdemos
+    \example demos/maroon
+    \brief A Qt Quick game for touch devices that uses SpriteSequence,
+    ParticleSystem, Emitter, and Wander types to animate objects and the SoundEffect type to
+    play sound effects.
+
+    \image qtquick-demo-maroon-med-2.png
+
+    \e{Maroon in Trouble} demonstrates QML features that are useful when
+    developing games:
+
+    \list
+        \li Using custom QML types to create different screens for
+            different stages of the game.
+        \li Using the \l Item and \l Image types to construct a game background.
+        \li Using the SequentialAnimation, NumberAnimation, ParticleSystem,
+            \l Emitter, and \l Wander types to animate background objects.
+        \li Using the \l Timer and \l Repeater types to display a countdown
+            sequence before starting the game.
+        \li Using a custom QML type with custom properties to construct a game
+            board.
+        \li Using the SpriteSequence and \l Sprite types to add animated objects
+            to the game board.
+        \li Using a custom QML type that uses the \l Image type with some custom
+            properties to add a menu where the players can buy objects.
+        \li Using custom properties with private functions to keep track of game
+            statistics and a custom QML type to display them to the players.
+        \li Using the \l State type with JavaScript functions to manage game
+            states.
+        \li Using the \l SoundEffect type to play individual sound effects
+            depending on the object type and the action applied to the object.
+        \li Using signal handlers to specify keyboard shortcuts for some game
+            actions.
+        \li Using resource files to package game resources for deployment and
+            delivery.
+    \endlist
+
+    \include examples-run.qdocinc
+
+    \section1 Adding Screens
+
+    In the Maroon in Trouble app, we use the following custom types that
+    are each defined in a separate .qml file to create the game screens:
+
+    \list
+        \li NewGameScreen.qml
+        \li GameCanvas.qml
+        \li GameOverScreen.qml
+    \endlist
+
+    To use the custom types, we add an import statement to the main QML file,
+    maroon.qml that imports the folder called \c content where the types are
+    located:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto content
+    \printuntil "
+
+    We use the screen types at different stages of the game. The NewGameScreen
+    type is used to create the screen that appears when the players start the
+    app. In NewGameScreen.qml, we use an \l{Image} type to create a New Game
+    button that the players can press to start a new game.
+
+    \image qtquick-demo-maroon-med-1.png
+
+    Tapping the button initiates a countdown timer that triggers the creation
+    of the game canvas by using the GameCanvas type. Another \l{Timer} type
+    spawns mobs of fish inside bubbles that the players must free before they
+    reach the surface. The players can tap on the screen to open a menu where
+    they can buy different types of weapons (melee, ranged, and bombs) to burst
+    the bubbles.
+
+    \image qtquick-demo-maroon-med-2.png
+
+    When the game finishes, a screen created by using the GameOverScreen type
+    appears. On this screen, the players can see their score and start a new
+    game.
+
+    \image qtquick-demo-maroon-med-3.jpg
+
+    The screens are all created on the same background and use some of the same
+    images and animations.
+
+    \section1 Constructing the Background
+
+    In the maroon.qml file, we use an \l{Item} type with the id \c root and a
+    fixed width and height to create a main window for the game:
+
+    \skipto Item
+    \printuntil passedSplash
+
+    We declare two custom properties for the root item, \c gameState and
+    \c passedSplash that we will use later to manage game states.
+
+    We use an \l{Image} item to display the game background image:
+
+    \printuntil anchors.bottom
+
+    We want to be able to load the background image only once at app startup
+    and still use different scenes for the game screens. Therefore,
+    background.png is three times the length of the root item and displays a
+    scene that stretches from the bottom of sea to the sky above the horizon.
+
+    We use the \c anchors.bottom property to anchor the background image to the
+    bottom of the \l{Column} layout that we use to position the screens:
+
+    \skipto Column
+    \printuntil GameOverScreen
+
+    We set a negative value for the \c y property to set the first scene at the
+    bottom of the sea. We calculate the position by subtracting the height of
+    a screen from the \c height property.
+
+    Within the column layout, we use an \l{Item} type to add objects to the
+    background. Within the item, we use \l{Row} layout objects to position
+    \l{Image} objects that display waves on the game canvas and the game over
+    screen:
+
+    \printuntil }
+    \printuntil }
+    \dots
+    \skipto Row
+    \printuntil }
+    \printuntil }
+
+    The second row of waves is positioned on the y axis with a slight offset to
+    the first row. We also use the \c opacity property to make the waves appear
+    lighter in color than the first two waves, which gives the background some
+    depth.
+
+    We use \l{Image} objects to also display sunlight on the new game screen and
+    on the game canvas:
+
+    \skipto Image
+    \printuntil anchors
+    \dots
+    \skipto Image
+    \printuntil anchors
+
+    We set the \c opacity property of the images to \c 0.02 and \c 0.04 to give
+    some depth to the rays of sunshine. We use the \c y property to position the
+    images at fixed locations on the y axis and the
+    \c {anchors.horizontalCenter} property to center them horizontally in
+    relation to their parent.
+
+    We use an \l {Image} type to display an image that adds a deepening shadow
+    to the background:
+
+    \skipto Image
+    \printuntil }
+
+    We set the \c opacity property of the image to \c 0.5 to make the background
+    visible behind the shadow.
+
+    To make the background more interesting, we animate some of the objects we
+    added to it.
+
+    \section1 Animating Background Objects
+
+    We use NumberAnimation to move the waves horizontally across the screen in
+    opposite directions and SequentialAnimation with NumberAnimation to move
+    them up and down.
+
+    We apply the number animation to the \c x property of \c wave as a property
+    value source to animate the x value from its current value to the
+    \c -(wave.width), over 16 seconds. We set the \c loops property to
+    \c {Animation.Infinite} to repeat the animation indefinitely:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto wave.width
+    \printuntil }
+
+    We apply the sequential animation to the \c y property of the image as a
+    property value source to animate the y value. We use one number animation
+    to animate the image from the y position of two below the value of y to two
+    above it, over 1600 milliseconds. We use another number animation to
+    subsequently animate the image in the opposite direction, again over 1600
+    milliseconds. The animation is repeated indefinitely:
+
+    \skipto SequentialAnimation
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    We use the easing curve of the type \c {Easing.InOutQuad} for a quintic
+    (t^5) function to accelerate the motion until halfway and then decelerate
+    it.
+
+    We use sequential animation and number animation to animate \c wave2
+    similarly to \c wave, but in the opposite direction:
+
+    \skipto SequentialAnimation
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    We use sequential animation to rotate the rays of sunlight in degrees
+    clockwise around an origin point that we set to \c {Item.Top} in the
+    \c transformOrigin property. The animation is repeated indefinitely:
+
+    \skipto transformOrigin
+    \printuntil to: -10
+    \printuntil }
+
+    We use one number animation to rotate the image from \c -10 degrees to
+    \c 10 degrees over 8 seconds and another to subsequently rotate it from
+    \c 10 degrees to \c -10 degrees over the same duration.
+
+    We use the easing curve of the type \c {Easing.InOutSine} for a sinusoidal
+    (sin(t)) function to accelerate the motion until halfway and then decelerate
+    it.
+
+    We use sequential animation and number animation to animate another
+    sunlight.png image similarly, but in the opposite direction:
+
+    \skipto transformOrigin
+    \printuntil to: 10
+    \printuntil }
+
+    For examples of using SequentialAnimation and NumberAnimation on the \c x
+    and \c y properties and the \c width and \c height properties, see
+    NewGameScreen.qml.
+
+    \section1 Emitting Particles
+
+    In addition to animation, we use particles to generate motion on the game
+    screens. We use the ParticleSystem QML type in maroon.qml to make bubbles
+    appear at the bottom of the new game screen and game canvas and slowly float
+    towards the top on varying trajectories.
+
+    To use the ParticleSystem type, we must import \l{Qt Quick Particles QML Types}:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto Particles
+    \printuntil 0
+
+    To have the particles appear on the game background, we place the
+    ParticleSystem type within the \l{Image} type that displays the game
+    background:
+
+    \skipto Image
+    \printuntil anchors.fill
+
+    In the ParticleSystem, we use an \l{Emitter} type to emit particles from the
+    location of the emitter at the rate of two per second with the life span of
+    15 seconds:
+
+    \skipto Emitter
+    \printuntil sizeVariation
+    \printuntil }
+
+    The \c acceleration property uses the PointDirection type to
+    specify random variation of the x and y coordinates, so that the bubbles
+    appear inside a rectangular area around the emitter that is anchored to the
+    bottom of the image.
+
+    The \c size property sets the base size of the particles at the beginning of
+    their life to 24 pixels and the \c sizeVariation property randomly increases
+    or decreases the particle size by up to 16 pixels, so that we get bubbles in
+    different sizes.
+
+    As emitters have no visualization, we use the ImageParticle type to render
+    the catch.png image at the particle location:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto ImageParticle
+    \printuntil }
+
+    A \l{Wander} type applies a random trajectory to the particles, so that the
+    bubbles follow random routes from the bottom to the top.
+
+    \printuntil }
+
+    For another example of using the ParticleSystem type, see the
+    GameOverScreen.qml file, where an ImageParticle type is used to make clouds
+    move across the sky.
+
+    \section1 Using Timers
+
+    \image qtquick-demo-maroon-med-4.jpg
+
+    In maroon.qml, we use the \l{Timer} type with a \l{Repeater} type to display
+    a countdown sequence before using another timer to start a new game. Both
+    timers are started simultaneously in the \c "gameOn" state, that is when the
+    players tap the New Game button and \c passedSplash is \c true. This is
+    explained in more detail in \l{Managing Game States}.
+
+    We use the \c countdownTimer to display the countdown sequence:
+
+    \skipto Timer
+    \printuntil }
+
+    The \c onTriggered signal handler is called when the timer is triggered to
+    increment the value of the \c countdown custom property.
+
+    We set the \c repeat property to \c true to specify that the timer is
+    triggered at the interval of 1 second as long as the value of \c countdown
+    is less than 5.
+
+    The \c countdown property is defined in the root item with an initial value
+    of \c 10, so that \c countdownTimer is not running by default:
+
+    \skipto countdown:
+    \printuntil 10
+
+    Each time the timer is triggered, an image from the countdown sequence is
+    displayed. We use a \l{Repeater} type to instantiate the \l{Image} delegate
+    in the context of the repeater's parent, \c canvasArea item, seeded with
+    data from the \c model:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto Repeater
+    \printuntil scale
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    We scale the images from \c 0.0 to \c 1.0 and use the \c visible property to
+    hide the images for the previous steps as the countdown progresses. We also
+    raise the opacity of the image that matches the current countdown step,
+    keeping the others nearly transparent.
+
+    By animating the changes in the \c opacity and \c scale properties using a
+    \l Behavior type, we achieve a countdown sequence where numbers zoom in
+    towards the players.
+
+    \section1 Constructing the Game Board
+
+    To construct the game board, we use the GameCanvas custom type that is
+    defined in GameCanvas.qml.
+
+    In maroon.qml, we use the GameCanvas type to display the game canvas
+    at the position of 32 on the x axis and 20 pixels from the bottom of
+    its parent item, \c canvasArea:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto GameCanvas
+    \printuntil }
+
+    We set the \c focus property to \c true to give \c canvas active focus on
+    startup.
+
+    In GameCanvas.qml, we use an \l Item type and define custom properties for
+    it to create a grid of equally sized squares divided to 4 columns on 6 rows:
+
+    \quotefromfile demos/maroon/content/GameCanvas.qml
+    \skipto Item
+    \printuntil canvas
+
+    We use the custom properties to set the \c width and \c height of the
+    \c grid item as the amount of columns and rows multiplied by square size:
+
+    \skipto width
+    \printuntil height
+
+    We use an \l{Image} type with a MouseArea type to display a help button
+    that the players can tap to view an image that contains instructions for
+    playing the game:
+
+    \skipuntil endGame
+    \skipto Image
+    \printuntil bottomMargin
+    \printuntil }
+
+    We declare the \c goAway() private function to disable the mouse area and
+    make the image fully transparent and a \c comeBack() function to enable the
+    mouse area and make the button fully opaque. We use a \l {Behavior} type on
+    the \c opacity property to apply the default number animation when the value
+    of \c opacity changes.
+
+    When the players tap the help button, the \c onClicked signal handler is
+    called to hide the help button by setting the \c {helpButton.visible}
+    property to \c false and to show the help image by setting the
+    \c {helpImage.visible} property to \c false.
+
+    \image qtquick-demo-maroon-med-6.jpg
+
+    We use anchoring to position the help button at the bottom center of the
+    game canvas.
+
+    We use another \l{Image} type to display the help image:
+
+    \printuntil }
+    \printuntil }
+
+    To hide the help image when the players tap it, the \c onClicked signal
+    handler within the MouseArea type is called to set the \c{helpImage.visible}
+    property to \c true.
+
+    To ensure that the images are placed on top when they are visible, we set
+    a high value for their \c z property.
+
+    The following sections describe how to use timers to add animated objects to
+    the game board and how to create a menu dialog from which the players can
+    add more objects to it.
+
+    \section1 Animating Objects on the Game Board
+
+    We use sprite animation to animate objects on the game board. The Qt Quick
+    \l{Sprite Animations}{sprite engine} is a stochastic state machine combined
+    with the ability to chop up images containing multiple frames of an
+    animation.
+
+    \section2 Spawning Fish
+
+    We use a \l{Timer} element with the \c tick() function in GameCanvas.qml to
+    spawn mobs of fish in waves at an increasing rate, starting at 16
+    milliseconds:
+
+    \quotefromfile demos/maroon/content/GameCanvas.qml
+    \skipto Timer
+    \printuntil }
+
+    We use the MobBase custom type that is defined in MobBase.qml to
+    animate mobs of fish that swim inside bubbles. We use an \l{Item} type with
+    custom properties and private functions to create the fish and the bubbles
+    and to define the actions that can be applied to them:
+
+    \quotefromfile demos/maroon/content/mobs/MobBase.qml
+    \skipto Item
+    \printuntil }
+    \dots
+
+    We use a SpriteSequence type to animate the fish:
+
+    \skipto SpriteSequence
+    \printuntil goalSprite
+
+    The SpriteSequence type renders and controls a list of animations
+    defined by \l{Sprite} types:
+
+    \skipto Sprite {
+    \printuntil name: "right"
+    \printuntil }
+    \printuntil }
+
+    In the \c fishSprite sprite sequence, each sprite defines one frame within
+    the mob-idle.png file, which shows a fish facing right, front, and left:
+
+    \image ../../content/gfx/mob-idle.png
+
+    We use the \c frameWidth, \c frameHeight, and \c frameX properties to
+    determine that the first 64x64-pixel square of the image is framed in the
+    \c "left" sprite, the second in the \c "front" sprite, and the third in the
+    \c "right" sprite. For each sprite, the \c frameCount property is set to
+    \c 1 to specify that the sprite contains one frame.
+
+    We use the \c frameDuration and \c frameDurationVariation properties to
+    specify that the duration of an animation can vary from \c 400 to \c 1200
+    milliseconds.
+
+    The \c to property specifies that the sprites have weighted transitions to
+    other sprites. The \c "left" and \c "right" sprites always transfer to the
+    \c "front" sprite. When the \c "front" animation finishes, the sprite engine
+    chooses \c "left" or \c "right" randomly, but at roughly equal proportions,
+    because they both have the weight \c 1.
+
+    When the fish are set free, we want them to swim away in the direction they
+    are facing until they get off the screen. If they were facing front, we use
+    the \c jumpTo method with the JavaScript \c {Math.random()} method in the
+    \c die() private function to randomly jump to the \c "left" or \c "right"
+    sprite:
+
+    \quotefromfile demos/maroon/content/mobs/MobBase.qml
+    \skipto die()
+    \printuntil }
+
+    We then use the \c start() function to run a NumberAnimation that applies a
+    number animation to the x value from its current value to \c -360 or \c 360,
+    depending on whether the \c goingLeft custom property is \c true, in 300
+    milliseconds:
+
+    \skipto NumberAnimation
+    \printuntil }
+
+    \section2 Bursting Bubbles
+
+    We use another SpriteSequence to animate the bubbles so that they
+    become smaller and finally burst when they are attacked by a shooter or
+    a melee. For this effect, we set the value of the \c scale property to
+    decrease by \c 0.2 each time the custom \c hp property changes:
+
+    \skipto SpriteSequence
+    \printuntil goalSprite
+
+    We use a \l{Behavior} type to apply a NumberAnimation when the value of
+    \c scale changes. We use the \c{Easing.OutBack} easing type for a back
+    (overshooting cubic function: (s+1)*t^3 - s*t^2) easing out curve that
+    decelerates the motion to zero velocity in 150 milliseconds:
+
+    \skipto Behavior
+    \printuntil }
+    \printuntil }
+
+    The SpriteSequence consist of two sprites that display different images. The
+    first sprite, \c "big", uses the catch.png image to display an empty bubble:
+
+    \skipto Sprite
+    \printuntil }
+    \printuntil }
+
+    We set the \c to property to \c "burst" with the weight \c 0 to make the
+    second sprite, \c "burst", a valid goal for the \c jumpTo method that we use
+    in the \c die() private function to jump directly to the \c "burst" sprite
+    without playing the first sprite.
+
+    In the \c "burst" sprite, we set the \c frameCount property to \c 3 and the
+    \c frameX property to \c 64 to specify that the animation starts at pixel
+    location 64 and loads each frame for the duration of 200 milliseconds.
+
+    \skipto Sprite
+    \printuntil }
+
+    Within the SpriteSequence, we use SequentialAnimation with NumberAnimation
+    to animate the transitions between the frames. To create a pulsating effect
+    on the bubbles, we apply a sequential animation on the \c width property
+    with two number animations to first increase the bubble width from
+    \c{* 1} to \c{* 1.1} over 800 milliseconds and then bring it back over 1
+    second:
+
+    \skipto SequentialAnimation
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    Similarly, we increase the bubble height from \c{* 1} to \c{* 1.15} over
+    1200 milliseconds and then bring it back over 1 second:
+
+    \skipto SequentialAnimation
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    We use yet another SpriteSequence to display the effect of squid ink on the
+    bubbles. For more examples of using sprite sequences, see the QML files in
+    the \c towers directory.
+
+    \section1 Adding Dialogs
+
+    \image qtquick-demo-maroon-med-5.jpg
+
+    In GameCanvas.qml, we use an \l{Image} type with some custom properties to
+    create a menu where the players can buy tower objects:
+
+    \quotefromfile demos/maroon/content/GameCanvas.qml
+    \skipto Image
+    \printuntil towerExists
+
+    We set the \c visible property to \c false to hide the menu by default. The
+    \c z property is set to 1500 to ensure that the menu is displayed in front
+    of all other items when it is visible.
+
+    We use a MouseArea type to open or close the menu when players tap on the
+    canvas:
+
+    \quotefromfile demos/maroon/content/GameCanvas.qml
+    \skipto MouseArea
+    \printuntil }
+    \printuntil }
+
+    We set the \c anchors.fill property to \c parent to allow the players to tap
+    anywhere on the game canvas. We use a condition in the \c onClicked
+    signal handler to call the \c {finish()} function if the menu is visible
+    and the \c {open()} function otherwise.
+
+    The \c {finish()} function hides the menu by setting the \c shown custom
+    property to \c false:
+
+    \skipto finish
+    \printuntil }
+
+    The \c {open()} function displays the menu at the x and y position of the
+    mouse pointer:
+
+    \printuntil }
+
+    If \c gameRunning is \c true, we call the JavaScript \c row() function to
+    calculate the value of the \c targetRow custom property and the \c col()
+    function to calculate the value of the \c targetCol custom property. If
+    the value of \c targetRow equals \c 0, the y position is set to one square
+    above the mouse pointer. Otherwise, it is set to one square below the mouse
+    pointer.
+
+    We use the \c towerIdx() function to set the value of the \c towerExists
+    custom property.
+
+    We set the \c shown custom property to \c true to show the menu and call the
+    \c {helpButton.goAway()} function to hide the help button when the menu
+    opens.
+
+    We use states and transitions to display the menu when the \c shown
+    property is \c true and the \c gameOver property is \c false:
+
+    \printuntil OutElastic
+    \printuntil }
+
+    To set the visibility of the menu to \c "visible" without animating the
+    property change, we use a PropertyAction type. We do want to animate the
+    changes in opacity and scale, though, so we use number animation to
+    animate the value of the \c scale property from \c 0.9 to \c 1 and the
+    value of \c opacity property from \c 0.7 to \c 1, over 500 milliseconds.
+    We use the \c {Easing.outElastic} easing type for an elastic (exponentially
+    decaying sine wave) function easing curve that decelerates from zero
+    velocity.
+
+    To construct the menu, we use a BuildButton custom type that is defined in
+    BuildButton.qml. In GameCanvas.qml, we create one build button for each
+    tower object that the players can buy and position them in a \l{Row} layout
+    in front of the menu background image, dialog.png:
+
+    \printuntil dialog-factory.png
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    For each build button, we set the values of \c towerType and \c index custom
+    properties that we define in BuildButton.qml.
+
+    We use the \c canBuild custom property to prevent players from adding tower
+    objects in locations where tower objects already exist.
+
+    We use the \c source property to display the image for the tower type.
+
+    The \c onClicked signal handler is called to execute the \c finish()
+    function that closes the menu when the players tap an enabled build button.
+
+    Build buttons are enabled when the players have enough coins to buy the
+    tower objects. We use an \l {Image} type in BuildButton.qml to display
+    images on the buttons:
+
+    \quotefromfile demos/maroon/content/BuildButton.qml
+    \skipto Image
+    \printuntil }
+
+    We use the \c opacity property to make the buttons appear enabled. If
+    \c canBuild is \c true and the value of the \c gameCanvas.coins property
+    is larger than or equal to the cost of a tower object, the images are fully
+    opaque, otherwise their opacity is set to \c 0.4.
+
+    We use a \l{Text} type to display the cost of each tower item, as specified
+    by the \c towerData variable, depending on \c towerType:
+
+    \skipto Text
+    \printuntil }
+
+    To display a pointer on the screen at the position where the tower object
+    will be added, we use the \l {Image} type. We use the \c visible property
+    to determine whether the dialog-pointer.png image should be positioned below
+    or above the menu. When the value of the \c col property equals the \c index
+    and the value or the \c row property is not \c 0, we anchor the image to the
+    bottom of its parent, BuildButton.
+
+    When the value or the \c row property is \c 0, we anchor the image to the
+    top of BuildButton to position the pointer above the menu and use the
+    \c rotation property to rotate it by 180 degrees, so that it points upwards:
+
+    \skipto Image
+    \printuntil }
+    \printuntil }
+
+    \section1 Keeping Track of Game Statistics
+
+    To keep track of the game statistics, we use the InfoBar custom type (that
+    is defined in InfoBar.qml) in maroon.qml:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto InfoBar
+    \printuntil }
+
+    We use the \c {anchors.bottom} and \c {anchors.bottomMargin} properties to
+    position the info bar at 6 points from the top of the game canvas. We bind
+    the \c width property of the info bar to that of its parent.
+
+    In InfoBar.qml, we use an \l{Item} type to create the info bar. Within it,
+    we use a \l{Row} layout type to display the number of lives the players have
+    left, the number of fish that have been saved, and the amount of coins that
+    are available for use.
+
+    We use the \c anchors property to position the rows in relationship to their
+    parent and to each other. In the first \l{Row} object, we use the
+    \c {anchors.left} and \c {anchors.leftMargin} properties to position the
+    heart icons at 10 points from the left border of the parent item:
+
+    \quotefromfile demos/maroon/content/InfoBar.qml
+    \skipto Item
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    We use a \l{Repeater} type with a \c model and a \c delegate to display as
+    many hearts as the players have lives left. We use the \c spacing property
+    to leave 5 pixels between the displayed icons.
+
+    In the second \l{Row} object, we use the \c {anchors.right} and
+    \c {anchors.rightMargin} properties to position the number of fish saved at
+    20 points left of the third \l{Row} object that displays the number of coins
+    available (and has the id \c points):
+
+    \skipto Row
+    \printuntil /^\}/
+
+    In these objects, we set spacing to 5 pixels to separate the icons from the
+    numbers that we display by using a \l{Text} type.
+
+    In GameCanvas.qml, we define custom properties to hold the game statistics:
+
+    \quotefromfile demos/maroon/content/GameCanvas.qml
+    \skipto score
+    \printuntil lives
+
+    We declare the \c freshState() function to set the initial game statistics
+    when a new game starts:
+
+    \skipto freshState()
+    \printuntil }
+
+    We use the \c {Logic.gameState.score} variable in the \c die() function
+    that we declare in MobBase.qml to increase the score by one when the players
+    set a fish free:
+
+    \quotefromfile demos/maroon/content/mobs/MobBase.qml
+    \skipto score
+    \printuntil ;
+
+    \section1 Managing Game States
+
+    In maroon.qml, we use a \l{State} type and JavaScript to switch between
+    screens according to the game state. The logic.js file contains definitions
+    for the functions. To use the functions in a QML file, we import logic.js as
+    the \c Logic namespace in that file:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto logic.js
+    \printuntil Logic
+
+    The base state displays the new game screen when the application starts.
+    In addition, we call the Component.onCompleted signal handler to initialize
+    a new game:
+
+    \skipto newGameState
+    \printuntil ;
+
+    In NewGameScreen.qml we use the \c onClicked signal handler to emit the
+    \c startButtonClicked() signal when the players tap the New Game button:
+
+    \quotefromfile demos/maroon/content/NewGameScreen.qml
+    \skipto to: 150
+    \skipto Image
+    \printuntil }
+
+    In maroon.qml, we use the \c onStartButtonClicked signal handler to set the
+    \c passedSplash property of the \c root item to \c true:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto NewGameScreen
+    \printuntil }
+
+    We then use the \c passedSplash property in the \c when property of the
+    \c gameOn state to trigger the \c gameStarter timer:
+
+    \skipto State {
+    \printuntil gameStarter
+    \printuntil }
+
+    We also switch to the \c "gameOn" state and move to the y position
+    \c  {-(height - 960)} to display the game canvas.
+
+    In the \c gameStarter \l{Timer} object we use the \c onTriggered signal
+    handler to call the \c startGame() function that starts a new game:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto property int
+    \skipto Timer
+    \printuntil }
+
+    The game continues until \c gameState.gameOver is set to \c true and
+    \c gameState.gameRunning is set to \c false by calling the \c endGame()
+    function when the value of the \c gameState.lives property becomes less
+    than or equal to \c 0.
+
+    In GameOverScreen.qml, we use a MouseArea type and an \c onClicked signal
+    handler within an \l{Image} type to return to the game canvas when the
+    players tap the New Game button:
+
+    \quotefromfile demos/maroon/content/GameOverScreen.qml
+    \skipto opacity: 0.5
+    \skipto Image
+    \printuntil }
+    \printuntil }
+
+    The \c onClicked signal handler triggers a state change in maroon.qml to
+    display the game canvas:
+
+    \quotefromfile demos/maroon/maroon.qml
+    \skipto target: gameStarter
+    \skipto State
+    \printuntil }
+    \printuntil }
+
+    \section1 Playing Sound Effects
+
+    The app can play sound effects if the \l{Qt Multimedia} module is installed.
+    In the SoundEffect.qml file, we proxy a SoundEffect type:
+
+    \quotefromfile demos/maroon/content/SoundEffect.qml
+    \skipto Item
+    \printuntil }
+    \printuntil }
+
+    We add the \c qtHaveModule() qmake command to the app .pro file, maroon.pro,
+    to check whether the \l{Qt Multimedia} module is present:
+
+    \quotefromfile demos/maroon/maroon.pro
+    \skipto QT
+    \printuntil multimedia
+
+    In each QML file that defines a custom type used on the game canvas, we
+    use a SoundEffect type to specify the audio file to play for that type
+    of objects. For example, in Bomb.qml, we specify the sound that a bomb
+    makes when it explodes:
+
+    \quotefromfile demos/maroon/content/towers/Bomb.qml
+    \skipto SoundEffect
+    \printuntil }
+
+    To play the sound effect when a bomb explodes, we call the \c sound.play()
+    function that we declare as a member of the private \c fire() function
+    within the TowerBase custom type:
+
+    \quotefromfile demos/maroon/content/towers/Bomb.qml
+    \skipto fire()
+    \printuntil }
+
+    For more examples of playing sound effects, see the QML files in the
+    \c towers directory and MobBase.qml.
+
+    \section1 Adding Keyboard Shortcuts
+
+    This is a touch example, so you should not really need to handle key
+    presses. However, we do not want you to have to spend more time playing the
+    game than you want to while testing it, so we use the \c {Keys.onPressed}
+    signal handler to specify keyboard shortcuts. You can press Shift+Up to
+    increment the values of the \c coins property to add coins, Shift+Left to
+    increment the value of \c lives, Shift+Down to increment the value of the
+    \c waveProgress property to spawn mobs of fish faster, and Shift+Right to
+    call the \c endGame() function to quit the game:
+
+    \quotefromfile demos/maroon/content/GameCanvas.qml
+    \skipto Keys
+    \printuntil }
+
+    \section1 Packaging Resources for Deployment
+
+    To be able to run the app on mobile devices, we package all QML, JavaScript,
+    image, and sound files into a Qt resource file (.qrc). For more information,
+    see \l{The Qt Resource System}.
+
+    \sa {QML Applications}
+*/

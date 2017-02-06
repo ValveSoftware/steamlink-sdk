@@ -1,0 +1,367 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# TODO(rockot) bug 505926: Don't include chrome files from here.
+# See chrome_browser_tests_extensions_sources below
+import("//chrome/chrome_tests.gni")
+import("//extensions/extensions.gni")
+import("//testing/test.gni")
+import("//tools/grit/grit_rule.gni")
+import("//tools/grit/repack.gni")
+
+assert(enable_extensions)
+
+# GYP version: extensions/extensions_resources.gyp:extensions_resources
+group("extensions_resources") {
+  public_deps = [
+    ":extensions_browser_resources",
+    ":extensions_renderer_resources",
+    ":extensions_resources_grd",
+  ]
+}
+
+# GYP version: extensions/extensions_resources.gyp:extensions_resources
+#              (extensions_resources action)
+grit("extensions_resources_grd") {
+  source = "extensions_resources.grd"
+  outputs = [
+    "grit/extensions_resources.h",
+    "extensions_resources.pak",
+  ]
+}
+
+# GYP version: extensions/extensions_resources.gyp:extensions_resources
+#              (extensions_browser_resources action)
+grit("extensions_browser_resources") {
+  source = "browser/resources/extensions_browser_resources.grd"
+  outputs = [
+    "grit/extensions_browser_resources.h",
+    "grit/extensions_browser_resources_map.cc",
+    "grit/extensions_browser_resources_map.h",
+    "extensions_browser_resources_100_percent.pak",
+    "extensions_browser_resources_200_percent.pak",
+  ]
+  grit_flags = [
+    "-E",
+    "mojom_root=" + rebase_path(root_gen_dir),
+  ]
+}
+
+# GYP version: extensions/extensions_resources.gyp:extensions_resources
+#              (extensions_renderer_resources action)
+grit("extensions_renderer_resources") {
+  source = "renderer/resources/extensions_renderer_resources.grd"
+  outputs = [
+    "grit/extensions_renderer_resources.h",
+    "extensions_renderer_resources.pak",
+  ]
+  grit_flags = [
+    "-E",
+    "mojom_root=" + rebase_path(root_gen_dir),
+  ]
+
+  deps = [
+    "//chrome/browser/media/router:mojo_bindings__generator",
+    "//device/serial:serial_mojo__generator",
+    "//extensions/common:mojo__generator",
+    "//extensions/common/api:mojom__generator",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = rebase_path(extensions_gypi_values.extensions_test_support_sources,
+                        ".",
+                        "//extensions")
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  deps = [
+    ":extensions_resources",
+    "//base",
+    "//components/cast_certificate:test_support",
+    "//components/guest_view/browser:test_support",
+    "//components/pref_registry:test_support",
+    "//components/prefs:test_support",
+    "//content/public/common",
+    "//content/test:test_support",
+    "//extensions/browser",
+    "//extensions/common",
+    "//extensions/common/api",
+    "//extensions/common/api:api_registration",
+    "//net:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/cld_2",
+  ]
+
+  public_deps = [
+    "//content/public/browser",
+    "//extensions/common/api/cast_channel:cast_channel_proto",
+  ]
+}
+
+# GYP version: //extensions/extensions.gyp:extensions_shell_and_test_pak
+repack("shell_and_test_pak") {
+  sources = [
+    "$root_gen_dir/blink/devtools_resources.pak",
+    "$root_gen_dir/blink/public/resources/blink_image_resources_100_percent.pak",
+    "$root_gen_dir/blink/public/resources/blink_resources.pak",
+    "$root_gen_dir/content/app/strings/content_strings_en-US.pak",
+    "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/content/shell/shell_resources.pak",
+    "$root_gen_dir/extensions/extensions_browser_resources_100_percent.pak",
+    "$root_gen_dir/extensions/extensions_renderer_resources.pak",
+    "$root_gen_dir/extensions/extensions_resources.pak",
+    "$root_gen_dir/extensions/shell/app_shell_resources.pak",
+    "$root_gen_dir/extensions/strings/extensions_strings_en-US.pak",
+    "$root_gen_dir/ui/resources/ui_resources_100_percent.pak",
+    "$root_gen_dir/ui/strings/app_locale_settings_en-US.pak",
+    "$root_gen_dir/ui/strings/ui_strings_en-US.pak",
+  ]
+
+  output = "$root_out_dir/extensions_shell_and_test.pak"
+
+  deps = [
+    ":extensions_resources",
+    "//content:resources",
+    "//content/app/strings",
+    "//content/browser/devtools:devtools_resources",
+    "//content/shell:resources",
+    "//extensions/shell:resources",
+    "//extensions/strings",
+    "//third_party/WebKit/public:image_resources",
+    "//third_party/WebKit/public:resources",
+    "//ui/resources",
+    "//ui/strings",
+  ]
+}
+
+test("extensions_unittests") {
+  sources =
+      rebase_path(extensions_tests_gypi_values.extensions_unittests_sources,
+                  ".",
+                  "//extensions")
+
+  sources += [
+    # TODO(rockot): DisplayInfoProvider::Create() is only implemented in Chrome
+    # and app_shell. This is wrong.
+    "shell/browser/shell_display_info_provider.cc",
+  ]
+
+  configs += [ "//build/config:precompiled_headers" ]
+
+  data = [
+    "test/data/",
+    "//chrome/test/data/extensions/",
+    "//components/test/data/cast_certificate/",
+    "$root_out_dir/extensions_shell_and_test.pak",
+  ]
+
+  deps = [
+    ":extensions_resources",
+    ":shell_and_test_pak",
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//components/keyed_service/content",
+    "//components/pref_registry:test_support",
+    "//components/prefs:test_support",
+    "//components/user_prefs",
+    "//content/test:test_support",
+    "//device/bluetooth:mocks",
+    "//device/core",
+    "//device/hid",
+    "//device/serial",
+    "//device/serial:test_support",
+    "//extensions/common",
+    "//extensions/common/api/cast_channel:cast_channel_proto",
+    "//extensions/renderer",
+    "//extensions/strings",
+    "//extensions/utility",
+    "//mojo/edk/js",
+    "//mojo/edk/system",
+    "//mojo/public/cpp/bindings",
+    "//services/shell/public/interfaces",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/leveldatabase",
+  ]
+
+  data_deps = [
+    "//third_party/mesa:osmesa",
+  ]
+
+  if (is_chromeos) {
+    sources += [
+      "browser/api/webcam_private/visca_webcam_unittest.cc",
+
+      # TODO(rockot): There are two implementations of VpnServiceFactory, a
+      # stub in app_shell and a real one in Chrome. This is wrong.
+      "shell/browser/api/vpn_provider/vpn_service_factory.cc",
+    ]
+
+    deps += [ "//chromeos:test_support" ]
+  }
+}
+
+test("extensions_browsertests") {
+  sources =
+      rebase_path(extensions_tests_gypi_values.extensions_browsertests_sources,
+                  ".",
+                  "//extensions")
+
+  data = [
+    "test/data/",
+    "//net/tools/testserver/",
+    "//third_party/pyftpdlib/",
+    "//third_party/pywebsocket/",
+    "//third_party/tlslite/",
+    "$root_out_dir/extensions_shell_and_test.pak",
+  ]
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  deps = [
+    ":test_support",
+    "shell:app_shell_lib",
+
+    # TODO(yoz): find the right deps
+    "//base",
+    "//base/test:test_support",
+    "//components/prefs:test_support",
+    "//components/storage_monitor:test_support",
+    "//content/test:browsertest_base",
+    "//content/test:test_support",
+    "//device/bluetooth:mocks",
+    "//device/core:mocks",
+    "//device/hid:mocks",
+    "//device/usb:test_support",
+    "//mojo/edk/js",
+    "//mojo/public/cpp/bindings",
+    "//net:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+
+  data_deps = [
+    "//third_party/mesa:osmesa",
+  ]
+
+  if (is_mac) {
+    deps += [ "shell:app_shell" ]  # Needed for App Shell.app's Helper.
+  }
+}
+
+# TODO(rockot) bug 505926: These should be moved to extensions_browsertests but have
+# old dependencies on chrome files. The chrome dependencies should be removed
+# and these moved to the extensions_browsertests target. Currently, we solve
+# the problem by making this a source set and linking it into
+# //chrome/test:browser_tests.
+source_set("chrome_extensions_browsertests") {
+  testonly = true
+  sources = rebase_path(
+          chrome_tests_gypi_values.chrome_browser_tests_extensions_sources,
+          ".",
+          "//chrome")
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  # These are the deps from browser_tests minus some internal Chrome ones that
+  # aren't allowed to be included here and that aren't needed.
+  deps = [
+    "//base",
+    "//base:i18n",
+    "//base/test:test_support",
+    "//chrome/browser",
+    "//chrome/browser/resources:extension_resource_demo",
+    "//chrome/common/extensions/api",
+    "//chrome/renderer",
+    "//components/autofill/content/browser:risk_proto",
+    "//components/autofill/content/renderer:test_support",
+    "//components/captive_portal:test_support",
+    "//components/dom_distiller/content/browser",
+    "//components/dom_distiller/core:test_support",
+    "//components/guest_view/browser:test_support",
+    "//components/resources",
+    "//components/strings",
+    "//components/translate/core/common",
+    "//crypto:platform",
+    "//crypto:test_support",
+    "//device/bluetooth:mocks",
+    "//device/serial:test_support",
+    "//extensions/common/api",
+    "//google_apis:test_support",
+    "//media",
+    "//media/base:test_support",
+    "//media/cast:test_support",
+    "//net",
+    "//net:test_support",
+    "//sdch",
+    "//skia",
+    "//sync",
+    "//sync:test_support_sync_api",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//testing/perf",
+    "//third_party/WebKit/public:blink",
+    "//third_party/cacheinvalidation",
+    "//third_party/icu",
+    "//third_party/leveldatabase",
+    "//third_party/libaddressinput",
+    "//third_party/libjingle",
+    "//third_party/webrtc/modules/desktop_capture",
+    "//third_party/widevine/cdm:version_h",
+    "//ui/accessibility:test_support",
+    "//ui/base:test_support",
+    "//ui/compositor:test_support",
+    "//ui/resources",
+    "//ui/web_dialogs:test_support",
+    "//v8",
+  ]
+
+  if (is_chromeos) {
+    deps += [ "//components/user_manager:test_support" ]
+  }
+}
+
+# TODO(rockot) bug 505926: This should be deleted for the same reason as
+# chrome_extensions_browsertests.
+source_set("chrome_extensions_interactive_uitests") {
+  testonly = true
+  sources = rebase_path(
+          chrome_tests_gypi_values.chrome_interactive_ui_test_extensions_sources,
+          ".",
+          "//chrome")
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  # These are the deps from interactive_uitests minus some internal Chrome
+  # ones that aren't allowed to be included here and that aren't needed.
+  deps = [
+    "//chrome/browser",
+    "//chrome/browser/devtools",
+    "//chrome/renderer",
+    "//chrome/test:test_support",
+    "//content/app/resources",
+    "//crypto:platform",
+    "//crypto:test_support",
+    "//google_apis:test_support",
+    "//net",
+    "//net:net_resources",
+    "//net:test_support",
+    "//skia",
+    "//sync",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/hunspell",
+    "//third_party/icu",
+    "//third_party/libpng",
+    "//third_party/zlib",
+    "//ui/base:test_support",
+    "//ui/resources:ui_test_pak",
+    "//ui/web_dialogs:test_support",
+  ]
+}

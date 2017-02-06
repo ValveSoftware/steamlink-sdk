@@ -1,0 +1,770 @@
+﻿/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtqml-cppintegration-definetypes.html
+\title Defining QML Types from C++
+\brief Description of ways to define QML object types from C++ code
+
+When extending QML with C++ code, a C++ class can be registered with the QML
+type system to enable the class to be used as a data type within QML code.
+While the properties, methods and signals of any QObject-derived class are
+accessible from QML, as discussed in \l{qtqml-cppintegration-exposecppattributes.html}
+{Exposing Attributes of C++ Types to QML}, such a class cannot be used as a
+data type from QML until it is registered with the type system. Additionally
+registration can provide other features, such as allowing a class to be used
+as an instantiable \l{qtqml-typesystem-objecttypes.html}{QML object type} from
+QML, or enabling a singleton instance of the class to be imported and used
+from QML.
+
+Additionally, the \l {Qt QML} module provides mechanisms for implementing QML-specific
+features such as \e{attached properties} and \e{default properties} in C++.
+
+(Note that a number of the important concepts covered in this document are
+demonstrated in the \l{Writing QML Extensions with C++} tutorial.)
+
+
+\section1 Registering C++ Types with the QML Type System
+
+A QObject-derived class can be registered with the QML type system to enable the
+type to be used as a data type from within QML code.
+
+The engine allows the registration of both instantiable and non-instantiable
+types. Registering an instantiable type enables a C++ class to be used as the
+definition of a QML object type, allowing it to be used in object declarations
+from QML code to create objects of this type. Registration also provides
+the engine with additional type metadata, enabling the type (and any enums
+declared by the class) to be used as a data type for property values, method
+parameters and return values, and signal parameters that are exchanged between
+QML and C++.
+
+Registering a non-instantiable type also registers the class as a data type in
+this manner, but the type cannot be used instantiated as a QML object type
+from QML. This is useful, for example, if a type has enums that should be
+exposed to QML but the type itself should not be instantiable.
+
+
+\section2 Registering an Instantiable Object Type
+
+\b{Any QObject-derived C++ class can be registered as the definition of a
+\l{qtqml-typesystem-objecttypes.html}{QML object type}}. Once a
+class is registered with the QML type system, the class can be declared and
+instantiated like any other object type from QML code. Once created, a
+class instance can be manipulated from QML; as
+\l{qtqml-cppintegration-exposecppattributes.html}{Exposing Attributes of C++
+Types to QML} explains, the properties, methods and signals of any
+QObject-derived class are accessible from QML code.
+
+To register a QObject-derived class as an instantiable QML object type, call
+qmlRegisterType() to register the class as QML type into a particular type
+namespace.  Clients can then import that namespace in order to use the type.
+
+For example, suppose there is a \c Message class with \c author and
+\c creationDate properties:
+
+\code
+class Message : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString author READ author WRITE setAuthor NOTIFY authorChanged)
+    Q_PROPERTY(QDateTime creationDate READ creationDate WRITE setCreationDate NOTIFY creationDateChanged)
+public:
+    // ...
+};
+\endcode
+
+This type can be registered by calling qmlRegisterType() with an appropriate
+type namespace and version number. For example, to make the type available in
+the \c com.mycompany.messaging namespace with version 1.0:
+
+\code
+qmlRegisterType<Message>("com.mycompany.messaging", 1, 0, "Message");
+\endcode
+
+The type can be used in an \l{qtqml-syntax-basics.html#object-declarations}
+{object declaration} from QML, and its properties can be read and written to,
+as per the example below:
+
+\qml
+import com.mycompany.messaging 1.0
+
+Message {
+    author: "Amelie"
+    creationDate: new Date()
+}
+\endqml
+
+
+\section2 Registering Non-Instantiable Types
+
+Sometimes a QObject-derived class may need to be registered with the QML type
+system but not as an instantiable type. For example, this is the case if a C++
+class:
+
+\list
+\li is an interface type that should not be instantiable
+\li is a base class type that does not need to be exposed to QML
+\li declares some enum that should be accessible from QML, but otherwise should
+not be instantiable
+\li is a type that should be provided to QML through a singleton instance, and
+should not be instantiable from QML
+\endlist
+
+The \l {Qt QML} module provides several methods for registering non-instantiable
+types:
+
+\list
+\li qmlRegisterType() (with no parameters) registers a C++ type that is not
+instantiable and cannot be referred to from QML. This enables the engine to
+coerce any inherited types that are instantiable from QML.
+\li qmlRegisterInterface() registers a Qt interface type with a specific QML
+type name. The type is not instantiable from QML but can be referred to by its
+type name.
+\li qmlRegisterUncreatableType() registers a named C++ type that is not
+instantiable but should be identifiable as a type to the QML type system. This
+is useful if a type's enums or attached properties should be accessible from QML
+but the type itself should not be instantiable.
+\li qmlRegisterSingletonType() registers a singleton type that can be imported
+from QML, as discussed below.
+\endlist
+
+Note that all C++ types registered with the QML type system must be
+QObject-derived, even if they are non-instantiable.
+
+
+\section3 Registering Singleton Objects with a Singleton Type
+
+A singleton type enables properties, signals and methods to be exposed in
+a namespace without requiring the client to manually instantiate an
+object instance. QObject singleton types in particular are an efficient and
+convenient way to provide functionality or global property values.
+
+Note that singleton types do not have an associated QQmlContext as they are
+shared across all contexts in an engine.  QObject singleton type instances
+are constructed and owned by the QQmlEngine, and will be destroyed when
+the engine is destroyed.
+
+A QObject singleton type can be interacted with in a manner similar to any
+other QObject or instantiated type, except that only one (engine constructed
+and owned) instance will exist, and it must be referenced by type name rather
+than id.  Q_PROPERTYs of QObject singleton types may be bound to, and Q_INVOKABLE
+functions of QObject module APIs may be used in signal handler expressions.
+This makes singleton types an ideal way to implement styling or theming, and
+they can also be used instead of ".pragma library" script imports to store global
+state or to provide global functionality.
+
+Once registered, a QObject singleton type may be imported and used like any
+other QObject instance exposed to QML.  The following example assumes that
+a QObject singleton type was registered into the "MyThemeModule" namespace
+with version 1.0, where that QObject has a QColor "color" Q_PROPERTY:
+
+\qml
+import MyThemeModule 1.0 as Theme
+
+Rectangle {
+    color: Theme.color // binding.
+}
+\endqml
+
+A QJSValue may also be exposed as a singleton type, however clients should
+be aware that properties of such a singleton type cannot be bound to.
+
+See \l{qmlRegisterSingletonType()} for more information on how implement and
+register a new singleton type, and how to use an existing singleton type.
+
+\note Enum values for registered types in QML should start with a capital.
+
+\section2 Type Revisions and Versions
+
+Many of the type registration functions require versions to be specified
+for the registered type. Type revisions and versions allow new properties
+or methods to exist in the new version while remaining compatible with
+previous versions.
+
+Consider these two QML files:
+\code
+// main.qml
+import QtQuick 1.0
+
+Item {
+    id: root
+    MyType {}
+}
+\endcode
+
+\code
+// MyType.qml
+import MyTypes 1.0
+
+CppType {
+    value: root.x
+}
+\endcode
+
+where \c CppType maps to the C++ class \c CppType.
+
+If the author of CppType adds a \c root property to CppType in a new
+version of their type definition, \c root.x now resolves to a different value
+because \c root is also the \c id of the top level component. The author could
+specify that the new \c root property is available from a specific minor
+version. This permits new properties and features to be added to existing
+types without breaking existing programs.
+
+The REVISION tag is used to mark the \c root property as added in revision 1
+of the type. Methods such as Q_INVOKABLE's, signals and slots can also be
+tagged for a revision using the \c Q_REVISION(x) macro:
+
+\code
+class CppType : public BaseType
+{
+    Q_OBJECT
+    Q_PROPERTY(int root READ root WRITE setRoot NOTIFY rootChanged REVISION 1)
+
+signals:
+    Q_REVISION(1) void rootChanged();
+};
+\endcode
+
+To register the new class revision to a particular version the following
+function is used:
+
+\code
+template<typename T, int metaObjectRevision>
+int qmlRegisterType(const char *uri, int versionMajor, int versionMinor, const char *qmlName)
+\endcode
+
+To register \c CppType version 1 for \c {MyTypes 1.1}:
+
+\code
+qmlRegisterType<CppType,1>("MyTypes", 1, 1, "CppType")
+\endcode
+
+\c root is only available when \c MyTypes version 1.1 is imported.
+
+For the same reason, new types introduced in later versions should use
+the minor version argument of qmlRegisterType.
+
+This feature of the language allows for behavioural changes to be made
+without breaking existing applications. Consequently QML module authors
+should always remember to document what changed between minor versions, and
+QML module users should check that their application still runs correctly
+before deploying an updated import statement.
+
+You may also register the revision of a base class that your type depends
+upon using the qmlRegisterRevision() function:
+
+\code
+template<typename T, int metaObjectRevision>
+int qmlRegisterRevision(const char *uri, int versionMajor, int versionMinor)
+
+template<typename T, int metaObjectRevision>
+int qmlRegisterUncreatableType(const char *uri, int versionMajor, int versionMinor, const char *qmlName, const QString& reason)
+\endcode
+
+For example, if \c BaseType is changed and now has a revision 1, you can
+specify that your type uses the new revision:
+
+\code
+qmlRegisterRevision<BaseType,1>("MyTypes", 1, 1);
+\endcode
+
+This is useful when deriving from base classes provided by other authors,
+e.g. when extending classes from the Qt Quick module.
+
+
+\section2 Registering Extension Objects
+
+When integrating existing classes and technology into QML, APIs will
+often need tweaking to fit better into the declarative environment.
+Although the best results are usually obtained by modifying the original
+classes directly, if this is either not possible or is complicated by some
+other concerns, extension objects allow limited extension possibilities
+without direct modifications.
+
+\e{Extension objects} add additional properties to an existing type. Extension
+objects can only add properties, not signals or methods. An extended type
+definition allows the programmer to supply an additional type, known as the
+\e{extension type}, when registering the class. The properties are transparently
+merged with the original target class when used from within QML. For example:
+
+\snippet referenceexamples/extended/example.qml 0
+
+The \c leftMargin property is a new property added to an existing C++ type, \l
+QLineEdit, without modifying its source code.
+
+The \l {QQmlEngine::}{qmlRegisterExtendedType()} function is for registering extended types.
+Note that it has two forms.
+
+\code
+template<typename T, typename ExtendedT>
+int qmlRegisterExtendedType(const char *uri, int versionMajor, int versionMinor, const char *qmlName)
+
+template<typename T, typename ExtendedT>
+int qmlRegisterExtendedType()
+\endcode
+
+This functions should be used instead of the regular \c qmlRegisterType()
+variations. The arguments are identical to the corresponding non-extension
+registration functions, except for the ExtendedT parameter which is the type of
+the extension object.
+
+An extension class is a regular QObject, with a constructor that takes a QObject
+pointer. However, the extension class creation is delayed until the first
+extended property is accessed. The extension class is created and the target
+object is passed in as the parent. When the property on the original is
+accessed, the corresponding property on the extension object is used instead.
+
+The \l{Extending QML - Extension Objects Example}{Extension Objects Example}
+demonstrates a usage of extension objects.
+
+
+\section1 Defining QML-Specific Types and Attributes
+
+
+\section2 Providing Attached Objects for Data Annotations
+
+In the QML language syntax, there is a notion of \l{Attached properties and
+attached signal handlers}{\e {attached properties} and \e {attached signal
+handlers}}, which are additional attributes that are attached to an object.
+Essentially, such attributes are implemented and provided by an \e {attaching
+type}, and these attributes may be \e attached to an object of another type.
+This contrasts with ordinary object properties which are provided by the object
+type itself (or the object's inherited type).
+
+For example, the \l Item below uses attached properties and attached handlers:
+
+\qml
+import QtQuick 2.0
+
+Item {
+    width: 100; height: 100
+
+    focus: true
+    Keys.enabled: false
+    Keys.onReturnPressed: console.log("Return key was pressed")
+}
+\endqml
+
+Here, the \l Item object is able to access and set the values of \c Keys.enabled
+and \c Keys.onReturnPressed. This allows the \l Item object to access these
+extra attributes as an extension to its own existing attributes.
+
+\section3 Steps for Implementing Attached Objects
+
+When considering the above example, there are several parties involved:
+
+\list
+\li There is an instance of an anonymous \e {attached object type}, with
+an \c enabled and a \c returnPressed signal, that has been attached to the
+\l Item object to enable it to access and set these attributes.
+\li The \l Item object is the \e {attachee}, to which the instance of the \e
+{attached object type} has been attached.
+\li \l Keys is the \e {attaching type}, which provides the \e {attachee} with a
+named qualifier, "Keys", through which it may access the attributes of the
+\e {attached object type}.
+\endlist
+
+When the QML engine processes this code, it creates a single instance of the
+\e {attached object type} and attaches this instance to the \l Item object,
+thereby providing it with access to the \c enabled and \c returnPressed
+attributes of the instance.
+
+The mechanisms for providing attached objects can be implemented from C++ by
+providing classes for the \e {attached object type} and \e {attaching type}.
+For the \e{attached object type}, provide a QObject-derived class that defines
+the attributes to be made accessible to \e attachee objects. For the
+\e {attaching type}, provide a QObject-derived class that:
+
+\list
+\li implements a static qmlAttachedProperties() with the following signature:
+    \code
+    static <AttachedPropertiesType> *qmlAttachedProperties(QObject *object);
+    \endcode
+
+    This method should return an instance of the \e{attached object type}.
+
+    The QML engine invokes this method in order to attach an instance of
+    the attached object type to the \e attachee specified by the \c object
+    parameter.  It is customary, though not strictly required, for this method
+    implementation to parent the returned instance to \c object in order
+    to prevent memory leaks.
+
+    This method is called at most once by the engine for each attachee object
+    instance, as the engine caches the returned instance pointer for subsequent
+    attached property accesses. Consequently the attachment object may not be
+    deleted until the attachee \c object is destroyed.
+
+\li is declared as an attaching type, by calling the QML_DECLARE_TYPEINFO()
+    macro with the QML_HAS_ATTACHED_PROPERTIES flag
+\endlist
+
+
+\section3 Implementing Attached Objects: An Example
+
+For example, take the \c Message type described in an \l{Registering an
+Instantiable Object Type}{earlier example}:
+
+\code
+class Message : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QString author READ author WRITE setAuthor NOTIFY authorChanged)
+    Q_PROPERTY(QDateTime creationDate READ creationDate WRITE setCreationDate NOTIFY creationDateChanged)
+public:
+    // ...
+};
+\endcode
+
+Suppose it is necessary to trigger a signal on a \c Message when it is
+published to a message board, and also track when the message has expired on
+the message board. Since it doesn't make sense to add these attributes
+directly to a \c Message, as the attributes are more relevant to the message
+board context, they could be implemented as \e attached attributes on a
+\c Message object that are provided through a "MessageBoard" qualifier. In
+terms of the concepts described earlier, the parties involved here are:
+
+\list
+\li An instance of an anonymous \e{attached object type}, which provides a
+    \c published signal and an expired property. This type is implemented by
+    \c MessageBoardAttachedType below
+\li A \c Message object, which will be the \e attachee
+\li The \c MessageBoard type, which will be the \e {attaching type} that is
+    used by \c Message objects to access the attached attributes
+\endlist
+
+Following is an example implementation. First, there needs to be an
+\e {attached object type} with the necessary properties and signals that
+will be accessible to the \e attachee:
+
+\code
+class MessageBoardAttachedType : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(bool expired READ expired WRITE expired NOTIFY expiredChanged)
+public:
+    MessageBoardAttachedType(QObject *parent);
+    bool expired() const;
+    void setExpired(bool expired);
+signals:
+    void published();
+    void expiredChanged();
+};
+\endcode
+
+Then the \e {attaching type}, \c MessageBoard, must declare a \c
+qmlAttachedProperties() method that returns an instance of the
+\e {attached object type} as implemented by MessageBoardAttachedType.
+Additionally, \c Message board must be declared as an attached type
+through the QML_DECLARE_TYPEINFO() macro:
+
+\code
+class MessageBoard : public QObject
+{
+    Q_OBJECT
+public:
+    static MessageBoard *qmlAttachedProperties(QObject *object)
+    {
+        return new MessageBoardAttachedType(object);
+    }
+};
+QML_DECLARE_TYPEINFO(MessageBoard, QML_HAS_ATTACHED_PROPERTIES)
+\endcode
+
+Now, a \c Message type can access the properties and signals of the attached
+object type:
+
+\qml
+Message {
+    author: "Amelie"
+    creationDate: new Date()
+
+    MessageBoard.expired: creationDate < new Date("January 01, 2015 10:45:00")
+    MessageBoard.onPublished: console.log("Message by", author, "has been
+published!")
+}
+\endqml
+
+Additionally, the C++ implementation may access the attached object instance
+that has been attached to any object by calling the
+qmlAttachedPropertiesObject() function.
+
+For example:
+
+\code
+Message *msg = someMessageInstance();
+MessageBoardAttachedType *attached =
+        qobject_cast<MessageBoardAttachedType*>(qmlAttachedPropertiesObject<MessageBoard>(msg));
+
+qDebug() << "Value of MessageBoard.expired:" << attached->expired();
+\endcode
+
+
+\section2 Property Modifier Types
+
+A property modifier type is a special kind of QML object type.  A property
+modifier type instance affects a property (of a QML object instance) which it
+is applied to.  There are two different kinds of property modifier types:
+\list
+\li property value write interceptors
+\li property value sources
+\endlist
+
+A property value write interceptor can be used to filter or modify values as
+they are written to properties.  Currently, the only supported property
+value write interceptor is the \l Behavior type provided by the \c QtQuick
+import.
+
+A property value source can be used to automatically update the value of a
+property over time.  Clients can define their own property value source types.
+The various \l{qtquick-statesanimations-animations.html}{property animation}
+types provided by the \c QtQuick import are examples of property value
+sources.
+
+Property modifier type instances can be created and applied to a property of
+a QML object through the "<ModifierType> on <propertyName>" syntax, as the
+following example shows:
+
+\qml
+import QtQuick 2.0
+
+Item {
+    width: 400
+    height: 50
+
+    Rectangle {
+        width: 50
+        height: 50
+        color: "red"
+
+        NumberAnimation on x {
+            from: 0
+            to: 350
+            loops: Animation.Infinite
+            duration: 2000
+        }
+    }
+}
+\endqml
+
+Clients can register their own property value source types, but currently not
+property value write interceptors.
+
+\section3 Property Value Sources
+
+\e {Property value sources} are QML types that can automatically update the
+value of a property over time, using the
+\c {<PropertyValueSource> on <property>} syntax. For example, the various
+\l{qtquick-statesanimations-animations.html}{property animation} types
+provided by the \c QtQuick module are examples of property value sources.
+
+A property value source can be implemented in C++ by subclassing
+QQmlPropertyValueSource and providing an implementation that writes different
+values to a property over time. When the property value source is applied to a
+property using the \c {<PropertyValueSource> on <property>} syntax in QML, it
+is given a reference to this property by the engine so that the property value
+can be updated.
+
+For example, suppose there is a \c RandomNumberGenerator class to be made
+available as a property value source, so that when applied to a QML property,
+it will update the property value to a different random number every 500
+milliseconds. Additionally, a maxValue can be provided to this random number
+generator. This class can be implemented as follows:
+
+\code
+class RandomNumberGenerator : public QObject, public QQmlPropertyValueSource
+{
+    Q_OBJECT
+    Q_INTERFACES(QQmlPropertyValueSource)
+    Q_PROPERTY(int maxValue READ maxValue WRITE setMaxValue NOTIFY maxValueChanged);
+public:
+    RandomNumberGenerator(QObject *parent)
+        : QObject(parent), m_maxValue(100)
+    {
+        qsrand(QDateTime::currentMSecsSinceEpoch() / 1000);
+        QObject::connect(&m_timer, SIGNAL(timeout()), SLOT(updateProperty()));
+        m_timer.start(500);
+    }
+
+    int maxValue() const;
+    void setMaxValue(int maxValue);
+
+    virtual void setTarget(const QQmlProperty &prop) { m_targetProperty = prop; }
+
+signals:
+    void maxValueChanged();
+
+private slots:
+    void updateProperty() {
+        m_targetProperty.write(qrand() % m_maxValue);
+    }
+
+private:
+    QQmlProperty m_targetProperty;
+    QTimer m_timer;
+    int m_maxValue;
+};
+\endcode
+
+When the QML engine encounters a use of \c RandomNumberGenerator as a property
+value source, it invokes \c RandomNumberGenerator::setTarget() to provide the
+type with the property to which the value source has been applied. When the
+internal timer in \c RandomNumberGenerator triggers every 500 milliseconds,
+it will write a new number value to that specified property.
+
+Once the \c RandomNumberGenerator class has been registered with the QML type
+system, it can be used from QML as a property value source. Below, it is used
+to change the width of a \l Rectangle every 500 milliseconds:
+
+\qml
+import QtQuick 2.0
+
+Item {
+    width: 300; height: 300
+
+    Rectangle {
+        RandomNumberGenerator on width { maxValue: 300 }
+
+        height: 100
+        color: "red"
+    }
+}
+\endqml
+
+In all other respects, property value sources are regular QML types that can
+have properties, signals methods and so on, but with the added capability that
+they can be used to change property values using the
+\c {<PropertyValueSource> on <property>} syntax.
+
+When a property value source object is assigned to a property, QML first tries
+to assign it normally, as though it were a regular QML type.  Only if this
+assignment fails does the engine call the \l
+{QQmlPropertyValueSource::}{setTarget()} method.  This allows
+the type to also be used in contexts other than just as a value source.
+
+
+\section2 Specifying Default Properties for QML Object Types
+
+Any QObject-derived type that is registered as an instantiable QML object type
+can optionally specify a \e {default property} for the type. A default
+property is the property to which an object's children are automatically
+assigned if they are not assigned to any specific property.
+
+The default property can be set by calling the Q_CLASSINFO() macro for a class
+with a specific "DefaultProperty" value. For example, the \c MessageBoard
+class below specifies its \c messages property as the default property for the
+class:
+
+\code
+class MessageBoard : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY(QQmlListProperty<Message> messages READ messages)
+    Q_CLASSINFO("DefaultProperty", "messages")
+public:
+    QQmlListProperty<Message> messages() const;
+
+private:
+    QList<Message *> messages;
+};
+\endcode
+
+This enables children of a \c MessageBoard object to be automatically assigned
+to its \c messages property if they are not assigned to a specific property. For
+example:
+
+\qml
+MessageBoard {
+    Message { author: "Naomi" }
+    Message { author: "Clancy" }
+}
+\endqml
+
+If \c messages was not set as the default property, then any \c Message objects
+would have to be explicitly assigned to the \c messages property instead, as
+follows:
+
+\qml
+MessageBoard {
+    messages: [
+        Message { author: "Naomi" },
+        Message { author: "Clancy" }
+    ]
+}
+\endqml
+
+(Incidentally, the \l Item::data property is its default property. Any \l Item
+objects added to this \c data property are also added to the list of
+\l Item::children, so the use of the default property enables visual children
+to be declared for an item without explicitly assigning them to the
+\l{Item::}{children} property.)
+
+
+\section2 Defining Visual Items with the Qt Quick Module
+
+When building user interfaces with the \l {Qt Quick} module, all QML objects that are
+to be visually rendered must derive from the \l Item type, as it is the base
+type for all visual objects in \l {Qt Quick}. This \l Item type is
+implemented by the QQuickItem C++ class, which is provided by the
+\l {Qt Quick} module. Therefore, this class should be subclassed when it is
+necessary to implement a visual type in C++ that can be integrated into a
+QML-based user interface.
+
+See the QQuickItem documentation for more information. Additionally, the
+\l{Writing QML Extensions with C++} tutorial demonstrates how a QQuickItem-based
+visual item can be implemented in C++ and integrated into a Qt Quick-based user
+interface.
+
+
+\section1 Receiving Notifications for Object Initialization
+
+For some custom QML object types, it may be beneficial to delay the
+initialization of particular data until the object has been created and all of
+its properties have been set. For example, this may be the case if the
+initialization is costly, or if the initialization should not be performed until
+all property values have been initialized.
+
+The \l {Qt QML} module provides the QQmlParserStatus to be subclassed for these
+purposes. It defines a number of virtual methods that are invoked at
+various stages during component instantiation. To receive these notifications, a
+C++ class should inherit QQmlParserStatus and also notify the Qt meta system
+using the Q_INTERFACES() macro.
+
+For example:
+
+\code
+class MyQmlType : public QObject, public QQmlParserStatus
+{
+    Q_OBJECT
+    Q_INTERFACES(QQmlParserStatus)
+public:
+    virtual void componentComplete()
+    {
+        // Perform some initialization here now that the object is fully created
+    }
+};
+\endcode
+
+*/

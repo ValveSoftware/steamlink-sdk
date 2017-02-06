@@ -1,0 +1,314 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtwebenginewidgets-qtwebkitportingguide.html
+    \title Porting from Qt WebKit to Qt WebEngine
+    \brief Overview of the differences between the Qt WebKit and Qt WebEngine API.
+
+    The following sections contain information about porting an application that uses the
+    \l{http://doc.qt.io/archives/qt-5.3/qtwebkit-index.html}{Qt WebKit}
+    \l{http://doc.qt.io/archives/qt-5.3/qml-qtwebkit-webview.html}{QWebView API} to use the
+    \l{Qt WebEngine} QWebEngineView.
+
+    \section1 Architecture
+
+    Chromium provides its own network and painting engines, which Qt WebEngine uses. This, among
+    other things, allows Qt WebEngine to provide better and more reliable support for the latest
+    HTML5 specification than Qt WebKit. However, Qt WebEngine is thus also heavier than Qt WebKit
+    and does not provide direct access to the network stack and the HTML document through C++ APIs.
+
+    \section1 Class Names
+
+    The Qt WebEngine equivalent of Qt WebKit C++ classes are prefixed by
+    "\e QWebEngine" instead of "\e QWeb".
+
+    \b {Qt WebKit}
+    \code
+        #include <QWebHistory>
+        #include <QWebHistoryItem>
+        #include <QWebPage>
+        #include <QWebView>
+
+        QWebHistory
+        QWebHistoryItem
+        QWebPage
+        QWebView
+    \endcode
+    \b {Qt WebEngine}
+    \code
+        #include <QWebEngineHistory>
+        #include <QWebEngineHistoryItem>
+        #include <QWebEnginePage>
+        #include <QWebEngineView>
+
+        QWebEngineHistory
+        QWebEngineHistoryItem
+        QWebEnginePage
+        QWebEngineView
+    \endcode
+
+
+    \section1 Qt Module Name
+
+    \section2 In qmake Project Files
+
+    \b {Qt WebKit}
+    \code
+        QT += webkitwidgets
+    \endcode
+    \b {Qt WebEngine}
+    \code
+        QT += webenginewidgets
+    \endcode
+
+    \section2 Including the Module in Source Files
+
+    \b {Qt WebKit}
+    \code
+        #include <QtWebKit/QtWebKit>
+        #include <QtWebKitWidgets/QtWebKitWidgets> // With Qt >= 4.8
+    \endcode
+    \b {Qt WebEngine}
+    \code
+        #include <QtWebEngineWidgets/QtWebEngineWidgets>
+    \endcode
+
+
+    \section1 QWebFrame Has Been Merged into QWebEnginePage
+
+    HTML frames can be used to divide web pages into several areas where the content can be
+    represented individually.
+
+    In Qt WebKit, QWebFrame represents a frame inside a web page. Each QWebPage object contains at
+    least one frame, the main frame, obtained using QWebPage::mainFrame(). Additional frames will
+    be created for the HTML \c <frame> element, which defines the appearance and contents of a
+    single frame, or the \c <iframe> element, which inserts a frame within a block of text.
+
+    In Qt WebEngine, frame handling has been merged into the QWebEnginePage class. All child frames
+    are now considered part of the content, and only accessible through JavaScript. Methods of the
+    QWebFrame class, such as \c load() are now available directly through the QWebEnginePage itself.
+
+    \b {Qt WebKit}
+    \code
+        QWebPage page;
+        connect(page.mainFrame(), SIGNAL(urlChanged(const QUrl&)), SLOT(mySlotName()));
+        page.mainFrame()->load(url);
+    \endcode
+    \b {Qt WebEngine}
+    \code
+        QWebEnginePage page;
+        connect(&page, SIGNAL(urlChanged(const QUrl&)), SLOT(mySlotName()));
+        page.load(url);
+    \endcode
+
+
+    \section1 Some Methods Now Return Their Result Asynchronously
+
+    Because Qt WebEngine uses a multi-process architecture, calls to some methods from applications
+    will return immediately, while the results should be received asynchronously via a callback
+    mechanism. A function pointer, a functor, or a lambda expression must be provided to handle the
+    results when they become available.
+
+    \b {Qt WebKit}
+    \code
+        QWebPage *page = new QWebPage;
+        QTextEdit *textEdit = new QTextEdit;
+        // *textEdit is modified immediately.
+        textEdit->setPlainText(page->toHtml());
+        textEdit->setPlainText(page->toPlainText());
+    \endcode
+    \b {Qt WebEngine (with a lambda function in C++11)}
+    \code
+        QWebEnginePage *page = new QWebEnginePage;
+        QTextEdit *textEdit = new QTextEdit;
+        // *textEdit must remain valid until the lambda function is called.
+        page->toHtml([textEdit](const QString &result){ textEdit->setPlainText(result); });
+        page->toPlainText([textEdit](const QString &result){ textEdit->setPlainText(result); });
+    \endcode
+    \b {Qt WebEngine (with a functor template wrapping a member function)}
+    \code
+        template<typename Arg, typename R, typename C>
+        struct InvokeWrapper {
+            R *receiver;
+            void (C::*memberFun)(Arg);
+            void operator()(Arg result) {
+                (receiver->*memberFun)(result);
+            }
+        };
+
+        template<typename Arg, typename R, typename C>
+        InvokeWrapper<Arg, R, C> invoke(R *receiver, void (C::*memberFun)(Arg))
+        {
+            InvokeWrapper<Arg, R, C> wrapper = {receiver, memberFun};
+            return wrapper;
+        }
+
+        QWebEnginePage *page = new QWebEnginePage;
+        QTextEdit *textEdit = new QTextEdit;
+        // *textEdit must remain valid until the functor is called.
+        page->toHtml(invoke(textEdit, &QTextEdit::setPlainText));
+        page->toPlainText(invoke(textEdit, &QTextEdit::setPlainText));
+    \endcode
+    \b {Qt WebEngine (with a regular functor)}
+    \code
+        struct SetPlainTextFunctor {
+            QTextEdit *textEdit;
+            SetPlainTextFunctor(QTextEdit *textEdit) : textEdit(textEdit) { }
+            void operator()(const QString &result) {
+                textEdit->setPlainText(result);
+            }
+        };
+
+        QWebEnginePage *page = new QWebEnginePage;
+        QTextEdit *textEdit = new QTextEdit;
+        // *textEdit must remain valid until the functor is called.
+        page->toHtml(SetPlainTextFunctor(textEdit));
+        page->toPlainText(SetPlainTextFunctor(textEdit));
+    \endcode
+
+
+    \section1 Qt WebEngine Does Not Interact with QNetworkAccessManager
+
+    Some classes of Qt Network such as QAuthenticator were reused for their interface
+    but, unlike Qt WebKit, Qt WebEngine has its own HTTP implementation and cannot
+    go through a QNetworkAccessManager.
+
+    The signals and methods of QNetworkAccessManager that are still supported were
+    moved to the QWebEnginePage class.
+
+    \b {Qt WebKit}
+    \code
+        QNetworkAccessManager qnam;
+        QWebPage page;
+        page.setNetworkAccessManager(&qnam);
+        connect(&qnam, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), this, SLOT(authenticate(QNetworkReply*,QAuthenticator*)));
+    \endcode
+    \b {Qt WebEngine}
+    \code
+        QWebEnginePage page;
+        connect(&page, SIGNAL(authenticationRequired(QNetworkReply*,QAuthenticator*)), this, SLOT(authenticate(QNetworkReply*,QAuthenticator*)));
+    \endcode
+
+    \note In Qt WebEngine, the QAuthenticator must be explicitly set to null to
+    cancel authentication:
+
+    \code
+    *authenticator = QAuthenticator();
+    \endcode
+
+    Omitting the \c QNetworkAccessManager also affects the way in which
+    certificates are managed. For more information, see
+    \l {Managing Certificates}.
+
+    \section1 Notes About Individual Methods
+
+    \section2 evaluateJavaScript
+
+    QWebFrame::evaluateJavaScript was moved and renamed as QWebEnginePage::runJavaScript.
+    It is currently only possible to run JavaScript on the main frame of a page and the
+    result is returned asynchronously to the provided functor.
+
+    \b {Qt WebKit}
+    \code
+        QWebPage *page = new QWebPage;
+        qDebug() << page->mainFrame()->evaluateJavaScript("'Java' + 'Script'");
+    \endcode
+    \b {Qt WebEngine (with lambda expressions in C++11)}
+    \code
+        QWebEnginePage *page = new QWebEnginePage;
+        page->runJavaScript("'Java' + 'Script'", [](const QVariant &result){ qDebug() << result; });
+    \endcode
+
+    \section2 setHtml and setContent
+
+    QWebEnginePage::setHtml and QWebEnginePage::setContent perform asynchronously
+    the same way as a normal HTTP load would, unlike their QWebPage counterparts.
+
+    \section2 setContentEditable
+
+    QWebPage::setContentEditable has no equivalent since any document element can be made editable through
+    the contentEditable attribute in the latest HTML standard. Therefore, QWebEnginePage::runJavaScript
+    is all that is needed.
+
+    \b {Qt WebKit}
+    \code
+        QWebPage page;
+        page.setContentEditable(true);
+    \endcode
+    \b {Qt WebEngine}
+    \code
+        QWebEnginePage page;
+        page.runJavaScript("document.documentElement.contentEditable = true");
+    \endcode
+
+
+    \section1 Unavailable Qt WebKit API
+
+    The Qt WebKit classes and methods in this list will not be available in Qt WebEngine.
+
+    \table
+    \row
+        \li QGraphicsWebView
+        \li Qt WebEngine is designed for being used with hardware acceleration. Because we could not
+            support a web view class in a QGraphicsView unless it would be attached to a QGLWidget
+            viewport, this feature is out of scope.
+    \row
+        \li QWebElement
+        \li Qt WebEngine uses a multi-process architecture and this means that
+            any access to the internal structure of the page has to be done
+            asynchronously, any query result must be returned through callbacks.
+            The QWebElement API was designed for synchronous access and this
+            would require a complete redesign.
+    \row
+        \li QWebDatabase
+        \li The Web SQL Database feature that this API was wrapping in Qt WebKit
+            was dropped from the HTML5 standard.
+    \row
+        \li QWebPluginDatabase, QWebPluginFactory, QWebPluginInfo, QWebPage::setPalette,
+            QWebView::setRenderHints
+        \li Qt WebEngine renders web pages using Skia and is not using QPainter
+            or Qt for this purpose. The HTML5 standard also now offers much
+            better alternatives that were not available when native controls
+            plugins were introduced in Qt WebKit.
+    \row
+        \li QWebHistoryInterface
+        \li Visited links are persisted automatically by Qt WebEngine.
+    \row
+        \li QWebPage::setContentEditable
+        \li In the latest HTML standard, any document element can be made editable through the
+            \c contentEditable attribute. So \c runJavaScript is all that is needed:
+            \c{page->runJavaScript("document.documentElement.contentEditable = true")}
+    \row
+        \li QWebPage::setLinkDelegationPolicy
+        \li There is no way to connect a signal to run C++ code when a link is clicked. However,
+            link clicks can be delegated to the Qt application instead of having the HTML handler
+            engine process them by overloading the QWebEnginePage::acceptNavigationRequest()
+            function. This is necessary when an HTML document is used as part of the user interface,
+            and not to display external data, for example, when displaying a list of results.
+    \endtable
+*/

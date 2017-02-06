@@ -1,0 +1,52 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.quickUnlockPrivate</code> API to change the active quick
+// unlock modes and to change their respective credentials.
+//
+// Quick unlock only supports unlocking an account that has already been signed
+// in.
+//
+// The quick unlock authentication facilities are not available through this
+// API; they are built directly into the lock screen.
+
+[platforms=("chromeos"),
+ implemented_in="chrome/browser/chromeos/extensions/quick_unlock_private/quick_unlock_private_api.h"]
+namespace quickUnlockPrivate {
+  // TODO(jdufault): Add more quick unlock modes, such as a pattern unlock.
+  enum QuickUnlockMode {
+    PIN
+  };
+
+  callback BooleanResultCallback = void (boolean value);
+  callback ModesCallback = void (QuickUnlockMode[] modes);
+
+  interface Functions {
+    // Returns the set of quick unlock modes that are available for the user to
+    // use. Some quick unlock modes may be disabled by policy.
+    static void getAvailableModes(ModesCallback onComplete);
+
+    // Returns the quick unlock modes that are currently enabled and usable on
+    // the lock screen.
+    static void getActiveModes(ModesCallback onComplete);
+
+    // Update the set of quick unlock modes that are currently active/enabled.
+    // |accountPassword|: The password associated with the account (e.g. the
+    // GAIA password). This is required to change the quick unlock credentials.
+    // |modes|: The quick unlock modes that should be active.
+    // |credentials|: The associated credential for each mode. To keep
+    // the credential the same for the associated mode, pass an empty string.
+    // |onComplete|: Called with true if the quick unlock state was updated,
+    // false otherwise. The update is treated as a single atomic operation.
+    static void setModes(DOMString accountPassword,
+                         QuickUnlockMode[] modes, DOMString[] credentials,
+                         BooleanResultCallback onComplete);
+  };
+
+  interface Events {
+    // Called after the active set of quick unlock modes has changed.
+    // |activeModes|: The set of quick unlock modes which are now active.
+    static void onActiveModesChanged(QuickUnlockMode[] activeModes);
+  };
+};

@@ -1,0 +1,770 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+if (current_cpu == "arm") {
+  import("//build/config/arm.gni")
+}
+if (current_cpu == "mipsel" || current_cpu == "mips64el") {
+  import("//build/config/mips.gni")
+}
+
+skia_support_gpu = !is_ios
+skia_support_pdf = !is_ios && (enable_basic_printing || enable_print_preview)
+
+# When building Chrome for iOS with GYP, the target cpu is not known during
+# the invocation of gyp. This cause the iOS build to use non-optimised skia.
+# Replicate this with GN to avoid introducing regression as recommended by
+# the OWNERS of skia.
+
+declare_args() {
+  skia_whitelist_serialized_typefaces = false
+
+  # TODO(crbug.com/607933): Once GYP is no longer supported, port iOS to use
+  # optimised skia.
+  skia_build_no_opts = is_ios
+}
+
+# The list of Skia defines that are to be set for chromium.
+gypi_chromium_skia_defines =
+    exec_script("//build/gypi_to_gn.py",
+                [
+                  rebase_path("//skia/chromium_skia_defines.gypi"),
+                  "--replace=<(skia_include_path)=//third_party/skia/include",
+                  "--replace=<(skia_src_path)=//third_party/skia/src",
+                ],
+                "scope",
+                [ "//skia/chromium_skia_defines.gypi" ])
+
+# The list of Skia defines that are to be set for chromium.
+gypi_skia_defines =
+    exec_script("//build/gypi_to_gn.py",
+                [
+                  rebase_path(
+                      "//third_party/skia/gyp/skia_for_chromium_defines.gypi"),
+                  "--replace=<(skia_include_path)=//third_party/skia/include",
+                  "--replace=<(skia_src_path)=//third_party/skia/src",
+                ],
+                "scope",
+                [ "//third_party/skia/gyp/skia_for_chromium_defines.gypi" ])
+
+# The list of Skia core sources that are to be set for chromium.
+gypi_skia_core =
+    exec_script("//build/gypi_to_gn.py",
+                [
+                  rebase_path("//third_party/skia/gyp/core.gypi"),
+                  "--replace=<(skia_include_path)=//third_party/skia/include",
+                  "--replace=<(skia_src_path)=//third_party/skia/src",
+                ],
+                "scope",
+                [ "//third_party/skia/gyp/core.gypi" ])
+
+# The list of Skia gpu sources that are to be set for chromium.
+if (skia_support_gpu) {
+  gypi_skia_gpu =
+      exec_script("//build/gypi_to_gn.py",
+                  [
+                    rebase_path("//third_party/skia/gyp/gpu.gypi"),
+                    "--replace=<(skia_include_path)=//third_party/skia/include",
+                    "--replace=<(skia_src_path)=//third_party/skia/src",
+                  ],
+                  "scope",
+                  [ "//third_party/skia/gyp/gpu.gypi" ])
+}
+
+# The list of Skia pdf sources that are to be set for chromium.
+if (skia_support_pdf) {
+  gypi_skia_pdf =
+      exec_script("//build/gypi_to_gn.py",
+                  [
+                    rebase_path("//third_party/skia/gyp/pdf.gypi"),
+                    "--replace=<(skia_include_path)=//third_party/skia/include",
+                    "--replace=<(skia_src_path)=//third_party/skia/src",
+                  ],
+                  "scope",
+                  [ "//third_party/skia/gyp/pdf.gypi" ])
+}
+
+# The list of Skia effects that are to be set for chromium.
+gypi_skia_effects =
+    exec_script("//build/gypi_to_gn.py",
+                [
+                  rebase_path("//third_party/skia/gyp/effects.gypi"),
+                  "--replace=<(skia_include_path)=//third_party/skia/include",
+                  "--replace=<(skia_src_path)=//third_party/skia/src",
+                ],
+                "scope",
+                [ "//third_party/skia/gyp/effects.gypi" ])
+
+# The list of Skia utils that are to be set for chromium.
+gypi_skia_utils =
+    exec_script("//build/gypi_to_gn.py",
+                [
+                  rebase_path("//third_party/skia/gyp/utils.gypi"),
+                  "--replace=<(skia_include_path)=//third_party/skia/include",
+                  "--replace=<(skia_src_path)=//third_party/skia/src",
+                ],
+                "scope",
+                [ "//third_party/skia/gyp/utils.gypi" ])
+
+gypi_skia_opts =
+    exec_script("//build/gypi_to_gn.py",
+                [
+                  rebase_path("//third_party/skia/gyp/opts.gypi"),
+                  "--replace=<(skia_include_path)=//third_party/skia/include",
+                  "--replace=<(skia_src_path)=//third_party/skia/src",
+                ],
+                "scope",
+                [ "//third_party/skia/gyp/opts.gypi" ])
+
+# The list of Skia files is kept in skia_gn_files.gypi. Read it.
+gypi_values =
+    exec_script("//build/gypi_to_gn.py",
+                [
+                  rebase_path("skia_gn_files.gypi"),
+                  "--replace=<(skia_include_path)=//third_party/skia/include",
+                  "--replace=<(skia_src_path)=//third_party/skia/src",
+                ],
+                "scope",
+                [ "skia_gn_files.gypi" ])
+
+# External-facing config for dependent code.
+config("skia_config") {
+  include_dirs = [
+    "config",
+    "ext",
+    "//third_party/skia/include/c",
+    "//third_party/skia/include/config",
+    "//third_party/skia/include/core",
+    "//third_party/skia/include/effects",
+    "//third_party/skia/include/images",
+    "//third_party/skia/include/lazy",
+    "//third_party/skia/include/pathops",
+    "//third_party/skia/include/pdf",
+    "//third_party/skia/include/pipe",
+    "//third_party/skia/include/ports",
+    "//third_party/skia/include/utils",
+  ]
+
+  defines = gypi_chromium_skia_defines.chromium_skia_defines
+  defines += gypi_skia_defines.skia_for_chromium_defines
+
+  defines += []
+
+  if (skia_build_no_opts) {
+    defines += [ "SK_BUILD_NO_OPTS" ]
+  }
+
+  if (is_component_build) {
+    defines += [
+      "SKIA_DLL",
+      "GR_GL_IGNORE_ES3_MSAA=0",
+    ]
+  }
+
+  if (skia_support_gpu) {
+    include_dirs += [
+      "//third_party/skia/include/gpu",
+      "//third_party/skia/src/gpu",
+    ]
+    defines += [ "SK_SUPPORT_GPU=1" ]
+  } else {
+    defines += [ "SK_SUPPORT_GPU=0" ]
+  }
+
+  if (is_android) {
+    defines += [
+      "SK_BUILD_FOR_ANDROID",
+      "USE_CHROMIUM_SKIA",
+    ]
+  }
+
+  if (is_mac) {
+    defines += [ "SK_BUILD_FOR_MAC" ]
+  }
+
+  if (is_win) {
+    defines += [ "GR_GL_FUNCTION_TYPE=__stdcall" ]
+  }
+
+  if (skia_whitelist_serialized_typefaces) {
+    defines += [ "SK_WHITELIST_SERIALIZED_TYPEFACES" ]
+  }
+}
+
+# Internal-facing config for Skia library code.
+config("skia_library_config") {
+  # These include directories are only included for Skia code and are not
+  # exported to dependents. It's not clear if this is on purpose, but this
+  # matches the GYP build.
+  include_dirs = [
+    "//third_party/skia/include/private",
+    "//third_party/skia/include/client/android",
+    "//third_party/skia/src/core",
+    "//third_party/skia/src/image",
+    "//third_party/skia/src/opts",
+    "//third_party/skia/src/pdf",
+    "//third_party/skia/src/ports",
+    "//third_party/skia/src/sfnt",
+    "//third_party/skia/src/utils",
+    "//third_party/skia/src/lazy",
+  ]
+  if (is_mac || is_ios) {
+    include_dirs += [ "//third_party/skia/include/utils/mac" ]
+  }
+  if (is_mac) {
+    include_dirs += [ "//third_party/skia/include/utils/ios" ]
+  }
+
+  defines = []
+
+  if (is_component_build) {
+    defines += [ "SKIA_IMPLEMENTATION=1" ]
+  }
+
+  if (current_cpu == "arm" && !skia_build_no_opts) {
+    if (arm_use_neon) {
+      defines += [ "SK_ARM_HAS_NEON" ]
+    } else if (arm_optionally_use_neon) {
+      defines += [ "SK_ARM_HAS_OPTIONAL_NEON" ]
+    }
+  }
+
+  # Settings for text blitting, chosen to approximate the system browser.
+  if (is_linux) {
+    defines += [
+      "SK_GAMMA_EXPONENT=1.2",
+      "SK_GAMMA_CONTRAST=0.2",
+    ]
+  } else if (is_android) {
+    defines += [
+      "SK_GAMMA_APPLY_TO_A8",
+      "SK_GAMMA_EXPONENT=1.4",
+      "SK_GAMMA_CONTRAST=0.0",
+    ]
+  } else if (is_win) {
+    defines += [
+      "SK_GAMMA_SRGB",
+      "SK_GAMMA_CONTRAST=0.5",
+    ]
+  } else if (is_mac) {
+    defines += [
+      "SK_GAMMA_SRGB",
+      "SK_GAMMA_CONTRAST=0.0",
+    ]
+  }
+
+  if (is_android) {
+    defines += [
+      # Android devices are typically more memory constrained, so default to a
+      # smaller glyph cache (it may be overriden at runtime when the renderer
+      # starts up, depending on the actual device memory).
+      "SK_DEFAULT_FONT_CACHE_LIMIT=1048576",  # 1024 * 1024
+    ]
+  } else {
+    defines += [ "SK_DEFAULT_FONT_CACHE_LIMIT=20971520" ]  # 20 * 1024 * 1024
+  }
+
+  if (is_win) {
+    include_dirs += [
+      "//third_party/skia/include/utils/win",
+      "//third_party/skia/src/utils/win",
+    ]
+
+    defines += [
+      # On windows, GDI handles are a scarse system-wide resource so we have to
+      # keep the glyph cache, which holds up to 4 GDI handles per entry, to a
+      # fairly small size. http://crbug.com/314387
+      "SK_DEFAULT_FONT_CACHE_COUNT_LIMIT=256",
+    ]
+
+    cflags = [
+      "/wd4244",  # conversion from 'type1( __int64)' to 'type2 (unsigned int)'
+      "/wd4267",  # conversion from 'size_t' (64 bit) to 'type'(32 bit).
+      "/wd4341",  # signed value is out of range for enum constant.
+      "/wd4345",  # Object is default-initialized if initialization is omitted.
+      "/wd4390",  # ';'empty statement found in looping;is it what was intended?
+      "/wd4554",  # 'operator' : check operator precedence for possible error
+      "/wd4748",  # compiler will disable optimizations if a function has inline
+                  # assembly code contains flow control(jmp or jcc) statements.
+
+      "/wd4800",  # forcing value to bool 'true/false'(assigning int to bool).
+    ]
+  }
+}
+
+component("skia") {
+  sources = [
+    # Chrome sources.
+    "config/SkUserConfig.h",
+    "config/sk_ref_cnt_ext_debug.h",
+    "config/sk_ref_cnt_ext_release.h",
+    "ext/SkDiscardableMemory_chrome.cc",
+    "ext/SkMemory_new_handler.cpp",
+    "ext/analysis_canvas.cc",
+    "ext/benchmarking_canvas.cc",
+    "ext/convolver.cc",
+    "ext/event_tracer_impl.cc",
+    "ext/fontmgr_default_win.cc",
+    "ext/google_logging.cc",
+    "ext/image_operations.cc",
+    "ext/opacity_filter_canvas.cc",
+    "ext/platform_device.cc",
+    "ext/platform_device_linux.cc",
+    "ext/platform_device_mac.cc",
+    "ext/platform_device_win.cc",
+    "ext/recursive_gaussian_convolution.cc",
+    "ext/skia_histogram.cc",
+    "ext/skia_memory_dump_provider.cc",
+    "ext/skia_trace_memory_dump_impl.cc",
+    "ext/skia_utils_base.cc",
+    "ext/skia_utils_ios.mm",
+    "ext/skia_utils_mac.mm",
+    "ext/skia_utils_win.cc",
+  ]
+
+  if (!is_ios) {
+    sources += [ "ext/platform_canvas.cc" ]
+  }
+  if (!is_ios && (current_cpu == "x86" || current_cpu == "x64")) {
+    sources += [ "ext/convolver_SSE2.cc" ]
+  } else if (current_cpu == "mipsel" && mips_dsp_rev >= 2) {
+    sources += [ "ext/convolver_mips_dspr2.cc" ]
+  }
+
+  # The skia gypi values are relative to the skia_dir, so we need to rebase.
+  sources += gypi_skia_core.sources
+  sources += gypi_skia_effects.sources
+  sources += gypi_skia_utils.sources
+  sources += gypi_values.skia_library_sources
+
+  # This and skia_opts are really the same conceptual target so share headers.
+  allow_circular_includes_from = [ ":skia_opts" ]
+
+  if (current_cpu == "arm") {
+    sources += [ "//third_party/skia/src/core/SkUtilsArm.cpp" ]
+  }
+
+  # GPU
+  if (skia_support_gpu) {
+    sources += gypi_skia_gpu.skgpu_sources
+    sources += gypi_skia_gpu.skgpu_null_gl_sources
+  }
+
+  # Remove unused util files include in utils.gypi
+  sources -= [
+    "//third_party/skia/src/utils/SkBoundaryPatch.cpp",
+    "//third_party/skia/src/utils/SkCamera.cpp",
+    "//third_party/skia/src/utils/SkDumpCanvas.cpp",
+    "//third_party/skia/src/utils/SkFrontBufferedStream.cpp",
+    "//third_party/skia/src/utils/SkInterpolator.cpp",
+    "//third_party/skia/src/utils/SkLayer.cpp",
+    "//third_party/skia/src/utils/SkMeshUtils.cpp",
+    "//third_party/skia/src/utils/SkNinePatch.cpp",
+    "//third_party/skia/src/utils/SkOSFile.cpp",
+    "//third_party/skia/src/utils/SkParsePath.cpp",
+
+    #testing
+    "//third_party/skia/src/fonts/SkGScalerContext.cpp",
+  ]
+
+  if (is_win) {
+    sources -= [
+      # Keeping _win.cpp
+      "//third_party/skia/src/utils/SkThreadUtils_pthread.cpp",
+    ]
+  } else {
+    sources -= [
+      # Keeping _pthread.cpp
+      "//third_party/skia/src/utils/SkThreadUtils_win.cpp",
+    ]
+  }
+
+  # need separate win section to handle chromes auto gn filter
+  # (build/config/BUILDCONFIG.gn)
+  if (is_win) {
+    sources -= [
+      #windows
+      "//third_party/skia/src/utils/win/SkAutoCoInitialize.cpp",
+      "//third_party/skia/src/utils/win/SkIStream.cpp",
+      "//third_party/skia/src/utils/win/SkWGL_win.cpp",
+    ]
+  }
+
+  if (is_android && (!enable_basic_printing && !enable_print_preview)) {
+    sources -= [ "ext/skia_utils_base.cc" ]
+  }
+
+  # Fixup skia library sources.
+  if (is_win) {
+    sources -= [
+      "//third_party/skia/src/ports/SkOSFile_posix.cpp",
+      "//third_party/skia/src/ports/SkTLS_pthread.cpp",
+    ]
+  } else {
+    sources -= [
+      "//third_party/skia/src/ports/SkFontHost_win.cpp",
+      "//third_party/skia/src/ports/SkFontMgr_win_dw.cpp",
+      "//third_party/skia/src/ports/SkOSFile_win.cpp",
+      "//third_party/skia/src/ports/SkRemotableFontMgr_win_dw.cpp",
+      "//third_party/skia/src/ports/SkScalerContext_win_dw.cpp",
+      "//third_party/skia/src/ports/SkTLS_win.cpp",
+      "//third_party/skia/src/ports/SkTypeface_win_dw.cpp",
+    ]
+  }
+  if (!is_android) {
+    sources -= [
+      "//third_party/skia/src/ports/SkFontMgr_android.cpp",
+      "//third_party/skia/src/ports/SkFontMgr_android_factory.cpp",
+      "//third_party/skia/src/ports/SkFontMgr_android_parser.cpp",
+    ]
+  }
+  if (!is_mac) {
+    sources -= [ "//third_party/skia/src/ports/SkFontHost_mac.cpp" ]
+  }
+
+  if (!is_linux) {
+    sources -= [
+      "//third_party/skia/src/fonts/SkFontMgr_fontconfig.cpp",
+      "//third_party/skia/src/ports/SkFontConfigInterface_direct.cpp",
+      "//third_party/skia/src/ports/SkFontConfigInterface_direct_factory.cpp",
+      "//third_party/skia/src/ports/SkFontHost_fontconfig.cpp",
+    ]
+  }
+
+  # Add the files for the SkFontMgr_Android. This is used to emulate android
+  # fonts on linux. See content/zygote/zygote_main_linux.cc
+  if (is_linux) {
+    sources += [
+      "//third_party/skia/src/ports/SkFontMgr_android.cpp",
+      "//third_party/skia/src/ports/SkFontMgr_android_parser.cpp",
+    ]
+  }
+
+  if (!is_linux && !is_android) {
+    sources -= [
+      "//third_party/skia/src/ports/SkFontHost_FreeType.cpp",
+      "//third_party/skia/src/ports/SkFontHost_FreeType_common.cpp",
+    ]
+  }
+
+  # Select the right BitmapPlatformDevice.
+  if (is_win) {
+    sources += [ "ext/bitmap_platform_device_win.cc" ]
+  } else if (is_mac) {
+    sources += [ "ext/bitmap_platform_device_mac.cc" ]
+  } else if (use_cairo) {
+    sources += [ "ext/bitmap_platform_device_cairo.cc" ]
+  } else if (!is_ios) {
+    sources += [ "ext/bitmap_platform_device_skia.cc" ]
+  }
+
+  if (is_clang && !is_nacl) {
+    # Skia won't compile with some of the more strict clang warnings.
+    # e.g. it does:
+    #  SkASSERT(!"sk_out_of_memory");
+    configs -= [ "//build/config/clang:extra_warnings" ]
+  }
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    ":skia_config",
+    ":skia_library_config",
+    "//build/config/compiler:no_chromium_code",
+  ]
+  public_configs = [ ":skia_config" ]
+
+  deps = [
+    ":skia_opts",
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//third_party/zlib",
+  ]
+
+  if (is_linux) {
+    if (use_pango) {
+      configs += [ "//build/config/linux/pangocairo" ]
+    }
+    deps += [
+      "//build/linux:fontconfig",
+      "//build/linux:freetype2",
+      "//third_party/expat",
+      "//third_party/icu:icuuc",
+    ]
+  }
+
+  if (is_android) {
+    set_sources_assignment_filter([])
+    sources += [ "ext/platform_device_linux.cc" ]
+    set_sources_assignment_filter(sources_assignment_filter)
+    deps += [
+      "//third_party/android_tools:cpu_features",
+      "//third_party/expat",
+      "//third_party/freetype-android:freetype",
+    ]
+  }
+
+  if (skia_support_pdf) {
+    deps += [ "//third_party/sfntly" ]
+    sources += gypi_skia_pdf.sources
+  } else {
+    sources += [ "//third_party/skia/src/pdf/SkDocument_PDF_None.cpp" ]
+  }
+
+  if (is_android && !is_debug) {
+    configs -= [ "//build/config/compiler:default_optimization" ]
+    configs += [ "//build/config/compiler:optimize_max" ]
+  }
+
+  if (is_mac) {
+    libs = [
+      "AppKit.framework",
+      "ApplicationServices.framework",  # Temporary hack around https://crbug.com/620127. Remove after https://crbug.com/622481 is fixed.
+      "CoreFoundation.framework",
+      "CoreGraphics.framework",
+      "CoreText.framework",
+      "Foundation.framework",
+    ]
+  }
+
+  if (is_ios) {
+    libs = [ "ImageIO.framework" ]
+    set_sources_assignment_filter([])
+    sources += [
+      "//third_party/skia/src/ports/SkFontHost_mac.cpp",
+      "//third_party/skia/src/utils/mac/SkCreateCGImageRef.cpp",
+      "//third_party/skia/src/utils/mac/SkStream_mac.cpp",
+    ]
+    set_sources_assignment_filter(sources_assignment_filter)
+
+    # SkFontHost_mac.cpp uses API deprecated in iOS 7, crbug.com/408571
+    cflags = [ "-Wno-deprecated-declarations" ]
+  }
+}
+
+# Separated out so it can be compiled with different flags for SSE.
+if (!skia_build_no_opts) {
+  if (current_cpu == "x86" || current_cpu == "x64") {
+    source_set("skia_opts_sse3") {
+      sources = gypi_skia_opts.ssse3_sources
+      if (!is_win || is_clang) {
+        cflags = [ "-mssse3" ]
+      }
+      if (is_win) {
+        defines = [ "SK_CPU_SSE_LEVEL=31" ]
+      }
+      visibility = [ ":skia_opts" ]
+      configs -= [ "//build/config/compiler:chromium_code" ]
+      configs += [
+        ":skia_config",
+        ":skia_library_config",
+        "//build/config/compiler:no_chromium_code",
+      ]
+    }
+    source_set("skia_opts_sse41") {
+      sources = gypi_skia_opts.sse41_sources
+      if (!is_win || is_clang) {
+        cflags = [ "-msse4.1" ]
+      }
+      if (is_win) {
+        defines = [ "SK_CPU_SSE_LEVEL=41" ]
+      }
+      visibility = [ ":skia_opts" ]
+      configs -= [ "//build/config/compiler:chromium_code" ]
+      configs += [
+        ":skia_config",
+        ":skia_library_config",
+        "//build/config/compiler:no_chromium_code",
+      ]
+    }
+    source_set("skia_opts_sse42") {
+      sources = gypi_skia_opts.sse42_sources
+      if (!is_win || is_clang) {
+        cflags = [ "-msse4.2" ]
+      }
+      if (is_win) {
+        defines = [ "SK_CPU_SSE_LEVEL=42" ]
+      }
+      visibility = [ ":skia_opts" ]
+      configs -= [ "//build/config/compiler:chromium_code" ]
+      configs += [
+        ":skia_config",
+        ":skia_library_config",
+        "//build/config/compiler:no_chromium_code",
+      ]
+    }
+    source_set("skia_opts_avx") {
+      sources = gypi_skia_opts.avx_sources
+      if (!is_win) {
+        cflags = [ "-mavx" ]
+      }
+      if (is_win) {
+        cflags = [ "/arch:AVX" ]
+      }
+      visibility = [ ":skia_opts" ]
+      configs -= [ "//build/config/compiler:chromium_code" ]
+      configs += [
+        ":skia_config",
+        ":skia_library_config",
+        "//build/config/compiler:no_chromium_code",
+      ]
+    }
+    source_set("skia_opts_avx2") {
+      sources = gypi_skia_opts.avx2_sources
+      if (!is_win) {
+        cflags = [ "-mavx2" ]
+      }
+      if (is_win) {
+        cflags = [ "/arch:AVX2" ]
+      }
+      visibility = [ ":skia_opts" ]
+      configs -= [ "//build/config/compiler:chromium_code" ]
+      configs += [
+        ":skia_config",
+        ":skia_library_config",
+        "//build/config/compiler:no_chromium_code",
+      ]
+    }
+  }
+}
+
+source_set("skia_opts") {
+  cflags = []
+  defines = []
+
+  deps = [
+    "//base",
+  ]
+
+  if (skia_build_no_opts) {
+    sources = gypi_skia_opts.none_sources
+  } else if (current_cpu == "x86" || current_cpu == "x64") {
+    sources = gypi_skia_opts.sse2_sources
+    deps += [
+      ":skia_opts_avx",
+      ":skia_opts_avx2",
+      ":skia_opts_sse3",
+      ":skia_opts_sse41",
+      ":skia_opts_sse42",
+    ]
+  } else if (current_cpu == "arm") {
+    # The assembly uses the frame pointer register (r7 in Thumb/r11 in
+    # ARM), the compiler doesn't like that.
+    cflags += [ "-fomit-frame-pointer" ]
+
+    if (arm_version >= 7) {
+      sources = gypi_skia_opts.armv7_sources
+      if (arm_use_neon || arm_optionally_use_neon) {
+        sources += gypi_skia_opts.neon_sources
+
+        # Root build config sets -mfpu=$arm_fpu, which we expect to be neon
+        # when running this.
+        if (!arm_use_neon) {
+          configs -= [ "//build/config/compiler:compiler_arm_fpu" ]
+          cflags += [ "-mfpu=neon" ]
+        }
+      }
+    } else {
+      sources = gypi_skia_opts.none_sources
+    }
+  } else if (current_cpu == "arm64") {
+    sources = gypi_skia_opts.arm64_sources
+  } else if (current_cpu == "mipsel") {
+    cflags += [ "-fomit-frame-pointer" ]
+
+    if (mips_dsp_rev >= 1) {
+      sources = gypi_skia_opts.mips_dsp_sources
+    } else {
+      sources = gypi_skia_opts.none_sources
+    }
+  } else if (current_cpu == "mips64el") {
+    cflags += [ "-fomit-frame-pointer" ]
+    sources = gypi_skia_opts.none_sources
+  } else {
+    assert(false, "Need to port cpu specific stuff from skia_library_opts.gyp")
+  }
+
+  if (is_android && !is_debug) {
+    configs -= [ "//build/config/compiler:default_optimization" ]
+    configs += [ "//build/config/compiler:optimize_max" ]
+  }
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    ":skia_config",
+    ":skia_library_config",
+    "//build/config/compiler:no_chromium_code",
+  ]
+
+  visibility = [ ":skia" ]
+}
+
+test("skia_unittests") {
+  sources = [
+    "ext/analysis_canvas_unittest.cc",
+    "ext/bitmap_platform_device_mac_unittest.cc",
+    "ext/convolver_unittest.cc",
+    "ext/image_operations_unittest.cc",
+    "ext/platform_canvas_unittest.cc",
+    "ext/recursive_gaussian_convolution_unittest.cc",
+    "ext/skia_memory_dump_provider_unittest.cc",
+    "ext/skia_utils_ios_unittest.mm",
+    "ext/skia_utils_mac_unittest.mm",
+  ]
+
+  if (!is_win && !is_mac) {
+    sources -= [ "ext/platform_canvas_unittest.cc" ]
+  }
+
+  deps = [
+    ":skia",
+    "//base",
+    "//mojo/edk/test:run_all_unittests",
+    "//testing/gtest",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (!is_ios) {
+    sources += [ "public/interfaces/test/struct_traits_unittest.cc" ]
+    deps += [
+      # TODO: Fix this test to not depend on cc.
+      "//cc:test_support",
+      "//mojo/public/cpp/bindings",
+      "//skia/public/interfaces:test_interfaces",
+    ]
+  }
+}
+
+if (!is_ios) {
+  executable("image_operations_bench") {
+    sources = [
+      "ext/image_operations_bench.cc",
+    ]
+
+    deps = [
+      ":skia",
+      "//base",
+      "//build/config/sanitizers:deps",
+      "//build/win:default_exe_manifest",
+    ]
+  }
+
+  executable("filter_fuzz_stub") {
+    testonly = true
+    sources = [
+      "tools/filter_fuzz_stub/filter_fuzz_stub.cc",
+    ]
+
+    deps = [
+      ":skia",
+      "//base",
+      "//base/test:test_support",
+      "//build/config/sanitizers:deps",
+      "//build/win:default_exe_manifest",
+    ]
+  }
+}

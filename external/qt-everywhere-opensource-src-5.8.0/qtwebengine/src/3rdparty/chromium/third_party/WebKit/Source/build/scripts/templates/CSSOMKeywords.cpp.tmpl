@@ -1,0 +1,61 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "core/css/cssom/CSSOMKeywords.h"
+
+#include "core/css/CSSPropertyIDTemplates.h"
+#include "core/css/cssom/CSSKeywordValue.h"
+#include "wtf/HashMap.h"
+
+namespace blink {
+
+namespace {
+
+using KeywordTable = HashMap<CSSPropertyID, Vector<CSSValueID>>;
+
+KeywordTable createKeywordTable()
+{
+    KeywordTable table;
+
+    {% for property_id, property in properties.items() if property.keywordIDs %}
+    {
+        Vector<CSSValueID> {{property.lower_camel_name}}Keywords;
+        {% for keywordValueID in property.keywordIDs %}
+        {{property.lower_camel_name}}Keywords.append({{keywordValueID}});
+        {% endfor %}
+        table.set({{property_id}}, {{property.lower_camel_name}}Keywords);
+    }
+    {% endfor %}
+    return table;
+}
+
+KeywordTable& keywordTable()
+{
+    DEFINE_STATIC_LOCAL(KeywordTable, keywordTable, (createKeywordTable()));
+    return keywordTable;
+}
+
+} // namespace
+
+bool CSSOMKeywords::validKeywordForProperty(CSSPropertyID id, const CSSKeywordValue& keyword)
+{
+    CSSValueID valueID = keyword.keywordValueID();
+    if (valueID == CSSValueInvalid) {
+        return false;
+    }
+
+    if (valueID == CSSValueInherit || valueID == CSSValueInitial || valueID == CSSValueUnset) {
+        // These are css-wide keywords that are valid for all properties.
+        return true;
+    }
+
+    const KeywordTable::iterator tableIterator = keywordTable().find(id);
+    if (tableIterator == keywordTable().end()) {
+        return false;
+    }
+
+    return tableIterator->value.contains(valueID);
+}
+
+} // namespace blink

@@ -1,0 +1,35 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chromecast_build.gni")
+
+# This args block should contain arguments used within the //chromecast
+# directory. Arguments which are used in other Chrome components should
+# be instead declared in //build/config/chromecast_build.gni.
+declare_args() {
+  # chromecast_branding is used to include or exclude Google-branded components.
+  # Set it to "public" for a Chromium build.
+  chromecast_branding = "public"
+
+  # The incremental build number. The Cast automated builders will set this
+  # value to indicate the buildset. Note: The default value should be greater
+  # than any value the builder may assign to prevent attempted automatic updates
+  # when the default value is used.
+  cast_build_incremental = "999999"
+}
+
+declare_args() {
+  # Use Playready CDMs for internal non-desktop builds.
+  use_playready = !is_cast_desktop_build && chromecast_branding != "public"
+}
+
+# This is the release version, which takes the form <major>.<minor>. Internal
+# builds will read the value from an internal file containing this value as a
+# string. Public builds, lacking this file, will set a dummy value.
+if (chromecast_branding == "public") {
+  cast_build_release = "eng." + getenv("USER")
+} else {
+  cast_build_release =
+      read_file("//chromecast/internal/build/cast_build_release", "trim string")
+}

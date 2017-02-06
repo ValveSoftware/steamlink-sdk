@@ -1,0 +1,86 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.audio_modem</code> API
+// to transmit and receive short tokens over audio.
+namespace audioModem {
+  // The audio bands supported.
+  enum Audioband {
+    // Audible (up to 3 kHz)
+    audible,
+    // Inaudible (18-20 kHz)
+    inaudible
+  };
+
+  // Details for how a token is encoded in audio.
+  dictionary TokenEncoding {
+    // The length of the tokens to transmit, in bytes.
+    // For now, apps must always use the same token length.
+    long tokenLength;
+    // Whether to use a 2-byte CRC checksum. Defaults to false.
+    boolean? crc;
+    // Whether to use a parity symbol. Defaults to false.
+    boolean? parity;
+  };
+
+  // Details of a transmit or receive request.
+  dictionary RequestParams {
+    // How long to transmit or receive for.
+    // The timeout has a maximum of 10 minutes for transmit,
+    // or 1 hour for receive.
+    long timeoutMillis;
+    // The audio band to use.
+    Audioband band;
+    // The token encoding details.
+    TokenEncoding encoding;
+  };
+
+  // Results of token decoding.
+  dictionary ReceivedToken {
+    // The token contents in raw bytes.
+    ArrayBuffer token;
+    // The audio band the token was heard on.
+    Audioband band;
+  };
+
+  // The result of a requested operation.
+  enum Status {
+    // The requested operation was processed successfully.
+    success,
+    // The request was invalid. See chrome.runtime.lastError for details.
+    invalidRequest,
+    // The requested audio band is already in use by another client.
+    // Eventually, simultaneous tokens will be time-sliced,
+    // and this error will no longer occur.
+    inUse,
+    // Audio encoding or decoding failed.
+    coderError
+  };
+
+  // A callback to report the status of a request.
+  callback StatusCallback = void(Status status);
+
+  interface Functions {
+    // Transmit a token. Only one can be transmitted at a time.
+    // Transmission of any previous tokens (by this app) will stop.
+    static void transmit(
+        RequestParams params, ArrayBuffer token, StatusCallback callback);
+    // Stop any active transmission on the specified band.
+    static void stopTransmit(Audioband band, StatusCallback callback);
+    // Start listening for audio tokens. For now,
+    // only one app will be able to listen at a time.
+    static void receive(RequestParams params, StatusCallback callback);
+    // Stop any active listening on the specified band.
+    static void stopReceive(Audioband band, StatusCallback callback);
+  };
+
+  interface Events {
+    // Audio tokens have been received.
+    static void onReceived(ReceivedToken[] tokens);
+    // Transmit could not be confirmed.
+    // The speaker volume might be too low.
+    static void onTransmitFail(Audioband band);
+  };
+};
+

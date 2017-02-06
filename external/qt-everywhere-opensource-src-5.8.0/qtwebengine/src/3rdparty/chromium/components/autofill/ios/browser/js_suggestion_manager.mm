@@ -1,0 +1,110 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#import "components/autofill/ios/browser/js_suggestion_manager.h"
+
+#include "base/format_macros.h"
+#include "base/json/string_escape.h"
+#include "base/logging.h"
+#include "base/strings/sys_string_conversions.h"
+
+namespace {
+// Santizies |str| and wraps it in quotes so it can be injected safely in
+// JavaScript.
+NSString* JSONEscape(NSString* str) {
+  return base::SysUTF8ToNSString(
+      base::GetQuotedJSONString(base::SysNSStringToUTF8(str)));
+}
+}  // namespace
+
+@implementation JsSuggestionManager
+
+#pragma mark -
+#pragma mark ProtectedMethods
+
+- (NSString*)scriptPath {
+  return @"suggestion_controller";
+}
+
+- (NSString*)presenceBeacon {
+  return @"__gCrWeb.suggestion";
+}
+
+- (void)selectNextElement {
+  [self selectElementAfterForm:@"" field:@""];
+}
+
+- (void)selectElementAfterForm:(NSString*)formName field:(NSString*)fieldName {
+  NSString* selectNextElementJS = [NSString
+      stringWithFormat:@"__gCrWeb.suggestion.selectNextElement(%@, %@)",
+                       JSONEscape(formName), JSONEscape(fieldName)];
+  [self evaluate:selectNextElementJS stringResultHandler:nil];
+}
+
+- (void)selectPreviousElement {
+  [self selectElementBeforeForm:@"" field:@""];
+}
+
+- (void)selectElementBeforeForm:(NSString*)formName field:(NSString*)fieldName {
+  NSString* selectPreviousElementJS = [NSString
+      stringWithFormat:@"__gCrWeb.suggestion.selectPreviousElement(%@, %@)",
+                       JSONEscape(formName), JSONEscape(fieldName)];
+  [self evaluate:selectPreviousElementJS stringResultHandler:nil];
+}
+
+- (void)fetchPreviousAndNextElementsPresenceWithCompletionHandler:
+        (void (^)(BOOL, BOOL))completionHandler {
+  [self fetchPreviousAndNextElementsPresenceForForm:@""
+                                              field:@""
+                                  completionHandler:completionHandler];
+}
+
+- (void)fetchPreviousAndNextElementsPresenceForForm:(NSString*)formName
+                                              field:(NSString*)fieldName
+                                  completionHandler:
+                                      (void (^)(BOOL, BOOL))completionHandler {
+  DCHECK(completionHandler);
+  DCHECK([self hasBeenInjected]);
+  id stringResultHandler = ^(NSString* result, NSError* error) {
+    // The result maybe an empty string here due to 2 reasons:
+    // 1) When there is an exception running the JS
+    // 2) There is a race when the page is changing due to which
+    // JSSuggestionManager has not yet injected __gCrWeb.suggestion object
+    // Handle this case gracefully.
+    // TODO(shreyasv): Figure out / narrow down further why this occurs.
+    // crbug.com/432217.
+    // If a page has overridden Array.toString, the string returned may not
+    // contain a ",", hence this is a defensive measure to early return.
+    NSArray* components = [result componentsSeparatedByString:@","];
+    if (components.count != 2) {
+      completionHandler(NO, NO);
+      return;
+    }
+
+    DCHECK([components[0] isEqualToString:@"true"] ||
+           [components[0] isEqualToString:@"false"]);
+    BOOL hasPreviousElement = [components[0] isEqualToString:@"true"];
+    DCHECK([components[1] isEqualToString:@"true"] ||
+           [components[1] isEqualToString:@"false"]);
+    BOOL hasNextElement = [components[1] isEqualToString:@"true"];
+    completionHandler(hasPreviousElement, hasNextElement);
+  };
+  NSString* escapedFormName = JSONEscape(formName);
+  NSString* escapedFieldName = JSONEscape(fieldName);
+  NSString* js = [NSString
+      stringWithFormat:@"[__gCrWeb.suggestion.hasPreviousElement(%@, %@),"
+                       @"__gCrWeb.suggestion.hasNextElement(%@, %@)]"
+                       @".toString()",
+                       escapedFormName, escapedFieldName, escapedFormName,
+                       escapedFieldName];
+  [self evaluate:js stringResultHandler:stringResultHandler];
+}
+
+- (void)closeKeyboard {
+  // Deferred execution used because of a risk of crwebinvoke:// triggered
+  // immediately by the loss of focus.
+  [self deferredEvaluate:@"document.activeElement.blur()"];
+}
+
+@end

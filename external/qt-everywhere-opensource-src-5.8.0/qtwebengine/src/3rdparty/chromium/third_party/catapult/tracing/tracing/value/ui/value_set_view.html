@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+Copyright 2016 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/ui/base/polymer_utils.html">
+<link rel="import" href="/tracing/ui/base/tab_view.html">
+
+<polymer-element name='tr-v-ui-value-set-view'>
+  <template>
+    <tr-ui-a-tab-view id="container"></tr-ui-a-tab-view>
+  </template>
+</polymer-element>
+
+<script>
+'use strict';
+tr.exportTo('tr.ui', function() {
+  var VALUE_SET_VIEW_ELEMENT_NAMES = [];
+
+  var SELECTED_TAB_SETTINGS_KEY = 'tr-v-ui-value-set-view-element-name';
+
+  Polymer('tr-v-ui-value-set-view', {
+    ready: function() {
+      this.$.container.addEventListener(
+        'selected-tab-change', this.onSelectedTabChange_.bind(this));
+    },
+
+    onSelectedTabChange_: function() {
+      if (!this.$.container.selectedTab)
+        return;
+
+      tr.b.Settings.set(
+          SELECTED_TAB_SETTINGS_KEY,
+          this.$.container.selectedTab.tagName.toLowerCase());
+    },
+
+    /**
+     * @param {!tr.v.ValueSet} values
+     */
+    set values(values) {
+      this.$.container.textContent = '';
+
+      var initialTabElementName = tr.b.Settings.get(
+          SELECTED_TAB_SETTINGS_KEY, undefined);
+
+      VALUE_SET_VIEW_ELEMENT_NAMES.forEach(function(elementName, index) {
+        var view = document.createElement(elementName);
+        if (!view.supportsValueSet(values))
+          return;
+
+        view.values = values;
+
+        if (elementName.toLowerCase() === initialTabElementName)
+          view.setAttribute('selected', true);
+
+        view.setAttribute('tab-label', view.tabLabel);
+
+        this.$.container.appendChild(view);
+      }, this);
+
+      if (this.$.container.children.length === 1) {
+        this.$.container.tabsHidden = true;
+      } else if (this.$.container.selectedTab === undefined) {
+        this.$.container.children[0].setAttribute('selected', true);
+      }
+    }
+  });
+
+  /**
+   * Register the name of a polymer element that supports displaying ValueSets.
+   *
+   * @param {string} elementName
+   */
+  function registerValueSetView(elementName) {
+    if (!tr.ui.b.getPolymerElementNamed(elementName))
+      throw new Error('Element not registered: ' + elementName);
+
+    VALUE_SET_VIEW_ELEMENT_NAMES.push(elementName);
+  }
+
+  return {
+    registerValueSetView: registerValueSetView
+  };
+});
+</script>

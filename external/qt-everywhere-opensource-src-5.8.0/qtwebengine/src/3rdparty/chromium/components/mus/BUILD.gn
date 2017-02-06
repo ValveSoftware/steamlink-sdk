@@ -1,0 +1,151 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+import("//mojo/public/mojo_application.gni")
+import("//mojo/public/mojo_application_manifest.gni")
+import("//mojo/public/mojo_constants.gni")
+import("//tools/grit/repack.gni")
+
+group("all") {
+  testonly = true
+  deps = [
+    ":mus",
+    "//components/mus/test_wm",
+  ]
+}
+
+mojo_native_application("mus") {
+
+  if (!use_qt) {
+    sources = [
+      "main.cc",
+    ]
+  }
+
+  deps = [
+    ":resources_100",
+    ":resources_200",
+    ":resources_strings",
+    "//services/shell/public/cpp:sources",
+    "//services/tracing/public/interfaces",
+  ]
+
+  if (!use_qt) {
+    deps += [
+      ":lib"
+    ]
+  }
+
+  if (is_win) {
+    deps += [ ":copy_gl_libraries" ]
+  }
+
+  data_deps = [
+    ":manifest",
+  ]
+
+  resources = [
+    "$root_out_dir/mus_app_resources_strings.pak",
+    "$root_out_dir/mus_app_resources_100.pak",
+    "$root_out_dir/mus_app_resources_200.pak",
+  ]
+}
+
+mojo_application_manifest("manifest") {
+  application_name = "mus"
+  source = "manifest.json"
+}
+
+if (is_win) {
+  copy("copy_gl_libraries") {
+    deps = [
+      "//third_party/angle:libEGL",
+      "//third_party/angle:libGLESv2",
+    ]
+
+    sources = [
+      "$root_shlib_dir/libEGL.dll",
+      "$root_shlib_dir/libGLESv2.dll",
+    ]
+
+    outputs = [
+      "$root_out_dir/$mojo_application_subdir/mus/{{source_file_part}}",
+    ]
+  }
+}
+
+source_set("lib") {
+  sources = [
+    "mus_app.cc",
+    "mus_app.h",
+  ]
+
+  public_deps = [
+    "//components/mus/common:mus_common",
+  ]
+  deps = [
+    "//base",
+    "//cc",
+    "//cc/surfaces",
+    "//components/mus/clipboard:lib",
+    "//components/mus/gles2",
+    "//components/mus/gpu",
+    "//components/mus/gpu/display_compositor",
+    "//components/mus/input_devices",
+    "//components/mus/public/interfaces",
+    "//components/mus/surfaces",
+    "//components/mus/ws:lib",
+    "//components/mus/ws:test_interface",
+    "//mojo/common:common_base",
+    "//services/catalog/public/cpp",
+    "//services/shell/public/cpp",
+    "//services/tracing/public/cpp",
+    "//ui/events",
+    "//ui/events/ozone:events_ozone_layout",
+    "//ui/gl:gl",
+    "//ui/platform_window:platform_impls",
+    "//ui/platform_window:platform_window",
+  ]
+
+  if (use_x11) {
+    public_configs = [ "//build/config/linux:x11" ]
+    public_deps += [ "//ui/events/platform/x11" ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone:ozone" ]
+  }
+}
+
+repack("resources_strings") {
+  sources = [
+    "$root_gen_dir/ui/strings/app_locale_settings_en-US.pak",
+  ]
+  output = "$root_out_dir/mus_app_resources_strings.pak"
+  deps = [
+    "//ui/strings",
+  ]
+}
+
+repack("resources_100") {
+  sources = [
+    "$root_gen_dir/ui/resources/ui_resources_100_percent.pak",
+  ]
+  output = "$root_out_dir/mus_app_resources_100.pak"
+  deps = [
+    "//ui/resources",
+  ]
+}
+
+repack("resources_200") {
+  sources = [
+    "$root_gen_dir/ui/resources/ui_resources_200_percent.pak",
+  ]
+  output = "$root_out_dir/mus_app_resources_200.pak"
+  deps = [
+    "//ui/resources",
+  ]
+}

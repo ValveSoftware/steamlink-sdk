@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2015 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/core/test_utils.html">
+<link rel="import" href="/tracing/model/model.html">
+<link rel="import" href="/tracing/model/user_model/stub_expectation.html">
+<link rel="import" href="/tracing/ui/timeline_viewport.html">
+<link rel="import" href="/tracing/ui/tracks/interaction_track.html">
+
+<script>
+'use strict';
+
+tr.b.unittest.testSuite(function() {
+  // UserExpectations should be sorted by start time, not title, so that
+  // AsyncSliceGroupTrack.buildSubRows_ can lay them out in as few tracks as
+  // possible, so that they mesh instead of stacking unnecessarily.
+  test('instantiate', function() {
+    var div = document.createElement('div');
+    var viewport = new tr.ui.TimelineViewport(div);
+    var drawingContainer = new tr.ui.tracks.DrawingContainer(viewport);
+    div.appendChild(drawingContainer);
+    var track = new tr.ui.tracks.InteractionTrack(viewport);
+    track.model = tr.c.TestUtils.newModel(function(model) {
+      var process = model.getOrCreateProcess(1);
+      var thread = process.getOrCreateThread(1);
+      thread.sliceGroup.pushSlice(tr.c.TestUtils.newSliceEx(
+          {start: 0, duration: 200}));
+      model.userModel.expectations.push(new tr.model.um.StubExpectation(
+          {parentModel: model, start: 100, duration: 100}));
+      model.userModel.expectations.push(new tr.model.um.StubExpectation(
+          {parentModel: model, start: 0, duration: 100}));
+      model.userModel.expectations.push(new tr.model.um.StubExpectation(
+          {parentModel: model, start: 150, duration: 50}));
+      model.userModel.expectations.push(new tr.model.um.StubExpectation(
+          {parentModel: model, start: 50, duration: 100}));
+      model.userModel.expectations.push(new tr.model.um.StubExpectation(
+          {parentModel: model, start: 0, duration: 50}));
+      // Model.createImportTracesTask() automatically sorts IRs by start time.
+    });
+    assert.equal(2, track.subRows_.length);
+    assert.equal(2, track.subRows_[0].length);
+    assert.equal(3, track.subRows_[1].length);
+    drawingContainer.appendChild(track);
+    this.addHTMLOutput(div);
+  });
+});
+</script>

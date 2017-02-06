@@ -1,0 +1,132 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(is_linux, "This file should only be referenced on Linux")
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+
+# gn orders flags on a target before flags from configs. The default config
+# adds -Wall, and these flags have to be after -Wall -- so they need to come
+# from a config and can't be on the target directly.
+config("libgtk2ui_warnings") {
+  if (is_clang) {
+    cflags = [
+      # G_DEFINE_TYPE automatically generates a *get_instance_private inline
+      # function after glib 2.37. That's unused. Prevent to complain about it.
+      "-Wno-unused-function",
+
+      # G_STATIC_ASSERT uses a typedef as a static_assert.
+      "-Wno-unused-local-typedef",
+    ]
+  }
+}
+
+component("libgtk2ui") {
+  sources = [
+    "app_indicator_icon.cc",
+    "app_indicator_icon.h",
+    "app_indicator_icon_menu.cc",
+    "app_indicator_icon_menu.h",
+    "chrome_gtk_frame.cc",
+    "chrome_gtk_frame.h",
+    "chrome_gtk_menu_subclasses.cc",
+    "chrome_gtk_menu_subclasses.h",
+    "gtk2_event_loop.cc",
+    "gtk2_event_loop.h",
+    "gtk2_key_bindings_handler.cc",
+    "gtk2_key_bindings_handler.h",
+    "gtk2_status_icon.cc",
+    "gtk2_status_icon.h",
+    "gtk2_ui.cc",
+    "gtk2_ui.h",
+    "gtk2_util.cc",
+    "gtk2_util.h",
+    "libgtk2ui_export.h",
+    "menu_util.cc",
+    "menu_util.h",
+    "native_theme_gtk2.cc",
+    "native_theme_gtk2.h",
+    "print_dialog_gtk2.cc",
+    "print_dialog_gtk2.h",
+    "printing_gtk2_util.cc",
+    "printing_gtk2_util.h",
+    "select_file_dialog_impl.cc",
+    "select_file_dialog_impl.h",
+    "select_file_dialog_impl_gtk2.cc",
+    "select_file_dialog_impl_gtk2.h",
+    "select_file_dialog_impl_kde.cc",
+    "skia_utils_gtk2.cc",
+    "skia_utils_gtk2.h",
+    "unity_service.cc",
+    "unity_service.h",
+    "x11_input_method_context_impl_gtk2.cc",
+    "x11_input_method_context_impl_gtk2.h",
+  ]
+
+  if (use_gconf) {
+    sources += [
+      "gconf_listener.cc",
+      "gconf_listener.h",
+    ]
+    configs += [ "//build/config/linux/gconf" ]
+  }
+  defines = [ "LIBGTK2UI_IMPLEMENTATION" ]
+
+  if (use_cups) {
+    configs += [ "//printing:cups" ]
+  }
+
+  # GTK2 pulls pangoft2 as dependency, and pangoft2 depends on harfbuzz.
+  # To avoid missing indirectly referenced harfbuzz symbols from pango,
+  # some hack is required when bundled harfbuzz is used and component build is
+  # disabled.
+  # See crbug.com/462689 for details.
+  all_dependent_configs = [ "//third_party/harfbuzz-ng:pangoft2_link_hack" ]
+
+  configs += [
+    ":libgtk2ui_warnings",
+    "//build/config/linux:x11",
+  ]
+
+  deps = [
+    "//base",
+    "//base:i18n",
+    "//base/third_party/dynamic_annotations",
+    "//chrome:extra_resources",
+    "//chrome:resources",
+    "//chrome:strings",
+    "//chrome/app/theme:theme_resources",
+    "//components/resources",
+    "//content/public/browser",
+    "//printing",
+    "//skia",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/display",
+    "//ui/events",
+    "//ui/events:events_base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gfx/x",
+    "//ui/native_theme",
+    "//ui/resources",
+    "//ui/shell_dialogs",
+    "//ui/strings",
+    "//ui/views",
+  ]
+
+  if (use_gtk3) {
+    deps += [
+      "//build/config/linux/gtk3",
+      "//build/config/linux/gtk3:gtkprint3",
+    ]
+  } else {
+    deps += [
+      "//build/config/linux/gtk2",
+      "//build/config/linux/gtk2:gtkprint2",
+    ]
+  }
+}

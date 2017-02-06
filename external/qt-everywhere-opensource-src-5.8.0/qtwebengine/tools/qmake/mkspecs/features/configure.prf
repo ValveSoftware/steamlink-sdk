@@ -1,0 +1,176 @@
+# Load configure.prf from qtbase first
+load(configure)
+load(functions)
+
+defineTest(runConfigure) {
+    webengine_successfully_configured: return(true)
+    linux:contains(QT_CONFIG,no-pkg-config) {
+        skipBuild("pkg-config is required")
+        return(false)
+    }
+    # Ignore the cached config tests results in case they were not successful
+    CONFIG += recheck
+    #Override the config.tests path
+    QMAKE_CONFIG_TESTS_DIR = $$QTWEBENGINE_ROOT/tools/qmake/config.tests
+    CONFIG_TESTS = $$files($$QMAKE_CONFIG_TESTS_DIR/*.pro, true)
+    log("Running configure tests$${EOL}")
+    for(test, CONFIG_TESTS) {
+        test = $$basename(test)
+        test ~= s/\\.pro$//
+        qtCompileTest($$test)
+    }
+
+    isQtMinimum(5, 8) {
+        include($$QTWEBENGINE_OUT_ROOT/qtwebengine-config.pri)
+        QT_FOR_CONFIG += webengine-private
+        qtConfig(proprietary-codecs): WEBENGINE_CONFIG += use_proprietary_codecs
+        qtConfig(spellchecker): WEBENGINE_CONFIG += use_spellchecker
+    }
+
+    linux {
+        QT_FOR_CONFIG += gui-private
+        !config_khr:skipBuild("khronos development headers appear to be missing (mesa/libegl1-mesa-dev)")
+
+        REQUIRED_PACKAGES = dbus-1 fontconfig
+        !cross_compile: qtConfig(xcb): REQUIRED_PACKAGES += libdrm xcomposite xcursor xi xrandr xscrnsaver xtst
+        qtConfig(pulseaudio): REQUIRED_PACKAGES += libpulse
+        qtConfig(system-png): REQUIRED_PACKAGES += libpng
+        qtConfig(system-harfbuzz) {
+             packagesExist("\'harfbuzz >= 1.2.0\'"): WEBENGINE_CONFIG += use_system_harfbuzz
+             else: log("System harfbuzz is too old (min. version 1.2). Using Chromium's copy.$${EOL}")
+        }
+        !cross_compile: REQUIRED_PACKAGES += libpci
+
+        for(package, $$list($$REQUIRED_PACKAGES)) {
+            !packagesExist($$package):skipBuild("Unmet dependency: $$package")
+        }
+        packagesExist(minizip, zlib): WEBENGINE_CONFIG += use_system_minizip use_system_zlib
+        else: log("System zlib or minizip not found. Using Chromium's copies.$${EOL}")
+        packagesExist(libwebp,libwebpdemux): WEBENGINE_CONFIG += use_system_libwebp use_system_libwebpdemux
+        else: log("System libwebp or libwebpdemux not found. Using Chromium's copies.$${EOL}")
+        packagesExist(libxml-2.0,libxslt): WEBENGINE_CONFIG += use_system_libxslt use_system_libxml2
+        else: log("System libxml2 or libxslt not found. Using Chromium's copies.$${EOL}")
+        for(package, $$list("libevent jsoncpp opus protobuf")) {
+            packagesExist($$package): WEBENGINE_CONFIG += use_system_$$package
+            else {
+                log("System $$package not found. Using Chromium's copy.$${EOL}")
+                WEBENGINE_CONFIG += use_bundled_$$package
+            }
+        }
+        use?(system_protobuf) {
+            !system("which protoc > /dev/null") {
+                log("Protobuf compiler not found. Using Chromium's copy of protobuf.$${EOL}")
+                WEBENGINE_CONFIG -= use_system_protobuf
+                WEBENGINE_CONFIG += use_bundled_protobuf
+            }
+        }
+        config_libvpx: WEBENGINE_CONFIG += use_system_vpx
+        else {
+            log("Compatible system libvpx not found. Using Chromium's copy.$${EOL}")
+            WEBENGINE_CONFIG += use_bundled_libvpx
+        }
+        config_srtp: WEBENGINE_CONFIG += use_system_libsrtp
+        else {
+            log("System libsrtp not found. Using Chromium's copy.$${EOL}")
+            WEBENGINE_CONFIG += use_bundled_srtp
+        }
+        config_snappy: WEBENGINE_CONFIG += use_system_snappy
+        else {
+            log("System snappy not found. Using Chromium's copy.$${EOL}")
+            WEBENGINE_CONFIG += use_bundled_snappy
+        }
+
+        !cross_compile {
+            packagesExist(nss): WEBENGINE_CONFIG += use_nss
+            else: log("System NSS not found, BoringSSL will be used.$${EOL}")
+        }
+    }
+    !cross_compile {
+        WEBENGINE_CONFIG += enable_pdf
+    }
+
+    isEmpty(skipBuildReason): {
+        cache(CONFIG, add, $$list(webengine_successfully_configured))
+        !isEmpty(WEBENGINE_CONFIG) {
+            cache(WEBENGINE_CONFIG, add, $$list($$WEBENGINE_CONFIG))
+            export(WEBENGINE_CONFIG)
+        }
+    }
+
+    unix:!darwin {
+        log("System library dependencies:$${EOL}")
+        use?(system_icu) {
+            packagesExist("icu-uc icu-i18n") {
+                log("  ICU ................................ Using system version$${EOL}")
+            } else {
+                log("  ICU ................................ System ICU not found$${EOL}")
+                skipBuild("Unmet dependencies: icu-uc, icu-i18n")
+            }
+        } else {
+            log("  ICU ................................ Using internal copy (Default, force system ICU with WEBENGINE_CONFIG+=use_system_icu)$${EOL}")
+            WEBENGINE_CONFIG += use_bundled_icu
+        }
+        use?(system_ffmpeg) {
+            packagesExist("libavcodec libavformat libavutil") {
+                packagesExist("libwebp, libwebpdemux, opus, \'vpx >= 1.4\'"){
+                    log("  FFMPEG ............................. Using system version$${EOL}")
+                } else {
+                    log("  FFMPEG ............................. Conflicting FFMPEG dependencies$${EOL}")
+                    skipBuild("Unmet dependencies: opus, vpx, libwebp, libwebpdemux")
+                }
+            } else {
+                log("  FFMPEG ............................. System FFMPEG not found$${EOL}")
+                skipBuild("Unmet dependencies: libavcodec, libavformat, libavutil")
+            }
+        } else {
+            log("  FFMPEG ............................. Using internal copy (Default, force system FFMPEG with WEBENGINE_CONFIG+=use_system_ffmpeg)$${EOL}")
+            WEBENGINE_CONFIG += use_bundled_ffmpeg
+        }
+        for(config, WEBENGINE_CONFIG) {
+            match = $$find(config, "^use_system_")
+            !isEmpty(match) {
+                use_system += $$replace(match, ^use_system_,)
+            }
+            match = $$find(config, "^use_bundled_")
+            !isEmpty(match) {
+                use_bundled += $$replace(match, ^use_bundled_,)
+            }
+        }
+        !isEmpty(use_system): log("  Optional system libraries used ..... $$use_system$${EOL}")
+        !isEmpty(use_bundled): log("  Optional bundled libraries used .... $$use_bundled$${EOL}")
+    }
+    log("Configurable features:$${EOL}")
+    use?(proprietary_codecs) {
+        log("  Proprietary codecs (H264, MP3) ..... Enabled$${EOL}")
+    } else {
+        log("  Proprietary codecs (H264, MP3) ..... Not enabled         (Default, enable with WEBENGINE_CONFIG+=use_proprietary_codecs)$${EOL}")
+    }
+    qtHaveModule(positioning): {
+        log("  Geolocation ........................ Enabled$${EOL}")
+    } else {
+        log("  Geolocation ........................ Not enabled         (Requires Qt Positioning module)$${EOL}")
+    }
+    unix:!darwin {
+        use?(nss) {
+            log("  Certificate handling ............... Using system NSS$${EOL}")
+        } else {
+            log("  Certificate handling ............... Using bundled BoringSSL$${EOL}")
+        }
+    }
+    osx {
+        use?(appstore_compliant_code) {
+            log("  Mac App Store Compliant ............ Enabled$${EOL}")
+        } else {
+            log("  Mac App Store Compliant ............ Not enabled         (Default, enable with WEBENGINE_CONFIG+=use_appstore_compliant_code)$${EOL}")
+        }
+        use?(native_spellchecker) {
+            log("Native Spellchecker .............. Enabled$${EOL}")
+        } else {
+            log("Native Spellchecker .............. Not enabled         (Default, enable with WEBENGINE_CONFIG+=use_native_spellchecker)$${EOL}")
+        }
+        !isMinOSXSDKVersion(10, 10, 3) {
+            log("  Force Touch API usage .............. Not enabled         (Because the OS X SDK version to be used \"$${WEBENGINE_OSX_SDK_PRODUCT_VERSION}\" is lower than the required \"10.10.3\")$${EOL}")
+        }
+    }
+}
+

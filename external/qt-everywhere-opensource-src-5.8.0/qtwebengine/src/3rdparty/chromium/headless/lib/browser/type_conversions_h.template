@@ -1,0 +1,77 @@
+// This file is generated
+
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef HEADLESS_PUBLIC_DOMAINS_TYPE_CONVERSIONS_H_
+#define HEADLESS_PUBLIC_DOMAINS_TYPE_CONVERSIONS_H_
+
+#include "headless/public/domains/types.h"
+#include "headless/public/internal/value_conversions.h"
+
+namespace headless {
+namespace internal {
+
+{% for domain in api.domains %}
+  {% for type in domain.types %}
+    {% set namespace = domain.domain | camelcase_to_hacker_style %}
+    {% if "enum" in type %}
+template <>
+struct FromValue<{{namespace}}::{{type.id}}> {
+  static {{namespace}}::{{type.id}} Parse(const base::Value& value, ErrorReporter* errors) {
+      {% set default = namespace + '::' + type.id + '::' + type.enum[0] | dash_to_camelcase | camelcase_to_hacker_style | upper | mangle_enum %}
+    std::string string_value;
+    if (!value.GetAsString(&string_value)) {
+      errors->AddError("string enum value expected");
+      {# Return an arbitrary enum member -- the caller will just ignore it. #}
+      return {{default}};
+    }
+      {% for literal in type.enum %}
+    if (string_value == "{{literal}}")
+      return {{namespace}}::{{type.id}}::{{literal | dash_to_camelcase | camelcase_to_hacker_style | upper | mangle_enum}};
+      {% endfor %}
+    errors->AddError("invalid enum value");
+    return {{default}};
+  }
+};
+
+template <typename T>
+std::unique_ptr<base::Value> ToValueImpl(const {{namespace}}::{{type.id}}& value, T*) {
+  switch (value) {
+      {% for literal in type.enum %}
+    case {{namespace}}::{{type.id}}::{{literal | dash_to_camelcase | camelcase_to_hacker_style | upper | mangle_enum}}:
+      return base::WrapUnique(new base::StringValue("{{literal}}"));
+      {% endfor %}
+  };
+  NOTREACHED();
+  return nullptr;
+}
+      {% continue %}
+    {% endif %}
+
+    {% if not (type.type == "object") or not ("properties" in type) %}{% continue %}{% endif %}
+template <>
+struct FromValue<{{namespace}}::{{type.id}}> {
+  static std::unique_ptr<{{namespace}}::{{type.id}}> Parse(const base::Value& value, ErrorReporter* errors) {
+    return {{namespace}}::{{type.id}}::Parse(value, errors);
+  }
+};
+
+template <typename T>
+std::unique_ptr<base::Value> ToValueImpl(const {{namespace}}::{{type.id}}& value, T*) {
+  return value.Serialize();
+}
+
+  {% endfor %}
+{% endfor %}
+
+template <typename T>
+std::unique_ptr<base::Value> ToValue(const T& value) {
+  return ToValueImpl(value, static_cast<T*>(nullptr));
+}
+
+}  // namespace internal
+}  // namespace headless
+
+#endif  // HEADLESS_PUBLIC_DOMAINS_TYPE_CONVERSIONS_H_

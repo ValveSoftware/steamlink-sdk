@@ -1,0 +1,153 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+import "layer_position_constraint.proto";
+import "point3f.proto";
+import "pointf.proto";
+import "recording_source.proto";
+import "region.proto";
+import "rect.proto";
+import "scroll_offset.proto";
+import "size.proto";
+import "skxfermode.proto";
+import "transform.proto";
+import "vector2df.proto";
+
+package cc.proto;
+
+option optimize_for = LITE_RUNTIME;
+
+// Hierarchical structure for serializing the Layer tree.
+message LayerNode {
+  // Identifies the type of cc:Layer a LayerNode represents. It is used to
+  // facilitate reconstruction of a Layer of the correct type on the client.
+  enum Type {
+    UNKNOWN = 0;
+    LAYER = 1;
+    PICTURE_LAYER = 2;
+    HEADS_UP_DISPLAY_LAYER = 3;
+    SOLID_COLOR_SCROLLBAR_LAYER = 4;
+
+    // TODO(nyquist): Add the rest of the necessary LayerTypes.
+  };
+
+  // required
+  optional int32 id = 1;
+  // required
+  optional Type type = 2;
+  optional int32 parent_id = 3;
+  // A List of all the children of the current LayerNode.
+  repeated LayerNode children = 4;
+  optional LayerNode mask_layer = 5;
+  optional LayerNode replica_layer = 6;
+}
+
+// A container for a list of dirty layers.
+message LayerUpdate {
+  // A list of dirty layers.
+  repeated LayerProperties layers = 1;
+}
+
+message LayerProperties {
+  // required
+  optional int32 id = 1;
+
+  // The properties below are only read if |needs_push_properties| is set.
+  // The Layer base class and each descendant have different proto messages
+  // for their specific properties.
+  optional BaseLayerProperties base = 5;
+
+  // Only one of these fields may be set per LayerProperties.
+  // TODO(dtrainor): use a 'oneof' union when it's supported in Chromium.  See
+  // crbug.com/570371.
+  optional PictureLayerProperties picture = 6;
+  optional SolidColorScrollbarLayerProperties solid_scrollbar = 7;
+}
+
+// NEXT ID: 55
+message BaseLayerProperties {
+  optional Point3F transform_origin = 1;
+  optional uint32 background_color = 2;
+  optional uint32 safe_opaque_background_color = 53;
+  optional Size bounds = 3;
+  optional int64 transform_free_index = 4;
+  optional int64 effect_tree_index = 5;
+  optional int64 clip_tree_index = 6;
+  optional int64 scroll_tree_index = 50;
+  optional Vector2dF offset_to_transform_parent = 7;
+  optional bool double_sided = 8;
+  optional bool draws_content = 9;
+  optional bool hide_layer_and_subtree = 10;
+  optional bool subtree_property_changed = 47;
+  optional bool layer_property_changed = 54;
+  // TODO(nyquist): Add support for FilterOperation. See crbug.com/541321.
+  // repeated FilterOperation filters = 12;
+  // repeated FilterOperation background_filters = 13;
+  optional bool masks_to_bounds = 14;
+  optional uint32 main_thread_scrolling_reasons = 15;
+  optional bool have_scroll_event_handlers = 17;
+  optional Region non_fast_scrollable_region = 18;
+  optional Region touch_event_handler_region = 19;
+  optional bool contents_opaque = 21;
+  optional float opacity = 22;
+  optional SkXfermode.Mode blend_mode = 23;
+  optional bool is_root_for_isolated_group = 24;
+  optional PointF position = 25;
+  optional bool is_container_for_fixed_position_layers = 26;
+  optional LayerPositionConstraint position_constraint = 27;
+  optional bool should_flatten_transform = 28;
+  optional bool should_flatten_transform_from_property_tree = 29;
+  optional int32 num_layer_or_descendants_with_copy_request = 30;
+  optional SkXfermode.Mode draw_blend_mode = 31;
+  optional bool use_parent_backface_visibility = 32;
+  optional bool use_local_transform_for_backface_visibility = 51;
+  optional bool should_check_backface_visibility = 52;
+  optional Transform transform = 33;
+  optional bool transform_is_invertible = 34;
+  optional int32 sorting_context_id = 35;
+  optional int32 num_descendants_that_draw_content = 36;
+  optional bool has_will_change_transform_hint = 48;
+
+  optional int32 scroll_clip_layer_id = 37;
+  optional bool user_scrollable_horizontal = 38;
+  optional bool user_scrollable_vertical = 39;
+
+  optional int32 scroll_parent_id = 40;
+  repeated int32 scroll_children_ids = 41;
+
+  optional int32 clip_parent_id = 42;
+  repeated int32 clip_children_ids = 43;
+
+  optional ScrollOffset scroll_offset = 44;
+
+  optional Rect update_rect = 46;
+
+  // TODO(nyquist): Figure out what to do with LayerAnimationController.
+  // optional LayerAnimationController layer_animation_controller = ???;
+}
+
+message PictureLayerProperties {
+  optional RecordingSource recording_source = 1;
+  optional Region invalidation = 2;
+  optional Rect last_updated_visible_layer_rect = 3;
+  optional bool is_mask = 4;
+  optional bool nearest_neighbor = 5;
+
+  optional int64 update_source_frame_number = 6;
+}
+
+message SolidColorScrollbarLayerProperties {
+  enum ScrollbarOrientation {
+    HORIZONTAL = 0;
+    VERTICAL = 1;
+  };
+
+  optional int32 scroll_layer_id = 1;
+  optional int32 thumb_thickness = 2;
+  optional int32 track_start = 3;
+  optional bool is_left_side_vertical_scrollbar = 4;
+  optional ScrollbarOrientation orientation = 5;
+}

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<!--
+Copyright 2016 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/core/test_utils.html">
+<link rel="import" href="/tracing/metrics/system_health/webview_startup_metric.html">
+<link rel="import" href="/tracing/value/value_set.html">
+
+<script>
+'use strict';
+
+function makeTestModel() {
+  return tr.c.TestUtils.newModel(function(model) {
+    var mainThread = model.getOrCreateProcess(1).getOrCreateThread(2);
+    mainThread.sliceGroup.pushSlice(tr.c.TestUtils.newSliceEx({
+      cat: 'webview',
+      title: 'WebViewStartupInterval',
+      start: 200,
+      duration: 42.0,
+      cpuStart: 150,
+      cpuDuration: 32.0
+    }));
+    mainThread.sliceGroup.pushSlice(tr.c.TestUtils.newSliceEx({
+      cat: 'webview',
+      title: 'WebViewBlankUrlLoadInterval',
+      start: 250,
+      duration: 27.0,
+      cpuStart: 190,
+      cpuDuration: 17.0
+    }));
+  });
+}
+
+tr.b.unittest.testSuite(function() {
+  test('webviewStartupMetric_allIntervals', function() {
+    var values = new tr.v.ValueSet();
+    tr.metrics.sh.webviewStartupMetric(values, makeTestModel());
+    assert.lengthOf(values.valueDicts, 4);
+  });
+
+  test('webviewStartupMetric_startupWallInterval', function() {
+    var values = new tr.v.ValueSet();
+    tr.metrics.sh.webviewStartupMetric(values, makeTestModel());
+    assert.equal(values.valueDicts[0].numeric.value, 42);
+  });
+
+  test('webviewStartupMetric_startupCpuInterval', function() {
+    var values = new tr.v.ValueSet();
+    tr.metrics.sh.webviewStartupMetric(values, makeTestModel());
+    assert.equal(values.valueDicts[1].numeric.value, 32);
+  });
+
+  test('webviewStartupMetric_urlLoadWallInterval', function() {
+    var values = new tr.v.ValueSet();
+    tr.metrics.sh.webviewStartupMetric(values, makeTestModel());
+    assert.equal(values.valueDicts[2].numeric.value, 27);
+  });
+
+  test('webviewStartupMetric_urlLoadCpuInterval', function() {
+    var values = new tr.v.ValueSet();
+    tr.metrics.sh.webviewStartupMetric(values, makeTestModel());
+    assert.equal(values.valueDicts[3].numeric.value, 17);
+  });
+});
+</script>

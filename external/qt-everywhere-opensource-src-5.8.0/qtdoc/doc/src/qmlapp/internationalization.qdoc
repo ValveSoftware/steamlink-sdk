@@ -1,0 +1,279 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page qtquick-internationalization.html howto
+\title Internationalization and Localization with Qt Quick
+\brief Following these steps, you can write your Qt Quick application so it can be localized for multiple languages
+
+\section1 Internationalizing Your Application
+
+The following sections describe various aspects of internationalizing your QML
+source code. If you follow these guides for all the user interface components in
+your application, it becomes possible to localize every aspect of your
+application for different languages and local cultural conventions such as the
+way dates and numbers are formatted.
+
+\section2 1. Use qsTr() for all Literal User Interface Strings
+
+Strings in QML can be marked for translation using the qsTr(), qsTranslate(),
+qsTrId(), QT_TR_NOOP(), QT_TRANSLATE_NOOP(), and QT_TRID_NOOP() functions. The
+most common way of marking strings is with the qsTr() function. For example:
+
+\code
+Text {
+    id: txt1;
+    text: qsTr("Back");
+}
+\endcode
+
+This code makes "Back" a key entry in the translation files. At runtime, the
+translation system looks up the keyword "Back" and then gets the corresponding
+translation value for the current system locale. The result is returned to the
+\c text property and the user interface will show the appropriate translation of
+"Back" for the current locale.
+
+
+\section2 2. Add Context for the Translator
+
+User interface strings are often short so you need to help the person
+translating the text understand the context of the text. You can add context
+information in the source code as extra descriptive text before the string to be
+translated. These extra descriptions are included in the .ts translation files
+delivered to the translator.
+
+\note The .ts files are XML files with the source texts and a place for the
+translated text. The updated .ts files are converted into binary translation
+files and included as part of the final application.
+
+In the following code snippet, the text on the \c {//:} line is the main comment
+for the translator.
+
+The text on the \c{//~} line is optional extra information. The first word of
+the text is used as an additional identifier in the XML element in the .ts file
+so make sure the first word is not part of the sentence. For example, the
+comment "Context Not related to that" is converted to "<extra-Context>Not
+related to that" in the .ts file.
+
+\code
+Text {
+    id: txt1;
+    // This user interface string is only used here
+    //: The back of the object, not the front
+    //~ Context Not related to back-stepping
+    text: qsTr("Back");
+}
+\endcode
+
+\section2 3. Disambiguate Identical Texts
+
+The translation system consolidates the user interface text strings into unique
+items. This consolidation saves the person doing the translation work having to
+translate the same text multiple times. However, in some cases, the text is
+identical but has a different meaning. For example, in English, "back" means
+take a step backward and also means the part of an object opposite to the front.
+You need to tell the translation system about these two separate meanings so the
+translator can create two separate translations.
+
+Differentiate between identical texts by adding some id text as the second
+parameter of the qsTr() function.
+
+In the following code snippet, the \c {not front} text is an id to differentiate
+this "Back" text from the backstepping "Back" text:
+
+\code
+Text {
+    id: txt1;
+    // This user interface string is used only here
+    //: The back of the object, not the front
+    //~ Context Not related to back-stepping
+    text: qsTr("Back", "not front");
+}
+\endcode
+
+\section2 4. Use \c %x to Insert Parameters into a String
+
+Different languages put words together in different orders so it is not a good
+idea to create sentences by concatenating words and data. Instead, use \c % to
+insert parameters into strings. For example, the following snippet has a string
+with two number parameters \c %1 and \c %2. These parameters are inserted with
+the \c .arg() functions.
+
+\code
+Text {
+    text: qsTr("File %1 of %2").arg(counter).arg(total)
+}
+\endcode
+
+%1 refers to the first parameter and \c %2 refers to the second parameter so this
+code produces output like: "File 2 of 3".
+
+\section2 5. Use %Lx so Numbers are Localized
+
+If you include the \c %L modifier when you specify a parameter, the number is
+localized according to the current regional settings. For example, in the
+following code snippet, \c %L1 means to format the first parameters according to
+the number formatting conventions of the currently selected locale (geographical
+region):
+
+\code
+Text {
+    text: qsTr("%L1").arg(total)
+}
+\endcode
+
+Then, with the above code, if \c total is the number "4321.56" (four thousand
+three hundred and twenty one point fifty six); with English regional settings,
+(locale) the output is "4,321.56"; with German regional settings, the output is
+"4.321,56".
+
+\section2 6. Internationalize Dates, Times and Currencies
+
+There are no special in-string modifiers for formatting dates and times.
+Instead, you need to query the current locale (geographical region) and use the
+methods of \l {QtQml::}{Date} to format the string.
+
+\c Qt.locale() returns a \l {QtQml::}{Locale} object which contains all
+kinds of information about the locale. In particular, the \l
+{QtQml::Locale::name}{Locale.name} property contains the language and country
+information for the current locale. You can use the value as is, or you can
+parse it to determine the appropriate content for the current locale.
+
+The following snippet gets the current date and time with Date(), then converts
+that to a string for the current locale. Then it inserts the date string into
+the %1 parameter for the appropriate translation.
+
+\code
+Text {
+    text: qsTr("Date %1").arg(Date().toLocaleString(Qt.locale()))
+}
+\endcode
+
+To make sure currency numbers are localized, use the \l
+{QtQml::}{Number} type. This type has similar functions as the Date
+type for converting numbers into localized currency strings.
+
+\section2 7. Use QT_TR_NOOP() for Translatable Data Text Strings
+
+If the user changes the system language without a reboot, depending on the
+system, the strings in arrays and list models and other data structures might
+not be refreshed automatically. To force the texts to be refreshed when they are
+displayed in the user interface, you need to declare the strings with the
+QT_TR_NOOP() macro. Then, when you populate the objects for display, you need to
+explicitly retrieve the translation for each text. For example:
+
+\code
+ListModel {
+    id: myListModel;
+    ListElement {
+        //: Capital city of Finland
+        name: QT_TR_NOOP("Helsinki");
+        }
+    }
+
+...
+
+Text {
+    text: qsTr(myListModel.get(0).name); // get the translation of the name property in element 0
+    }
+\endcode
+
+
+\section2 8. Use Locale to Extend Localization Features
+
+If you want different graphics or audio for different geographical regions, you
+can use Qt.locale() to get the current locale. Then you choose appropriate
+graphics or audio for that locale.
+
+The following code snippet shows how you could select an appropriate icon
+that represents the language of the current locale.
+
+\code
+Component.onCompleted: {
+    switch (Qt.locale().name.substring(0,2)) {
+        case "en":   // show the English-language icon
+            languageIcon = "../images/language-icon_en.png";
+            break;
+        case "fi":   // show the Finnish language icon
+            languageIcon = "../images/language-icon_fi.png";
+            break;
+        default:     // show a default language icon
+            languageIcon = "../images/language-icon_default.png";
+    }
+}
+\endcode
+
+\section1 Localizing Your Application
+
+Qt Quick applications use the same underlying localization system as Qt C++
+applications (lupdate, lrelease and .ts files). You use the same tools as
+described in the \l {Qt Linguist Manual: Release Manager}{Qt Linguist Manual}.
+You can even have user interface strings in C++ and QML source in the same
+application. The system will create a single combined translation file and the
+strings are accessible from QML and C++.
+
+\section2 Use a Conditional to Hide QML Source From the Compiler
+
+The \c lupdate tool extracts user interface strings from your application.
+lupdate reads your application's .pro file to identify which source files
+contain texts to be translated. This means your source files must be listed in
+the \c SOURCES or \c HEADERS entry in the .pro file. If your files are not
+listed the texts in them will not be found.
+
+However, the SOURCES variable is intended for C++ source files. If you list QML
+or JavaScript source files there, the compiler tries to build them as though
+they are C++ files. As a workaround, you can use an \c lupdate_only{...}
+conditional statement so the \c lupdate tool sees the .qml files but the C++
+compiler ignores them.
+
+For example, the following .pro file snippet specifies two .qml files in
+the application.
+
+\code
+lupdate_only{
+SOURCES = main.qml \
+          MainPage.qml
+}
+\endcode
+
+
+You can also specify the .qml source files with a wildcard match. The
+search is not recursive so you need to specify each directory where there are
+user interface strings in the source code:
+
+\code
+lupdate_only{
+SOURCES = *.qml \
+          *.js \
+          content/*.qml \
+          content/*.js
+}
+\endcode
+
+See the \l {Qt Linguist Manual} for more details about Qt localization.
+
+*/

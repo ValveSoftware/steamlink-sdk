@@ -1,0 +1,490 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+import("//ui/base/ui_features.gni")
+
+assert(use_aura)
+assert(enable_hidpi)
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("ash.gyp") ],
+                          "scope",
+                          [ "ash.gyp" ])
+
+component("ash") {
+  sources = gypi_values.ash_sources
+
+  configs += [ "//build/config:precompiled_headers" ]
+  defines = [ "ASH_IMPLEMENTATION" ]
+
+  public_deps = [
+    "//ash/resources",
+    "//ash/strings",
+  ]
+  deps = [
+    "//base",
+    "//base:i18n",
+    "//base/third_party/dynamic_annotations",
+    "//cc",
+    "//components/device_event_log",
+    "//components/onc",
+    "//components/signin/core/account_id",
+    "//components/user_manager",
+    "//components/wallpaper",
+    "//media",
+    "//net",
+    "//skia",
+    "//third_party/icu",
+    "//ui/accessibility",
+    "//ui/app_list/presenter",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/base:ui_data_pack",
+    "//ui/base/ime",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/display/types",
+    "//ui/events",
+    "//ui/events:events_base",
+    "//ui/events:gesture_detection",
+    "//ui/events/devices",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/keyboard",
+    "//ui/message_center",
+    "//ui/native_theme",
+    "//ui/platform_window",
+    "//ui/platform_window/stub",
+    "//ui/resources",
+    "//ui/strings",
+    "//ui/views",
+    "//ui/wm",
+    "//url",
+  ]
+
+  if (is_win) {
+    sources -= [
+      "sticky_keys/sticky_keys_controller.cc",
+      "sticky_keys/sticky_keys_controller.h",
+    ]
+
+    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+    configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+  }
+
+  if (use_x11) {
+    configs += [
+      "//build/config/linux:x11",
+      "//build/config/linux:xfixes",
+    ]
+    deps += [
+      "//ui/events/devices/x11",
+      "//ui/events/platform",
+      "//ui/gfx/x",
+    ]
+  } else {
+    sources -= [
+      "host/ash_window_tree_host_x11.cc",
+      "host/ash_window_tree_host_x11.h",
+      "wm/maximize_mode/scoped_disable_internal_mouse_and_keyboard_x11.cc",
+      "wm/maximize_mode/scoped_disable_internal_mouse_and_keyboard_x11.h",
+    ]
+  }
+
+  if (use_ozone) {
+    deps += [
+      "//ui/events:dom_keycode_converter",
+      "//ui/events/ozone:events_ozone",
+      "//ui/ozone",
+    ]
+  }
+
+  if (is_chromeos) {
+    deps += [
+      "//chromeos",
+      "//chromeos:power_manager_proto",
+      "//components/quirks",
+      "//device/bluetooth",
+
+      # TODO(msw): Remove this; only ash_with_content should depend on webkit.
+      "//third_party/WebKit/public:blink_headers",
+      "//third_party/qcms",
+      "//ui/chromeos:ui_chromeos",
+      "//ui/chromeos/resources",
+      "//ui/chromeos/strings",
+      "//ui/display/util",
+    ]
+
+    data = [
+      "display/test_data/",
+    ]
+  } else {
+    sources -= [
+      "accelerators/key_hold_detector.cc",
+      "accelerators/key_hold_detector.h",
+      "accelerators/magnifier_key_scroller.cc",
+      "accelerators/magnifier_key_scroller.h",
+      "accelerators/spoken_feedback_toggler.cc",
+      "accelerators/spoken_feedback_toggler.h",
+      "display/resolution_notification_controller.cc",
+      "display/resolution_notification_controller.h",
+      "touch/touch_transformer_controller.cc",
+      "touch/touch_transformer_controller.h",
+      "touch/touchscreen_util.cc",
+      "touch/touchscreen_util.h",
+      "virtual_keyboard_controller.cc",
+      "virtual_keyboard_controller.h",
+    ]
+  }
+
+  if (!use_ozone) {
+    sources -= [
+      "wm/maximize_mode/scoped_disable_internal_mouse_and_keyboard_ozone.cc",
+      "wm/maximize_mode/scoped_disable_internal_mouse_and_keyboard_ozone.h",
+    ]
+  }
+}
+
+component("ash_with_content") {
+  sources = gypi_values.ash_with_content_sources
+
+  defines = [ "ASH_WITH_CONTENT_IMPLEMENTATION" ]
+
+  public_deps = [
+    ":ash",
+  ]
+  deps = [
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//content/public/browser",
+    "//gpu/config",
+    "//ipc",
+    "//skia",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/compositor",
+    "//ui/events",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/keyboard:keyboard_with_content",
+    "//ui/resources",
+    "//ui/strings",
+    "//ui/views",
+    "//ui/views/controls/webview",
+    "//ui/web_dialogs",
+    "//url",
+  ]
+}
+
+# TODO(msw): Move support code with content deps to test_support_with_content.
+source_set("test_support") {
+  testonly = true
+  sources = gypi_values.ash_test_support_sources
+  configs += [ "//build/config:precompiled_headers" ]
+
+  public_deps = [
+    ":ash",
+  ]
+  deps = [
+    ":test_support_with_content",  # TODO(beng): reverse this direction.
+    "//ash/resources",
+    "//base:i18n",
+    "//base/test:test_support",
+    "//components/signin/core/account_id",
+    "//components/user_manager:user_manager",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//device/bluetooth",
+    "//skia",
+    "//testing/gtest",
+    "//ui/accessibility",
+    "//ui/app_list:test_support",
+    "//ui/app_list/presenter",
+    "//ui/aura",
+    "//ui/aura:test_support",
+    "//ui/base:test_support",
+    "//ui/compositor:test_support",
+    "//ui/display/types",
+    "//ui/events:events_base",
+    "//ui/events:test_support",
+    "//ui/events/devices",
+    "//ui/gl",
+    "//ui/gl:test_support",
+    "//ui/keyboard",
+    "//ui/message_center",
+    "//ui/views",
+    "//ui/views:test_support",
+    "//ui/wm",
+  ]
+
+  if (is_win) {
+    deps += [ "//ui/platform_window/win" ]
+  }
+
+  if (use_x11) {
+    deps += [ "//ui/gfx/x" ]
+  }
+
+  if (is_chromeos) {
+    deps += [
+      "//chromeos",
+      "//ui/display",
+    ]
+  }
+}
+
+source_set("test_support_with_content") {
+  testonly = true
+  sources = gypi_values.ash_test_support_with_content_sources
+  configs += [ "//build/config:precompiled_headers" ]
+
+  deps = [
+    ":ash_with_content",
+    "//content/test:test_support",
+    "//skia",
+  ]
+}
+
+source_set("interactive_ui_test_support") {
+  testonly = true
+  configs += [ "//build/config:precompiled_headers" ]
+  public_deps = [
+    ":ash",
+    ":test_support",
+  ]
+  sources = [
+    "test/ash_interactive_ui_test_base.cc",
+    "test/ash_interactive_ui_test_base.h",
+  ]
+  deps = [
+    ":ash",
+    ":test_support",
+    "//base",
+    "//skia",
+    "//testing/gtest",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/gl:test_support",
+  ]
+}
+
+static_library("ash_shell_lib") {
+  testonly = true
+  sources = gypi_values.ash_shell_lib_sources
+
+  deps = [
+    ":ash",
+    ":ash_with_content",
+    ":test_support",
+    "//ash/resources",
+    "//ash/strings",
+    "//base",
+    "//base:i18n",
+    "//components/user_manager",
+    "//net",
+    "//skia",
+    "//third_party/icu",
+    "//ui/app_list/presenter",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/compositor",
+    "//ui/events",
+    "//ui/events:events_base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/keyboard",
+    "//ui/keyboard:keyboard_with_content",
+    "//ui/message_center",
+    "//ui/resources",
+    "//ui/views",
+    "//ui/views:test_support",
+    "//ui/views/examples:views_examples_lib",
+    "//ui/views/examples:views_examples_with_content_lib",
+    "//ui/wm",
+  ]
+}
+
+static_library("ash_shell_lib_with_content") {
+  testonly = true
+  sources = gypi_values.ash_shell_with_content_lib_sources
+
+  deps = [
+    ":ash_shell_lib",
+    ":ash_with_content",
+    "//base:i18n",
+    "//chrome:packed_resources",
+    "//content",
+    "//content/shell:content_shell_lib",
+    "//device/bluetooth",
+    "//net",
+    "//skia",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/events/devices",
+    "//ui/message_center",
+    "//ui/views:test_support",
+    "//ui/wm",
+  ]
+
+  if (is_chromeos) {
+    deps += [ "//chromeos" ]
+  }
+}
+
+test("ash_unittests") {
+  sources = gypi_values.ash_unittests_sources
+  configs += [ "//build/config:precompiled_headers" ]
+
+  deps = [
+    ":ash",
+    ":ash_with_content",
+    ":test_support",
+    ":test_support_with_content",
+    "//ash/resources",
+    "//ash/strings",
+    "//base",
+    "//base/test:test_support",
+    "//components/signin/core/account_id",
+    "//components/user_manager",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//mojo/edk/system",
+    "//skia",
+    "//testing/gtest",
+    "//third_party/icu",
+    "//ui/accessibility",
+    "//ui/app_list/presenter",
+    "//ui/aura",
+    "//ui/aura:test_support",
+    "//ui/base",
+    "//ui/base:test_support",
+    "//ui/base/ime",
+    "//ui/compositor",
+    "//ui/compositor:test_support",
+    "//ui/display/types",
+    "//ui/events",
+    "//ui/events:gesture_detection",
+    "//ui/events:test_support",
+    "//ui/events/devices",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/keyboard",
+    "//ui/keyboard:keyboard_with_content",
+    "//ui/message_center",
+    "//ui/message_center:test_support",
+    "//ui/resources",
+    "//ui/strings",
+    "//ui/views",
+    "//ui/views:test_support",
+    "//ui/views/controls/webview:test_support",
+    "//ui/web_dialogs:test_support",
+    "//ui/wm",
+    "//ui/wm:test_support",
+    "//url",
+  ]
+
+  data_deps = [
+    "//ash/strings:ash_test_strings",
+    "//ash/resources:ash_test_resources_100_percent",
+    "//ash/resources:ash_test_resources_200_percent",
+  ]
+
+  if (!is_chromeos) {
+    sources -= [
+      # TODO(zork): fix this test to build on Windows. See: crosbug.com/26906
+      "focus_cycler_unittest.cc",
+
+      # All tests for multiple displays: not supported on Windows Ash.
+      "wm/drag_window_resizer_unittest.cc",
+
+      # Maximize mode is only available on Chrome OS.
+      "wm/maximize_mode/maximize_mode_controller_unittest.cc",
+      "wm/maximize_mode/maximize_mode_window_manager_unittest.cc",
+
+      # Can't resize on Windows Ash. http://crbug.com/165962
+      "autoclick/autoclick_unittest.cc",
+      "magnifier/magnification_controller_unittest.cc",
+      "sticky_keys/sticky_keys_overlay_unittest.cc",
+      "virtual_keyboard_controller_unittest.cc",
+      "wm/workspace/workspace_window_resizer_unittest.cc",
+    ]
+  }
+
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  if (!use_x11) {
+    sources -= [ "host/ash_window_tree_host_x11_unittest.cc" ]
+  }
+  if (is_chromeos) {
+    sources += [ "first_run/first_run_helper_unittest.cc" ]
+    deps += [
+      "//chromeos",
+      "//chromeos:power_manager_proto",
+      "//chromeos:test_support_without_gmock",
+      "//components/quirks",
+      "//device/bluetooth",
+      "//net:net",
+      "//ui/chromeos:ui_chromeos",
+      "//ui/display",
+      "//ui/display:test_support",
+      "//ui/display:test_util",
+    ]
+  } else {
+    sources -= [
+      "accelerators/magnifier_key_scroller_unittest.cc",
+      "accelerators/spoken_feedback_toggler_unittest.cc",
+      "display/resolution_notification_controller_unittest.cc",
+      "touch/touchscreen_util_unittest.cc",
+    ]
+  }
+
+  if (!use_x11 || !is_chromeos) {
+    sources -= [ "touch/touch_transformer_controller_unittest.cc" ]
+  }
+
+  if (!is_chromeos) {
+    sources -= [ "sticky_keys/sticky_keys_unittest.cc" ]
+  }
+}
+
+executable("ash_shell_with_content") {
+  testonly = true
+  sources = [
+    "shell/content/shell_with_content_main.cc",
+  ]
+
+  deps = [
+    ":ash_shell_lib_with_content",
+    "//base",
+    "//build/config/sanitizers:deps",
+    "//build/win:default_exe_manifest",
+    "//components/user_manager",
+    "//content",
+    "//content/public/app:both",
+  ]
+
+  data_deps = [
+    "//ash/strings:ash_test_strings",
+    "//ash/resources:ash_test_resources_100_percent",
+    "//ash/resources:ash_test_resources_200_percent",
+  ]
+
+  if (is_win) {
+    configs -= [ "//build/config/win:console" ]
+    configs += [ "//build/config/win:windowed" ]
+    deps += [ "//sandbox" ]
+  }
+
+  if (is_chromeos) {
+    deps += [ "//device/bluetooth" ]
+  }
+}
+# When adding support for isolates, please have a look at run-time dependencies
+# in the ash_unittests_run target in ash.gyp.

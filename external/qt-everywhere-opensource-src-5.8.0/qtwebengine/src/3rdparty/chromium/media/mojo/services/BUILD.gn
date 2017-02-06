@@ -1,0 +1,204 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//media/media_options.gni")
+import("//mojo/public/mojo_application.gni")
+import("//mojo/public/mojo_application_manifest.gni")
+import("//testing/test.gni")
+
+config("mojo_media_config") {
+  if (!enable_mojo_media) {
+    assert(mojo_media_services == [], "Mojo media is not enabled")
+    assert(mojo_media_host == "none", "Mojo media is not enabled")
+  } else {
+    defines = [ "ENABLE_MOJO_MEDIA" ]
+
+    assert(mojo_media_services != [], "No mojo media service specified")
+    foreach(service, mojo_media_services) {
+      if (service == "renderer") {
+        defines += [ "ENABLE_MOJO_RENDERER" ]
+      } else if (service == "cdm") {
+        defines += [ "ENABLE_MOJO_CDM" ]
+      } else if (service == "audio_decoder") {
+        defines += [ "ENABLE_MOJO_AUDIO_DECODER" ]
+      } else if (service == "video_decoder") {
+        defines += [ "ENABLE_MOJO_VIDEO_DECODER" ]
+      } else {
+        assert(false, "Invalid mojo media service: $service")
+      }
+    }
+
+    if (mojo_media_host == "browser") {
+      defines += [ "ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS" ]
+    } else if (mojo_media_host == "gpu") {
+      defines += [ "ENABLE_MOJO_MEDIA_IN_GPU_PROCESS" ]
+    } else if (mojo_media_host == "utility") {
+      defines += [ "ENABLE_MOJO_MEDIA_IN_UTILITY_PROCESS" ]
+    } else {
+      assert(false, "Invalid mojo media host: $mojo_media_host")
+    }
+  }
+}
+
+component("services") {
+  output_name = "media_mojo_services"
+
+  sources = [
+    "demuxer_stream_provider_shim.cc",
+    "demuxer_stream_provider_shim.h",
+    "media_mojo_export.h",
+    "mojo_audio_decoder_service.cc",
+    "mojo_audio_decoder_service.h",
+    "mojo_cdm_allocator.cc",
+    "mojo_cdm_allocator.h",
+    "mojo_cdm_promise.cc",
+    "mojo_cdm_promise.h",
+    "mojo_cdm_service.cc",
+    "mojo_cdm_service.h",
+    "mojo_cdm_service_context.cc",
+    "mojo_cdm_service_context.h",
+    "mojo_decryptor_service.cc",
+    "mojo_decryptor_service.h",
+    "mojo_demuxer_stream_adapter.cc",
+    "mojo_demuxer_stream_adapter.h",
+    "mojo_media_application.cc",
+    "mojo_media_application.h",
+    "mojo_media_application_factory.cc",
+    "mojo_media_application_factory.h",
+    "mojo_media_client.cc",
+    "mojo_media_client.h",
+    "mojo_renderer_service.cc",
+    "mojo_renderer_service.h",
+    "mojo_video_decoder_service.cc",
+    "mojo_video_decoder_service.h",
+    "service_factory_impl.cc",
+    "service_factory_impl.h",
+  ]
+
+  defines = [ "MEDIA_MOJO_IMPLEMENTATION" ]
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+  public_configs = [ ":mojo_media_config" ]
+
+  public_deps = [
+    "//base",
+    "//media",
+    "//media/mojo/interfaces",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//services/shell/public/cpp",
+    "//url",
+  ]
+
+  deps = [
+    "//media:cdm_api",
+    "//media:shared_memory_support",
+    "//media/mojo/common",
+    "//mojo/common",
+    "//services/shell/public/interfaces",
+  ]
+
+  if (is_android) {
+    sources += [
+      "mojo_provision_fetcher.cc",
+      "mojo_provision_fetcher.h",
+    ]
+  }
+
+  if (enable_test_mojo_media_client) {
+    defines += [ "ENABLE_TEST_MOJO_MEDIA_CLIENT" ]
+    sources += [
+      "test_mojo_media_client.cc",
+      "test_mojo_media_client.h",
+    ]
+  } else if (is_android) {
+    sources += [
+      "android_mojo_media_client.cc",
+      "android_mojo_media_client.h",
+    ]
+  } else {
+    sources += [
+      "default_mojo_media_client.cc",
+      "default_mojo_media_client.h",
+    ]
+  }
+}
+
+mojo_native_application("media") {
+  testonly = true
+
+  sources = [
+    "main.cc",
+    "test_mojo_media_client.cc",
+    "test_mojo_media_client.h",
+  ]
+
+  public_deps = [
+    ":services",
+    "//base",
+    "//media",
+  ]
+
+  deps = [
+    "//mojo/public/c/system",
+    "//services/shell/public/cpp",
+  ]
+}
+
+test("media_mojo_shell_unittests") {
+  testonly = true
+
+  sources = [
+    "media_mojo_unittest.cc",
+  ]
+
+  deps = [
+    "//media",
+    "//media/base:test_support",
+    "//media/mojo/clients",
+    "//media/mojo/common",
+    "//media/mojo/interfaces",
+    "//services/shell/public/cpp:shell_test_support",
+    "//services/shell/public/cpp/test:run_all_shelltests",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+
+  data_deps = [
+    "//media/mojo/services:test_manifest",
+    "//media/mojo/services:media",
+  ]
+}
+
+mojo_application_manifest("media_manifest") {
+  application_name = "media"
+  source = "media_manifest.json"
+}
+
+mojo_application_manifest("test_manifest") {
+  application_name = "media_mojo_shell_unittests"
+  type = "exe"
+  source = "test_manifest.json"
+}
+
+test("media_pipeline_integration_unittests") {
+  testonly = true
+
+  deps = [
+    "//media/test:mojo_pipeline_integration_tests",
+    "//services/shell/public/cpp/test:run_all_shelltests",
+  ]
+
+  data_deps = [
+    ":media",
+    ":pipeline_test_manifest",
+  ]
+}
+
+mojo_application_manifest("pipeline_test_manifest") {
+  application_name = "media_pipeline_integration_unittests"
+  type = "exe"
+  source = "pipeline_test_manifest.json"
+}

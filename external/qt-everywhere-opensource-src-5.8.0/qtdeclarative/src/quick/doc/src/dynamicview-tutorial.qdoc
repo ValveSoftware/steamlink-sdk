@@ -1,0 +1,237 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page qml-dynamicview-tutorial.html tutorial
+\title QML Dynamic View Ordering Tutorial
+\brief A tutorial describing how to re-arrange items in a QML ListView
+\nextpage QML Dynamic View Ordering Tutorial 1 - A Simple ListView and Delegate
+
+This tutorial shows how items in a ListView can be re-ordered without modifying the source model.
+It demonstrates using drag and drop to reposition individual items within a view and using model
+data to dynamically sort all items in a view.
+
+Tutorial chapters:
+
+\list 1
+\li \l {QML Dynamic View Ordering Tutorial 1 - A Simple ListView and Delegate}{A Simple ListView and Delegate}
+\li \l {QML Dynamic View Ordering Tutorial 2 - Dragging View Items}{Dragging View Items}
+\li \l {QML Dynamic View Ordering Tutorial 3 - Moving Dragged Items}{Moving Dragged Items}
+\li \l {QML Dynamic View Ordering Tutorial 4 - Sorting Items}{Sorting Items}
+\endlist
+
+All the code in this tutorial can be found in Qt's \c examples/quick/tutorials/dynamicview
+directory.
+*/
+
+/*!
+\title QML Dynamic View Ordering Tutorial 1 - A Simple ListView and Delegate
+\contentspage QML Dynamic View Ordering Tutorial
+\previouspage QML Dynamic View Ordering Tutorial
+\nextpage QML Dynamic View Ordering Tutorial 2 - Dragging View Items
+
+\example tutorials/dynamicview/dynamicview1
+
+We begin our application by defining a ListView, a model which will provide data to the view, and a
+delegate which provides a template for constructing items in the view.
+
+The code for the ListView and delegate looks like this:
+
+\snippet tutorials/dynamicview/dynamicview1/dynamicview.qml 0
+
+The model is defined in a separate QML file which looks like this:
+
+\snippet tutorials/dynamicview/dynamicview1/PetsModel.qml 0
+\snippet tutorials/dynamicview/dynamicview1/PetsModel.qml 1
+
+\section2 Walkthrough
+
+The first item defined within the application's root Rectangle is the delegate Component.  This
+is the template from which each item in the ListView is constructed.
+
+The \c name, \c age, \c type, and \c size variables referenced in the delegate are sourced from
+the model data.  The names correspond to roles defined in the model.
+
+\snippet tutorials/dynamicview/dynamicview1/dynamicview.qml 1
+
+The second part of the application is the ListView itself to which we bind the model and delegate.
+
+\snippet tutorials/dynamicview/dynamicview1/dynamicview.qml 2
+*/
+
+/*!
+\title QML Dynamic View Ordering Tutorial 2 - Dragging View Items
+\contentspage QML Dynamic View Ordering Tutorial
+\previouspage QML Dynamic View Ordering Tutorial 1 - A Simple ListView and Delegate
+\nextpage QML Dynamic View Ordering Tutorial 3 - Moving Dragged Items
+
+\example tutorials/dynamicview/dynamicview2
+
+Now that we have a visible list of items we want to be able to interact with them. We'll start
+by extending the delegate so the visible content can be dragged up and down the screen.  The
+updated delegate looks like this:
+
+\snippet tutorials/dynamicview/dynamicview2/dynamicview.qml 0
+
+\section2 Walkthrough
+
+The major change here is the root item of the delegate is now a MouseArea which provides handlers
+for mouse events and will allow us to drag the delegate's content item.  It also acts as
+a container for the content item which is important as a delegate's root item is positioned by
+the view and cannot be moved by other means.
+
+\snippet tutorials/dynamicview/dynamicview2/dynamicview.qml 1
+\snippet tutorials/dynamicview/dynamicview2/dynamicview.qml 2
+
+Dragging the content item is enabled by binding it to the MouseArea's
+\l {QtQuick::MouseArea::drag.target}{drag.target} property.  Because we still want the view to be
+flickable we wait until the MouseArea's \l {QtQuick::MouseArea::}{pressAndHold}
+signal is emitted before binding the drag target. This way when mouse moves before the hold
+timeout has expired it is interpreted as moving the list and if it moves after it is interpreted as
+dragging an item.  To make it more obvious to the user when an item can be dragged we'll change the
+background color of the content item when the timeout has expired.
+
+\snippet tutorials/dynamicview/dynamicview2/dynamicview.qml 3
+
+The other thing we'll need to do before an item can be dragged is to unset any anchors on the
+content item so it can be freely moved around.  We do this in a state change that is triggered
+when the delegate item is held, at the same time we can reparent the content item to the root item
+so that is above other items in the stacking order and isn't obscured as it is dragged around.
+
+\snippet tutorials/dynamicview/dynamicview2/dynamicview.qml 4
+
+*/
+
+/*!
+\title QML Dynamic View Ordering Tutorial 3 - Moving Dragged Items
+\contentspage QML Dynamic View Ordering Tutorial
+\previouspage QML Dynamic View Ordering Tutorial 2 - Dragging View Items
+\nextpage QML Dynamic View Ordering Tutorial 4 - Sorting Items
+
+\example tutorials/dynamicview/dynamicview3
+
+The next step in our application to move items within the list as they're dragged so that we
+can re-order the list.  To achieve this we introduce three new types to our application;
+DelegateModel, \l Drag and DropArea.
+
+\snippet tutorials/dynamicview/dynamicview3/dynamicview.qml 0
+\snippet tutorials/dynamicview/dynamicview3/dynamicview.qml 1
+\snippet tutorials/dynamicview/dynamicview3/dynamicview.qml 2
+\snippet tutorials/dynamicview/dynamicview3/dynamicview.qml 5
+
+\section2 Walkthrough
+
+In order to re-order the view we need to determine when one item has been dragged over another. With
+the Drag attached property we can generate events that are sent to the scene graph whenever the item
+it is attached to moves.
+
+\snippet tutorials/dynamicview/dynamicview3/dynamicview.qml 1
+
+Drag events are only sent while the active property is true, so in this example the first event
+would be sent when the delegate was held with additional event sents when dragging.  The
+\l {QtQuick::Drag::hotSpot}{hotSpot} property specifies the relative position of the drag events
+within the dragged item, the center of the item in this instance.
+
+Then we use a DropArea in each view item to determine when the hot spot of the dragged item
+intersects another item, when a drag enters one of these DropAreas we can move the dragged item
+to the index of the item it was dragged over.
+
+\snippet tutorials/dynamicview/dynamicview3/dynamicview.qml 3
+
+To move the items within the view we use a DelegateModel.  The DelegateModel type is used by
+the view types to instantiate delegate items from model data and when constructed explicitly can
+be used to filter and re-order the model items provided to ListView.  The
+\l [QML]{DelegateModel::}{items} property of DelegateModel provides access to the
+view's items and allows us to change the visible order without modifying the source model.  To
+determine the current visible index of the items we use \l {DelegateModel::}{itemsIndex}
+{itemsIndex} property on the DelegateModel attached property of the delegate item.
+
+To utilize a DelegateModel with a ListView we bind it to the \l {ListView::}{model}
+property of the view and bind the \l {DelegateModel::}{model} and
+\l {DelegateModel::}{delegate} to the DelegateModel.
+
+\snippet tutorials/dynamicview/dynamicview3/dynamicview.qml 4
+
+*/
+
+/*!
+\title QML Dynamic View Ordering Tutorial 4 - Sorting Items
+\contentspage QML Dynamic View Ordering Tutorial
+\previouspage QML Dynamic View Ordering Tutorial 3 - Moving Dragged Items
+
+\example tutorials/dynamicview/dynamicview4
+
+Drag and drop isn't the only way items in a view can be re-ordered, using a DelegateModel it is
+also possible to sort items based on model data.  To do that we extend our DelegateModel instance
+like this:
+
+\snippet tutorials/dynamicview/dynamicview4/dynamicview.qml 0
+
+\section2 Walkthrough
+
+Items in a DelegateModel are filtered into groups represented by the DelegateModelGroup type,
+normally all items in the model belong to a default \l {DelegateModel::}{items}
+group but this default can be changed with the includeByDefault property.  To implement our sorting
+we want items to first be added to an unsorted group from where we can transfer them to a sorted
+position in the items group.  To do that we clear includeByDefault on the items group and set it on
+a new group name 'unsorted'.
+
+\snippet tutorials/dynamicview/dynamicview4/dynamicview.qml 1
+\snippet tutorials/dynamicview/dynamicview4/dynamicview.qml 2
+
+We sort the items by first finding the position in the items group to insert the first unsorted
+item and then transfer the item to the items group before moving it to the pre-determined index and
+repeat until the unsorted group is empty.
+
+To find the insert position for an item we request a handle for the item from the unsorted group
+with the \l {DelegateModelGroup::}{get()} function. Through the model property on this handle we can
+access the same model data that is available in a delegate instance of that item and
+compare against other items to determine relative position.
+
+\snippet tutorials/dynamicview/dynamicview4/dynamicview.qml 3
+
+The lessThan argument to the sort function is a comparsion function which will determine the order
+of the list.  In this example it can be one of the following:
+
+\snippet tutorials/dynamicview/dynamicview4/dynamicview.qml 4
+
+A sort is triggered whenever new items are added to the unsorted DelegateModel which we are
+notified of by the \l {DelegateModelGroup} \c onChanged handler.  If no sort
+function is currently selected we simply transfer all items from the unsorted group to the items
+group, otherwise we call sort with the selected sort function.
+
+\snippet tutorials/dynamicview/dynamicview4/dynamicview.qml 5
+
+Finally when the selected sort order changes we can trigger a full re-sort of the list by moving
+all items from the items group to the unsorted group, which will trigger the
+\l {DelegateModelGroup} \c onChanged handler and transfer the items back to the
+items group in correct order.  Note that the \l {DelegateModelGroup} \c onChanged
+handler will not be invoked recursively so there's no issue with it being invoked during a sort.
+
+\snippet tutorials/dynamicview/dynamicview4/dynamicview.qml 6
+
+*/

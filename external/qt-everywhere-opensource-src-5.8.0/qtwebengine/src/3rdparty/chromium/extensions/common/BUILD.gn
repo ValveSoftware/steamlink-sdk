@@ -1,0 +1,91 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//extensions/extensions.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+
+# GYP version: extensions/extensions.gyp:extensions_common_constants
+source_set("common_constants") {
+  sources =
+      rebase_path(extensions_gypi_values.extensions_common_constants_sources,
+                  ".",
+                  "//extensions")
+
+  # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+}
+
+if (enable_extensions) {
+  mojom("mojo") {
+    sources = rebase_path(extensions_gypi_values.extensions_common_mojo_sources,
+                          ".",
+                          "//extensions")
+    if (proprietary_codecs && enable_wifi_display) {
+      wifi_display_sources = rebase_path(
+              extensions_gypi_values.extensions_common_mojo_sources_wifi_display,
+              ".",
+              "//extensions")
+      sources += wifi_display_sources
+    }
+  }
+
+  # GYP version: extensions/extensions.gyp:extensions_common
+  # This must be a static library because extensions common depends on
+  # GetTrustedICAPublicKey in extensions/browser which isn't always linked
+  # in. TODO(brettw): This reverse dependency should be fixed.
+  static_library("common") {
+    sources = rebase_path(extensions_gypi_values.extensions_common_sources,
+                          ".",
+                          "//extensions")
+
+    configs += [
+      "//build/config:precompiled_headers",
+
+      # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+      "//build/config/compiler:no_size_t_to_int_warning",
+    ]
+
+    public_deps = [
+      ":common_constants",
+      ":mojo",
+    ]
+
+    deps = [
+      # TODO(benwells): figure out what to do with the api target and
+      # api resources compiled into the chrome resource bundle.
+      # http://crbug.com/162530
+      "//chrome:resources",
+      "//components/crx_file",
+      "//components/url_matcher",
+      "//content/public/common",
+      "//crypto",
+      "//device/bluetooth",
+      "//device/usb",
+      "//extensions:extensions_resources",
+      "//extensions/common/api",
+      "//extensions/strings",
+      "//ipc",
+      "//net",
+      "//third_party/boringssl",
+      "//third_party/icu",
+      "//third_party/libxml",
+      "//third_party/re2",
+      "//ui/base",
+      "//ui/gfx/geometry",
+      "//ui/gfx/ipc",
+      "//ui/gfx/ipc/geometry",
+      "//ui/gfx/ipc/skia",
+      "//url",
+    ]
+
+    if (enable_nacl) {
+      nacl_sources =
+          rebase_path(extensions_gypi_values.extensions_common_sources_nacl,
+                      ".",
+                      "//extensions")
+      sources += nacl_sources
+    }
+  }
+}  # enable_extensions

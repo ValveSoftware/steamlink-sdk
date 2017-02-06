@@ -1,0 +1,99 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module autofill.mojom;
+
+import "url/mojo/url.mojom";
+
+// autofill::FormFieldData::CheckStatus
+enum CheckStatus {
+  NOT_CHECKABLE,
+  CHECKABLE_BUT_UNCHECKED,
+  CHECKED
+};
+
+// autofill::FormFieldData::RoleAttribute
+enum RoleAttribute {
+  ROLE_ATTRIBUTE_PRESENTATION,
+  ROLE_ATTRIBUTE_OTHER
+};
+
+// base::i18n::TextDirection
+enum TextDirection {
+  UNKNOWN_DIRECTION = 0,
+  RIGHT_TO_LEFT = 1,
+  LEFT_TO_RIGHT = 2,
+  TEXT_DIRECTION_NUM_DIRECTIONS = 3
+};
+
+struct FormFieldData {
+  string label;
+  string name;
+  string value;
+  string form_control_type;
+  string autocomplete_attribute;
+  string placeholder;
+
+  uint64 max_length;
+  bool is_autofilled;
+  CheckStatus check_status;
+  bool is_focusable;
+  bool should_autocomplete;
+  RoleAttribute role;
+  TextDirection text_direction;
+
+  array<string> option_values;
+  array<string> option_contents;
+};
+
+struct FormData {
+  string name;
+  url.mojom.Url origin;
+  url.mojom.Url action;
+  bool is_form_tag;
+  bool is_formless_checkout;
+  array<FormFieldData> fields;
+};
+
+struct FormFieldDataPredictions {
+  FormFieldData field;
+  string signature;
+  string heuristic_type;
+  string server_type;
+  string overall_type;
+  string parseable_name;
+};
+
+struct FormDataPredictions {
+  FormData data;
+  string signature;
+  array<FormFieldDataPredictions> fields;
+};
+
+struct PasswordAndRealm {
+  string password;
+  string realm;
+};
+
+struct UsernamesCollectionKey {
+  string username;
+  string password;
+  string realm;
+};
+
+struct PasswordFormFillData {
+  string name;
+  url.mojom.Url origin;
+  url.mojom.Url action;
+  FormFieldData username_field;
+  FormFieldData password_field;
+  string preferred_realm;
+  map<string, PasswordAndRealm> additional_logins;
+  // Keys for std::map<UsernamesCollectionKey, std::vector<base::string16>>
+  array<UsernamesCollectionKey> other_possible_usernames_keys;
+  // Values for std::map<UsernamesCollectionKey, std::vector<base::string16>>
+  array<array<string>> other_possible_usernames_values;
+  bool wait_for_username;
+  bool is_possible_change_password_form;
+};

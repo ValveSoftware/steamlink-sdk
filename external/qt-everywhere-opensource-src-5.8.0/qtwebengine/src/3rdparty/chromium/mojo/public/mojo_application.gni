@@ -1,0 +1,270 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/toolchain/toolchain.gni")
+import("//mojo/public/mojo_constants.gni")
+
+if (is_android) {
+  import("//build/config/android/rules.gni")
+  import("//build/config/zip.gni")
+}
+
+# Generate a binary Mojo application in a self-named directory.
+# Application resources are copied to a "resources" directory alongside the app.
+# The parameters of this template are those of a shared library.
+template("mojo_native_application") {
+  base_target_name = target_name
+  if (defined(invoker.output_name)) {
+    base_target_name = invoker.output_name
+  }
+
+  final_target_name = target_name
+
+  mojo_deps = []
+  if (defined(invoker.deps)) {
+    mojo_deps += invoker.deps
+  }
+
+  mojo_data_deps = []
+
+  if (defined(invoker.resources)) {
+    copy_step_name = "${base_target_name}__copy_resources"
+    copy(copy_step_name) {
+      sources = invoker.resources
+      outputs = [
+        "${root_out_dir}/${mojo_application_subdir}/${base_target_name}/resources/{{source_file_part}}",
+      ]
+      if (defined(invoker.testonly)) {
+        testonly = invoker.testonly
+      }
+      deps = mojo_deps
+    }
+    mojo_data_deps += [ ":$copy_step_name" ]
+  }
+
+  output = base_target_name + ".mojo"
+  library_target_name = base_target_name + "_library"
+  library_name = "${shlib_prefix}${library_target_name}${shlib_extension}"
+
+  shared_library(library_target_name) {
+    if (defined(invoker.cflags)) {
+      cflags = invoker.cflags
+    }
+    if (defined(invoker.cflags_c)) {
+      cflags_c = invoker.cflags_c
+    }
+    if (defined(invoker.cflags_cc)) {
+      cflags_cc = invoker.cflags_cc
+    }
+    if (defined(invoker.cflags_objc)) {
+      cflags_objc = invoker.cflags_objc
+    }
+    if (defined(invoker.cflags_objcc)) {
+      cflags_objcc = invoker.cflags_objcc
+    }
+    if (defined(invoker.defines)) {
+      defines = invoker.defines
+    }
+    if (defined(invoker.include_dirs)) {
+      include_dirs = invoker.include_dirs
+    }
+    if (defined(invoker.ldflags)) {
+      ldflags = invoker.ldflags
+    }
+    if (defined(invoker.lib_dirs)) {
+      lib_dirs = invoker.lib_dirs
+    }
+    if (defined(invoker.libs)) {
+      libs = invoker.libs
+    }
+
+    data_deps = []
+    if (!defined(invoker.avoid_runner_cycle) || !invoker.avoid_runner_cycle) {
+      # Give the user an out; as some mojo services are depended on by the
+      # runner.
+      data_deps += [ "//services/shell/standalone" ]
+    }
+    if (defined(invoker.data_deps)) {
+      data_deps += invoker.data_deps
+    }
+    data_deps += mojo_data_deps
+
+    deps = [
+      "//mojo/public/c/system:set_thunks_for_app",
+      "//services/shell/public/cpp:application_support",
+    ]
+
+    deps += mojo_deps
+    if (defined(invoker.public_deps)) {
+      public_deps = invoker.public_deps
+    }
+    if (defined(invoker.all_dependent_configs)) {
+      all_dependent_configs = invoker.all_dependent_configs
+    }
+    if (defined(invoker.public_configs)) {
+      public_configs = invoker.public_configs
+    }
+    if (defined(invoker.check_includes)) {
+      check_includes = invoker.check_includes
+    }
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
+    if (defined(invoker.data)) {
+      data = invoker.data
+    }
+    if (defined(invoker.inputs)) {
+      inputs = invoker.inputs
+    }
+    if (defined(invoker.public)) {
+      public = invoker.public
+    }
+    if (defined(invoker.sources)) {
+      sources = invoker.sources
+    }
+    if (defined(invoker.testonly)) {
+      testonly = invoker.testonly
+    }
+  }
+
+  copy(final_target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+    deps = [
+      ":${library_target_name}",
+    ]
+
+    sources = [
+      "${root_shlib_dir}/${library_name}",
+    ]
+    outputs = [
+      "${root_out_dir}/${mojo_application_subdir}/${base_target_name}/${output}",
+    ]
+  }
+
+  if (is_android) {
+    android_assets("${final_target_name}_assets") {
+      forward_variables_from(invoker, [ "testonly" ])
+      deps = [
+        ":${library_target_name}",
+      ]
+      if (defined(invoker.deps)) {
+        deps += invoker.deps
+      }
+      renaming_sources = [ "${root_shlib_dir}/${library_name}" ]
+      renaming_destinations = [ "${base_target_name}/${output}" ]
+      if (defined(invoker.resources)) {
+        renaming_sources += invoker.resources
+        renaming_destinations += process_file_template(
+                invoker.resources,
+                [ "$base_target_name/resources/{{source_file_part}}" ])
+      }
+    }
+  }
+}
+
+if (is_android) {
+  # Declares an Android Mojo application consisting of an .so file and a
+  # corresponding .dex.jar file.
+  #
+  # Variables:
+  #   input_so: the .so file to bundle
+  #   input_dex_jar: the .dex.jar file to bundle
+  #   deps / public_deps / data_deps (optional):
+  #       Dependencies. The targets that generate the .so/jar inputs should be
+  #       listed in either deps or public_deps.
+  #   output_name (optional): override for the output file name
+  template("mojo_android_application") {
+    assert(defined(invoker.input_so))
+    assert(defined(invoker.input_dex_jar))
+
+    base_target_name = target_name
+    if (defined(invoker.output_name)) {
+      base_target_name = invoker.output_name
+    }
+
+    mojo_data_deps = []
+    if (defined(invoker.resources)) {
+      copy_step_name = "${base_target_name}__copy_resources"
+      copy(copy_step_name) {
+        sources = invoker.resources
+        outputs = [
+          "${root_out_dir}/${mojo_application_subdir}/${base_target_name}/resources/{{source_file_part}}",
+        ]
+        if (defined(invoker.testonly)) {
+          testonly = invoker.testonly
+        }
+        if (defined(invoker.deps)) {
+          deps = invoker.deps
+        }
+      }
+      mojo_data_deps += [ ":$copy_step_name" ]
+    }
+
+    zip_action_name = "${target_name}_zip"
+    zip_action_output = "$target_gen_dir/${target_name}.zip"
+    prepend_action_name = target_name
+    zip(zip_action_name) {
+      visibility = [ ":$prepend_action_name" ]
+      inputs = [
+        invoker.input_so,
+        invoker.input_dex_jar,
+      ]
+      output = zip_action_output
+      forward_variables_from(invoker,
+                             [
+                               "deps",
+                               "public_deps",
+                               "data_deps",
+                             ])
+    }
+
+    _mojo_output = "${root_out_dir}/${mojo_application_subdir}/${base_target_name}/${base_target_name}.mojo"
+
+    action(target_name) {
+      script = "//mojo/public/tools/prepend.py"
+
+      input = zip_action_output
+      inputs = [
+        input,
+      ]
+
+      outputs = [
+        _mojo_output,
+      ]
+
+      rebase_input = rebase_path(input, root_build_dir)
+      rebase_output = rebase_path(_mojo_output, root_build_dir)
+      args = [
+        "--input=$rebase_input",
+        "--output=$rebase_output",
+        "--line=#!mojo mojo:android_handler",
+      ]
+
+      data_deps = mojo_data_deps
+
+      public_deps = [
+        ":$zip_action_name",
+      ]
+    }
+
+    android_assets("${target_name}_assets") {
+      forward_variables_from(invoker, [ "testonly" ])
+      deps = [
+        ":$prepend_action_name",
+      ]
+      renaming_sources = [ _mojo_output ]
+      renaming_destinations = [ "${base_target_name}/${base_target_name}.mojo" ]
+      if (defined(invoker.resources)) {
+        renaming_sources += invoker.resources
+        renaming_destinations += process_file_template(
+                invoker.resources,
+                [ "$base_target_name/resources/{{source_file_part}}" ])
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+action("fieldtrial_testing_config_action") {
+  visibility = [ ":fieldtrial_testing_config" ]
+  script = "//tools/variations/fieldtrial_to_struct.py"
+
+  if (is_win) {
+    source = "//testing/variations/fieldtrial_testing_config_win.json"
+  }
+  if (is_mac) {
+    source = "//testing/variations/fieldtrial_testing_config_mac.json"
+  }
+  if (is_linux) {
+    source = "//testing/variations/fieldtrial_testing_config_linux.json"
+  }
+  if (is_chromeos) {
+    source = "//testing/variations/fieldtrial_testing_config_chromeos.json"
+  }
+  if (is_android) {
+    source = "//testing/variations/fieldtrial_testing_config_android.json"
+  }
+  if (is_ios) {
+    source = "//testing/variations/fieldtrial_testing_config_ios.json"
+  }
+
+  inputs = [
+    "//tools/json_to_struct/element_generator.py",
+    "//tools/json_to_struct/json_to_struct.py",
+    "//tools/json_to_struct/struct_generator.py",
+    source,
+  ]
+  out_name = "fieldtrial_testing_config"
+  outputs = [
+    "$target_gen_dir/$out_name.cc",
+    "$target_gen_dir/$out_name.h",
+  ]
+
+  args = [
+    rebase_path(source, root_build_dir),
+    "--destbase=" + rebase_path(target_gen_dir, root_build_dir),
+    "--namespace=chrome_variations",
+    "--schema=" +
+        rebase_path("fieldtrial_testing_config_schema.json", root_build_dir),
+    "--output=$out_name",
+  ]
+}
+
+source_set("fieldtrial_testing_config") {
+  sources = get_target_outputs(":fieldtrial_testing_config_action")
+  deps = [
+    ":fieldtrial_testing_config_action",
+  ]
+}

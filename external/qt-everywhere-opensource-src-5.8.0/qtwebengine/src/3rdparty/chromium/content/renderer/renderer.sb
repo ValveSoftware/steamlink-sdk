@@ -1,0 +1,40 @@
+;;
+;; Copyright (c) 2011 The Chromium Authors. All rights reserved.
+;; Use of this source code is governed by a BSD-style license that can be
+;; found in the LICENSE file.
+;;
+
+; *** The contents of content/common/common.sb are implicitly included here. ***
+
+; Needed for Fonts.
+(allow file-read* (regex #"^/System/Library/Fonts($|/)"))
+(allow file-read* (regex #"^/Library/Fonts($|/)"))
+(allow mach-lookup (global-name "com.apple.FontObjectsServer"))
+(allow mach-lookup (global-name "com.apple.FontServer"))
+(allow mach-lookup (global-name "com.apple.fonts"))
+
+(allow file-read*
+  (regex #"^/System/Library/ColorSync($|/)")  ; https://crbug.com/46648
+  (regex #"^/System/Library/Keyboard Layouts($|/)")  ; https://crbug.com/152566
+  (literal "/Library/Preferences/.GlobalPreferences.plist") ; https://crbug.com/60917
+  (literal (user-homedir-path "/Library/Preferences/.GlobalPreferences.plist")))
+
+; https://crbug.com/11269
+(allow file-read* (subpath (user-homedir-path "/Library/Fonts")))
+
+; https://crbug.com/60917
+(allow file-read-metadata
+  (literal "/")
+  (literal "/var"))
+
+; https://crbug.com/288697
+(allow file-read*
+  (regex #"^/(private/)?etc/localtime$")
+  (regex #"^/usr/share/zoneinfo/"))
+
+(allow file-read-metadata (regex #"^/(private/)?etc$"))
+
+; https://crbug.com/605840
+; file-read-metadata /System/Library/LinguisticData/en/US/hyphenation.dat
+; for CFStringIsHyphenationAvailableForLocale and CFStringGetHyphenationLocationBeforeIndex
+(allow file-read* (subpath "/System/Library/LinguisticData"))

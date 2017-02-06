@@ -1,0 +1,324 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/protobuf/proto_library.gni")
+
+proto_library("safebrowsing_proto") {
+  sources = [
+    "safebrowsing.proto",
+  ]
+}
+
+proto_library("v4_store_proto") {
+  sources = [
+    "v4_store.proto",
+  ]
+  deps = [
+    ":safebrowsing_proto",
+  ]
+}
+
+# GYP version: components/safe_browsing_db.gypi:safe_browsing_metadata_proto
+proto_library("metadata_proto") {
+  sources = [
+    "metadata.proto",
+  ]
+}
+
+# This target is shared between the desktop and mobile versions.
+group("safe_browsing_db_shared") {
+  deps = [
+    ":database_manager",
+    ":hit_report",
+    ":prefix_set",
+    ":safebrowsing_proto",
+    ":util",
+  ]
+}
+
+# This target is for the desktop version.
+group("safe_browsing_db") {
+  deps = [
+    ":safe_browsing_db_shared",
+    ":v4_local_database_manager",
+    ":v4_update_protocol_manager",
+  ]
+}
+
+# This target is for the mobile version.
+group("safe_browsing_db_mobile") {
+  deps = [
+    ":remote_database_manager",
+    ":safe_browsing_api_handler",
+    ":safe_browsing_api_handler_util",
+    ":safe_browsing_db_shared",
+  ]
+}
+
+source_set("database_manager") {
+  sources = [
+    "database_manager.cc",
+    "database_manager.h",
+  ]
+  deps = [
+    ":hit_report",
+    ":util",
+    ":v4_get_hash_protocol_manager",
+    "//base:base",
+    "//content/public/browser",
+    "//content/public/common",
+    "//net",
+    "//url:url",
+  ]
+}
+
+source_set("hit_report") {
+  sources = [
+    "hit_report.cc",
+    "hit_report.h",
+  ]
+  deps = [
+    ":util",
+    "//components/metrics:metrics",
+    "//url:url",
+  ]
+}
+
+source_set("prefix_set") {
+  sources = [
+    "prefix_set.cc",
+    "prefix_set.h",
+  ]
+  deps = [
+    ":util",
+    "//base",
+  ]
+}
+
+source_set("remote_database_manager") {
+  sources = [
+    "remote_database_manager.cc",
+    "remote_database_manager.h",
+  ]
+  deps = [
+    ":database_manager",
+    ":safe_browsing_api_handler",
+    ":v4_get_hash_protocol_manager",
+    "//base:base",
+    "//components/variations",
+    "//content/public/browser",
+    "//net",
+    "//url:url",
+  ]
+}
+
+source_set("safe_browsing_api_handler") {
+  sources = [
+    "safe_browsing_api_handler.cc",
+    "safe_browsing_api_handler.h",
+  ]
+  deps = [
+    ":util",
+    "//base:base",
+    "//url:url",
+  ]
+}
+
+source_set("safe_browsing_api_handler_util") {
+  sources = [
+    "safe_browsing_api_handler_util.cc",
+    "safe_browsing_api_handler_util.h",
+  ]
+  deps = [
+    ":metadata_proto",
+    ":util",
+    "//base:base",
+  ]
+}
+
+source_set("test_database_manager") {
+  sources = [
+    "test_database_manager.cc",
+    "test_database_manager.h",
+  ]
+  deps = [
+    ":database_manager",
+    "//base:base",
+    "//net",
+  ]
+}
+
+source_set("util") {
+  sources = [
+    "util.cc",
+    "util.h",
+  ]
+  deps = [
+    "//base",
+    "//base:base",
+    "//crypto",
+    "//net",
+    "//url:url",
+  ]
+  if (is_win) {
+    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+    cflags = [ "/wd4267" ]  # Conversion from size_t to 'type'.
+  }
+}
+
+source_set("v4_database") {
+  sources = [
+    "v4_database.cc",
+    "v4_database.h",
+  ]
+  public_deps = [
+    ":safebrowsing_proto",
+  ]
+  deps = [
+    ":v4_protocol_manager_util",
+    ":v4_store",
+    "//base",
+    "//content/public/browser",
+  ]
+}
+
+source_set("v4_get_hash_protocol_manager") {
+  sources = [
+    "v4_get_hash_protocol_manager.cc",
+    "v4_get_hash_protocol_manager.h",
+  ]
+  public_deps = [
+    ":safebrowsing_proto",
+  ]
+  deps = [
+    ":util",
+    ":v4_protocol_manager_util",
+    "//base",
+    "//net",
+    "//url:url",
+  ]
+}
+
+source_set("v4_local_database_manager") {
+  sources = [
+    "v4_local_database_manager.cc",
+    "v4_local_database_manager.h",
+  ]
+  deps = [
+    ":database_manager",
+    ":hit_report",
+    ":safebrowsing_proto",
+    ":v4_database",
+    ":v4_protocol_manager_util",
+    ":v4_update_protocol_manager",
+    "//base",
+    "//content/public/browser",
+    "//net",
+    "//url:url",
+  ]
+}
+
+source_set("v4_protocol_manager_util") {
+  sources = [
+    "v4_protocol_manager_util.cc",
+    "v4_protocol_manager_util.h",
+  ]
+  deps = [
+    ":safebrowsing_proto",
+    "//base",
+    "//net",
+    "//url:url",
+  ]
+}
+
+source_set("v4_store") {
+  sources = [
+    "v4_store.cc",
+    "v4_store.h",
+  ]
+  public_deps = [
+    ":safebrowsing_proto",
+    ":v4_store_proto",
+  ]
+  deps = [
+    ":v4_protocol_manager_util",
+    "//base",
+  ]
+}
+
+source_set("v4_update_protocol_manager") {
+  sources = [
+    "v4_update_protocol_manager.cc",
+    "v4_update_protocol_manager.h",
+  ]
+  deps = [
+    ":safebrowsing_proto",
+    ":util",
+    ":v4_protocol_manager_util",
+    "//base",
+    "//net",
+    "//url:url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "database_manager_unittest.cc",
+    "prefix_set_unittest.cc",
+    "util_unittest.cc",
+    "v4_database_unittest.cc",
+    "v4_get_hash_protocol_manager_unittest.cc",
+    "v4_protocol_manager_util_unittest.cc",
+    "v4_store_unittest.cc",
+    "v4_update_protocol_manager_unittest.cc",
+  ]
+  deps = [
+    ":database_manager",
+    ":prefix_set",
+    ":safebrowsing_proto",
+    ":test_database_manager",
+    ":util",
+    ":v4_database",
+    ":v4_get_hash_protocol_manager",
+    ":v4_local_database_manager",
+    ":v4_protocol_manager_util",
+    ":v4_store",
+    ":v4_store_proto",
+    ":v4_update_protocol_manager",
+    "//base",
+    "//content/test:test_support",
+    "//net",
+    "//net:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
+  if (is_win) {
+    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+    cflags = [ "/wd4267" ]  # Conversion from size_t to 'type'.
+  }
+}
+
+source_set("unit_tests_mobile") {
+  testonly = true
+  sources = [
+    "remote_database_manager_unittest.cc",
+    "safe_browsing_api_handler_unittest.cc",
+  ]
+  deps = [
+    ":metadata_proto",
+    ":remote_database_manager",
+    ":safe_browsing_api_handler",
+    ":safe_browsing_api_handler_util",
+    ":util",
+    "//base",
+    "//components/variations",
+    "//testing/gtest",
+    "//url",
+  ]
+  if (is_win) {
+    # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+    cflags = [ "/wd4267" ]  # Conversion from size_t to 'type'.
+  }
+}

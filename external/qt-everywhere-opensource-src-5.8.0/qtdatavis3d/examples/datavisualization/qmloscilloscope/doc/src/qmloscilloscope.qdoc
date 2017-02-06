@@ -1,0 +1,130 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example qmloscilloscope
+    \title Qt Quick 2 Oscilloscope Example
+    \ingroup qtdatavisualization_examples
+    \brief Example of a hybrid C++ and QML application.
+
+    The Qt Quick 2 oscilloscope example shows how to combine C++ and QML in an application,
+    as well as showing data that changes realtime.
+
+    \image qmloscilloscope-example.png
+
+    The interesting thing about this example is combining C++ and QML, so we'll concentrate on
+    that and skip explaining the basic functionality - for
+    more detailed QML example documentation, see \l{Qt Quick 2 Scatter Example}.
+
+    \include examples-run.qdocinc
+
+    \section1 Data Source in C++
+
+    The item model based proxies are good for simple and/or static graphs, but to achieve
+    best performance when displaying data changing in realtime, the basic proxies should be used.
+    Those are not supported in QML, as the data items they store are not \l{QObject}s and
+    cannot therefore be directly manipulated from QML code.
+    To overcome this limitation, we implement a simple \c DataSource class in C++ to populate the
+    data proxy of the series.
+
+    The \c DataSource class provides three methods that can be called from QML:
+
+    \snippet qmloscilloscope/datasource.h 0
+
+    The first method, \c generateData(), creates a cache of simulated oscilloscope data for us
+    to display. The data is cached in a format accepted by QSurfaceDataProxy:
+
+    \snippet qmloscilloscope/datasource.cpp 0
+
+    The second method, \c update(), copies one set of the cached data into another array, which we
+    set to the data proxy of the series by calling QSurfaceDataProxy::resetArray().
+    We reuse the same array if the array dimensions have not changed to minimize overhead:
+
+    \snippet qmloscilloscope/datasource.cpp 1
+
+    \note Even though we are operating on the array pointer we have previously set to the proxy
+    we still need to call QSurfaceDataProxy::resetArray() after changing the data in it to prompt
+    the graph to render the data.
+
+    To be able to access the \c DataSource methods from QML, we need to expose it. We do this by
+    defining a context property in application main:
+
+    \snippet qmloscilloscope/main.cpp 0
+
+    To make it possible to use QSurface3DSeries pointers as parameters on the
+    \c DataSource class methods on all environments and builds, we need to make sure the meta
+    type is registered:
+
+    \snippet qmloscilloscope/datasource.cpp 3
+    \dots 0
+    \snippet qmloscilloscope/datasource.cpp 4
+
+    \section1 QML
+
+    In the QML codes, we define a Surface3D graph normally and give it a Surface3DSeries:
+
+    \snippet qmloscilloscope/qml/qmloscilloscope/main.qml 0
+
+    One interesting detail is that we don't specify a proxy for the Surface3DSeries we attach
+    to the graph. This makes the series to utilize the default QSurfaceDataProxy.
+
+    We also hide the item label with \l{Abstract3DSeries::itemLabelVisible}{itemLabelVisible}, since
+    we want to display the selected item information in a \c Text element instead of a floating
+    label above the selection pointer.
+    This is done because the selection pointer moves around a lot as the data changes, which makes
+    the regular selection label difficult to read.
+
+    We initialize the \c DataSource cache when the graph is complete by calling a helper function
+    \c generateData(), which calls the method with the same name on the \c DataSource:
+
+    \snippet qmloscilloscope/qml/qmloscilloscope/main.qml 2
+    \dots 4
+    \snippet qmloscilloscope/qml/qmloscilloscope/main.qml 4
+
+    To trigger the updates in data, we define a \c Timer item which calls the \c update() method on the \c
+    DataSource at requested intervals. The label update is also triggered on each cycle:
+
+    \snippet qmloscilloscope/qml/qmloscilloscope/main.qml 3
+
+    \section1 Enabling Direct Rendering
+
+    Since this application potentially deals with a lot of rapidly changing data, we use direct
+    rendering mode for performance. To enable antialiasing in this mode the surface format of the application
+    window needs to be changed, as the default format used by QQuickView doesn't support antialiasing.
+    We use the utility function provided by Qt Data Visualization to change the surface format
+    in \c main.cpp:
+
+    \snippet qmloscilloscope/main.cpp 1
+    \dots 0
+    \snippet qmloscilloscope/main.cpp 2
+
+    On the QML side, direct rendering mode is enabled via \l{AbstractGraph3D::renderingMode}{renderingMode} property:
+
+    \snippet qmloscilloscope/qml/qmloscilloscope/main.qml 5
+*/

@@ -1,0 +1,67 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.copresencePrivate</code> API to interface with Chrome
+// from the whispernet_proxy extension.
+namespace copresencePrivate {
+  dictionary Token {
+    DOMString token;
+    boolean audible;
+  };
+
+  dictionary TokenParameters {
+    long length;
+    boolean crc;
+    boolean parity;
+  };
+
+  dictionary DecodeSamplesParameters {
+    ArrayBuffer samples;
+
+    boolean decodeAudible;
+    boolean decodeInaudible;
+
+    TokenParameters audibleTokenParams;
+    TokenParameters inaudibleTokenParams;
+  };
+
+  dictionary EncodeTokenParameters {
+    Token token;
+    long repetitions;
+    TokenParameters tokenParams;
+  };
+
+  dictionary AudioParameters {
+    // This string contains marshalling of a custom parameters structure
+    // that Chrome and the Whispernet wrapper both know about. These are
+    // based off //components/copresence/proto/config_data.proto.
+    ArrayBuffer paramData;
+  };
+
+  interface Functions {
+    // Send a boolean indicating whether our initialization was successful.
+    static void sendInitialized(boolean success);
+
+    // Sends an array of found tokens to Chrome.
+    static void sendFound(DOMString clientId, Token[] tokens);
+
+    // Send an array buffer of samples encoded for the specified token.
+    static void sendSamples(DOMString clientId,
+                            Token token,
+                            ArrayBuffer samples);
+  };
+
+  interface Events {
+    // Fired to request audio configuration of the whisper.net library.
+    static void onConfigAudio(DOMString clientId, AudioParameters audioParams);
+
+    // Fired to request encoding of the given token.
+    static void onEncodeTokenRequest(DOMString clientId,
+                                     EncodeTokenParameters encodeParams);
+
+    // Fired when we have new samples to decode.
+    static void onDecodeSamplesRequest(DOMString clientId,
+                                       DecodeSamplesParameters decodeParams);
+  };
+};

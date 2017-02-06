@@ -1,0 +1,110 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+declare_args() {
+  # Absolute path to a resource whitelist (generated using
+  # //tools/resources/find_used_resources.py).
+  repack_whitelist = ""
+}
+
+# This file defines a template to invoke grit repack in a consistent manner.
+#
+# Parameters:
+#   sources  [required]
+#       List of pak files that need to be combined.
+#
+#   output  [required]
+#       File name (single string) of the output file.
+#
+#   deps  [optional]
+#   visibility  [optional]
+#       Normal meaning.
+template("repack") {
+  action(target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "deps",
+                             "testonly",
+                             "visibility",
+                           ])
+    assert(defined(invoker.sources), "Need sources for $target_name")
+    assert(defined(invoker.output), "Need output for $target_name")
+
+    script = "//tools/grit/grit/format/repack.py"
+
+    inputs = invoker.sources
+    outputs = [
+      invoker.output,
+    ]
+
+    args = []
+    if (repack_whitelist != "") {
+      assert(
+          repack_whitelist == rebase_path(repack_whitelist),
+          "repack_whitelist must be an absolute path. Current value is $repack_whitelist")
+      args += [ "--whitelist=$repack_whitelist" ]
+    }
+    args += [ rebase_path(invoker.output, root_build_dir) ]
+    args += rebase_path(invoker.sources, root_build_dir)
+  }
+}
+
+# This template combines repacking resources and defining a bundle_data target
+# to move them to the application bundle. This is mostly useful on iOS.
+#
+# Parameters:
+#   sources  [required]
+#       List of pak files that need to be combined.
+#
+#   output  [required]
+#       File name (single string) of the output file.
+#
+#   bundle_output [optional]
+#       Path of the file in the application bundle, defaults to
+#       {{bundle_resources_dir}}/{{source_file_part}} if omitted.
+#
+#   deps  [optional]
+#   visibility  [optional]
+#       Normal meaning.
+template("repack_and_bundle") {
+  assert(defined(invoker.bundle_output), "Need bundle_output for $target_name")
+
+  _repack_target_name = target_name + "_repack"
+  _bundle_target_name = target_name
+
+  repack(_repack_target_name) {
+    visibility = [ ":$_bundle_target_name" ]
+    forward_variables_from(invoker,
+                           [
+                             "deps",
+                             "output",
+                             "sources",
+                             "testonly",
+                           ])
+  }
+
+  bundle_data(_bundle_target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+
+    public_deps = [
+      ":$_repack_target_name",
+    ]
+    sources = [
+      invoker.output,
+    ]
+    if (defined(invoker.bundle_output)) {
+      outputs = [
+        invoker.bundle_output,
+      ]
+    } else {
+      outputs = [
+        "{{bundle_resources_dir}}/{{source_file_part}}",
+      ]
+    }
+  }
+}

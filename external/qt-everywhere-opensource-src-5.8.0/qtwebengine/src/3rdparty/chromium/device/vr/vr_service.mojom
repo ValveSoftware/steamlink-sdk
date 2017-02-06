@@ -1,0 +1,62 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module device;
+
+// A field of view, given by 4 degrees describing the view from a center point.
+struct VRFieldOfView {
+  float upDegrees;
+  float downDegrees;
+  float leftDegrees;
+  float rightDegrees;
+};
+
+// A display's position, orientation, velocity, and acceleration state at the
+// given timestamp.
+struct VRPose {
+  double timestamp;
+  array<float, 4>? orientation;
+  array<float, 3>? position;
+  array<float, 3>? angularVelocity;
+  array<float, 3>? linearVelocity;
+  array<float, 3>? angularAcceleration;
+  array<float, 3>? linearAcceleration;
+};
+
+struct VRDisplayCapabilities {
+  bool hasOrientation;
+  bool hasPosition;
+  bool hasExternalDisplay;
+  bool canPresent;
+};
+
+// Information about the optical properties for an eye in a VRDisplay.
+struct VREyeParameters {
+  VRFieldOfView fieldOfView;
+  array<float, 3> offset;
+  uint32 renderWidth;
+  uint32 renderHeight;
+};
+
+struct VRStageParameters {
+  array<float, 16> standingTransform;
+  float sizeX;
+  float sizeZ;
+};
+
+struct VRDisplay {
+   uint32 index;
+   string displayName;
+   VRDisplayCapabilities capabilities;
+   VRStageParameters? stageParameters;
+   VREyeParameters leftEye;
+   VREyeParameters rightEye;
+};
+
+interface VRService {
+  GetDisplays() => (array<VRDisplay> displays);
+  [Sync]
+  GetPose(uint32 index) => (VRPose pose);
+  ResetPose(uint32 index);
+};

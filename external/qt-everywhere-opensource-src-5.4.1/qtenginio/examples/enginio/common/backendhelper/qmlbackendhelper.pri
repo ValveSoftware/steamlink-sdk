@@ -1,1 +1,0 @@
-RESOURCES += $$PWD/qmlbackendhelper.qrc

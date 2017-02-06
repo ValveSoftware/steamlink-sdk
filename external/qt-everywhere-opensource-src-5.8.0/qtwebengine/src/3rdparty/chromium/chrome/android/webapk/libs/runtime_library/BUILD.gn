@@ -1,0 +1,51 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/android/rules.gni")
+import("//chrome/android/webapk/libs/runtime_library_version.gni")
+
+# runtime_library_version.gni must be updated whenever the runtime library is
+# updated. The WebAPK re-extracts the runtime library from the Chrome APK when
+# |runtime_library_version| is incremented.
+
+# Whenever this constant is changed, WebApkUtils#getRuntimeDexName() must also
+# be changed.
+runtime_library_dex_asset_name = "webapk$runtime_library_version.dex"
+
+android_aidl("webapk_service_aidl") {
+  import_include = "src/org/chromium/webapk/lib/runtime_library"
+  interface_file = "src/org/chromium/webapk/lib/runtime_library/common.aidl"
+  sources = [
+    "src/org/chromium/webapk/lib/runtime_library/IWebApkApi.aidl",
+  ]
+}
+
+android_library("runtime_library_java") {
+  dex_path = "$target_gen_dir/$runtime_library_dex_asset_name"
+  java_files =
+      [ "src/org/chromium/webapk/lib/runtime_library/WebApkServiceImpl.java" ]
+  srcjar_deps = [ ":webapk_service_aidl" ]
+}
+
+android_assets("runtime_library_assets") {
+  write_file("$target_gen_dir/webapk_dex_version.txt", runtime_library_version)
+
+  sources = [
+    "$target_gen_dir/$runtime_library_dex_asset_name",
+    "$target_gen_dir/webapk_dex_version.txt",
+  ]
+  disable_compression = true
+
+  deps = [
+    ":runtime_library_java",
+  ]
+}
+
+junit_binary("webapk_runtime_library_junit_tests") {
+  java_files = [ "junit/src/org/chromium/webapk/lib/runtime_library/WebApkServiceImplTest.java" ]
+  deps = [
+    ":runtime_library_java",
+    "//base:base_junit_test_support",
+  ]
+}

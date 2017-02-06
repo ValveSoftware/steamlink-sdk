@@ -1,0 +1,229 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \group qml-QtLocation5-maps
+    \title QML Maps Plugin
+    QML Support for the Qt Location API.
+*/
+
+
+/*!
+\page qml-location5-maps.html
+\title QML Maps
+
+\brief Maps deals with maps, their contents and navigation.
+
+\section1 Overview
+
+The \l Map type allows the display of a map and placing objects within the map.
+Various points of interest can be defined and added to the map for display.
+Also the \l Map has features to control how the map is displayed. With the
+Map item you can center the map, zoom, pinch and make the item flickable.
+
+The places to be added to the map are
+\l {Maps and Navigation (QML)#Putting Objects on a Map (Map Overlay Objects)}{MapItems}. The item's
+position is defined by a \l {coordinate} which includes latitude,
+longitude and altitude. The item is then displayed automatically after it is added to the \l Map.
+
+\section2 Position on map
+
+All position APIs are part of the \l {QtPositioning} module.
+The basic piece of position information is the \l {coordinate}.  A
+coordinate encapsulates data for the latitude, longitude and altitude of the location.  Altitude is
+in meters. It also has a method to determine distance to another
+\l {coordinate}.  The \l {coordinate} type may
+also be held within a \l [QtPositioning]{Location} element, this will also have information
+on a bounding box size to determine sufficient proximity to the location and a location address.
+
+
+Here is an example of a client that uses a \l{PositionSource}{position source}
+to center a \l{Map}{map} on the current position:
+
+\code
+    Rectangle {
+
+        import QtPositioning 5.2
+        import QtLocation 5.3
+        ...
+
+        Map {
+            id: map
+            // initialize map
+            ...
+        }
+
+        PositionSource {
+            onPositionChanged: {
+                // center the map on the current position
+                map.center = position.coordinate
+            }
+        }
+    }
+\endcode
+
+\section2 Geocoding
+
+\l {http://en.wikipedia.org/wiki/Geocoding}{Geocoding} is the derivation of
+geographical coordinates (latitude and longitude) from other geographical references
+to the locations. For example, this can be a street address. Reverse geocoding is also possible with
+a street address being used to determine a geographical coordinate. Geocoding
+is performed by using the \l [QML]{GeocodeModel} type.
+
+The following code examples are a small part of the \c map component in the
+\l {Map Viewer (QML)}{Map Viewer (QML)} example. The snippets
+demonstrate the declaration of the \l GeocodeModel component.
+
+In the snippet we see that the [QML]{GeocodeModel} contains the plugin
+and two signal handlers. One for changes in status \l [QML]{GeocodeModel::status}{\c onStatusChanged} and
+the other to update the centering of the Map object \l [QML]{GeocodeModel::locationsChanged}{\c onLocationsChanged}.
+
+\snippet mapviewer/map/MapComponent.qml geocodemodel0
+\codeline
+\snippet mapviewer/map/MapComponent.qml geocodeview
+
+The geocoding features are called from a higher level piece of code. In this
+snippet we see an \l [QML]{Address} object filled with the desired parameters.
+
+\snippet mapviewer/mapviewer.qml geocode0
+
+The \l [QML]{Address} is later used in a query for the \l GeocodeModel to
+process and determine the geographical \l [QML]{coordinate}{coordinates}.
+
+\snippet mapviewer/map/MapComponent.qml geocode1
+
+
+\section2 Navigation
+
+A very important function of the \l Map type is navigation
+from one place to a destination with possible waypoints along the route. The
+route will be divided up into a series of segments. At the end of each segment
+is a vertex called a \e maneuver. The \e segments contain information about
+the time and distance to the end of the segment. The \e maneuvers contain information
+about what to do next, how to get onto the next segment, if there is one. So
+a \e maneuver contains navigational information, for example "turn right now".
+
+To find a suitable route we will need to use a \l RouteQuery to define the
+selection criteria and adding any required waypoints.
+The \l RouteModel should return a list of \l {RouteSegment}s that defines the
+route to the destination complete with navigation advice at the joins between
+segments, called \l {RouteManeuver}s
+
+There are many options that you can add to the query to narrow the criteria.
+The \l RouteQuery properties can include
+
+\table 60%
+    \row
+        \li \l {RouteQuery::}{numberAlternativeRoutes}
+        \li The number of alternative routes
+    \row
+        \li \l {RouteQuery::}{travelModes}
+        \li Travel modes
+    \row
+        \li \l {RouteQuery::}{routeOptimizations}
+        \li Required route optimizations
+    \row
+        \li \l {RouteQuery::}{segmentDetail}
+        \li Level of detail in segments
+    \row
+        \li \l {RouteQuery::}{maneuverDetail}
+        \li Level of detail in maneuvers between segments
+    \row
+        \li \l {RouteQuery::}{waypoints}
+        \li A list of waypoints
+    \row
+        \li \l {RouteQuery::}{excludedAreas}
+        \li A list of excluded areas that the route must not cross
+    \row
+        \li \l {RouteQuery::}{featureTypes}
+        \li Relevant map features, for example highway, ferry
+\endtable
+
+
+In the following example a default \l [QML]{RouteQuery} is declared within \l [QML]{RouteModel}.
+
+\snippet mapviewer/map/MapComponent.qml routemodel0
+
+The user enters some information such as the starting point
+of the route, some waypoints and the destination. All of these locations are
+waypoints so the locations from start to finish will be entered as a sequence
+of waypoints. Then other query properties can be set that may be specific to
+this trip.
+
+\snippet mapviewer/map/MapComponent.qml routerequest0
+\snippet mapviewer/map/MapComponent.qml routerequest1
+
+The \c routeInfoModel \l {Models and Views in Qt Quick#ListModel}{ListModel} is used to grab the
+results of the query and construct a suitable list for display.
+\snippet mapviewer/forms/RouteList.qml routeinfomodel0
+\snippet mapviewer/forms/RouteList.qml routeinfomodel1
+\snippet mapviewer/forms/RouteList.qml routeinfomodel3
+
+The \l {Models and Views in Qt Quick#ListModel}{ListModel} \c routeInfoModel can be filled
+with values using a code, that loops through the segments extracting the segment length,
+instruction text and distance to the next instruction. The extracted data is formatted
+for display as it is retrieved.
+
+\snippet mapviewer/forms/RouteList.qml routeinfomodel2
+
+For more information on the example see the \l {Map Viewer (QML)}{Map Viewer (QML)} example.
+
+
+\section2  Zoom, Pinch and Flickable
+
+The \l Map item also supports user interface interactions with the map using
+tactile and mouse gestures. That is features such as swiping to pan,
+pinching to zoom.
+
+Enabling and configuring pinch and flickable is easy within the \l Map type.
+
+\snippet mapviewer/map/MapComponent.qml top
+\snippet mapviewer/map/MapComponent.qml mapnavigation
+\snippet mapviewer/map/MapComponent.qml end
+
+Zoom can also be controlled by other objects like sliders, with binding
+to the Map \l {QtLocation::Map::}{zoomLevel}.
+
+\section1 QML Types
+
+\section3 Maps
+\annotatedlist qml-QtLocation5-maps
+
+\section3 Geocoding
+\annotatedlist qml-QtLocation5-geocoding
+
+\section3 Routing
+\annotatedlist qml-QtLocation5-routing
+
+
+
+\section1 Example
+
+The above snippets are taken from the \l {Map Viewer (QML)}{Map Viewer (QML)} example.
+
+*/
+

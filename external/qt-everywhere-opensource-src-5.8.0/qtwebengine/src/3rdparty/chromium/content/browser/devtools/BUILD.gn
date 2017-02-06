@@ -1,0 +1,59 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/grit/grit_rule.gni")
+
+# In GYP: devtools_resources target.
+group("resources") {
+  public_deps = [
+    ":devtools_resources",
+  ]
+}
+
+# In GYP: devtools_resources action in the devtools_resources target.
+grit("devtools_resources") {
+  source = "$root_gen_dir/devtools/devtools_resources.grd"
+
+  # TOOD(brettw) remove this so the output file goes into the target_gen_dir,
+  # but keep this for not for GYP compat.
+  output_dir = "$root_gen_dir/blink"
+  outputs = [
+    "grit/devtools_resources.h",
+    "devtools_resources.pak",
+    "grit/devtools_resources_map.cc",
+    "grit/devtools_resources_map.h",
+  ]
+
+  defines =
+      [ "SHARED_INTERMEDIATE_DIR=" + rebase_path(root_gen_dir, root_build_dir) ]
+
+  deps = [
+    # This is the action that generates out .grd input file.
+    "//third_party/WebKit/public:blink_generate_devtools_grd",
+  ]
+}
+
+action("gen_devtools_protocol_handler") {
+  visibility = [ "//content/browser" ]
+  deps = [
+    "//third_party/WebKit/Source/core/inspector:protocol_version",
+  ]
+  script = "//content/browser/devtools/protocol/" +
+           "devtools_protocol_handler_generator.py"
+
+  blink_protocol = "$root_gen_dir/blink/core/inspector/protocol.json"
+  browser_protocol = "browser_protocol.json"
+  inputs = [
+    blink_protocol,
+    browser_protocol,
+  ]
+
+  outputs = [
+    "$target_gen_dir/protocol/devtools_protocol_dispatcher.cc",
+    "$target_gen_dir/protocol/devtools_protocol_dispatcher.h",
+  ]
+
+  args =
+      rebase_path(inputs, root_build_dir) + rebase_path(outputs, root_build_dir)
+}

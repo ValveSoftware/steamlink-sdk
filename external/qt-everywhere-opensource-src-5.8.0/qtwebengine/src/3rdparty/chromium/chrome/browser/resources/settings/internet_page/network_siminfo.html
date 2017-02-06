@@ -1,0 +1,203 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-dialog/paper-dialog.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-input/paper-input.html">
+<link rel="import" href="chrome://resources/cr_elements/network/cr_onc_types.html">
+<link rel="import" href="/icons.html">
+<link rel="import" href="network_property_list.html">
+
+<dom-module id="network-siminfo">
+  <template>
+    <style>
+      iron-icon {
+       -webkit-margin-end: 5px;
+       -webkit-margin-start: -3px;
+      }
+
+      paper-button {
+        margin: 0;
+      }
+
+      span {
+        -webkit-margin-end: 10px;
+      }
+
+      #lockedDiv span {
+        color: red;
+        font-weight: 500;
+      }
+
+      #lockedDiv paper-input {
+        -webkit-margin-start: 10px;
+        width: 80px;
+      }
+
+      #unlockSimDialog paper-input {
+        -webkit-margin-start: 5px;
+      }
+
+      #unlockSimDialog span {
+        -webkit-margin-start: 5px;
+      }
+
+      .pin {
+        min-width: 100px;
+      }
+
+      .puk {
+        min-width: 200px;
+      }
+
+      .error {
+        color: red;
+        max-width: 400px;
+      }
+    </style>
+    <div id="outerDiv" class="layout vertical">
+      <div class="layout horizontal center"
+          hidden$="[[networkProperties.Cellular.SIMPresent]]">
+        <!-- SIM missing UI -->
+        <iron-icon icon="settings:sim-card-alert"></iron-icon>
+        <span>Missing SIM card</span>
+      </div>
+      <div class="layout vertical"
+          hidden$="[[!networkProperties.Cellular.SIMPresent]]">
+        <div id="lockedDiv" class="layout horizontal center"
+            hidden$="[[!isSimLocked_(networkProperties)]]">
+          <!-- SIM locked -->
+          <iron-icon icon="settings:lock"></iron-icon>
+          <span>SIM card is locked.</span>
+          <paper-button on-tap="onUnlockPinTap_">Unlock</paper-button>
+        </div>
+        <div class="layout vertical"
+            hidden$="[[isSimLocked_(networkProperties)]]">
+          <!-- SIM unlocked -->
+          <paper-checkbox
+              checked="[[networkProperties.Cellular.SIMLockStatus.LockEnabled]]"
+              on-change="onSimLockEnabledChange_">
+            Enable SIM card locking (require PIN to use mobile data)
+          </paper-checkbox>
+          <div class="layout horizontal center"
+               hidden$="[[!networkProperties.Cellular.SIMLockStatus.LockEnabled]]">
+            <!-- SIM lock enabled -->
+            <paper-button on-tap="onChangePinTap_">Change PIN</paper-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enter PIN dialog -->
+    <paper-dialog modal id="enterPinDialog" class="layout vertical"
+        on-iron-overlay-opened="onEnterPinDialogOpened_">
+      <div class="layout vertical">
+        <h2>Enter SIM PIN</h2>
+        <div class="layout vertical">
+          <div class="layout horizontal">
+            <paper-input id="enterPin" class="pin" no-label-float
+                label="Enter PIN">
+            </paper-input>
+            <paper-button on-tap="sendEnterPin_">Enter</paper-button>
+          </div>
+        </div>
+        <div class="layout horizontal">
+          <span class="error" hidden$="[[!showError_(error)]]"
+              >[[getErrorMsg_(error)]]
+          </span>
+          <span>[[getRetriesLeftMsg_(networkProperties)]]</span>
+        </div>
+      </div>
+    </paper-dialog>
+
+    <!-- Change PIN dialog -->
+    <paper-dialog modal id="changePinDialog" class="layout vertical"
+        on-iron-overlay-opened="onChangePinDialogOpened_">
+      <div class="layout vertical">
+        <h2>Change SIM PIN</h2>
+        <div class="layout horizontal end">
+          <div class="layout vertical">
+            <paper-input id="changePinOld" class="pin" no-label-float
+                label="Enter old PIN">
+            </paper-input>
+            <paper-input id="changePinNew1" class="pin" no-label-float
+                label="Enter new PIN">
+            </paper-input>
+            <paper-input id="changePinNew2" class="pin" no-label-float
+                label="Re-enter new PIN">
+            </paper-input>
+          </div>
+          <paper-button on-tap="sendChangePin_">Change</paper-button>
+        </div>
+        <div class="layout horizontal">
+          <span class="error" hidden$="[[!showError_(error)]]"
+              >[[getErrorMsg_(error)]]
+          </span>
+          <span>[[getRetriesLeftMsg_(networkProperties)]]</span>
+        </div>
+      </div>
+    </paper-dialog>
+
+    <!-- Unlock PIN dialog -->
+    <paper-dialog modal id="unlockPinDialog" class="layout vertical"
+        on-iron-overlay-opened="onUnlockPinDialogOpened_">
+      <div class="layout vertical">
+        <h2>SIM Card is locked.</h2>
+        <div class="layout horizontal">
+          <paper-input id="unlockPin" class="pin" no-label-float
+              label="Enter PIN">
+          </paper-input>
+          <paper-button on-tap="sendUnlockPin_">Unlock</paper-button>
+        </div>
+        <div class="layout horizontal">
+          <span class="error" hidden$="[[!showError_(error)]]"
+              >[[getErrorMsg_(error)]]
+          </span>
+          <span>[[getRetriesLeftMsg_(networkProperties)]]</span>
+        </div>
+      </div>
+    </paper-dialog>
+
+    <!-- Unlock PUK dialog -->
+    <paper-dialog modal id="unlockPukDialog" class="layout vertical"
+        on-iron-overlay-opened="onUnlockPukDialogOpened_">
+      <div class="layout vertical">
+        <h2>SIM Card is locked.</h2>
+        <span>
+          Enter the 8-digit PIN Unblocking Key provided by your carrier
+        </span>
+        <div class="layout horizontal">
+          <div class="layout vertical">
+            <paper-input id="unlockPuk" class="puk" no-label-float
+                label="Enter PIN Unblocking Key">
+            </paper-input>
+            <div class="layout horizontal end">
+              <div class="layout vertical">
+                <paper-input id="unlockPin1" class="pin" no-label-float
+                    label="Enter PIN">
+                </paper-input>
+                <paper-input id="unlockPin2" class="pin" no-label-float
+                    label="Re-enter PIN">
+                </paper-input>
+              </div>
+              <paper-button on-tap="sendUnlockPuk_">Unlock</paper-button>
+            </div>
+          </div>
+          <div class="flex"></div>.
+        </div>
+        <span class="error">
+          Your SIM card will be permanently disabled if you cannot enter
+          the correct PIN Unblocking key.
+        </span>
+        <div class="layout horizontal">
+          <span class="error" hidden$="[[!showError_(error)]]"
+              >[[getErrorMsg_(error)]]
+          </span>
+          <span>[[getRetriesLeftMsg_(networkProperties)]]</span>
+        </div>
+      </div>
+    </paper-dialog>
+
+  </template>
+  <script src="network_siminfo.js"></script>
+</dom-module>

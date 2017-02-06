@@ -1,0 +1,143 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/crypto.gni")
+import("//build/config/features.gni")
+import("//build/config/sysroot.gni")
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("../chrome_utility.gypi") ],
+                          "scope",
+                          [ "../chrome_utility.gypi" ])
+
+# Provides a way for the utility library to push ldflags to dependents.
+config("utility_ldflags") {
+  if (is_mac && safe_browsing_mode == 1) {
+    libs = [ "bz2" ]
+  }
+}
+
+static_library("utility") {
+  sources = rebase_path(gypi_values.chrome_utility_sources, ".", "..")
+  defines = []
+  configs += [
+    "//build/config:precompiled_headers",
+    "//build/config/compiler:wexit_time_destructors",
+  ]
+  all_dependent_configs = [ ":utility_ldflags" ]
+
+  public_deps = []
+  deps = [
+    "//base",
+    "//chrome:resources",
+    "//chrome:strings",
+    "//chrome/common",
+    "//chrome/common:mojo_bindings",
+    "//components/safe_json/utility",
+    "//components/search_engines",
+    "//components/strings",
+    "//components/url_formatter",
+    "//content/public/child",
+    "//content/public/common",
+    "//content/public/utility",
+    "//courgette:courgette_lib",
+    "//media",
+    "//net:net_with_v8",
+    "//services/shell/public/cpp",
+    "//skia",
+    "//sql",
+    "//third_party/libxml",
+  ]
+
+  if (!is_android) {
+    deps += [
+      "//chrome/common:mojo_bindings",
+      "//net:net_utility_services",
+    ]
+    sources +=
+        rebase_path(gypi_values.chrome_utility_importer_sources, ".", "..")
+  }
+
+  if (enable_extensions) {
+    deps += [
+      "//chrome/common/extensions/api",
+      "//extensions/utility",
+    ]
+
+    public_deps += [ "//chrome/common/extensions/api" ]
+
+    sources +=
+        rebase_path(gypi_values.chrome_utility_extensions_sources, ".", "..")
+    sources +=
+        rebase_path(gypi_values.chrome_utility_shared_media_sources, ".", "..")
+
+    # Prevent wininet from loading in the renderer. http://crbug.com/460679
+    if (is_win) {
+      ldflags = [ "/DELAYLOAD:wininet.dll" ]
+
+      # Add ESE library for Edge Import support.
+      libs = [ "esent.lib" ]
+      ldflags += [ "/DELAYLOAD:esent.dll" ]
+    }
+
+    if (is_win || is_mac) {
+      sources +=
+          rebase_path(gypi_values.chrome_utility_win_mac_media_gallery_sources,
+                      ".",
+                      "..")
+      deps += [ "//components/wifi" ]
+    } else {
+      sources += [ "image_writer/image_writer_stub.cc" ]
+    }
+  }
+
+  if (use_nss_certs) {
+    sources += [
+      "importer/nss_decryptor_system_nss.cc",
+      "importer/nss_decryptor_system_nss.h",
+    ]
+    deps += [
+      "//crypto",
+      "//crypto:platform",
+    ]
+  }
+
+  if (enable_print_preview || (enable_basic_printing && is_win)) {
+    deps += [ "//pdf" ]
+  } else {
+    sources -= [
+      "printing_handler.cc",
+      "printing_handler.h",
+    ]
+  }
+
+  if (safe_browsing_mode == 1) {
+    sources +=
+        rebase_path(gypi_values.chrome_utility_safe_browsing_sources, ".", "..")
+    deps += [ "//third_party/zlib" ]
+  }
+}
+
+if (is_mac) {
+  import("//testing/libfuzzer/fuzzer_test.gni")
+  fuzzer_test("safe_browsing_dmg_fuzzer") {
+    sources = [
+      "safe_browsing/mac/convert_big_endian.h",
+      "safe_browsing/mac/fuzzer.cc",
+      "safe_browsing/mac/hfs.cc",
+      "safe_browsing/mac/hfs.h",
+      "safe_browsing/mac/read_stream.cc",
+      "safe_browsing/mac/read_stream.h",
+      "safe_browsing/mac/udif.cc",
+      "safe_browsing/mac/udif.h",
+    ]
+
+    additional_configs = [ ":utility_ldflags" ]
+
+    deps = [
+      "//base",
+      "//third_party/zlib",
+    ]
+  }
+}

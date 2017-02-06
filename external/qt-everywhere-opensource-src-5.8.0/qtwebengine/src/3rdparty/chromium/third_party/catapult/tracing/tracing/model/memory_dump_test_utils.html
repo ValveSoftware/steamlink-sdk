@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<!--
+Copyright 2016 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/model/container_memory_dump.html">
+<link rel="import" href="/tracing/model/global_memory_dump.html">
+<link rel="import" href="/tracing/model/memory_allocator_dump.html">
+<link rel="import" href="/tracing/model/process_memory_dump.html">
+<link rel="import" href="/tracing/model/vm_region.html">
+<link rel="import" href="/tracing/value/numeric.html">
+<link rel="import" href="/tracing/value/unit.html">
+
+<script>
+'use strict';
+
+/**
+ * @fileoverview Helper functions for tests involving memory dumps.
+ */
+tr.exportTo('tr.model', function() {
+  var GlobalMemoryDump = tr.model.GlobalMemoryDump;
+  var ProcessMemoryDump = tr.model.ProcessMemoryDump;
+  var MemoryAllocatorDump = tr.model.MemoryAllocatorDump;
+  var MemoryAllocatorDumpLink = tr.model.MemoryAllocatorDumpLink;
+  var VMRegion = tr.model.VMRegion;
+  var VMRegionClassificationNode = tr.model.VMRegionClassificationNode;
+  var ScalarNumeric = tr.v.ScalarNumeric;
+  var sizeInBytes_smallerIsBetter =
+      tr.v.Unit.byName.sizeInBytes_smallerIsBetter;
+  var LIGHT = tr.model.ContainerMemoryDump.LevelOfDetail.LIGHT;
+
+  function castToScalarNumeric(value) {
+    if (typeof value === 'number')
+      return new ScalarNumeric(sizeInBytes_smallerIsBetter, value);
+    assert.instanceOf(value, ScalarNumeric);
+    return value;
+  }
+
+  function MemoryDumpTestUtils() {
+    throw new Error('Static class');
+  }
+
+  MemoryDumpTestUtils.SIZE_DELTA = 0.0001;
+
+  MemoryDumpTestUtils.addGlobalMemoryDump = function(
+      model, timestamp, opt_levelOfDetail) {
+    var gmd = new GlobalMemoryDump(model, timestamp);
+    gmd.levelOfDetail = opt_levelOfDetail === undefined ?
+        LIGHT : opt_levelOfDetail;
+    model.globalMemoryDumps.push(gmd);
+    return gmd;
+  };
+
+  MemoryDumpTestUtils.addProcessMemoryDump = function(gmd, process, timestamp) {
+    var pmd = new ProcessMemoryDump(gmd, process, timestamp);
+    process.memoryDumps.push(pmd);
+    if (process.pid in gmd.processMemoryDumps) {
+      // Test sanity check.
+      throw new Error('Process memory dump for process with pid=' +
+          process.pid + ' has already been provided');
+    }
+    gmd.processMemoryDumps[process.pid] = pmd;
+    return pmd;
+  };
+
+  MemoryDumpTestUtils.newAllocatorDump = function(
+      containerDump, fullName, opt_numerics, opt_guid) {
+    var dump = new MemoryAllocatorDump(containerDump, fullName, opt_guid);
+    if (opt_numerics !== undefined) {
+      tr.b.iterItems(opt_numerics, function(numericName, value) {
+        dump.addNumeric(numericName, castToScalarNumeric(value));
+      });
+    }
+    return dump;
+  };
+
+  MemoryDumpTestUtils.addChildDump =
+      function(parentDump, name, opt_numerics, opt_guid) {
+    var childDump = MemoryDumpTestUtils.newAllocatorDump(
+        parentDump.containerMemoryDump, parentDump.fullName + '/' + name,
+        opt_numerics, opt_guid);
+    childDump.parent = parentDump;
+    parentDump.children.push(childDump);
+    return childDump;
+  };
+
+  MemoryDumpTestUtils.addOwnershipLink = function(
+      ownerDump, ownedDump, opt_importance) {
+    assert.isUndefined(ownerDump.owns);  // Sanity check.
+    var ownershipLink =
+        new MemoryAllocatorDumpLink(ownerDump, ownedDump, opt_importance);
+    ownerDump.owns = ownershipLink;
+    ownedDump.ownedBy.push(ownershipLink);
+    return ownershipLink;
+  };
+
+  MemoryDumpTestUtils.checkDumpNumericsAndDiagnostics =
+      function(dump, expectedNumerics, expectedDiagnostics) {
+    var actualNumerics = dump.numerics;
+    assert.sameMembers(
+        Object.keys(actualNumerics), Object.keys(expectedNumerics));
+    for (var numericName in actualNumerics) {
+      var actualNumeric = actualNumerics[numericName];
+      var expectedNumeric = castToScalarNumeric(expectedNumerics[numericName]);
+      assert.instanceOf(actualNumeric, tr.v.ScalarNumeric);
+      assert.strictEqual(actualNumeric.unit, expectedNumeric.unit);
+      assert.closeTo(actualNumeric.value, expectedNumeric.value,
+          MemoryDumpTestUtils.SIZE_DELTA);
+    }
+
+    assert.deepEqual(dump.diagnostics, expectedDiagnostics);
+  };
+
+  MemoryDumpTestUtils.checkVMRegions = function(vmRegions, expectedRegions) {
+    if (vmRegions instanceof VMRegionClassificationNode)
+      vmRegions = vmRegions.allRegionsForTesting;
+
+    var expectedRegionsMap = new Map();
+    expectedRegions.forEach(function(region) {
+      if (!(region instanceof VMRegion))
+        region = VMRegion.fromDict(region);
+      expectedRegionsMap.set(region.uniqueIdWithinProcess, region);
+    });
+    var actualRegionsMap = new Map();
+    vmRegions.forEach(function(region) {
+      actualRegionsMap.set(region.uniqueIdWithinProcess, region);
+    });
+
+    assert.strictEqual(actualRegionsMap.size, expectedRegionsMap.size);
+    for (var id of expectedRegionsMap.keys()) {
+      var expectedRegion = expectedRegionsMap.get(id);
+      var actualRegion = actualRegionsMap.get(id);
+
+      assert.instanceOf(actualRegion, VMRegion);
+      assert.strictEqual(actualRegion.startAddress,
+          expectedRegion.startAddress);
+      assert.strictEqual(actualRegion.sizeInBytes, expectedRegion.sizeInBytes);
+      assert.strictEqual(actualRegion.protectionFlags,
+          expectedRegion.protectionFlags);
+      assert.strictEqual(actualRegion.mappedFile, expectedRegion.mappedFile);
+      assert.deepEqual(actualRegion.byteStats, expectedRegion.byteStats);
+    }
+  };
+
+  return {
+    MemoryDumpTestUtils: MemoryDumpTestUtils
+  };
+});
+</script>

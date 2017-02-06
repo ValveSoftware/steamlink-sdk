@@ -1,0 +1,341 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\example referenceexamples/adding
+\title Extending QML - Adding Types Example
+\brief Exporting C++ Classes
+\ingroup qmlextendingexamples
+
+The Adding Types Example shows how to add a new object type, \c Person, to QML.
+The \c Person type can be used from QML like this:
+
+\snippet referenceexamples/adding/example.qml 0
+
+\section1 Declare the Person Class
+
+All QML types map to C++ types.  Here we declare a basic C++ Person class
+with the two properties we want accessible on the QML type - name and shoeSize.
+Although in this example we use the same name for the C++ class as the QML
+type, the C++ class can be named differently, or appear in a namespace.
+
+\snippet referenceexamples/adding/person.h 0
+
+\section1 Define the Person Class
+
+\snippet referenceexamples/adding/person.cpp 0
+
+The Person class implementation is quite basic.  The property accessors simply
+return members of the object instance.
+
+The \c main.cpp file also calls the \c qmlRegisterType() function to
+register the \c Person type with QML as a type in the People library version 1.0,
+and defines the mapping between the C++ and QML class names.
+
+\section1 Running the Example
+
+The main.cpp file in the example includes a simple shell application that
+loads and runs the QML snippet shown at the beginning of this page.
+*/
+
+/*!
+\example referenceexamples/extended
+\title Extending QML - Extension Objects Example
+\brief Extension Objects
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+Shows how to use \l {QQmlEngine::}{qmlRegisterExtendedType()} to provide an \l {Registering
+Extension Objects}{extension object} to a \l QLineEdit without modifying or
+subclassing. The QML engine instantiates a \l QLineEdit and sets a property that
+only exists on the extension type. The extension type performs calls on the \l
+QLineEdit that otherwise will not be accessible to the QML engine.
+
+*/
+
+/*!
+\example referenceexamples/properties
+\title Extending QML - Object and List Property Types Example
+\brief Exporting C++ Properties
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+The Object and List Property Types example shows how to add object and list
+properties in QML.  This example adds a BirthdayParty type that specifies
+a birthday party, consisting of a celebrant and a list of guests.  People are
+specified using the People QML type built in the previous example.
+
+\snippet referenceexamples/properties/example.qml 0
+
+\section1 Declare the BirthdayParty
+
+The BirthdayParty class is declared like this:
+
+\snippet referenceexamples/properties/birthdayparty.h 0
+\snippet referenceexamples/properties/birthdayparty.h 1
+\snippet referenceexamples/properties/birthdayparty.h 2
+\snippet referenceexamples/properties/birthdayparty.h 3
+
+The class contains a member to store the celebrant object, and also a
+QList<Person *> member.
+
+In QML, the type of a list properties - and the guests property is a list of
+people - are all of type QQmlListProperty<T>.  QQmlListProperty is simple value
+type that contains a set of function pointers.  QML calls these function
+pointers whenever it needs to read from, write to or otherwise interact with
+the list.  In addition to concrete lists like the people list used in this
+example, the use of QQmlListProperty allows for "virtual lists" and other advanced
+scenarios.
+
+\section2 Define the BirthdayParty
+
+The implementation of BirthdayParty property accessors is straight forward.
+
+\snippet referenceexamples/properties/birthdayparty.cpp 0
+
+\section1 Running the Example
+
+The main.cpp file in the example includes a simple shell application that
+loads and runs the QML snippet shown at the beginning of this page.
+*/
+
+/*!
+\example referenceexamples/coercion
+\title Extending QML - Inheritance and Coercion Example
+\brief C++ Inheritance and Coercion
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+The Inheritance and Coercion Example shows how to use base classes to assign
+types of more than one type to a property.  It specializes the Person type
+developed in the previous examples into two types - a \c Boy and a \c Girl.
+
+\snippet referenceexamples/coercion/example.qml 0
+
+\section1 Declare Boy and Girl
+
+\snippet referenceexamples/coercion/person.h 0
+
+The Person class remains unaltered in this example and the Boy and Girl C++
+classes are trivial extensions of it.  As an example, the inheritance used here
+is a little contrived, but in real applications it is likely that the two
+extensions would add additional properties or modify the Person classes
+behavior.
+
+\section2 Define People as a base class
+
+The implementation of the People class itself has not changed since the
+previous example.  However, as we have repurposed the People class as a common
+base for Boy and Girl, we want to prevent it from being instantiated from QML
+directly - an explicit Boy or Girl should be instantiated instead.
+
+\snippet referenceexamples/coercion/main.cpp 0
+
+While we want to disallow instantiating Person from within QML, it still needs
+to be registered with the QML engine, so that it can be used as a property type
+and other types can be coerced to it.
+
+\section2 Define Boy and Girl
+
+The implementation of Boy and Girl are trivial.
+
+\snippet referenceexamples/coercion/person.cpp 1
+
+All that is necessary is to implement the constructor, and to register the types
+and their QML name with the QML engine.
+
+\section1 Running the Example
+
+The BirthdayParty type has not changed since the previous example.  The
+celebrant and guests property still use the People type.
+
+\snippet referenceexamples/coercion/birthdayparty.h 0
+
+However, as all three types, Person, Boy and Girl, have been registered with the
+QML system, on assignment QML automatically (and type-safely) converts the Boy
+and Girl objects into a Person.
+
+The main.cpp file in the example includes a simple shell application that
+loads and runs the QML snippet shown at the beginning of this page.
+*/
+
+/*!
+\example referenceexamples/default
+\title Extending QML - Default Property Example
+\brief Default Property
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Inheritance and Coercion Example}
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+The Default Property Example is a minor modification of the
+\l {Extending QML - Inheritance and Coercion Example} that simplifies the
+specification of a BirthdayParty through the use of a default property.
+
+\snippet referenceexamples/default/example.qml 0
+
+\section1 Declaring the BirthdayParty Class
+
+The only difference between this example and the last, is the addition of the
+\c DefaultProperty class info annotation.
+
+\snippet referenceexamples/default/birthdayparty.h 0
+
+The default property specifies the property to assign to whenever an explicit
+property is not specified, in the case of the BirthdayParty type the guest
+property.  It is purely a syntactic simplification, the behavior is identical
+to specifying the property by name, but it can add a more natural feel in many
+situations.  The default property must be either an object or list property.
+
+\section1 Running the Example
+
+The main.cpp file in the example includes a simple shell application that
+loads and runs the QML snippet shown at the beginning of this page.
+*/
+
+/*!
+\example referenceexamples/grouped
+\title Extending QML - Grouped Properties Example
+\brief Grouped Properties
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Default Property Example}
+\li \l {Extending QML - Inheritance and Coercion Example}
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+*/
+
+/*!
+\example referenceexamples/attached
+\title Extending QML - Attached Properties Example
+\brief Attached Properties
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Grouped Properties Example}
+\li \l {Extending QML - Default Property Example}
+\li \l {Extending QML - Inheritance and Coercion Example}
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+*/
+
+/*!
+\example referenceexamples/signal
+\title Extending QML - Signal Support Example
+\brief Signal Support
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Attached Properties Example}
+\li \l {Extending QML - Grouped Properties Example}
+\li \l {Extending QML - Default Property Example}
+\li \l {Extending QML - Inheritance and Coercion Example}
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+*/
+
+/*!
+\example referenceexamples/methods
+\title Extending QML - Methods Example
+\brief Methods Support
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Default Property Example}
+\li \l {Extending QML - Inheritance and Coercion Example}
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+*/
+
+/*!
+\example referenceexamples/valuesource
+\title Extending QML - Property Value Source Example
+\brief Property Value Source
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Signal Support Example}
+\li \l {Extending QML - Attached Properties Example}
+\li \l {Extending QML - Grouped Properties Example}
+\li \l {Extending QML - Default Property Example}
+\li \l {Extending QML - Inheritance and Coercion Example}
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+*/
+
+/*!
+\example referenceexamples/binding
+\title Extending QML - Binding Example
+\brief Binding
+\ingroup qmlextendingexamples
+
+This example builds on:
+\list
+\li \l {Extending QML - Property Value Source Example}
+\li \l {Extending QML - Signal Support Example}
+\li \l {Extending QML - Attached Properties Example}
+\li \l {Extending QML - Grouped Properties Example}
+\li \l {Extending QML - Default Property Example}
+\li \l {Extending QML - Inheritance and Coercion Example}
+\li \l {Extending QML - Object and List Property Types Example}
+\li \l {Extending QML - Adding Types Example}
+\endlist
+
+*/

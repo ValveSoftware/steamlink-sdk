@@ -1,0 +1,77 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/android/config.gni")
+import("//build/config/android/rules.gni")
+import("generate_resource_rewriter.gni")
+import("glue.gni")
+
+# There are two copies of this file: one upstream and one downstream,
+# all targets defined in this file will finally generate two targets.
+# is_upstream could be used to differentiate those two targets, see
+# 'glue' target for details.
+is_upstream = rebase_path(".", "//android_webview/glue") == "."
+
+webview_framework_ijar = "frameworks.interface.jar"
+webview_public_framework_ijar = "frameworks.public.interface.jar"
+
+# Mark webview_framework_ijar is used, otherwise it isn't used if there
+# is no internal code.
+assert(webview_framework_ijar != "")
+
+if (defined(webview_internal_framework_jar)) {
+  generate_interface_jar("framework_ijar") {
+    input_jar = webview_internal_framework_jar
+    output_jar = "$target_out_dir/$webview_framework_ijar"
+  }
+}
+
+generate_interface_jar("public_framework_ijar") {
+  input_jar = webview_public_framework_jar
+  output_jar = "$target_out_dir/$webview_public_framework_ijar"
+}
+
+generate_resource_rewriter("glue_resource_rewriter") {
+  # Change deps? please modify glue_library_deps variable.
+  deps = glue_library_deps
+  package_name = "com.android.webview.chromium"
+}
+
+android_library("glue") {
+  # Change deps? please modify glue_library_deps variable.
+  deps = glue_library_deps
+  srcjar_deps = [ ":glue_resource_rewriter" ]
+
+  # Always build upstream or downstream target with public or internal
+  # framework jar respectively.
+  if (is_upstream) {
+    alternative_android_sdk_ijar_dep = ":public_framework_ijar"
+    _ijar = webview_public_framework_ijar
+  } else {
+    assert(defined(webview_internal_framework_jar))
+    alternative_android_sdk_ijar_dep = ":framework_ijar"
+    _ijar = webview_framework_ijar
+  }
+  _ijar_dir = get_label_info(alternative_android_sdk_ijar_dep, "target_out_dir")
+  alternative_android_sdk_ijar = "$_ijar_dir/$_ijar"
+  java_files = [
+    "java/src/com/android/webview/chromium/ContentSettingsAdapter.java",
+    "java/src/com/android/webview/chromium/CookieManagerAdapter.java",
+    "java/src/com/android/webview/chromium/DrawGLFunctor.java",
+    "java/src/com/android/webview/chromium/GeolocationPermissionsAdapter.java",
+    "java/src/com/android/webview/chromium/GraphicsUtils.java",
+    "java/src/com/android/webview/chromium/LicenseActivity.java",
+    "java/src/com/android/webview/chromium/LicenseContentProvider.java",
+    "java/src/com/android/webview/chromium/WebBackForwardListChromium.java",
+    "java/src/com/android/webview/chromium/WebHistoryItemChromium.java",
+    "java/src/com/android/webview/chromium/WebIconDatabaseAdapter.java",
+    "java/src/com/android/webview/chromium/WebMessagePortAdapter.java",
+    "java/src/com/android/webview/chromium/WebStorageAdapter.java",
+    "java/src/com/android/webview/chromium/WebViewChromiumFactoryProvider.java",
+    "java/src/com/android/webview/chromium/WebViewChromium.java",
+    "java/src/com/android/webview/chromium/WebViewContentsClientAdapter.java",
+    "java/src/com/android/webview/chromium/WebViewDatabaseAdapter.java",
+    "java/src/com/android/webview/chromium/WebViewDelegateFactory.java",
+  ]
+}

@@ -1,0 +1,86 @@
+<link rel="import" href="chrome://resources/html/assert.html">
+<link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/load_time_data.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://extensions/icons.html">
+<link rel="import" href="chrome://extensions/strings.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icons/iron-icons.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icons/communication-icons.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-toggle-button/paper-toggle-button.html">
+
+<dom-module id="extensions-item">
+  <style include="iron-flex"></style>
+  <template>
+    <div id="card-wrapper" class$="[[computeClasses_(data.state)]]">
+      <div id="card">
+        <template is="dom-if"
+            if="[[computeSourceIndicatorIcon_(data.*)]]">
+          <div id="source-indicator">
+            <span>[[computeSourceIndicatorText_(data.*)]]</span>
+            <iron-icon icon="[[computeSourceIndicatorIcon_(data.*)]]">
+            </iron-icon>
+          </div>
+        </template>
+        <div id="main">
+          <div id="icon-wrapper">
+            <img alt="" id="icon" src="[[data.iconUrl]]">
+          </div>
+          <div id="content">
+            <div id="name-and-version" class="layout horizontal center">
+              <div id="name">[[data.name]]</div>
+              <template is="dom-if" if="[[inDevMode]]">
+                <span id="version">[[data.version]]</span>
+              </template>
+            </div>
+            <div id="description">[[data.description]]</div>
+            <template is="dom-if" if="[[inDevMode]]">
+              <div id="extension-id">[[data.id]]</div>
+                <div id="inspect-views">
+                  <span>$i18n{itemInspectViews}</span>
+                  <template is="dom-repeat" items="[[data.views]]">
+                    <paper-button on-tap="onInspectTap_">
+                      [[computeInspectLabel_(item)]]
+                    </paper-button>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div id="button-strip" class="layout horizontal">
+          <div class="layout flex horizontal center">
+            <paper-button id="details-button" on-tap="onDetailsTap_">
+              $i18n{itemDetails}
+            </paper-button>
+            <paper-button id="remove-button" on-tap="onRemoveTap_">
+              $i18n{itemRemove}
+            </paper-button>
+          </div>
+          <paper-toggle-button id="enable-toggle"
+              checked="[[isEnabled_(data.state)]]" on-change="onEnableChange_">
+          </paper-toggle-button>
+        </div>
+      </div>
+      <template is="dom-if" if="[[hasWarnings_(data.*)]]">
+        <div id="suspicious-warning" class="warning mild"
+            hidden$="[[!data.disableReasons.suspiciousInstall]]">
+          $i18n{itemSuspiciousInstall}
+        </div>
+        <div id="corrupted-warning" class="warning severe"
+            hidden$="[[!data.disableReasons.corruptInstall]]">
+          <span>$i18n{itemCorruptInstall}</span>
+          <paper-button id="repair-button" on-tap="onRepairTap_">
+            $i18n{itemRepair}
+          </paper-button>
+        </div>
+        <div id="blacklisted-warning" class="warning severe"><!-- No whitespace
+          -->[[data.blacklistText]]<!-- ... so we can use :empty in css
+        --></div>
+      </template>
+    </div>
+  </template>
+  <link rel="import" type="css" href="chrome://extensions/item.css">
+  <script src="chrome://extensions/item.js"></script>
+</dom-module>

@@ -1,0 +1,78 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+
+declare_args() {
+  if (is_android || is_ios) {
+    cld2_table_size = 0  # Small, accurate tables
+  } else {
+    cld2_table_size = 2  # Larger, more accurate tables
+  }
+}
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("cld_2.gyp") ],
+                          "scope",
+                          [ "cld_2.gyp" ])
+
+config("cld2_data_warnings") {
+  visibility = [ ":*" ]
+  if (is_clang) {
+    # The generated files don't have braces around subobject initializers.
+    cflags = [ "-Wno-missing-braces" ]
+  }
+}
+
+source_set("cld2_data") {
+  sources = gypi_values.cld2_data_sources
+  if (cld2_table_size == 0) {
+    sources += gypi_values.cld2_data_smallest_sources
+  } else if (cld2_table_size == 2) {
+    sources += gypi_values.cld2_data_largest_sources
+  }
+
+  include_dirs = [
+    "src/internal",
+    "src/public",
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    "//build/config/compiler:no_chromium_code",
+
+    # Must be after no_chromium_code for warning flags to be ordered correctly.
+    ":cld2_data_warnings",
+  ]
+}
+
+config("cld2_warnings") {
+  if (is_clang) {
+    cflags = [
+      # cld_2 contains unused private fields.
+      # https://code.google.com/p/cld2/issues/detail?id=37
+      "-Wno-unused-private-field",
+
+      # offsetmap.cc uses a char as a subscript.
+      "-Wno-char-subscripts",
+    ]
+  }
+}
+
+static_library("cld_2") {
+  sources = gypi_values.cld2_core_sources + gypi_values.cld2_core_impl_sources
+  include_dirs = [
+    "src/internal",
+    "src/public",
+  ]
+
+  public_deps = [
+    ":cld2_data",
+  ]
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    "//build/config/compiler:no_chromium_code",
+    ":cld2_warnings",
+  ]
+}

@@ -1,0 +1,119 @@
+From 0d13e8740021aeeb849662f03f49720287cabe0c Mon Sep 17 00:00:00 2001
+From: Scott Hess <shess@chromium.org>
+Date: Fri, 26 Feb 2016 10:49:33 -0800
+Subject: [PATCH 13/13] [backport] Fix buffer overrun in ICU extension's
+ casemap functions.
+
+Original Chromium CL at https://codereview.chromium.org/1704103002
+
+"Fix sqlite3's handling of casemapping result 3 times as long as input"
+
+SQLite interpretation at http://www.sqlite.org/src/info/b8dc1b9f5d413000
+
+"Fix a potential buffer overflow in the ICU upper() function."
+
+BUG=586079
+---
+ third_party/sqlite/src/ext/icu/icu.c | 48 +++++++++++++++++++++---------------
+ third_party/sqlite/src/test/icu.test |  9 +++++++
+ 2 files changed, 37 insertions(+), 20 deletions(-)
+
+diff --git a/third_party/sqlite/src/ext/icu/icu.c b/third_party/sqlite/src/ext/icu/icu.c
+index 5654366..263cd98 100644
+--- a/third_party/sqlite/src/ext/icu/icu.c
++++ b/third_party/sqlite/src/ext/icu/icu.c
+@@ -355,11 +355,11 @@ static void icuRegexpFunc(sqlite3_context *p, int nArg, sqlite3_value **apArg){
+ */
+ static void icuCaseFunc16(sqlite3_context *p, int nArg, sqlite3_value **apArg){
+   const UChar *zInput;
+-  UChar *zOutput;
++  UChar *zOutput = 0;
+   int nInput;
+-  int nOutput;
+-
+-  UErrorCode status = U_ZERO_ERROR;
++  int nOut;
++  int cnt;
++  UErrorCode status;
+   const char *zLocale = 0;
+ 
+   assert(nArg==1 || nArg==2);
+@@ -371,26 +371,34 @@ static void icuCaseFunc16(sqlite3_context *p, int nArg, sqlite3_value **apArg){
+   if( !zInput ){
+     return;
+   }
+-  nInput = sqlite3_value_bytes16(apArg[0]);
+-
+-  nOutput = nInput * 2 + 2;
+-  zOutput = sqlite3_malloc(nOutput);
+-  if( !zOutput ){
++  nOut = nInput = sqlite3_value_bytes16(apArg[0]);
++  if( nOut==0 ){
++    sqlite3_result_text16(p, "", 0, SQLITE_STATIC);
+     return;
+   }
+ 
+-  if( sqlite3_user_data(p) ){
+-    u_strToUpper(zOutput, nOutput/2, zInput, nInput/2, zLocale, &status);
+-  }else{
+-    u_strToLower(zOutput, nOutput/2, zInput, nInput/2, zLocale, &status);
+-  }
+-
+-  if( !U_SUCCESS(status) ){
+-    icuFunctionError(p, "u_strToLower()/u_strToUpper", status);
+-    return;
++  for(cnt=0; cnt<2; cnt++){
++    UChar *zNew = sqlite3_realloc(zOutput, nOut);
++    if( zNew==0 ){
++      sqlite3_free(zOutput);
++      sqlite3_result_error_nomem(p);
++      return;
++    }
++    zOutput = zNew;
++    status = U_ZERO_ERROR;
++    if( sqlite3_user_data(p) ){
++      nOut = 2*u_strToUpper(zOutput,nOut/2,zInput,nInput/2,zLocale,&status);
++    }else{
++      nOut = 2*u_strToLower(zOutput,nOut/2,zInput,nInput/2,zLocale,&status);
++    }
++    if( !U_SUCCESS(status) ){
++      if( status==U_BUFFER_OVERFLOW_ERROR ) continue;
++      icuFunctionError(p,
++          sqlite3_user_data(p) ? "u_strToUpper()" : "u_strToLower", status);
++      return;
++    }
+   }
+-
+-  sqlite3_result_text16(p, zOutput, -1, xFree);
++  sqlite3_result_text16(p, zOutput, nOut, xFree);
+ }
+ 
+ /*
+diff --git a/third_party/sqlite/src/test/icu.test b/third_party/sqlite/src/test/icu.test
+index 73cb9b9..743bcfa 100644
+--- a/third_party/sqlite/src/test/icu.test
++++ b/third_party/sqlite/src/test/icu.test
+@@ -72,6 +72,10 @@ test_expr icu-2.6 {i1=$::OGRAVE} {upper(i1)}     $::OGRAVE
+ test_expr icu-2.7 {i1=$::szlig} {upper(i1)}      "SS"
+ test_expr icu-2.8 {i1='SS'} {lower(i1)}          "ss"
+ 
++do_execsql_test icu-2.9 {
++  SELECT upper(char(0xfb04,0xfb04,0xfb04,0xfb04));
++} {FFLFFLFFLFFL}
++
+ # In turkish (locale="tr_TR"), the lower case version of I
+ # is "small dotless i" (code point 0x131 (decimal 305)).
+ #
+@@ -133,4 +137,9 @@ do_catchsql_test icu-5.4 {
+ do_catchsql_test icu-5.4 { SELECT 'abc' REGEXP }    {1 {near " ": syntax error}}
+ do_catchsql_test icu-5.5 { SELECT 'abc' REGEXP, 1 } {1 {near ",": syntax error}}
+ 
++
++do_malloc_test icu-6.10 -sqlbody {
++  SELECT upper(char(0xfb04,0xdf,0xfb04,0xe8,0xfb04));
++}
++
+ finish_test
+-- 
+2.7.0
+

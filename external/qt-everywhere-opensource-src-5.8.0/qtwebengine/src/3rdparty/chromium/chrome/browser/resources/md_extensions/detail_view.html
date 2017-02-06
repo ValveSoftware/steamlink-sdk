@@ -1,0 +1,143 @@
+<link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icons/iron-icons.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-styles/color.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/neon-animation/neon-animatable-behavior.html">
+<link rel="import" href="chrome://extensions/animation_helper.html">
+
+<dom-module id="extensions-detail-view">
+  <style include="iron-flex"></style>
+  <template>
+    <style>
+      #main {
+        background-color: white;
+        height: 800px;
+        width: 90%;
+      }
+      #top-bar {
+        align-items: center;
+        color: var(--paper-grey-600);
+        display: flex;
+        height: 40px;
+        margin-bottom: 30px;
+        padding: 8px 12px 0;
+      }
+      #name {
+        flex-grow: 1;
+      }
+      .section {
+        border-bottom: var(--paper-grey-600);
+        padding: 12px 20px;
+      }
+      .section:last-child {
+        border: none;
+      }
+      .section-title {
+        color: var(--paper-grey-800);
+      }
+      .section-content {
+        color: var(--paper-grey-600);
+      }
+      .section paper-checkbox {
+        align-items: center;
+        display: flex;
+        min-height: 40px;
+      }
+      paper-checkbox {
+        --paper-checkbox-checked-color: var(--google-blue-500);
+        --primary-text-color: var(--paper-grey-800);
+      }
+      ul {
+        -webkit-padding-start: 20px;
+        margin: 0;
+      }
+    </style>
+    <div id="main">
+      <div id="top-bar">
+        <paper-icon-button id="close-button" icon="arrow-back"
+            on-click="onCloseButtonClick_"></paper-icon-button>
+        <span id="name">[[data.name]]</span>
+        <paper-icon-button id="open-in-webstore" icon="open-in-new">
+        </paper-icon-button>
+        <paper-icon-button id="options" icon="settings">
+        </paper-icon-button>
+      </div>
+      <div class="section">
+        <div class="section-title">$i18n{itemDescriptionLabel}</div>
+        <div class="section-content">[[data.description]]</div>
+      </div>
+      <div class="section">
+        <div class="section-title">$i18n{itemVersion}</div>
+        <div class="section-content">[[data.version]]</div>
+      </div>
+      <div class="section">
+        <div class="section-title">$i18n{itemPermissions}</div>
+        <div class="section-content">
+          <span id="no-permissions"
+              hidden$="[[hasPermissions_(data.permissions.splices)]]">
+            $i18n{itemPermissionsEmpty}
+          </span>
+          <ul id="permissions-list"
+              hidden$="[[!hasPermissions_(data.permissions.splices)]]">
+            <template is="dom-repeat" items="[[data.permissions]]">
+              <li>[[item]]</li>
+            </template>
+          </ul>
+        </div>
+      </div>
+      <template is="dom-if"
+          if="[[hasDependentExtensions_(data.dependentExtensions.splices)]]">
+        <div class="section">
+          <div class="section-title">$i18n{itemDependencies}</div>
+          <div class="section-content">
+            <ul id="dependent-extensions-list">
+              <template is="dom-repeat" items="[[data.dependentExtensions]]">
+                <li>[[computeDependentEntry_(item)]]</li>
+              </template>
+            </ul>
+          </div>
+        </div>
+      </template>
+      <template is="dom-if" if="[[shouldShowOptionsSection_(data.*)]]">
+        <div class="section layout vertical">
+          <template is="dom-if" if="[[data.incognitoAccess.isEnabled]]">
+            <paper-checkbox id="allow-incognito" class="checkbox"
+                checked="[[data.incognitoAccess.isActive]]"
+                on-change="onAllowIncognitoChange_">
+              $i18n{itemAllowIncognito}
+            </paper-checkbox>
+          </template>
+          <template is="dom-if" if="[[data.fileAccess.isEnabled]]">
+            <paper-checkbox id="allow-on-file-urls" class="checkbox"
+                checked="[[data.fileAccess.isActive]]"
+                on-change="onAllowOnFileUrlsChange_">
+              $i18n{itemAllowOnFileUrls}
+            </paper-checkbox>
+          </template>
+          <template is="dom-if" if="[[data.runOnAllUrls.isEnabled]]">
+            <paper-checkbox id="allow-on-all-sites" class="checkbox"
+                checked="[[data.runOnAllUrls.isActive]]"
+                on-change="onAllowOnAllSitesChange_">
+              $i18n{itemAllowOnAllSites}
+            </paper-checkbox>
+          </template>
+          <template is="dom-if" if="[[data.errorCollection.isEnabled]]">
+            <paper-checkbox id="collect-errors" class="checkbox"
+                checked="[[data.errorCollection.isActive]]"
+                on-change="onCollectErrorsChange_">
+              $i18n{itemCollectErrors}
+            </paper-checkbox>
+          </template>
+        </div>
+      </template>
+      <div class="section">
+        <div class="section-title">$i18n{itemSource}</div>
+        <div class="section-content">TODO</div>
+      </div>
+    </div>
+  </template>
+  <script src="chrome://extensions/detail_view.js"></script>
+</dom-module>

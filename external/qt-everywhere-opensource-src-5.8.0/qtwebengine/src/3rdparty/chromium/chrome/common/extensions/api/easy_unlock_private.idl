@@ -1,0 +1,460 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// <code>chrome.easyUnlockPrivate</code> API that provides hooks to Chrome to
+// be used by Easy Unlock component app.
+namespace easyUnlockPrivate {
+  // Signature algorithms supported by the crypto library methods used by
+  // Easy Unlock.
+  enum SignatureType {
+    HMAC_SHA256,
+    ECDSA_P256_SHA256
+  };
+
+  // Encryption algorithms supported by the crypto library methods used by
+  // Easy Unlock.
+  enum EncryptionType {
+    AES_256_CBC
+  };
+
+  // Available states for the Easy Unlock app.
+  enum State {
+    // Screen is either not locked, or the Easy Unlock is not enabled.
+    INACTIVE,
+    // The Bluetooth is not enabled.
+    NO_BLUETOOTH,
+    // Bluetooth is being activated.
+    BLUETOOTH_CONNECTING,
+    // There are no phones eligible to unlock the device.
+    NO_PHONE,
+    // A phone eligible to unlock the device is detected, but can't be
+    // authenticated.
+    PHONE_NOT_AUTHENTICATED,
+    // A phone eligible to unlock the device is detected, but it's locked and
+    // thus unable to unlock the device.
+    PHONE_LOCKED,
+    // A phone eligible to unlock the device is detected, but it is not allowed
+    // to unlock the device because it doesn't have lock screen enabled.
+    PHONE_UNLOCKABLE,
+    // A phone eligible to unlock the device is detected, but it is not allowed
+    // to unlock the device because it does not report its lock screen state.
+    PHONE_UNSUPPORTED,
+    // A phone eligible to unlock the device is detected, but its received
+    // signal strength is too low, i.e. the phone is roughly more than 30 feet
+    // away, and therefore is not allowed to unlock the device.
+    RSSI_TOO_LOW,
+    // A phone eligible to unlock the device is found, but the local device's
+    // transmission power is too high, indicating that the phone is (probably)
+    // more than 1 foot away, and therefore is not allowed to unlock the device.
+    TX_POWER_TOO_HIGH,
+    // A phone eligible to unlock the device is found; but (a) the phone is
+    // locked, and (b) the local device's transmission power is too high,
+    // indicating that the phone is (probably) more than 1 foot away, and
+    // therefore is not allowed to unlock the device.
+    PHONE_LOCKED_AND_TX_POWER_TOO_HIGH,
+    // The device can be unlocked using Easy Unlock.
+    AUTHENTICATED
+  };
+
+  // Type of a permit. All lower case to match permit.PermitRecord.Type.
+  enum PermitType {access, license};
+
+  enum ConnectionStatus {DISCONNECTED, IN_PROGRESS, CONNECTED};
+
+  // Options that can be passed to |unwrapSecureMessage| method.
+  dictionary UnwrapSecureMessageOptions {
+    // The data associated with the message. For the message to be succesfully
+    // verified, the message should have been created with the same associated
+    // data.
+    ArrayBuffer? associatedData;
+
+    // The encryption algorithm that should be used to decrypt the message.
+    // Should not be set for a cleartext message.
+    EncryptionType? encryptType;
+
+    // The algorithm to be used to verify signature contained in the message.
+    // Defaults to |HMAC_SHA256|. |ECDSA_P256_SHA256| can currently be used
+    // only with cleartext messages.
+    SignatureType? signType;
+  };
+
+  dictionary CreateSecureMessageOptions {
+    // Data associated with the message. The data will not be sent with the
+    // message, but the message recepient will use the same data on its side
+    // to verify the message.
+    ArrayBuffer? associatedData;
+
+    // Metadata to be added to the message header.
+    ArrayBuffer? publicMetadata;
+
+    // Verification key id added to the message header. Should be set if the
+    // message is signed using |ECDSA_P256_SHA256|. Used by the message
+    // recepient to determine which key should be used to verify the message
+    // signature.
+    ArrayBuffer? verificationKeyId;
+
+    // Decryption key id added to the message header. Used by the message
+    // recepient to determine which key should be used to decrypt the message.
+    ArrayBuffer? decryptionKeyId;
+
+    // The encryption algorithm that should be used to encrypt the message.
+    // Should not be set for a cleartext message.
+    EncryptionType? encryptType;
+
+    // The algorithm to be used to sign the message.
+    // Defaults to |HMAC_SHA256|. |ECDSA_P256_SHA256| can currently be used
+    // only with cleartext messages.
+    SignatureType? signType;
+  };
+
+  // A permit record contains the credentials used to request or grant
+  // authorization of a permit.
+  dictionary PermitRecord {
+    // ID of the permit, which identifies the service/application that these
+    // permit records are used in.
+    DOMString permitId;
+
+    // An identifier for this record that should be unique among all other
+    // records of the same permit.
+    DOMString id;
+
+    // Type of the record.
+    PermitType type;
+
+    // Websafe base64 encoded payload data of the record.
+    DOMString data;
+  };
+
+  // Device information that can be authenticated for Easy unlock.
+  dictionary Device {
+    // The Bluetooth address of the device.
+    DOMString bluetoothAddress;
+
+    // The name of the device.
+    DOMString? name;
+
+    // The permit record of the device.
+    PermitRecord? permitRecord;
+
+    // Websafe base64 encoded persistent symmetric key.
+    DOMString? psk;
+  };
+
+  // The information about a user associated with Easy unlock service.
+  dictionary UserInfo {
+    // The user id.
+    DOMString userId;
+
+    // A stable identifier for the user and device. If a user is removed and
+    // added to the same device, this id will remain the same. However, this id
+    // will be different if another user is added to the same device or if the
+    // same user is added on another device.
+    DOMString deviceUserId;
+
+    // Whether the user is logged in. If not logged in, the app is running on
+    // the signin screen.
+    boolean loggedIn;
+
+    // Whether to require the remote device to be in very close proximity before
+    // allowing unlock (~1 feet).
+    boolean requireCloseProximity;
+
+    // Whether all data needed to use Easy unlock service has been loaded for
+    // the user.
+    boolean dataReady;
+
+    // Whether the |kEnableBluetoothLowEnergyDiscovery| switch is enabled.
+    boolean bleDiscoveryEnabled;
+  };
+
+  // A range.
+  dictionary Range {
+    long start;
+    long end;
+  };
+
+  // A rectangle, in screen coordinates, measured in device-independent pixels.
+  dictionary Rect {
+    long left;
+    long top;
+    long width;
+    long height;
+  };
+
+  // Auto pairing reuslt.
+  dictionary AutoPairingResult {
+    // Whether the auto pairing is completed successfully.
+    boolean success;
+
+    // Optional error message to indicate the failure.
+    DOMString? errorMessage;
+  };
+
+  // Callback for crypto methods that return a single array buffer.
+  callback DataCallback = void(optional ArrayBuffer data);
+
+  // An empty callback used purely for signalling success vs. failure.
+  callback EmptyCallback = void();
+
+  // Callback for the getStrings() method.
+  callback GetStringsCallback = void(object strings);
+
+  // Callback for method that generates an encryption key pair.
+  callback KeyPairCallback = void(optional ArrayBuffer public_key,
+                                  optional ArrayBuffer private_key);
+
+  // Callback for the getPermitAccess() method.
+  callback GetPermitAccessCallback = void(optional PermitRecord permitAccess);
+
+  // Callback for the getRemoteDevices() method.
+  callback GetRemoteDevicesCallback = void(Device[] devices);
+
+  // Callback for the |getUserInfo()| method. Note that the callback argument is
+  // a list for future use (on signin screen there may be more than one user
+  // associated with the easy unlock service). Currently the method returns at
+  // most one user.
+  callback GetUserInfoCallback = void(UserInfo[] users);
+
+  // Callback for |getSignInChallenge()| method.
+  // In case challenge could not be created both |challenge| and |signedNonce|
+  // will be empty.
+  // If the requested nonce could not be signed, |signedNonce| will be empty.
+  // |challenge|: The sign in challenge to be used when signing in the user
+  //     currently associated with the Easy Unlock service.
+  // |signedNonce|: Nonce signed by Chrome OS TPM, provided as an argument to
+  //     the |getSignInChallenge()| function and signed by the TPM key
+  //     associated with the user.
+  callback SignInChallengeCallback = void(optional ArrayBuffer challenge,
+                                          optional ArrayBuffer signedNonce);
+
+  // Callback for the |getConnectionInfo()| method.
+  // |rssi|: The received signal strength from the remote device in dB.
+  // |transmit_power| The local transmission power to the remote device in dB.
+  // |max_transmit_power| The maximum transmission power that can be achieved.
+  callback ConnectionInfoCallback = void(
+      long rssi, long transmit_power, long max_transmit_power);
+
+  // Callback for the |FindSetupConnectionCallback| method.
+  // |connectionId|: The identifier of the connection found. To be used in
+  // future calls refering to this connection.
+  // |deviceAddress|: The Bluetooth address of the remote device.
+  callback FindSetupConnectionCallback = void(long connectionId,
+                                              DOMString deviceAddress);
+
+  // Callback for the |setupConnectionStatus()| method.
+  // |status|: The status of the connection with |connection_id|.
+  callback SetupConnectionStatusCallback = void(ConnectionStatus status);
+
+  // Callback for the |setupConnectionGetDeviceAddress()| method.
+  // |deviceAddress|: The bluetooth address of the connection with 
+  // |connectionId|.
+  callback SetupConnectionGetDeviceAddressCallback = void(
+      DOMString deviceAddress);
+
+  interface Functions {
+    // Gets localized strings required to render the API.
+    //
+    // |callback| : Called with a dictionary mapping names to resource strings.
+    // TODO(isherman): This is essentially copied from identity_private.idl.
+    //                 Perhaps this should be extracted to a common API instead?
+    static void getStrings(GetStringsCallback callback);
+
+    // Generates a ECDSA key pair for P256 curve.
+    // Public key will be in format recognized by secure wire transport protocol
+    // used by Easy Unlock app. Otherwise, the exact format for both key should
+    // should be considered obfuscated to the app. The app should not use them
+    // directly, but through this API.
+    // |callback|: Callback with the generated keys. On failure, none of the
+    //     keys will be set.
+    static void generateEcP256KeyPair(KeyPairCallback callback);
+
+    // Given a private key and a public ECDSA key from different asymetric key
+    // pairs, it generates a symetric encryption key using EC Diffie-Hellman
+    // scheme.
+    // |privateKey|: A private key generated by the app using
+    //     |generateEcP256KeyPair|.
+    // |publicKey|: A public key that should be in the same format as the
+    //     public key generated by |generateEcP256KeyPair|. Generally not the
+    //     one paired with |private_key|.
+    // |callback|: Function returning the generated secret symetric key.
+    //     On failure, the returned value will not be set.
+    static void performECDHKeyAgreement(ArrayBuffer privateKey,
+                                        ArrayBuffer publicKey,
+                                        DataCallback callback);
+
+    // Creates a secure, signed message in format used by Easy Unlock app to
+    // establish secure communication channel over unsecure connection.
+    // |payload|: The payload the create message should carry.
+    // |key|: The key used to sign the message content. If encryption algorithm
+    //     is set in |options| the same key will be used to encrypt the message.
+    // |options|: Additional (optional) parameters used to create the message.
+    // |callback|: Function returning the created message bytes. On failure,
+    //     the returned value will not be set.
+    static void createSecureMessage(
+        ArrayBuffer payload,
+        ArrayBuffer key,
+        CreateSecureMessageOptions options,
+        DataCallback callback);
+
+    // Authenticates and, if needed, decrypts a secure message. The message is
+    // in the same format as the one created by |createSecureMessage|.
+    // |secureMessage|: The message to be unwrapped.
+    // |key|: Key to be used to authenticate the message sender. If encryption
+    //     algorithm is set in |options|, the same key will be used to decrypt
+    //     the message.
+    // |options|: Additional (optional) parameters used to unwrap the message.
+    // |callback|: Function returning an array buffer containing cleartext
+    //     message header and body. They are returned in a single buffer in
+    //     format used inside the message. If the massage authentication or
+    //     decryption fails, the returned value will not be set.
+    static void unwrapSecureMessage(
+        ArrayBuffer secureMessage,
+        ArrayBuffer key,
+        UnwrapSecureMessageOptions options,
+        DataCallback callback);
+
+    // Connects to the SDP service on a device, given just the device's
+    // Bluetooth address. This function is useful as a faster alternative to
+    // Bluetooth discovery, when you already know the remote device's Bluetooth
+    // address. A successful call to this function has the side-effect of
+    // registering the device with the Bluetooth daemon, making it available for
+    // future outgoing connections.
+    // |deviceAddress|: The Bluetooth address of the device to connect to.
+    // |callback|: Called to indicate success or failure.
+    static void seekBluetoothDeviceByAddress(DOMString deviceAddress,
+                                             optional EmptyCallback callback);
+
+    // Connects the socket to a remote Bluetooth device over an insecure
+    // connection, i.e. a connection that requests no bonding and no
+    // man-in-the-middle protection. Other than the reduced security setting,
+    // behaves identically to the chrome.bluetoothSocket.connect() function.
+    // |socketId|: The socket identifier, as issued by the
+    //     chrome.bluetoothSocket API.
+    // |deviceAddress|: The Bluetooth address of the device to connect to.
+    // |uuid|: The UUID of the service to connect to.
+    // |callback|: Called when the connect attempt is complete.
+    static void connectToBluetoothServiceInsecurely(long socketId,
+                                                    DOMString deviceAddress,
+                                                    DOMString uuid,
+                                                    EmptyCallback callback);
+
+    // Updates the screenlock state to reflect the Easy Unlock app state.
+    static void updateScreenlockState(State state,
+                                      optional EmptyCallback callback);
+
+    // Saves the permit record for the local device.
+    // |permitAccess|: The permit record to be saved.
+    // |callback|: Called to indicate success or failure.
+    static void setPermitAccess(PermitRecord permitAccess,
+                                optional EmptyCallback callback);
+
+    // Gets the permit record for the local device.
+    static void getPermitAccess(GetPermitAccessCallback callback);
+
+    // Clears the permit record for the local device.
+    static void clearPermitAccess(optional EmptyCallback callback);
+
+    // Saves the remote device list.
+    // |devices|: The list of remote devices to be saved.
+    // |callback|: Called to indicate success or failure.
+    static void setRemoteDevices(Device[] devices,
+                                 optional EmptyCallback callback);
+
+    // Gets the remote device list.
+    static void getRemoteDevices(GetRemoteDevicesCallback callback);
+
+    // Gets the sign-in challenge for the current user.
+    // |nonce|: Nonce that should be signed by the Chrome OS TPM. The signed
+    //     nonce is returned with the sign-in challenge.
+    static void getSignInChallenge(ArrayBuffer nonce,
+                                   SignInChallengeCallback callback);
+
+    // Tries to sign-in the current user with a secret obtained by decrypting
+    // the sign-in challenge. Check chrome.runtime.lastError for failures. Upon
+    // success, the user session will be started.
+    static void trySignInSecret(ArrayBuffer signInSecret,
+                                EmptyCallback callback);
+
+    // Retrieves information about the user associated with the Easy unlock
+    // service.
+    static void getUserInfo(GetUserInfoCallback callback);
+
+    // Gets the connection info for the Bluetooth device identified by
+    // deviceAddress.
+    static void getConnectionInfo(DOMString deviceAddress,
+                                  ConnectionInfoCallback callback);
+
+    // Shows an error bubble with the given |message|, anchored to an edge of
+    // the given |anchorRect| -- typically the right edge, but possibly a
+    // different edge if there is not space for the bubble to the right of the
+    // anchor rectangle. If the |link_range| is non-empty, renders the text
+    // within the |message| that is contained in the |link_range| as a link with
+    // the given |link_target| URL.
+    static void showErrorBubble(DOMString message,
+                                Range link_range,
+                                DOMString link_target,
+                                Rect anchorRect);
+
+    // Hides the currently visible error bubble, if there is one.
+    static void hideErrorBubble();
+
+    // Sets the result of auto pairing triggered from onStartAutoPairing
+    // event. If auto pairing is completed successfully, |result.success|
+    // should be true so that Easy bootstrap flow would finish and starts
+    // the user session. Otherwise, |result.success| is set to false with
+    // an optional error message to be displayed to the user.
+    static void setAutoPairingResult(AutoPairingResult result,
+                                     optional EmptyCallback callback);
+
+    // Finds and connects the remote BLE device that is advertising:
+    // |setupServiceUUID|. Returns when a connection is found or |timeOut|
+    // seconds have elapsed.
+    static void findSetupConnection(DOMString setupServiceUuid,
+                                    long timeOut,
+                                    FindSetupConnectionCallback callback);
+
+    // Returns the status of the connection with |connectionId|.
+    static void setupConnectionStatus(long connectionId,
+                                      SetupConnectionStatusCallback callback);
+
+    // Disconnects the connection with |connectionId|. 
+    static void setupConnectionDisconnect(long connectionId, 
+                                          optional EmptyCallback callback);
+
+    // Sends |data| through the connection with |connnectionId|.
+    static void setupConnectionSend(long connectionId,
+                                    ArrayBuffer data,
+                                    optional EmptyCallback callback);
+
+    // Gets the Bluetooth address of the connection with |connectionId|
+    static void setupConnectionGetDeviceAddress(long connectionId,
+        SetupConnectionGetDeviceAddressCallback callback);
+  };
+
+  interface Events {
+    // Event fired when the data for the user currently associated with
+    // Easy unlock service is updated.
+    // |userInfo| The updated user information.
+    static void onUserInfoUpdated(UserInfo userInfo);
+
+    // Event fired at the end of Easy bootstrap to start auto pairing so
+    // that a proper cryptohome key could be generated for the user.
+    static void onStartAutoPairing();
+
+    // Event fired when |connectionId| change status.
+    static void onConnectionStatusChanged(long connectionId,
+                                          ConnectionStatus oldStatus,
+                                          ConnectionStatus newStatus);
+
+    // Event fired when |connectionId| receives |data|.
+    static void onDataReceived(long connectionId,
+                               ArrayBuffer data);
+
+    // Event fired when |connectionId| sends |data|. |success| is true
+    // if the send operation was successful.
+    static void onSendCompleted(long connectionId,
+                                ArrayBuffer data,
+                                boolean success);
+  };
+};

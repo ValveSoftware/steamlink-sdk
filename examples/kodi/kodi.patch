@@ -641,10 +641,10 @@ index 0000000..ffe053d
 +}
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp
 new file mode 100644
-index 0000000..bd9e016
+index 0000000..a213bd3
 --- /dev/null
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.cpp
-@@ -0,0 +1,279 @@
+@@ -0,0 +1,308 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -684,6 +684,7 @@ index 0000000..bd9e016
 +using namespace STEAMLINK;
 +
 +#define MAX_AUDIO_DELAY_MS  100 // Skip packets if audio delay exceeds this value
++#define SL_INTRINSIC_DELAY_MS  250 // Observed audio delay while playing video
 +
 +CAESinkSteamLinkStream::CAESinkSteamLinkStream(CSLAudioContext* context, unsigned int sampleRateHz, unsigned int channels, unsigned int packetSize) :
 +  CThread("SteamLinkAudio"),
@@ -692,7 +693,6 @@ index 0000000..bd9e016
 +  m_channels(channels),
 +  m_packetSize(packetSize),
 +  m_stream(nullptr),
-+  m_bInVideo(false),
 +  m_steamLinkBuffer(nullptr),
 +  m_remainingBytes(0)
 +{
@@ -745,14 +745,35 @@ index 0000000..bd9e016
 +
 +bool CAESinkSteamLinkStream::Flush()
 +{
-+  Close();
++  bool bOpen = false;
 +
++  // Causes AddPacket() to return immediately
++  {
++    CSingleLock lock(m_streamMutex);
++    if (m_stream)
++    {
++      bOpen = true;
++      SLAudio_FreeStream(m_stream);
++      m_stream = nullptr;
++    }
++  }
++
++  // Clear queue
 +  {
 +    CSingleLock lock(m_queueMutex);
 +    m_queue.clear();
 +  }
 +
-+  return Open();
++  // Reopen stream
++  bool bSuccess = true;
++  if (bOpen)
++  {
++    CSingleLock lock(m_streamMutex);
++    m_stream = SLAudio_CreateStream(m_context, m_sampleRateHz, m_channels, m_packetSize, true);
++    bSuccess = (m_stream != nullptr);
++  }
++
++  return bSuccess;
 +}
 +
 +bool CAESinkSteamLinkStream::AddPacket(std::unique_ptr<uint8_t[]> data, unsigned int size, double presentTimeSecs)
@@ -763,14 +784,16 @@ index 0000000..bd9e016
 +      return true; // This might have been called during a Flush()
 +  }
 +
-+  const unsigned int delayMs = CSteamLinkVideo::GetDelayMs();
++  int delayMs = CSteamLinkVideo::GetDelayMs();
++
++  delayMs -= SL_INTRINSIC_DELAY_MS;
 +
 +  if (delayMs > 0)
 +    presentTimeSecs += delayMs / 1000.0;
 +
 +  {
 +    CSingleLock lock(m_queueMutex);
-+    m_queue.emplace_back(std::move(AudioPacket{std::move(data), size, presentTimeSecs}));
++    m_queue.emplace_back(std::move(data), size, presentTimeSecs);
 +  }
 +
 +  // Notify thread that a packet is ready
@@ -882,8 +905,16 @@ index 0000000..bd9e016
 +{
 +  CSingleLock lock(m_streamMutex);
 +
++  if (m_stream == nullptr)
++    return;
++
 +  if (GetSLDelaySecs() > MAX_AUDIO_DELAY_MS)
-+    Flush();
++  {
++    // Flush() grabs the queue mutex, so don't hold the stream mutex
++    CSingleExit exit(m_streamMutex);
++    if (!Flush())
++      return;
++  }
 +
 +  if (m_stream == nullptr)
 +    return;
@@ -915,8 +946,6 @@ index 0000000..bd9e016
 +
 +double CAESinkSteamLinkStream::GetSLDelaySecs()
 +{
-+  CSingleLock lock(m_streamMutex);
-+
 +  uint32_t queuedFrames = 0;
 +
 +  if (m_stream)
@@ -926,10 +955,10 @@ index 0000000..bd9e016
 +}
 diff --git a/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h
 new file mode 100644
-index 0000000..536054d
+index 0000000..93a344d
 --- /dev/null
 +++ b/xbmc/cores/AudioEngine/Sinks/AESinkSteamLinkStream.h
-@@ -0,0 +1,97 @@
+@@ -0,0 +1,109 @@
 +/*
 + *      Copyright (C) 2016 Team Kodi
 + *      Copyright (C) 2016 Valve Corporation
@@ -988,6 +1017,19 @@ index 0000000..536054d
 +private:
 +  struct AudioPacket
 +  {
++    AudioPacket() :
++      size(0),
++      presentTimeSecs(0.0)
++    {
++    }
++
++    AudioPacket(std::unique_ptr<uint8_t[]> buffer, unsigned int size, double presentTimeSecs) :
++      buffer(std::move(buffer)),
++      size(size),
++      presentTimeSecs(presentTimeSecs)
++    {
++    }
++
 +    std::unique_ptr<uint8_t[]> buffer;
 +    unsigned int size;
 +    double presentTimeSecs;
@@ -1020,7 +1062,6 @@ index 0000000..536054d
 +  std::deque<AudioPacket> m_queue;
 +  CCriticalSection m_queueMutex;
 +  CEvent m_queueEvent;
-+  bool m_bInVideo;
 +  uint8_t* m_steamLinkBuffer;
 +  unsigned int m_remainingBytes; // Bytes remaining in the Steam Link audio buffer
 +  XbmcThreads::EndTime m_videoDelay;
@@ -2282,10 +2323,10 @@ index 0b676c9..520131f 100644
  
  class CDVDAudioCodec;
 diff --git a/xbmc/cores/VideoPlayer/VideoPlayer.cpp b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
-index e2b77c3..b868005 100644
+index bd11cd8..e779fc8 100644
 --- a/xbmc/cores/VideoPlayer/VideoPlayer.cpp
 +++ b/xbmc/cores/VideoPlayer/VideoPlayer.cpp
-@@ -3140,6 +3140,12 @@ bool CVideoPlayer::CanSeek()
+@@ -3141,6 +3141,12 @@ bool CVideoPlayer::CanSeek()
    return m_State.canseek;
  }
  
@@ -2298,7 +2339,7 @@ index e2b77c3..b868005 100644
  void CVideoPlayer::Seek(bool bPlus, bool bLargeStep, bool bChapterOverride)
  {
    if (!m_State.canseek)
-@@ -5045,6 +5051,9 @@ void CVideoPlayer::UpdatePlayState(double timeout)
+@@ -5046,6 +5052,9 @@ void CVideoPlayer::UpdatePlayState(double timeout)
      state.canseek = m_pInputStream->CanSeek();
    }
  

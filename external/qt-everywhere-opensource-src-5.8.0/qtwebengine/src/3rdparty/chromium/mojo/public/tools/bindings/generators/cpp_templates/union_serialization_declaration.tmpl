@@ -1,0 +1,37 @@
+{%- set mojom_type = union|get_qualified_name_for_kind %}
+{%- set data_type = union|get_qualified_name_for_kind(internal=True) %}
+
+namespace internal {
+
+template <typename MojomType>
+struct UnionSerializerImpl;
+
+template <>
+struct UnionSerializerImpl<{{mojom_type}}Ptr> {
+  static size_t PrepareToSerialize({{mojom_type}}Ptr& input,
+                                   bool inlined,
+                                   SerializationContext* context);
+
+  static void Serialize({{mojom_type}}Ptr& input,
+                        Buffer* buffer,
+                        {{data_type}}** output,
+                        bool inlined,
+                        SerializationContext* context);
+
+  static bool Deserialize({{data_type}}* input,
+                          {{mojom_type}}Ptr* output,
+                          SerializationContext* context);
+};
+
+template <typename MaybeConstUserType>
+struct Serializer<{{mojom_type}}Ptr, MaybeConstUserType>
+    : public UnionSerializerImpl<{{mojom_type}}Ptr> {
+  using UserType = typename std::remove_const<MaybeConstUserType>::type;
+
+  static_assert(std::is_same<MaybeConstUserType, UserType>::value,
+                "Only support serialization of non-const Unions.");
+  static_assert(std::is_same<UserType, {{mojom_type}}Ptr>::value,
+                "Custom mapping of mojom union is not supported.");
+};
+
+}  // namespace internal

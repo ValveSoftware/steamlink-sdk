@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--
+Copyright 2016 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/perf_insights/mre/function_handle.html">
+<link rel="import" href="/tracing/metrics/all_metrics.html">
+<link rel="import" href="/tracing/metrics/metric_registry.html">
+<link rel="import" href="/tracing/value/value_set.html">
+
+<script>
+'use strict';
+
+tr.exportTo('tr.metrics', function() {
+  /**
+   * @param {!pi.mre.MreResult} result
+   * @param {!tr.model.Model} model
+   * @param {!Object} options
+   */
+  function metricMapFunction(result, model, options) {
+    if (options === undefined)
+      throw new Error('Expected an options dict.');
+
+    var metricName = options.metric;
+    if (metricName === undefined)
+      throw new Error('A metric name should be specified.');
+
+    var values = new tr.v.ValueSet();
+
+    var metric = tr.metrics.MetricRegistry.findTypeInfoWithName(metricName);
+    if (metric === undefined)
+      throw new Error('"' + metricName + '" is not a registered metric.');
+    metric.constructor(values, model);
+
+    for (var metadata of model.metadata) {
+      if (!metadata.value || !metadata.value['iteration-info'])
+        continue;
+      var iteration = new tr.v.d.IterationInfo(
+          metadata.value['iteration-info']);
+      // Values can be separated from their ValueSet and mixed into ValueSets
+      // with Values from other iterations, so add IterationInfo to each Value.
+      values.map(function(value) {
+        value.diagnostics.add(tr.v.ITERATION_INFO_DIAGNOSTIC_NAME, iteration);
+      });
+    }
+
+    result.addPair('values', values.valueDicts);
+  }
+
+  pi.FunctionRegistry.register(metricMapFunction);
+
+  return {
+    metricMapFunction: metricMapFunction
+  };
+});
+</script>

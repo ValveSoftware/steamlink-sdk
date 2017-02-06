@@ -1,0 +1,104 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module device.nfc;
+
+enum NFCErrorType {
+  SECURITY,
+  NOT_SUPPORTED,
+  DEVICE_DISABLED,
+  NOT_FOUND,
+  INVALID_MESSAGE,
+  OPERATION_CANCELLED,
+  TIMER_EXPIRED,
+  CANNOT_CANCEL,
+  IO_ERROR
+};
+
+enum NFCRecordType {
+  EMPTY,
+  TEXT,
+  URL,
+  JSON,
+  OPAQUE_RECORD
+};
+
+enum NFCPushTarget {
+  TAG,
+  PEER,
+  ANY
+};
+
+enum NFCWatchMode {
+  WEBNFC_ONLY,
+  ANY
+};
+
+struct NFCError {
+  NFCErrorType error_type;
+};
+
+struct NFCRecord {
+  NFCRecordType recordType;
+  string? mediaType;
+  array<uint8> data;
+};
+
+struct NFCMessage {
+  array<NFCRecord> data;
+  string? url;
+};
+
+struct NFCPushOptions {
+  NFCPushTarget target;
+  double timeout;
+  bool ignoreRead;
+};
+
+struct NFCRecordTypeFilter {
+  NFCRecordType recordType;
+};
+
+struct NFCWatchOptions {
+  string? url;
+  NFCRecordTypeFilter? recordFilter;
+  string? mediaType;
+  NFCWatchMode mode;
+};
+
+interface NFC {
+  // NFCClient interface is used to notify |client| when NFCMessage matches one
+  // or more pending watch operations.
+  SetClient(NFCClient client);
+
+  // Pushes data to NFC device.
+  // NFCPushOptions specify timeout and type of device where data should be
+  // pushed. If timeout is defined and data is not pushed before timeout is
+  // expired, callback with corresponding error is called.
+  Push(NFCMessage message, NFCPushOptions? options) => (NFCError? error);
+
+  // Cancels pending push request.
+  CancelPush(NFCPushTarget target) => (NFCError? error);
+
+  // Starts watching for nearby NFC devices with data that matches
+  // NFCWatchOptions filtering criteria. On success, watch ID is returned.
+  Watch(NFCWatchOptions options) => (uint32 id, NFCError? error);
+
+  // Cancels watch operation with provided id.
+  CancelWatch (uint32 id) => (NFCError? error);
+
+  // Cancels all watch operations.
+  CancelAllWatches () => (NFCError? error);
+
+  // Suspends all pending NFC operations. Could be used when web page
+  // visibility or focus is lost.
+  SuspendNFCOperations();
+
+  // Resumes all suspended NFC operations.
+  ResumeNFCOperations();
+};
+
+interface NFCClient {
+  OnWatch(array<uint32> watchIDs, NFCMessage message);
+};

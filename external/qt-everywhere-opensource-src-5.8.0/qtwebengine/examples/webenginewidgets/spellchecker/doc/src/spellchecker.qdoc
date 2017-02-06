@@ -1,0 +1,139 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webenginewidgets/spellchecker
+    \title WebEngine Widgets Spellchecker Example
+    \ingroup webengine-widgetexamples
+    \brief Integrates a spellchecker into a simple HTML form.
+
+    \image spellchecker-example.png
+
+    \e {Spellchecker} demonstrates how to integrate spellchecking support into
+    an HTML form that enables users to submit spellchecked messages.
+
+    \include examples-run.qdocinc
+
+    \section1 Dictionaries
+
+    To be able to check the spelling, we need to provide the spellchecker with
+    dictionaries. The Qt WebEngine spellchecker supports dictionaries provided by the
+    \l {Hunspell project} on all platforms and native dictionaries provided by macOS.
+    In this example, we want to support the English and German languages.
+
+    For Hunspell dictionaries to be supported they have to be compiled into a special binary format.
+    A Hunspell dictionary consists of two files:
+
+    \list
+
+        \li A \c .dic file that is a dictionary containing words for the
+            language
+        \li An \c .aff file that defines the meaning of special flags in the
+            dictionary
+    \endlist
+
+    These two files can be converted into the \c bdic format by using the
+    \c qwebengine_convert_dict tool that is shipped together with Qt.
+
+    In this example, we are going to compile en_US and de_DE dictionaries.
+    However, the real full dictionaries would take too much space for the
+    purposes of this example. Therefore, we have created two dummy dictionaries
+    that contain the following words and can be used to demonstrate the
+    conversion process:
+
+    \list
+        \li English dictionary: I, you, he, she, it, we, they, love, loves, qt
+        \li German dictionary: ich, du, er, sie, es, wir, ihr, sie, Sie, liebe,
+            liebst, liebt, lieben, liebt, qt
+    \endlist
+
+    Each word in a dictionary can be prefixed with \c q. For more information
+    about how to create \c dic and \c aff files, see the Hunspell dictionary
+    file format specification in the \l{Hunspell Project}.
+
+    When a specific spellchecking language is requested, Qt WebEngine will try
+    to load the already compiled matching \c .bdic file first from
+    \e qtwebengine_dictionaries directories relative to the executable,
+    then it will look in \c QT_INSTALL_PREFIX/qtwebengine_dictionaries.
+
+    On macOS, because this example was configured to use Hunspell dictionaries, Qt WebEngine will
+    look in the \e qtwebengine_dictionaries directory located inside the application bundle
+    \c Resources directory, and also in the \c Resources directory located inside the
+    Qt framework bundle.
+
+    We specify the QMAKE_EXTRA_COMPILERS parameter in the project file to add a
+    conversion step to the build process:
+
+    \quotefromfile webenginewidgets/spellchecker/spellchecker.pro
+    \skipto CONVERT_TOOL
+    \printuntil QMAKE_EXTRA_COMPILERS
+
+    To set up a dictionary, we run \c qwebengine_convert_dict passing the
+    file path of the dictionary \c dic and \c bdic files. The \c aff file and
+    optional \c delta file are also picked up by the \c convert process.
+    The output \c bdic file is placed into the \e qtwebengine_dictionaries local
+    directory (or Resources directory), which the application binary will run from.
+
+    \section1 Setting the Spellchecker
+
+    The constructor of our class is trivial.
+
+    \quotefromfile webenginewidgets/spellchecker/webview.cpp
+    \skipto WebView::WebView
+    \printuntil }
+    We define simple mapping between our dictionary filenames and
+    the actual language display name. We will use that mapping to display names
+    of dictionaries in the context menu. Spellchecking is disabled by default.
+    Therefore we also enable spellchecker and set the \e English dictionary.
+    When Qt WebEngine's spellcheck service initializes, it will try to load the
+    \c bdict dictionaries and to check them for consistency.
+    Any errors are logged by using the qWarning() function.
+
+    \section1 Switching the Spellchecking Language
+
+    The current language used for spellchecking is defined per profile, and can
+    get set using the QWebEngineProfile::setSpellCheckLanguage method. When the
+    user clicks on an underlined misspelled word, the default context menu
+    displays up to four suggestions. Selecting one will replace the misspelled
+    word. We could reimplement a number of suggestions, by overriding
+    QWebEngineView::contextMenuEvent and using
+    QWebEngineContextMenuData::spellCheckerSuggestions, but we will demonstrate
+    how to add langague options in the context menu instead:
+
+    \quotefromfile webenginewidgets/spellchecker/webview.cpp
+    \skipto void WebView::contextMenuEvent
+    \printuntil menu->popup
+    \printline }
+
+    Above, we get the QWebEngineContextMenuData instance using the
+    QWebEnginePage::contextMenuData method. We use it to be notified when the
+    user clicks on an editable field and show the \uicontrol {Check Spelling}
+    item in the context menu. Moreover, if spellchecking is enabled, we also
+    add the \uicontrol {Select Language} submenu with the supported languages.
+    When an action is triggered, we set the language with the
+    QWebEngineProfile::setSpellCheckLanguage call.
+*/

@@ -1,0 +1,74 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//content/renderer/renderer.gni")
+
+# See //content/BUILD.gn for how this works.
+group("renderer") {
+  if (is_component_build) {
+    public_deps = [
+      "//content",
+    ]
+  } else {
+    public_deps = [
+      ":renderer_sources",
+    ]
+  }
+}
+
+source_set("renderer_sources") {
+  # External code should depend on via ":renderer" above.
+  visibility = [ "//content/*" ]
+
+  sources = rebase_path(content_renderer_gypi_values.public_renderer_sources,
+                        ".",
+                        "//content")
+
+  configs += [ "//content:content_implementation" ]
+
+  deps = [
+    "//content/public/child:child_sources",
+    "//content/public/common:common_sources",
+    "//content/renderer",
+    "//gin",
+    "//media",
+    "//media/gpu/ipc/client",
+    "//net",
+    "//ppapi/c",
+    "//skia",
+    "//third_party/WebKit/public:blink_headers",
+    "//third_party/libjingle",
+    "//third_party/widevine/cdm:version_h",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/gfx",
+    "//v8",
+  ]
+
+  allow_circular_includes_from = [
+    # This target is a pair with content/renderer. They always go together and
+    # include headers from each other.
+    "//content/renderer",
+  ]
+
+  if (enable_webrtc) {
+    sources +=
+        rebase_path(content_renderer_gypi_values.public_renderer_webrtc_sources,
+                    ".",
+                    "//content")
+    deps += [
+      "//content/public/common:feature_h264_with_openh264_ffmpeg",
+      "//content/public/common:features",
+      "//third_party/webrtc",
+    ]
+  }
+
+  if (enable_plugins) {
+    sources +=
+        rebase_path(content_renderer_gypi_values.public_renderer_plugin_sources,
+                    ".",
+                    "//content")
+  }
+}

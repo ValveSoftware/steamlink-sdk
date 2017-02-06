@@ -1,0 +1,378 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module mus.mojom;
+
+import "cc/ipc/surface_id.mojom";
+import "components/mus/public/interfaces/cursor.mojom";
+import "components/mus/public/interfaces/event_matcher.mojom";
+import "components/mus/public/interfaces/mus_constants.mojom";
+import "components/mus/public/interfaces/surface.mojom";
+import "components/mus/public/interfaces/window_manager.mojom";
+import "components/mus/public/interfaces/window_manager_constants.mojom";
+import "components/mus/public/interfaces/window_tree_constants.mojom";
+import "ui/events/mojo/event.mojom";
+import "ui/gfx/geometry/mojo/geometry.mojom";
+import "ui/platform_window/mojo/text_input_state.mojom";
+
+// Windows are identified by a uint32. The upper 16 bits are the connection id,
+// and the lower 16 the id assigned by the client.
+//
+// The root window is identified with a connection id of 0, and value of 1.
+//
+// Most functions to the WindowTree take a change_id parameter. When
+// WindowTree completes processing of a function WindowTree calls
+// WindowTreeClient::OnChangeCompleted() with the change_id supplied by the
+// client and the result of the function. This allows the client to track
+// whether the call succeeded or not. Calls are done via the client interface
+// rather than a callback to ensure ordering. The server does not interpret the
+// change id in anyway, it is up to the client to assign a value and use it.
+// Generally the change id is an ever increasing integer.
+interface WindowTree {
+  // Creates a new window with the specified id. It is up to the client to
+  // ensure the id is unique to the connection (the id need not be globally
+  // unique). Additionally the connection id (embedded in |window_id|) must
+  // match that of the connection.
+  // Errors:
+  //   ERROR_CODE_VALUE_IN_USE: a window already exists with the specified id.
+  //   ERROR_CODE_ILLEGAL_ARGUMENT: The connection part of |window_id| does not
+  //     match the connection id of the client.
+  NewWindow(uint32 change_id,
+            uint32 window_id,
+            map<string, array<uint8>>? properties);
+
+  // Requests the WindowManager to create a new top level window. On success
+  // OnTopLevelCreated() is called with the WindowData for the new window. On
+  // failure OnChangeCompleted() is called.
+  // TODO(sky): this likely needs context, maybe in |properties|.
+  NewTopLevelWindow(uint32 change_id,
+                    uint32 window_id,
+                    map<string, array<uint8>> properties);
+
+  // Deletes a window. This does not recurse. No hierarchy change notifications
+  // are sent as a result of this. Only the connection that created the window
+  // can delete it.
+  DeleteWindow(uint32 change_id, uint32 window_id);
+
+  // Requests input event capture for the given |window_id|. Capture is only
+  // allowed if the window is processing an event. When a window gains capture,
+  // current input events are canceled. The given window will receive all
+  // subsequent input until an alternate window is set via SetCapture, or
+  // ReleaseCapture is called for |window_id|. OnLostCapture is called to notify
+  // of capture ending.
+  SetCapture(uint32 change_id, uint32 window_id);
+
+  // Releases input event capture for the given |window_id|. This does nothing
+  // if |window_id| does not currently have capture.
+  ReleaseCapture(uint32 change_id, uint32 window_id);
+
+  // Sets an observer that monitors all events, even if they are not targeted
+  // at a window in this tree. If an event matchs |matcher| the observer reports
+  // it to the WindowTreeClient via OnWindowInputEvent (if the event target is
+  // this window tree) or OnEventObserved (if the target is another tree). The
+  // client must supply a non-zero |observer_id|, which is reported back with
+  // observed events.  Set the matcher to null to clear the observer.
+  SetEventObserver(EventMatcher? matcher, uint32 observer_id);
+
+  // Sets the specified bounds of the specified window.
+  SetWindowBounds(uint32 change_id, uint32 window_id, gfx.mojom.Rect bounds);
+
+  // Sets the client area of the specified window. The client area is specified
+  // by way of insets. Everything outside of the insets, and not in
+  // |additional_client_areas| is considered non-client area.
+  // TODO(sky): convert additional_client_areas to a path.
+  SetClientArea(uint32 window_id,
+                gfx.mojom.Insets insets,
+                array<gfx.mojom.Rect>? additional_client_areas);
+
+  // Mouse events outside a hit test mask do not hit the window. The |mask| is
+  // in window local coordinates. Pass null to clear the mask.
+  // TODO(jamescook): Convert |mask| to a path. http://crbug.com/613210
+  SetHitTestMask(uint32 window_id, gfx.mojom.Rect? mask);
+
+  // Sets the visibility of the specified window to |visible|. Connections are
+  // allowed to change the visibility of any window they have created, as well
+  // as any of their roots.
+  SetWindowVisibility(uint32 change_id, uint32 window_id, bool visible);
+
+  // Sets an individual named property. Setting an individual property to null
+  // deletes the property.
+  SetWindowProperty(uint32 change_id,
+                    uint32 window_id,
+                    string name,
+                    array<uint8>? value);
+
+  // Sets the opacity of the specified window to |opacity|.
+  SetWindowOpacity(uint32 change_id, uint32 window_id, float opacity);
+
+  // Attaches a Surface to a particular window.
+  AttachSurface(uint32 window_id,
+                SurfaceType type,
+                Surface& surface,
+                SurfaceClient client);
+
+  // Reparents a window.
+  // This fails for any of the following reasons:
+  // . |parent| or |child| does not identify a valid window.
+  // . |child| is an ancestor of |parent|.
+  // . |child| is already a child of |parent|.
+  //
+  // This may result in a connection getting OnWindowDeleted(). See
+  // RemoveWindowFromParent for details.
+  AddWindow(uint32 change_id, uint32 parent, uint32 child);
+
+  // Removes a window from its current parent. This fails if the window is not
+  // valid or the window already has no parent.
+  //
+  // Removing a window from a parent may result in OnWindowDeleted() being sent
+  // to other connections. For example, connection A has windows 1 and 2, with 2
+  // a child of 1. Connection B has a root 1. If 2 is removed from 1 then B gets
+  // OnWindowDeleted(). This is done as window 2 is effectively no longer
+  // visible to connection B.
+  RemoveWindowFromParent(uint32 change_id, uint32 window_id);
+
+  // Ties the lifetime of |transient_window_id| to the lifetime of |window_id|.
+  // This also places |transient_window_id| on top of |window_id|.
+  // This fails for any of the following reasons:
+  // . |window_id| or |transient_window_id| does not identify a valid window.
+  // . |transient_window_id| is an ancestor of |window_id|.
+  // . |transient_window_id| is modal to system.
+  AddTransientWindow(uint32 change_id,
+                     uint32 window_id,
+                     uint32 transient_window_id);
+
+  // Decouples the lifetime of |transient_window_id| from its transient parent.
+  // This does not change transient window's position in the window hierarchy.
+  RemoveTransientWindowFromParent(uint32 change_id, uint32 transient_window_id);
+
+  // Sets |window_id| to be modal. If the window has a transient parent, then
+  // the window is modal to the transient parent. Otherwise, the window is modal
+  // to the system. This releases capture if necessary.
+  // This fails for any of the following reasons:
+  // . |window_id| does not identify a valid window.
+  // . Client does not have a valid user id (i.e., it is an embedded app).
+  SetModal(uint32 change_id, uint32 window_id);
+
+  // Reorders a window in its parent, relative to |relative_window_id| according
+  // to |direction|. Only the connection that created the window's parent can
+  // reorder its children.
+  ReorderWindow(uint32 change_id,
+                uint32 window_id,
+                uint32 relative_window_id,
+                OrderDirection direction);
+
+  // Returns the windows comprising the tree starting at |window_id|.
+  // |window_id| is the first result in the return value, unless |window_id| is
+  // invalid, in which case an empty vector is returned. The windows are visited
+  // using a depth first search (pre-order).
+  GetWindowTree(uint32 window_id) => (array<WindowData> windows);
+
+  // A connection may grant access to another connection by way of Embed().
+  // Embed() results in the supplied WindowTreeClient being configured with a
+  // root window of |window_id|. The supplied WindowTreeClient may create child
+  // windows and do other various tree operations (including Embed()), but does
+  // not see nor have access to any of the windows above the embed point.
+  //
+  // The caller must have created |window_id|. If not the request fails and the
+  // response is false.
+  //
+  // The embedder can dictate the behaviour of the embedded client by setting
+  // the appropriate embed flags (e.g. kEmbedFlagEmbedderInterceptsEvents).
+  //
+  // When a connection embeds a WindowTreeClient the originating connection no
+  // longer has privileges to access or see any of the children of the window.
+  // If the window had existing children the children are removed. The
+  // WindowManager gets to see the whole tree.
+  //
+  // A window may only have one embedding in it at a time. Subsequent calls to
+  // Embed() for the same window result in the currently embedded
+  // WindowTreeClient being removed. The embedded app is told this by way of
+  // OnUnembed(), which is followed by OnWindowDeleted() (as the connection no
+  // longer has access to the window).
+  //
+  // The embedder can detect when the embedded app disconnects by way of
+  // OnEmbeddedAppDisconnected().
+  //
+  // The callback returns whether the embedding was successful.
+  Embed(uint32 window_id, WindowTreeClient client, uint32 embed_flags)
+      => (bool success);
+
+  // Sets focus to the specified window, use 0 to clear focus. For a window to
+  // get focus the following has to happen: the window is drawn, the window has
+  // been marked as focusable (see SetCanFocus()) and the window is in a
+  // container the WindowManager has identified as allowing activation
+  // (see WindowManagerClient::AddActivationParent()).
+  SetFocus(uint32 change_id, uint32 window_id);
+
+  // Marks the specified window as being able to receive focus.
+  SetCanFocus(uint32 window_id, bool can_focus);
+
+  // Sets the cursor when the pointer is inside |window_id| to a system standard
+  // cursor provided by the window manager.
+  SetPredefinedCursor(uint32 change_id, uint32 window_id, Cursor cursor_id);
+
+  // TODO(erg): Additional cursor methods. Image based cursors, visibility,
+  // and cursor locking.
+
+  // Set text input state for the given window.
+  SetWindowTextInputState(uint32 window_id, mojo.TextInputState state);
+
+  // Set the input method editor UI (software keyboard, etc) visibility.
+  // If state is non-null, the specified window's text input state is updated.
+  // Otherwise the existing state is used.
+  SetImeVisibility(uint32 window_id, bool visible, mojo.TextInputState? state);
+
+  // See documentation for WindowTreeClient::OnWindowInputEvent().
+  OnWindowInputEventAck(uint32 event_id, EventResult result);
+
+  // See description of WindowManager for details.
+  GetWindowManagerClient(associated WindowManagerClient& internal);
+
+  // Returns a shared memory segment that contains two 16-bit ints packed into a
+  // single Atomic32, which represent the current location of the mouse cursor
+  // where the location is (x << 16) | y.
+  GetCursorLocationMemory() => (handle<shared_buffer> cursor_buffer);
+};
+
+// Changes to windows are not sent to the connection that originated the
+// change. For example, if connection 1 changes the bounds of a window by
+// calling SetWindowBounds(), connection 1 does not receive
+// OnWindowBoundsChanged().
+interface WindowTreeClient {
+  // Invoked when the client application has been embedded at |root|.
+  // See Embed() on WindowTree for more details. |tree| will be a handle back to
+  // the window manager service, unless the connection is to the root connection
+  // in which case it will be null. |parent_drawn| is true if roots parent is
+  // drawn, see OnParentDrawnStateChanged() for details. |display_id| identifies
+  // the display this root window is on.
+  OnEmbed(uint16 connection_id,
+          WindowData root,
+          WindowTree? tree,
+          int64 display_id,
+          uint32 focused_window,
+          bool parent_drawn);
+
+  // Invoked when the application embedded at |window| is disconnected. In other
+  // words the embedded app closes the connection to the server. This is called
+  // on the connection that created |window| as well as any ancestors that have
+  // the embed root policy.
+  OnEmbeddedAppDisconnected(uint32 window);
+
+  // Sent when another connection is embedded in the Window this connection was
+  // previously embedded in. See Embed() for more information.
+  OnUnembed(uint32 window);
+
+  // Sent when a window loses capture.
+  OnLostCapture(uint32 window);
+
+  // Called in response to NewTopLevelWindow() successfully completing.
+  // |parent_drawn| is true if the parent of the window is drawn, see
+  // OnDrawnStateChanged() for details. |display_id| identifies the display this
+  // window is on.
+  OnTopLevelCreated(uint32 change_id,
+                    WindowData data,
+                    int64 display_id,
+                    bool parent_drawn);
+
+  // Invoked when a window's bounds have changed.
+  OnWindowBoundsChanged(uint32 window,
+                        gfx.mojom.Rect old_bounds,
+                        gfx.mojom.Rect new_bounds);
+
+  OnClientAreaChanged(uint32 window_id,
+                      gfx.mojom.Insets new_client_area,
+                      array<gfx.mojom.Rect> new_additional_client_areas);
+
+  OnTransientWindowAdded(uint32 window_id,
+                         uint32 transient_window_id);
+
+  OnTransientWindowRemoved(uint32 window_id,
+                           uint32 transient_window_id);
+
+  // Invoked when a change is done to the hierarchy. A value of 0 is used to
+  // identify a null window. For example, if the old_parent is NULL, 0 is
+  // supplied.
+  // |windows| contains any windows that are that the client has not been told
+  // about. This is not sent for hierarchy changes of windows not known to this
+  // client or not attached to the tree.
+  OnWindowHierarchyChanged(uint32 window,
+                           uint32 old_parent,
+                           uint32 new_parent,
+                           array<WindowData> windows);
+
+  // Invoked when the order of windows within a parent changes.
+  OnWindowReordered(uint32 window_id,
+                    uint32 relative_window_id,
+                    OrderDirection direction);
+
+  // Invoked when a window is deleted.
+  OnWindowDeleted(uint32 window);
+
+  // Invoked when the visibility of the specified window changes.
+  OnWindowVisibilityChanged(uint32 window, bool visible);
+
+  // Invoked when the opacity of the specified window has changed.
+  OnWindowOpacityChanged(uint32 window, float old_opacity, float new_opacity);
+
+  // Invoked when the drawn state of |window|'s parent changes. The drawn state
+  // is determined by the visibility of a Window and the Windows ancestors. A
+  // Window is drawn if all ancestors are visible, not drawn if any ancestor is
+  // hidden.
+  //
+  // The initial drawn state is communicated by way of OnTopLevelCreated() or
+  // OnEmbed().
+  //
+  // This function is only called for root Windows as the drawn state of all
+  // other windows can be determined from their parent.
+  OnWindowParentDrawnStateChanged(uint32 window, bool drawn);
+
+  // Invoked when a window property is changed. If this change is a removal,
+  // |new_data| is null.
+  OnWindowSharedPropertyChanged(uint32 window,
+                                string name,
+                                array<uint8>? new_data);
+
+  // Invoked when an event is targeted at the specified window. The client must
+  // call WindowTree::OnWindowInputEventAck() with the same |event_id| to notify
+  // that the event has been processed, and with an EventResult value to notify
+  // if the event was consumed. |event_observer_id| is non-zero if the event
+  // also matched the active event observer for this client. The client will not
+  // receive farther events until the event is ack'ed.
+  OnWindowInputEvent(uint32 event_id,
+                     uint32 window,
+                     ui.mojom.Event event,
+                     uint32 event_observer_id);
+
+  // Invoked when an |event| is sent via the EventObserver and not targeted at a
+  // specific window. The |event_observer_id| is the one supplied to
+  // SetEventObserver. The client should not acknowledge these events.
+  OnEventObserved(ui.mojom.Event event, uint32 event_observer_id);
+
+  // Called in two distinct cases: when a window known to the connection gains
+  // focus, or when focus moves from a window known to the connection to a
+  // window not known to the connection. In the later case |focused_window_id|
+  // is 0. As with other functions this is only called if the client did not
+  // initiate the change.
+  OnWindowFocused(uint32 focused_window_id);
+
+  OnWindowPredefinedCursorChanged(uint32 window_id, Cursor cursor_id);
+
+  // A change initiated from the client has completed. See description of
+  // change ids for details.
+  OnChangeCompleted(uint32 change_id, bool success);
+
+  // The WindowManager is requesting the specified window to close. If the
+  // client allows the change it should delete the window.
+  RequestClose(uint32 window_id);
+
+  // See description of WindowManager for details.
+  GetWindowManager(associated WindowManager& internal);
+};
+
+// Mus provides this interface as a way for clients to connect and obtain a
+// WindowTree handle with a supplied WindowTreeClient handle. The
+// WindowTreeClient has no roots, use NewTopLevelWindow() to create one.
+interface WindowTreeFactory {
+  CreateWindowTree(WindowTree& tree_request, WindowTreeClient client);
+};

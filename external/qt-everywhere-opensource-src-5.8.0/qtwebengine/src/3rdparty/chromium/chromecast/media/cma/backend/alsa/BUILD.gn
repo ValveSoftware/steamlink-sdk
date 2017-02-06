@@ -1,0 +1,143 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/buildflag_header.gni")
+import("//build/config/chromecast_build.gni")
+import("//chromecast/chromecast.gni")
+import("//media/media_options.gni")
+import("//testing/test.gni")
+
+declare_args() {
+  # Set true to use raw timestamps on non-desktop cast build.
+  # ALSA version equal or later than 1.0.29 support this function.
+  use_alsa_monotonic_raw_tstamps = !is_cast_desktop_build
+}
+
+# Alsa must be used for these targets to build.
+assert(use_alsa)
+
+# GYP target: chromecast/media/media.gyp:libcast_media_1.0_audio
+shared_library("libcast_media_1.0_audio") {
+  sources = [
+    "//chromecast/media/base/media_caps.cc",
+    "//chromecast/media/base/media_caps.h",
+    "cast_media_shlib.cc",
+    "media_codec_support_cast_audio.cc",
+  ]
+
+  deps = [
+    ":alsa_cma_backend",
+    "//base",
+    "//chromecast/base",
+    "//chromecast/public",
+    "//media",
+  ]
+}
+
+# GYP target: chromecast/media/media.gyp:alsa_cma_backend
+source_set("alsa_cma_backend") {
+  sources = [
+    "alsa_wrapper.cc",
+    "alsa_wrapper.h",
+    "audio_decoder_alsa.cc",
+    "audio_decoder_alsa.h",
+    "media_pipeline_backend_alsa.cc",
+    "media_pipeline_backend_alsa.h",
+    "stream_mixer_alsa.cc",
+    "stream_mixer_alsa.h",
+    "stream_mixer_alsa_input.cc",
+    "stream_mixer_alsa_input.h",
+    "stream_mixer_alsa_input_impl.cc",
+    "stream_mixer_alsa_input_impl.h",
+  ]
+
+  libs = [ "asound" ]
+
+  deps = [
+    ":alsa_features",
+    ":audio_filter_includes",
+    "//base",
+    "//chromecast/base",
+    "//chromecast/media/cma/backend",
+    "//chromecast/media/cma/base",
+    "//chromecast/media/cma/decoder",
+    "//chromecast/public/media",
+    "//media",
+    "//media:shared_memory_support",
+  ]
+
+  if (chromecast_branding == "public") {
+    deps += [ ":audio_filter_null" ]
+  } else {
+    deps += [ "//chromecast/internal/media/cma/backend/alsa:filter" ]
+  }
+}
+
+source_set("audio_filter_null") {
+  sources = [
+    "audio_filter_factory_default.cc",
+  ]
+
+  deps = [
+    ":audio_filter_includes",
+  ]
+}
+
+source_set("audio_filter_includes") {
+  sources = [
+    "audio_filter_factory.h",
+    "audio_filter_interface.h",
+  ]
+
+  deps = [
+    "//base",
+    "//media",
+  ]
+}
+
+# GYP target: chromecast/media/media.gyp:chromecast_alsa_features
+buildflag_header("alsa_features") {
+  header = "alsa_features.h"
+
+  flags = [ "ALSA_MONOTONIC_RAW_TSTAMPS=$use_alsa_monotonic_raw_tstamps" ]
+}
+
+# GYP target: chromecast/media/media.gyp:cast_alsa_cma_backend_unittests
+test("cast_alsa_cma_backend_unittests") {
+  sources = [
+    "stream_mixer_alsa_unittest.cc",
+  ]
+
+  deps = [
+    ":test_support",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//chromecast/media/base",
+    "//chromecast/media/base:libcast_media_1.0_default_core",
+    "//media",
+    "//media:shared_memory_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+# GYP target: n/a
+source_set("test_support") {
+  testonly = true
+
+  sources = [
+    "mock_alsa_wrapper.cc",
+    "mock_alsa_wrapper.h",
+  ]
+
+  public_deps = [
+    ":alsa_cma_backend",
+  ]
+
+  deps = [
+    "//base",
+    "//media",
+    "//testing/gmock",
+  ]
+}

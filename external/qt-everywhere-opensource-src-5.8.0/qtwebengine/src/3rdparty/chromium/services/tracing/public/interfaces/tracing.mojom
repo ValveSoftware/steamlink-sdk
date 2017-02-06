@@ -1,0 +1,62 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module tracing;
+
+// To participate in the tracing ecosystem, implement the TraceProvider
+// interface and connect to the tracing app. Then, when the provider's Start()
+// function is called collect tracing data and pass it back via the provided
+// TraceRecorder interface up until Stop() is called.
+
+interface TraceProvider {
+  // Categories can either be the empty string to mean the default set of
+  // categories or a comma-delimited list of categories to trace.
+  StartTracing(string categories, TraceRecorder recorder);
+  StopTracing();
+};
+
+interface TraceRecorder {
+  Record(string json);
+};
+
+interface TraceCollector {
+  // Request tracing data from all connected providers to stream to
+  // |stream|.
+  Start(handle<data_pipe_producer> stream, string categories);
+
+  // Stop tracing and flush results to the |stream| passed in to Start().
+  // Closes |stream| when all data is collected.
+  StopAndFlush();
+};
+
+// These times are used to determine startup performance metrics.
+// TODO(msw): Find a way to convert *_time metrics into TimeTicks earlier (ref:
+// https://goo.gl/vZ8dZW).
+struct StartupPerformanceTimes {
+  // TODO(msw): Rename to match "BrowserMainEntryTimeAbsolute" metric?
+  int64 shell_process_creation_time;
+  int64 shell_main_entry_point_time;
+  int64 browser_message_loop_start_ticks;
+  int64 browser_window_display_ticks;
+  int64 browser_open_tabs_time_delta;
+  // TODO(msw): Rename to avoid "web contents"?
+  int64 first_web_contents_main_frame_load_ticks;
+  // TODO(msw): Rename to match "FirstWebContents.NonEmptyPaint" metric?
+  int64 first_visually_non_empty_layout_ticks;
+};
+
+// This interface accepts startup performance timing from a variety of sources.
+interface StartupPerformanceDataCollector {
+  // These setters may be called many times, only the first time is recorded.
+  SetShellProcessCreationTime(int64 time);
+  SetShellMainEntryPointTime(int64 time);
+  SetBrowserMessageLoopStartTicks(int64 ticks);
+  SetBrowserWindowDisplayTicks(int64 ticks);
+  SetBrowserOpenTabsTimeDelta(int64 delta);
+  SetFirstWebContentsMainFrameLoadTicks(int64 ticks);
+  SetFirstVisuallyNonEmptyLayoutTicks(int64 ticks);
+
+  // Get the currently available startup performance times.
+  GetStartupPerformanceTimes() => (StartupPerformanceTimes times);
+};

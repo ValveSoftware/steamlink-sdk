@@ -1,0 +1,1656 @@
+<!--
+ Copyright (C) 2012 Google Inc. All rights reserved.
+
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+
+ 1.  Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+ 2.  Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in the
+     documentation and/or other materials provided with the distribution.
+ 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
+     its contributors may be used to endorse or promote products derived
+     from this software without specific prior written permission.
+
+ THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body.platform-mac {
+    font-size: 11px;
+    font-family: Menlo, Monaco;
+}
+
+body.platform-windows {
+    font-size: 12px;
+    font-family: Consolas, Lucida Console;
+}
+
+body.platform-linux {
+    font-size: 11px;
+    font-family: dejavu sans mono;
+}
+
+.fill {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.dimmed {
+    background-color: rgba(0, 0, 0, 0.31);
+}
+
+#canvas, #layout-editor-matched-nodes-canvas {
+    pointer-events: none;
+}
+
+.controls-line {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0;
+}
+
+.message-box {
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    cursor: default;
+    overflow: hidden;
+}
+
+#paused-in-debugger {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.controls-line > * {
+    background-color: rgb(255, 255, 194);
+    border: 1px solid rgb(202, 202, 202);
+    height: 22px;
+    box-sizing: border-box;
+}
+
+.controls-line .button {
+    width: 26px;
+    margin-left: -1px;
+    margin-right: 0;
+    padding: 0;
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
+.controls-line .button:hover {
+    cursor: pointer;
+}
+
+.controls-line .button .glyph {
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    opacity: 0.8;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    position: relative;
+}
+
+.controls-line .button:active .glyph {
+    top: 1px;
+    left: 1px;
+}
+
+#resume-button .glyph {
+    -webkit-mask-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAAKCAYAAABv7tTEAAAAAXNSR0IArs4c6QAAAFJJREFUKM+10bEJgGAMBeEPbR3BLRzEVdzEVRzELRzBVohVwEJ+iODBlQfhBeJhsmHU4C0KnFjQV6J0x1SNAhdWDJUoPTB3PvLLeaUhypM3n3sD/qc7lDrdpIEAAAAASUVORK5CYII=);
+    -webkit-mask-size: 13px 10px;
+    background-color: rgb(66, 129, 235);
+}
+
+#step-over-button .glyph {
+    -webkit-mask-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABIAAAAKCAYAAAC5Sw6hAAAAAXNSR0IArs4c6QAAAOFJREFUKM+N0j8rhXEUB/DPcxW35CqhvIBrtqibkklhV8qkTHe4ZbdblcXgPVhuMdqUTUl5A2KRRCF5LGc4PT1P7qnfcr5/zu/8KdTHLFaxjHnc4RZXKI0QYxjgLQTVd42l/0wmg5iFX3iq5H6w22RS4DyRH7CB8cAXcBTGJT6xUmd0mEwuMdFQcA3fwXvGTAan8BrgPabTL9fRRyfx91PRMwyjGwcJ2EyCfsrfpPw2Pipz24NT/MZciiQYVshzOKnZ5Hturxt3k2MnCpS4SPkeHpPR8Sh3tYgttBoW9II2/AHiaEqvD2Fc0wAAAABJRU5ErkJggg==);
+    -webkit-mask-size: 18px 10px;
+}
+
+.px {
+    color: rgb(128, 128, 128);
+}
+
+#element-title {
+    position: absolute;
+    z-index: 10;
+}
+
+#tag-name {
+    /* Keep this in sync with view-source.css (.html-tag) */
+    color: rgb(136, 18, 128);
+}
+
+#node-id {
+    /* Keep this in sync with view-source.css (.html-attribute-value) */
+    color: rgb(26, 26, 166);
+}
+
+#class-name {
+    /* Keep this in sync with view-source.css (.html-attribute-name) */
+    color: rgb(153, 69, 0);
+}
+
+.wall {
+    position: absolute;
+    z-index: -2;
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+.wall.horizontal {
+    width: 8px;
+    height: 16px;
+}
+
+.wall.vertical {
+    height: 8px;
+    width: 16px;
+}
+
+.wall.padding {
+    background: repeating-linear-gradient(45deg, #FFFFFF 2px, #FFFFFF 4px, rgba(147, 196, 125, 1) 2px, rgba(147, 196, 125, 1) 10px)
+
+}
+
+.wall.margin {
+    background: repeating-linear-gradient(45deg, #FFFFFF 2px, #FFFFFF 4px, rgba(246, 178, 107, 1) 4px, rgba(246, 178, 107, 1) 10px)
+}
+
+.wall.highlighted {
+    z-index: 1;
+    opacity: 1;
+}
+
+.blur-rect {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.control-lane {
+    position: absolute;
+}
+
+.control-lane.padding {
+    background-color: rgba(147, 196, 125, 0.1);
+}
+
+.control-lane.margin {
+    background-color: rgba(246, 178, 107, 0.1);
+}
+
+.editor-anchor {
+    position: absolute;
+    -webkit-filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.34));
+}
+
+.editor-anchor.vertical {
+    height: 6px;
+    width: 16px;
+}
+
+.editor-anchor.horizontal {
+    width: 6px;
+    height: 16px;
+}
+
+.editor-anchor.horizontal::before {
+    content: "";
+    position: absolute;
+    height: 8px;
+    border-right: 2px dotted rgba(255, 255, 255, 0.4);
+    top: 4px;
+    left: 2px;
+}
+
+.editor-anchor.vertical::before {
+    content: "";
+    position: absolute;
+    width: 8px;
+    border-bottom: 2px dotted rgba(255, 255, 255, 0.4);
+    top: 2px;
+    left: 4px;
+}
+
+.editor-anchor.vertical:hover {
+    cursor: ns-resize;
+}
+
+.editor-anchor.horizontal:hover {
+    cursor: ew-resize;
+}
+
+.editor-anchor.padding {
+    background-color: rgb(107, 213, 0);
+}
+
+.editor-anchor.margin {
+    background-color: rgb(246, 167, 35);
+}
+
+.editor-anchor:hover {
+    z-index: 3;
+}
+
+.editor-anchor.padding.highlighted {
+    background-color: rgba(147, 196, 125, 1);
+}
+
+.editor-anchor.margin.highlighted {
+    background-color: rgba(246, 178, 107, 1);
+}
+
+.guide-line.horizontal {
+    border-top: dashed 1px;
+}
+
+.guide-line.vertical {
+    border-left: dashed 1px;
+}
+
+.guide-line.padding {
+    border-color: rgba(147, 196, 125, 0.56);
+}
+
+.guide-line.margin {
+    border-color: rgba(246, 178, 107, 0.56);
+}
+
+.guide-line.content {
+    border-color: rgba(147, 147, 147, 0.56)
+}
+
+.guide-line {
+    position: absolute;
+    pointer-events: none;
+}
+
+.label {
+    position: absolute;
+    font-size: 10px;
+    font-family: Arial, Roboto;
+    color: white;
+    line-height: 1em;
+    padding: 2px 5px;
+    -webkit-filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.34));
+    border-radius: 2px;
+    min-width: 30px;
+    z-index: 5;
+}
+
+.label.padding {
+    background-color: rgb(91, 181, 0);
+}
+
+.label.margin {
+    background-color: rgb(246, 167, 35);
+}
+
+.label.disabled {
+    background-color: rgb(159, 188, 191);
+}
+
+.label .dimension {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.label .name {
+    color: rgba(255, 255, 255, 0.7);
+    display: none;
+    border-radius: 4px;
+}
+
+.label.full .name {
+    display: inline;
+    z-index: 5;
+}
+
+.label::before {
+    content: '';
+    display: block;
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+    top: 1px;
+}
+
+.label.right-arrow::before {
+    border-left-width: 6px;
+    border-left-style: solid;
+    border-right: none;
+    left: auto;
+    right: -6px;
+}
+
+.label.left-arrow::before {
+    border-left: none;
+    border-right-width: 6px;
+    border-right-style: solid;
+    left: -6px;
+    right: auto;
+}
+
+.label.padding::before {
+    border-left-color: rgb(91, 181, 0);
+    border-right-color: rgb(91, 181, 0);
+}
+
+.label.margin::before {
+    border-left-color: rgb(246, 167, 35);
+    border-right-color: rgb(246, 167, 35);
+}
+
+/* Material */
+.hidden {
+    display: none !important;
+}
+
+.tooltip-content,
+.material-tooltip-arrow {
+    position: absolute;
+    z-index: 10;
+    -webkit-user-select: none;
+}
+
+.tooltip-content {
+    background-color: #333740;
+    font-size: 11px;
+    line-height: 14px;
+    padding: 5px 8px;
+    border-radius: 3px;
+    color: white;
+    box-sizing: border-box;
+    max-width: calc(100% - 4px);
+    border: 1px solid hsla(0, 0%, 100%, 0.3);
+    z-index: 1;
+    background-clip: padding-box;
+    will-change: transform;
+    text-rendering: optimizeLegibility;
+    pointer-events: none;
+}
+
+.element-info {
+    display: flex;
+    align-content: stretch;
+}
+
+.material-tooltip-arrow {
+    border: solid;
+    border-color: #333740 transparent;
+    border-width: 0 8px 8px 8px;
+    z-index: 2;
+    margin-top: 1px;
+}
+
+.material-tooltip-arrow.tooltip-arrow-top {
+    border-width: 8px 8px 0 8px;
+    margin-top: -1px;
+}
+
+.element-description {
+    flex: 1 1;
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
+.dimensions {
+    border-left: 1px solid hsl(0, 0%, 50%);
+    padding-left: 7px;
+    margin-left: 7px;
+    float: right;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    color: hsl(0, 0%, 85%);
+}
+
+.material-node-width {
+    margin-right: 2px;
+}
+
+.material-node-height {
+    margin-left: 2px;
+}
+
+.material-tag-name {
+    color: hsl(304, 77%, 70%);
+}
+
+.material-node-id {
+    color: hsl(27, 100%, 70%);
+}
+
+.material-class-name {
+    color: hsl(202,92%,77%);
+}
+
+.layout-editor-media-tooltip {
+    color: hsl(0, 0%, 85%);
+}
+
+.layout-editor-selector-tooltip {
+    color: hsl(202,92%,77%);
+}
+
+</style>
+<script>
+const lightGridColor = "rgba(0,0,0,0.2)";
+const darkGridColor = "rgba(0,0,0,0.7)";
+const transparentColor = "rgba(0, 0, 0, 0)";
+const gridBackgroundColor = "rgba(255, 255, 255, 0.8)";
+
+function drawPausedInDebuggerMessage(message)
+{
+    window._controlsVisible = true;
+    document.querySelector(".controls-line").style.visibility = "visible";
+    document.getElementById("paused-in-debugger").textContent = message;
+    document.body.classList.add("dimmed");
+}
+
+function _drawGrid(context, rulerAtRight, rulerAtBottom)
+{
+    if (window._gridPainted)
+        return;
+    window._gridPainted = true;
+
+    context.save();
+
+    var pageFactor = pageZoomFactor * pageScaleFactor;
+    var scrollX = window.scrollX * pageScaleFactor;
+    var scrollY = window.scrollY * pageScaleFactor;
+    function zoom(x)
+    {
+        return Math.round(x * pageFactor);
+    }
+    function unzoom(x)
+    {
+        return Math.round(x / pageFactor);
+    }
+
+    var width = canvasWidth / pageFactor;
+    var height = canvasHeight / pageFactor;
+
+    const gridSubStep = 5;
+    const gridStep = 50;
+
+    {
+        // Draw X grid background
+        context.save();
+        context.fillStyle = gridBackgroundColor;
+        if (rulerAtBottom)
+            context.fillRect(0, zoom(height) - 15, zoom(width), zoom(height));
+        else
+            context.fillRect(0, 0, zoom(width), 15);
+
+        // Clip out backgrounds intersection
+        context.globalCompositeOperation = "destination-out";
+        context.fillStyle = "red";
+        if (rulerAtRight)
+            context.fillRect(zoom(width) - 15, 0, zoom(width), zoom(height));
+        else
+            context.fillRect(0, 0, 15, zoom(height));
+        context.restore();
+
+        // Draw Y grid background
+        context.fillStyle = gridBackgroundColor;
+        if (rulerAtRight)
+            context.fillRect(zoom(width) - 15, 0, zoom(width), zoom(height));
+        else
+            context.fillRect(0, 0, 15, zoom(height));
+    }
+
+    context.lineWidth = 1;
+    context.strokeStyle = darkGridColor;
+    context.fillStyle = darkGridColor;
+    {
+        // Draw labels.
+        context.save();
+        context.translate(-scrollX, 0.5 - scrollY);
+        var maxY = height + unzoom(scrollY);
+        for (var y = 2 * gridStep; y < maxY; y += 2 * gridStep) {
+            context.save();
+            context.translate(scrollX, zoom(y));
+            context.rotate(-Math.PI / 2);
+            context.fillText(y, 2, rulerAtRight ? zoom(width) - 7 : 13);
+            context.restore();
+        }
+        context.translate(0.5, -0.5);
+        var maxX = width + unzoom(scrollX);
+        for (var x = 2 * gridStep; x < maxX; x += 2 * gridStep) {
+            context.save();
+            context.fillText(x, zoom(x) + 2, rulerAtBottom ? scrollY + zoom(height) - 7 : scrollY + 13);
+            context.restore();
+        }
+        context.restore();
+    }
+
+    {
+        // Draw vertical grid
+        context.save();
+        if (rulerAtRight) {
+            context.translate(zoom(width), 0);
+            context.scale(-1, 1);
+        }
+        context.translate(-scrollX, 0.5 - scrollY);
+        var maxY = height + unzoom(scrollY);
+        for (var y = gridStep; y < maxY; y += gridStep) {
+            context.beginPath();
+            context.moveTo(scrollX, zoom(y));
+            var markLength = (y % (gridStep * 2)) ? 5 : 8;
+            context.lineTo(scrollX + markLength, zoom(y));
+            context.stroke();
+        }
+        context.strokeStyle = lightGridColor;
+        for (var y = gridSubStep; y < maxY; y += gridSubStep) {
+            if (!(y % gridStep))
+                continue;
+            context.beginPath();
+            context.moveTo(scrollX, zoom(y));
+            context.lineTo(scrollX + gridSubStep, zoom(y));
+            context.stroke();
+        }
+        context.restore();
+    }
+
+    {
+        // Draw horizontal grid
+        context.save();
+        if (rulerAtBottom) {
+            context.translate(0, zoom(height));
+            context.scale(1, -1);
+        }
+        context.translate(0.5 - scrollX, -scrollY);
+        var maxX = width + unzoom(scrollX);
+        for (var x = gridStep; x < maxX; x += gridStep) {
+            context.beginPath();
+            context.moveTo(zoom(x), scrollY);
+            var markLength = (x % (gridStep * 2)) ? 5 : 8;
+            context.lineTo(zoom(x), scrollY + markLength);
+            context.stroke();
+        }
+        context.strokeStyle = lightGridColor;
+        for (var x = gridSubStep; x < maxX; x += gridSubStep) {
+            if (!(x % gridStep))
+                continue;
+            context.beginPath();
+            context.moveTo(zoom(x), scrollY);
+            context.lineTo(zoom(x), scrollY + gridSubStep);
+            context.stroke();
+        }
+        context.restore();
+    }
+
+    context.restore();
+}
+
+function drawViewSize()
+{
+    var text = viewportSize.width + "px \u00D7 " + viewportSize.height + "px";
+    context.save();
+    context.font = "20px ";
+    switch (platform) {
+    case "windows": context.font = "14px Consolas, Lucida Console"; break;
+    case "mac": context.font = "14px Menlo, Monaco"; break;
+    case "linux": context.font = "14px dejavu sans mono"; break;
+    }
+
+    var frameWidth = canvasWidth;
+    var textWidth = context.measureText(text).width;
+    context.fillStyle = gridBackgroundColor;
+    context.fillRect(frameWidth - textWidth - 12, 0, frameWidth, 25);
+    context.fillStyle = darkGridColor;
+    context.fillText(text, frameWidth - textWidth - 6, 18);
+    context.restore();
+}
+
+function resetCanvas(canvasElement)
+{
+    canvasElement.width = deviceScaleFactor * viewportSize.width;
+    canvasElement.height = deviceScaleFactor * viewportSize.height;
+    canvasElement.style.width = viewportSize.width + "px";
+    canvasElement.style.height = viewportSize.height + "px";
+    var context = canvasElement.getContext("2d");
+    context.scale(deviceScaleFactor, deviceScaleFactor);
+}
+
+function reset(resetData)
+{
+    window.viewportSize = resetData.viewportSize;
+    window.deviceScaleFactor = resetData.deviceScaleFactor;
+    window.pageScaleFactor = resetData.pageScaleFactor;
+    window.pageZoomFactor = resetData.pageZoomFactor;
+    window.scrollX = Math.round(resetData.scrollX);
+    window.scrollY = Math.round(resetData.scrollY);
+
+    window.canvas = document.getElementById("canvas");
+    window.context = canvas.getContext("2d");
+    resetCanvas(canvas);
+
+    window.canvasWidth = viewportSize.width;
+    window.canvasHeight = viewportSize.height;
+
+    window._controlsVisible = false;
+    document.querySelector(".controls-line").style.visibility = "hidden";
+    document.getElementById("element-title").style.visibility = "hidden";
+    document.getElementById("tooltip-container").removeChildren();
+
+    document.body.classList.remove("dimmed");
+
+    window._gridPainted = false;
+
+    if (window.layoutEditor)
+        window.layoutEditor.reset();
+}
+
+function _drawElementTitle(context, elementInfo, bounds)
+{
+    document.getElementById("tag-name").textContent = elementInfo.tagName;
+    document.getElementById("node-id").textContent = elementInfo.idValue ? "#" + elementInfo.idValue : "";
+    document.getElementById("class-name").textContent = (elementInfo.className || "").trimEnd(50);
+    document.getElementById("node-width").textContent = elementInfo.nodeWidth;
+    document.getElementById("node-height").textContent = elementInfo.nodeHeight;
+    var elementTitle = document.getElementById("element-title");
+
+    var titleWidth = elementTitle.offsetWidth + 6;
+    var titleHeight = elementTitle.offsetHeight + 4;
+
+    var anchorTop = bounds.minY;
+    var anchorBottom = bounds.maxY;
+    var anchorLeft = bounds.minX;
+
+    const arrowHeight = 7;
+    var renderArrowUp = false;
+    var renderArrowDown = false;
+
+    var boxX = Math.max(2, anchorLeft);
+    if (boxX + titleWidth > canvasWidth)
+        boxX = canvasWidth - titleWidth - 2;
+
+    var boxY;
+    if (anchorTop > canvasHeight) {
+        boxY = canvasHeight - titleHeight - arrowHeight;
+        renderArrowDown = true;
+    } else if (anchorBottom < 0) {
+        boxY = arrowHeight;
+        renderArrowUp = true;
+    } else if (anchorBottom + titleHeight + arrowHeight < canvasHeight) {
+        boxY = anchorBottom + arrowHeight - 4;
+        renderArrowUp = true;
+    } else if (anchorTop - titleHeight - arrowHeight > 0) {
+        boxY = anchorTop - titleHeight - arrowHeight + 3;
+        renderArrowDown = true;
+    } else
+        boxY = arrowHeight;
+
+    context.save();
+    context.translate(0.5, 0.5);
+    context.beginPath();
+    context.moveTo(boxX, boxY);
+    if (renderArrowUp) {
+        context.lineTo(boxX + 2 * arrowHeight, boxY);
+        context.lineTo(boxX + 3 * arrowHeight, boxY - arrowHeight);
+        context.lineTo(boxX + 4 * arrowHeight, boxY);
+    }
+    context.lineTo(boxX + titleWidth, boxY);
+    context.lineTo(boxX + titleWidth, boxY + titleHeight);
+    if (renderArrowDown) {
+        context.lineTo(boxX + 4 * arrowHeight, boxY + titleHeight);
+        context.lineTo(boxX + 3 * arrowHeight, boxY + titleHeight + arrowHeight);
+        context.lineTo(boxX + 2 * arrowHeight, boxY + titleHeight);
+    }
+    context.lineTo(boxX, boxY + titleHeight);
+    context.closePath();
+    context.fillStyle = "rgb(255, 255, 194)";
+    context.fill();
+    context.strokeStyle = "rgb(128, 128, 128)";
+    context.stroke();
+
+    context.restore();
+
+    elementTitle.style.visibility = "visible";
+    elementTitle.style.top = (boxY + 3) + "px";
+    elementTitle.style.left = (boxX + 3) + "px";
+}
+
+function _createElementDescription(elementInfo)
+{
+    var elementInfoElement = createElement("div", "element-info");
+    var descriptionElement = elementInfoElement.createChild("div", "element-description monospace");
+    var tagNameElement = descriptionElement.createChild("b").createChild("span", "material-tag-name");
+    tagNameElement.textContent = elementInfo.tagName;
+    var nodeIdElement = descriptionElement.createChild("span", "material-node-id");
+    nodeIdElement.textContent = elementInfo.idValue ? "#" + elementInfo.idValue : "";
+    nodeIdElement.classList.toggle("hidden", !elementInfo.idValue);
+
+    var classNameElement = descriptionElement.createChild("span", "material-class-name");
+    classNameElement.textContent = (elementInfo.className || "").trim(50);
+    classNameElement.classList.toggle("hidden", !elementInfo.className);
+    var dimensionsElement = elementInfoElement.createChild("div", "dimensions");
+    dimensionsElement.createChild("span", "material-node-width").textContent = Math.round(elementInfo.nodeWidth * 100) / 100;
+    dimensionsElement.createTextChild("\u00d7");
+    dimensionsElement.createChild("span", "material-node-height").textContent = Math.round(elementInfo.nodeHeight * 100) / 100;
+    return elementInfoElement;
+}
+
+function _drawMaterialElementTitle(elementInfo, bounds)
+{
+    var tooltipContainer = document.getElementById("tooltip-container");
+    tooltipContainer.removeChildren();
+    _createMaterialTooltip(tooltipContainer, bounds, _createElementDescription(elementInfo), true);
+}
+
+function _createMaterialTooltip(parentElement, bounds, contentElement, withArrow)
+{
+    var tooltipContainer = parentElement.createChild("div");
+    var tooltipContent = tooltipContainer.createChild("div", "tooltip-content");
+    tooltipContent.appendChild(contentElement);
+
+    var titleWidth = tooltipContent.offsetWidth;
+    var titleHeight = tooltipContent.offsetHeight;
+    var arrowRadius = 8;
+    var pageMargin = 2;
+
+    var boxX = Math.min(bounds.minX, canvasWidth - titleWidth - pageMargin);
+
+    var boxY = bounds.minY - arrowRadius - titleHeight;
+    var onTop = true;
+    if (boxY < 0) {
+        boxY = Math.min(canvasHeight - titleHeight, bounds.maxY + arrowRadius);
+        onTop = false;
+    } else if (bounds.minY > canvasHeight) {
+        boxY = canvasHeight - arrowRadius - titleHeight;
+    }
+
+    tooltipContent.style.top = boxY + "px";
+    tooltipContent.style.left = boxX + "px";
+    if (!withArrow)
+        return;
+
+    var tooltipArrow = tooltipContainer.createChild("div", "material-tooltip-arrow");
+    // Left align arrow to the tooltip but ensure it is pointing to the element.
+    var tooltipBorderRadius = 2;
+    var arrowX = boxX + arrowRadius + tooltipBorderRadius;
+    if (arrowX < bounds.minX)
+        arrowX = bounds.minX + arrowRadius;
+    // Hide arrow if element is completely off the sides of the page.
+    var arrowHidden = arrowX < pageMargin + tooltipBorderRadius || arrowX + arrowRadius * 2 > canvasWidth - pageMargin - tooltipBorderRadius;
+    tooltipArrow.classList.toggle("hidden", arrowHidden);
+    if (!arrowHidden) {
+        tooltipArrow.classList.toggle("tooltip-arrow-top", onTop);
+        tooltipArrow.style.top = (onTop ? boxY + titleHeight : boxY - arrowRadius) + "px";
+        tooltipArrow.style.left = arrowX + "px";
+    }
+}
+
+function _drawRulers(context, bounds, rulerAtRight, rulerAtBottom)
+{
+    context.save();
+    var width = canvasWidth;
+    var height = canvasHeight;
+    context.strokeStyle = "rgba(128, 128, 128, 0.3)";
+    context.lineWidth = 1;
+    context.translate(0.5, 0.5);
+
+    if (rulerAtRight) {
+        for (var y in bounds.rightmostXForY) {
+            context.beginPath();
+            context.moveTo(width, y);
+            context.lineTo(bounds.rightmostXForY[y], y);
+            context.stroke();
+        }
+    } else {
+        for (var y in bounds.leftmostXForY) {
+            context.beginPath();
+            context.moveTo(0, y);
+            context.lineTo(bounds.leftmostXForY[y], y);
+            context.stroke();
+        }
+    }
+
+    if (rulerAtBottom) {
+        for (var x in bounds.bottommostYForX) {
+            context.beginPath();
+            context.moveTo(x, height);
+            context.lineTo(x, bounds.topmostYForX[x]);
+            context.stroke();
+        }
+    } else {
+        for (var x in bounds.topmostYForX) {
+            context.beginPath();
+            context.moveTo(x, 0);
+            context.lineTo(x, bounds.topmostYForX[x]);
+            context.stroke();
+        }
+    }
+
+    context.restore();
+}
+
+function drawPath(context, commands, fillColor, outlineColor, bounds)
+{
+    var commandsIndex = 0;
+
+    function extractPoints(count)
+    {
+        var points = [];
+
+        for (var i = 0; i < count; ++i) {
+            var x = Math.round(commands[commandsIndex++]);
+            bounds.maxX = Math.max(bounds.maxX, x);
+            bounds.minX = Math.min(bounds.minX, x);
+
+            var y = Math.round(commands[commandsIndex++]);
+            bounds.maxY = Math.max(bounds.maxY, y);
+            bounds.minY = Math.min(bounds.minY, y);
+
+            bounds.leftmostXForY[y] = Math.min(bounds.leftmostXForY[y] || Number.MAX_VALUE, x);
+            bounds.rightmostXForY[y] = Math.max(bounds.rightmostXForY[y] || Number.MIN_VALUE, x);
+            bounds.topmostYForX[x] = Math.min(bounds.topmostYForX[x] || Number.MAX_VALUE, y);
+            bounds.bottommostYForX[x] = Math.max(bounds.bottommostYForX[x] || Number.MIN_VALUE, y);
+            points.push(x, y);
+        }
+        return points;
+    }
+
+    context.save();
+    var commandsLength = commands.length;
+    var path = new Path2D();
+    while (commandsIndex < commandsLength) {
+        switch (commands[commandsIndex++]) {
+        case "M":
+            path.moveTo.apply(path, extractPoints(1));
+            break;
+        case "L":
+            path.lineTo.apply(path, extractPoints(1));
+            break;
+        case "C":
+            path.bezierCurveTo.apply(path, extractPoints(3));
+            break;
+        case "Q":
+            path.quadraticCurveTo.apply(path, extractPoints(2));
+            break;
+        case "Z":
+            path.closePath();
+            break;
+        }
+    }
+    path.closePath();
+    context.lineWidth = 0;
+    context.fillStyle = fillColor;
+    context.fill(path);
+
+    if (outlineColor) {
+        context.lineWidth = 2;
+        context.strokeStyle = outlineColor;
+        context.stroke(path);
+    }
+
+    context.restore();
+    return path;
+}
+
+function emptyBounds()
+{
+    var bounds = {
+        minX: Number.MAX_VALUE,
+        minY: Number.MAX_VALUE,
+        maxX: Number.MIN_VALUE,
+        maxY: Number.MIN_VALUE,
+        leftmostXForY: {},
+        rightmostXForY: {},
+        topmostYForX: {},
+        bottommostYForX: {}
+    };
+    return bounds;
+}
+
+function drawHighlight(highlight, context)
+{
+    context = context || window.context;
+    context.save();
+
+    var bounds = emptyBounds();
+
+    for (var paths = highlight.paths.slice(); paths.length;) {
+        var path = paths.pop();
+        drawPath(context, path.path, path.fillColor, path.outlineColor, bounds);
+        if (paths.length) {
+            context.save();
+            context.globalCompositeOperation = "destination-out";
+            drawPath(context, paths[paths.length - 1].path, "red", null, bounds);
+            context.restore();
+        }
+    }
+
+    var rulerAtRight = highlight.paths.length && highlight.showRulers && bounds.minX < 20 && bounds.maxX + 20 < canvasWidth;
+    var rulerAtBottom = highlight.paths.length && highlight.showRulers && bounds.minY < 20 && bounds.maxY + 20 < canvasHeight;
+
+    if (highlight.showRulers)
+        _drawGrid(context, rulerAtRight, rulerAtBottom);
+
+    if (highlight.paths.length) {
+        if (highlight.showExtensionLines)
+            _drawRulers(context, bounds, rulerAtRight, rulerAtBottom);
+
+        if (highlight.elementInfo && highlight.displayAsMaterial)
+           _drawMaterialElementTitle(highlight.elementInfo, bounds);
+        else if (highlight.elementInfo)
+           _drawElementTitle(context, highlight.elementInfo, bounds);
+    }
+    context.restore();
+
+    return { bounds: bounds };
+}
+
+function setPlatform(platform)
+{
+    window.platform = platform;
+    document.body.classList.add("platform-" + platform);
+}
+
+function dispatch(message)
+{
+    var functionName = message.shift();
+    window[functionName].apply(null, message);
+}
+
+function log(text)
+{
+    document.getElementById("log").createChild("div").textContent = text;
+}
+
+function onResumeClick()
+{
+    InspectorOverlayHost.resume();
+}
+
+function onStepOverClick()
+{
+    InspectorOverlayHost.stepOver();
+}
+
+function onLoaded()
+{
+    document.getElementById("resume-button").addEventListener("click", onResumeClick);
+    document.getElementById("step-over-button").addEventListener("click", onStepOverClick);
+}
+
+function eventHasCtrlOrMeta(event)
+{
+    return window.platform == "mac" ? (event.metaKey && !event.ctrlKey) : (event.ctrlKey && !event.metaKey);
+}
+
+function onDocumentKeyDown(event)
+{
+    if (!window._controlsVisible)
+        return;
+    if (event.key == "F8" || eventHasCtrlOrMeta(event) && event.keyCode == 220 /* backslash */)
+        InspectorOverlayHost.resume();
+    else if (event.key == "F10" || eventHasCtrlOrMeta(event) && event.keyCode == 222 /* single quote */)
+        InspectorOverlayHost.stepOver();
+}
+
+function showLayoutEditor(info)
+{
+    if (!window.layoutEditor)
+        window.layoutEditor = new LayoutEditor();
+
+    window.layoutEditor.setState(info);
+}
+
+function setSelectorInLayoutEditor(selectorInfo)
+{
+    if (!window.layoutEditor)
+        return;
+
+    window.layoutEditor.setSelector(selectorInfo);
+}
+
+/**
+ * @constructor
+ */
+function LayoutEditor()
+{
+    this._boundConsumeEvent = this._consumeEvent.bind(this);
+    this._boundStrayClick = this._onStrayClick.bind(this);
+    this._boundKeyDown = this._onKeyDown.bind(this);
+    this._boundMouseWheel = this._onMouseWheel.bind(this);
+
+    this._paddingBounds = this._defaultBounds();
+    this._contentBounds = this._defaultBounds();
+    this._marginBounds = this._defaultBounds();
+    this._element = document.getElementById("editor");
+    this._editorElement = this._element.createChild("div");
+    this._selectorTooltipElement = this._element.createChild("div", "selector-tooltip-element");
+    this._matchedNodesCanvas = createCanvas("layout-editor-matched-nodes-canvas");
+    this._editorElement.parentElement.insertBefore(this._matchedNodesCanvas, this._editorElement);
+
+    this._wallsElements = new Map();
+    this._labelsElements = new Map();
+    this._anchorsElements = new Map();
+    this._anchorsInfo = new Map();
+}
+
+/**
+ * @typedef {{
+ *      type: string,
+ *      propertyName: number,
+ *      propertyValue: {value: number, unit: string, growInside: boolean, mutable: boolean}
+ * }}
+ */
+LayoutEditor.AnchorInfo;
+
+/**
+ * @typedef {{
+ *      left: number,
+ *      top: number,
+ *      right: number,
+ *      bottom: number
+ * }}
+ */
+LayoutEditor.Bounds;
+
+/**
+ * @typedef {{
+ *      orientation: string,
+ *      border1: string,
+ *      border2: string,
+ *      dimension1: string,
+ *      dimension2: string
+ * }}
+ */
+LayoutEditor.Bounds;
+
+/**
+ * @typedef {{
+ *      p1: !Point,
+ *      p2: !Point,
+ *      p3: !Point,
+ *      p4: !Point
+ * }}
+ */
+LayoutEditor.Quad;
+
+/**
+ * @typedef {{
+ *      contentQuad: !LayoutEditor.Quad,
+ *      marginQuad: !LayoutEditor.Quad,
+ *      paddingQuad: !LayoutEditor.Quad,
+ *      anchors: !Array.<!LayoutEditor.AnchorInfo>
+ * }}
+ */
+LayoutEditor.Info;
+
+LayoutEditor._controlLaneWidth = 16;
+LayoutEditor._wallWidth = 8;
+LayoutEditor._handleWidth = 8;
+LayoutEditor._labelOffset = 12;
+
+LayoutEditor.prototype = {
+    /**
+     * @return {!LayoutEditor.Bounds}
+     */
+    _defaultBounds: function ()
+    {
+        var bounds = {
+            left: Number.MAX_VALUE,
+            top: Number.MAX_VALUE,
+            right: Number.MIN_VALUE,
+            bottom: Number.MIN_VALUE,
+        };
+        return bounds;
+    },
+
+    reset: function()
+    {
+        this._anchorsInfo.clear();
+        this._anchorsElements.clear();
+        this._wallsElements.clear();
+        this._labelsElements.clear();
+        this._paddingBounds = this._defaultBounds();
+        this._contentBounds = this._defaultBounds();
+        this._marginBounds = this._defaultBounds();
+
+        resetCanvas(this._matchedNodesCanvas);
+        document.body.style.cursor = "";
+
+        this._editorElement.removeChildren();
+        this._selectorTooltipElement.removeChildren();
+
+        document.removeEventListener("mousedown", this._boundConsumeEvent);
+        document.removeEventListener("mouseup", this._boundConsumeEvent);
+        document.removeEventListener("click", this._boundStrayClick);
+        document.removeEventListener("keydown", this._boundKeyDown);
+        document.removeEventListener("mousewheel", this._boundMouseWheel);
+        document.removeEventListener("mousemove", this._boundConsumeEvent);
+    },
+
+    /**
+     * @param {!LayoutEditor.Info} info
+     */
+    setState: function(info)
+    {
+        this._editorElement.style.visibility = "visible";
+
+        function buildBounds(quad)
+        {
+            var bounds = this._defaultBounds();
+            for (var i = 1; i <= 4; ++i) {
+                var point = quad["p" + i];
+                bounds.left = Math.min(bounds.left, point.x);
+                bounds.right = Math.max(bounds.right, point.x);
+                bounds.top = Math.min(bounds.top, point.y);
+                bounds.bottom = Math.max(bounds.bottom, point.y);
+            }
+            return bounds;
+        }
+
+        this._contentBounds = buildBounds.call(this, info.contentQuad);
+        this._paddingBounds = buildBounds.call(this, info.paddingQuad);
+        this._marginBounds = buildBounds.call(this, info.marginQuad);
+
+        this._anchorsInfo = new Map();
+        for (var i = 0; i < info.anchors.length; ++i)
+            this._anchorsInfo.set(info.anchors[i].propertyName, info.anchors[i])
+
+        document.addEventListener("mousedown", this._boundConsumeEvent);
+        document.addEventListener("mouseup", this._boundConsumeEvent);
+        document.addEventListener("click", this._boundStrayClick);
+        document.addEventListener("keydown", this._boundKeyDown);
+        document.addEventListener("mousewheel", this._boundMouseWheel);
+
+        this._createBlurWindow();
+        this._createGuideLines();
+        this._createControlLanes(info.anchors);
+        document.addEventListener("mousemove", this._boundConsumeEvent);
+
+        if (this._draggedPropertyName) {
+            document.body.style.cursor = (this._draggedPropertyName.endsWith("left") || this._draggedPropertyName.endsWith("right")) ? "ew-resize" : "ns-resize";
+            this._toggleHighlightedState(this._draggedPropertyName, true);
+        }
+    },
+
+    _createBlurWindow: function()
+    {
+        var left = this._editorElement.createChild("div", "blur-rect");
+        left.style.height = canvasHeight + "px";
+        left.style.width = this._marginBounds.left + "px";
+        var top = this._editorElement.createChild("div", "blur-rect");
+        top.style.left = this._marginBounds.left + "px";
+        top.style.width = canvasWidth - this._marginBounds.left + "px";
+        top.style.height = this._marginBounds.top  + "px";
+        var right = this._editorElement.createChild("div", "blur-rect");
+        right.style.left = this._marginBounds.right + "px";
+        right.style.top = this._marginBounds.top + "px";
+        right.style.width = (canvasWidth - this._marginBounds.right) + "px";
+        right.style.height = (canvasHeight - this._marginBounds.top) + "px";
+        var bottom = this._editorElement.createChild("div", "blur-rect");
+        bottom.style.left = this._marginBounds.left + "px";
+        bottom.style.top = this._marginBounds.bottom + "px";
+        bottom.style.width = this._marginBounds.right - this._marginBounds.left + "px";
+        bottom.style.height = canvasHeight - this._marginBounds.bottom + "px";
+        top.addEventListener("click", this._boundStrayClick);
+        bottom.addEventListener("click", this._boundStrayClick);
+        left.addEventListener("click", this._boundStrayClick);
+        right.addEventListener("click", this._boundStrayClick);
+    },
+
+    _createGuideLines: function()
+    {
+        /**
+         * @param {number} x
+         * @param {string} type
+         * @this {LayoutEditor}
+         */
+        function verticalLine(x, type)
+        {
+            var verticalElement = this._editorElement.createChild("div", "guide-line vertical");
+            verticalElement.classList.add(type);
+            verticalElement.style.height = canvasHeight + "px";
+            verticalElement.style.top = "0px";
+            verticalElement.style.left = x + "px";
+        }
+
+        /**
+         * @param {number} y
+         * @param {string} type
+         * @this {LayoutEditor}
+         */
+        function horizontalLine(y, type)
+        {
+            var horizontalElement = this._editorElement.createChild("div", "guide-line horizontal");
+            horizontalElement.classList.add(type);
+            horizontalElement.style.width = canvasWidth + "px";
+            horizontalElement.style.left = "0px";
+            horizontalElement.style.top = y + "px";
+        }
+
+        /**
+         * @param {!LayoutEditor.Bounds} bounds
+         * @param {string} type
+         * @this {LayoutEditor}
+         */
+        function guideLines(bounds, type)
+        {
+            verticalLine.call(this, bounds.left, type);
+            verticalLine.call(this, bounds.right, type);
+            horizontalLine.call(this, bounds.top, type);
+            horizontalLine.call(this, bounds.bottom, type);
+        }
+
+        guideLines.call(this, this._contentBounds, "content");
+        guideLines.call(this, this._paddingBounds, "padding");
+        guideLines.call(this, this._marginBounds, "margin");
+    },
+
+    /**
+     * @param {!Element} parent
+     * @param {!Element} anchorElement
+     * @param {!LayoutEditor.AnchorInfo} anchorInfo
+     */
+    _createLabel: function(parent, anchorElement, anchorInfo)
+    {
+        var label = parent.createChild("div", "label " + anchorInfo.type);
+        var nameElement = label.createChild("span", "name");
+        var anchorName = anchorInfo.propertyName;
+        nameElement.textContent = anchorName + ": ";
+        var valueElement = label.createChild("span", "value");
+        valueElement.textContent = String(parseFloat(anchorInfo.propertyValue.value.toFixed(2)));
+        var dimensionElement = label.createChild("span", "dimension");
+        dimensionElement.textContent = "\u2009" + anchorInfo.propertyValue.unit;
+
+        var leftX = anchorElement.offsetLeft - LayoutEditor._labelOffset - label.offsetWidth;
+        var fitLeft = leftX > 0;
+        var rightX = anchorElement.offsetLeft + anchorElement.offsetWidth  + LayoutEditor._labelOffset;
+        var fitRight = rightX + label.offsetWidth < canvasWidth;
+        var growsInside = anchorInfo.propertyValue.growInside;
+        var toLeft = anchorName.endsWith("right") && growsInside ||  anchorName.endsWith("left") && !growsInside;
+        var startPosition;
+        if (!fitLeft || (!toLeft && fitRight)) {
+            startPosition = rightX;
+            label.classList.add("left-arrow");
+        } else {
+            startPosition = leftX;
+            label.classList.add("right-arrow");
+        }
+
+        var y = anchorElement.offsetTop + anchorElement.offsetHeight / 2;
+        label.style.left = (startPosition | 0) + "px";
+        label.style.top = ((y - label.offsetHeight / 2) | 0) + "px";
+
+        label.classList.add("hidden");
+        return label;
+    },
+
+    /**
+     * @param {string} anchorName
+     * @param {boolean} highlighted
+     */
+    _toggleHighlightedState: function(anchorName, highlighted)
+    {
+        this._anchorsElements.get(anchorName).classList.toggle("highlighted", highlighted);
+        this._wallsElements.get(anchorName).classList.toggle("highlighted", highlighted);
+        this._labelsElements.get(anchorName).classList.toggle("hidden", !highlighted);
+    },
+
+    _createControlLanes: function()
+    {
+        var descriptionH = {orientation: "horizontal", border1: "left", border2: "top", dimension1: "width", dimension2: "height"};
+        var descriptionV = {orientation: "vertical", border1: "top", border2: "left", dimension1: "height", dimension2: "width"};
+        var sidesByOrientation = {horizontal : ["left", "right"], vertical : ["top", "bottom"]};
+
+        /**
+         * @param {!Element} parent
+         * @param {!LayoutEditor.Bounds} innerBox
+         * @param {!LayoutEditor.Bounds} outerBox
+         * @param {string} type
+         * @param {string} side
+         * @param {!LayoutEditor.Description} description
+         * @param {number} border2Position
+         * @this {LayoutEditor}
+         */
+        function createAnchorWithWall(parent, innerBox, outerBox, type, side, description, border2Position)
+        {
+            var anchorName = type + "-" + side;
+            var anchorInfo = this._anchorsInfo.get(anchorName);
+            var growsInside = anchorInfo.propertyValue.growInside;
+
+            var anchorPosition = (growsInside ? innerBox[side] : outerBox[side]);
+            var anchorElement = parent.createChild("div", "editor-anchor " + description.orientation + " " + type);
+            var handleHalf = LayoutEditor._handleWidth / 2;
+            anchorElement.style[description.border1] = (anchorPosition - handleHalf) + "px";
+            anchorElement.style[description.border2] = border2Position + "px";
+            this._anchorsElements.set(anchorName, anchorElement);
+
+            if (anchorInfo.propertyValue.mutable)
+                anchorElement.addEventListener("mousedown", this._onAnchorMouseDown.bind(this, anchorName));
+
+            anchorElement.addEventListener("mouseenter", this._toggleHighlightedState.bind(this, anchorName, true));
+            anchorElement.addEventListener("mouseleave", this._toggleHighlightedState.bind(this, anchorName, false));
+
+            var wallElement = parent.createChild("div", "wall " + description.orientation + " " + type);
+            var wallPosition = (growsInside ? outerBox[side] : innerBox[side]);
+            var minSide = (side === "left" || side === "top");
+            wallPosition += (minSide === growsInside) ? - handleHalf - LayoutEditor._wallWidth : handleHalf;
+            wallElement.style[description.border1] = wallPosition + "px";
+            wallElement.style[description.border2] = border2Position + "px";
+
+            this._wallsElements.set(anchorName, wallElement);
+
+            var labelElement = this._createLabel(parent, anchorElement, anchorInfo);
+            this._labelsElements.set(anchorName, labelElement);
+        }
+
+        /**
+         * @param {!Element} parent
+         * @param {!LayoutEditor.Bounds} innerBox
+         * @param {!LayoutEditor.Bounds} outerBox
+         * @param {string} type
+         * @param {!LayoutEditor.Description} description
+         * @param {number} border2Position
+         * @this {LayoutEditor}
+         */
+        function createLane(parent, innerBox, outerBox, type, description, border2Position)
+        {
+            var verticalElement = parent.createChild("div", "control-lane " + type);
+            var sides = sidesByOrientation[description.orientation];
+            verticalElement.style[description.border1] = outerBox[sides[0]] + "px";
+            verticalElement.style[description.border2] = border2Position + "px";
+            verticalElement.style[description.dimension1] = (outerBox[sides[1]] - outerBox[sides[0]]) + "px";
+            verticalElement.style[description.dimension2] = LayoutEditor._controlLaneWidth + "px";
+            createAnchorWithWall.call(this, parent, innerBox, outerBox, type, sides[0], description, border2Position);
+            createAnchorWithWall.call(this, parent, innerBox, outerBox, type, sides[1], description, border2Position);
+        }
+
+        var yPosition = 0;
+        var xPosition = 0;
+        if (this._marginBounds.bottom + 2 * LayoutEditor._controlLaneWidth <= canvasHeight)
+            yPosition = this._marginBounds.bottom;
+        else if (this._marginBounds.top - 2 * LayoutEditor._controlLaneWidth >= 0)
+            yPosition = this._marginBounds.top - 2 * LayoutEditor._controlLaneWidth;
+        else
+            yPosition = (this._contentBounds.top + this._contentBounds.bottom) / 2;
+
+        if (this._marginBounds.left - 2 * LayoutEditor._controlLaneWidth >= 0)
+            xPosition = this._marginBounds.left - 2 * LayoutEditor._controlLaneWidth;
+        else if (this._marginBounds.right + 2 * LayoutEditor._controlLaneWidth <= canvasWidth)
+            xPosition = this._marginBounds.right;
+        else
+            xPosition = (this._contentBounds.right + this._contentBounds.left) / 2;
+
+        createLane.call(this, this._editorElement, this._contentBounds, this._paddingBounds, "padding", descriptionH, yPosition);
+        createLane.call(this, this._editorElement, this._paddingBounds, this._marginBounds, "margin", descriptionH, yPosition + LayoutEditor._controlLaneWidth);
+        createLane.call(this, this._editorElement, this._contentBounds, this._paddingBounds, "padding", descriptionV, xPosition);
+        createLane.call(this, this._editorElement, this._paddingBounds, this._marginBounds, "margin", descriptionV, xPosition + LayoutEditor._controlLaneWidth);
+    },
+
+    setSelector: function(selectorInfo)
+    {
+        this._selectorTooltipElement.removeChildren();
+        var containerElement = createElement("div");
+
+        for (var i = (selectorInfo.medias || []).length - 1; i >= 0; --i)
+            containerElement.createChild("div", "layout-editor-media-tooltip").textContent = ("@media " + selectorInfo.medias[i]).trim(50);
+
+        var selectorElement = containerElement.createChild("div", "layout-editor-selector-tooltip");
+        selectorElement.textContent = selectorInfo.selector.trimEnd(50);
+
+        var margin = 40;
+        var bounds = {minX: this._marginBounds.left, maxX: this._marginBounds.right,
+                minY: this._marginBounds.top - margin, maxY: this._marginBounds.bottom + margin};
+        _createMaterialTooltip(this._selectorTooltipElement, bounds, containerElement);
+        resetCanvas(this._matchedNodesCanvas);
+
+        if (!selectorInfo.nodes)
+            return;
+
+        for (var nodeHighlight of selectorInfo.nodes)
+            drawHighlight(nodeHighlight, this._matchedNodesCanvas.getContext("2d"));
+    },
+
+    _calculateDelta: function(deltaVector, moveDelta)
+    {
+        return scalarProduct(deltaVector, moveDelta) / Math.sqrt(scalarProduct(deltaVector, deltaVector));
+    },
+
+    /**
+     * @param {string} anchorName
+     * @return {!Point}
+     */
+    _defaultDeltaVector: function(anchorName)
+    {
+        if (anchorName.endsWith("right"))
+            return new Point(1, 0);
+        if (anchorName.endsWith("left"))
+            return new Point(-1, 0);
+        if (anchorName.endsWith("top"))
+            return new Point(0, -1);
+        if (anchorName.endsWith("bottom"))
+            return new Point(0, 1);
+    },
+
+    /**
+     * @param {string} anchorName
+     * @param {!Event} event
+     */
+    _onAnchorMouseDown: function(anchorName, event)
+    {
+        // Only drag upon left button. Right will likely cause a context menu. So will ctrl-click on mac.
+        if (event.button || (window.platform == "mac" && event.ctrlKey))
+            return;
+
+        event.preventDefault();
+        var deltaVector = this._defaultDeltaVector(anchorName);
+        var anchorInfo = this._anchorsInfo.get(anchorName);
+        if (anchorInfo.propertyValue.growInside)
+            deltaVector = new Point(-deltaVector.x, -deltaVector.y);
+
+        this._boundDragMove = this._onDragMove.bind(this, new Point(event.screenX, event.screenY), deltaVector);
+        this._boundDragEnd = this._onDragEnd.bind(this);
+        document.addEventListener("mousemove", this._boundDragMove);
+        document.addEventListener("mouseup", this._boundDragEnd);
+        InspectorOverlayHost.startPropertyChange(anchorName);
+        this._preciseDrag = !!event.shiftKey;
+        this._draggedPropertyName = anchorName;
+        this._toggleHighlightedState(anchorName, true);
+    },
+
+    /**
+     * @param {!Point} mouseDownPoint
+     * @param {!Point} deltaVector
+     * @param {!Event} event
+     */
+    _onDragMove: function(mouseDownPoint, deltaVector, event)
+    {
+        if (event.buttons !== 1) {
+            this._onDragEnd(event);
+            return;
+        }
+        event.preventDefault();
+        if (this._preciseDrag !== event.shiftKey) {
+            InspectorOverlayHost.endPropertyChange();
+            document.removeEventListener("mousemove", this._boundDragMove);
+            mouseDownPoint = new Point(event.screenX, event.screenY);
+            this._boundDragMove = this._onDragMove.bind(this, mouseDownPoint, deltaVector);
+            document.addEventListener("mousemove", this._boundDragMove);
+            this._preciseDrag = event.shiftKey;
+            InspectorOverlayHost.startPropertyChange(this._draggedPropertyName);
+        }
+
+        var preciseFactor = this._preciseDrag ? 5 : 1;
+        InspectorOverlayHost.changeProperty(this._calculateDelta(deltaVector, new Point(event.screenX - mouseDownPoint.x, event.screenY - mouseDownPoint.y)) / preciseFactor);
+    },
+
+    /**
+     * @param {!Event} event
+     */
+    _onDragEnd: function(event)
+    {
+        document.removeEventListener("mousemove", this._boundDragMove);
+        document.removeEventListener("mouseup", this._boundDragEnd);
+        delete this._boundDragMove;
+        delete this._boundDragEnd;
+        this._toggleHighlightedState(this._draggedPropertyName, false);
+        document.body.style.cursor = "";
+        delete this._draggedPropertyName;
+        delete this._preciseDrag;
+        event.preventDefault();
+        InspectorOverlayHost.endPropertyChange();
+    },
+
+    /**
+     * @param {!Event} event
+     */
+    _onStrayClick: function(event)
+    {
+        event.preventDefault();
+        InspectorOverlayHost.clearSelection(true);
+    },
+
+    /**
+     * @param {!Event} event
+     */
+    _onKeyDown: function(event)
+    {
+        if (this._draggedPropertyName)
+            return;
+
+        // Clear selection on Esc.
+        if (event.key === "Escape") {
+            event.preventDefault();
+            InspectorOverlayHost.clearSelection(false);
+        }
+    },
+
+    /**
+     * @param {!Event} event
+     */
+    _onMouseWheel: function(event)
+    {
+        event.preventDefault();
+        this._mouseWheelDelta = (this._mouseWheelDelta || 0) + event.wheelDelta;
+        if (this._mouseWheelDelta >= 120) {
+            InspectorOverlayHost.nextSelector();
+            this._mouseWheelDelta = 0;
+        } else if (this._mouseWheelDelta <= -120) {
+            InspectorOverlayHost.previousSelector();
+            this._mouseWheelDelta = 0;
+        }
+    },
+
+    /**
+     * @param {!Event} event
+     */
+    _consumeEvent: function(event)
+    {
+        event.preventDefault();
+    }
+}
+
+/**
+ * @constructor
+ * @param {number} x
+ * @param {number} y
+ */
+function Point(x, y)
+{
+    this.x = x;
+    this.y = y;
+}
+
+function createCanvas(id)
+{
+    var canvas = createElement("canvas", "fill");
+    canvas.id = id;
+    resetCanvas(canvas);
+    return canvas;
+}
+
+function scalarProduct(v1, v2)
+{
+    return v1.x * v2.x + v1.y * v2.y;
+}
+
+Element.prototype.createChild = function(tagName, className)
+{
+    var element = createElement(tagName, className);
+    element.addEventListener("click", function(e) { e.stopPropagation(); }, false);
+    this.appendChild(element);
+    return element;
+}
+
+Element.prototype.createTextChild = function(text)
+{
+    var element = document.createTextNode(text);
+    this.appendChild(element);
+    return element;
+}
+
+Element.prototype.removeChildren = function()
+{
+    if (this.firstChild)
+        this.textContent = "";
+}
+
+function createElement(tagName, className)
+{
+    var element = document.createElement(tagName);
+    if (className)
+        element.className = className;
+    return element;
+}
+
+String.prototype.trimEnd = function(maxLength)
+{
+    if (this.length <= maxLength)
+        return String(this);
+    return this.substr(0, maxLength - 1) + "\u2026";
+}
+
+window.addEventListener("DOMContentLoaded", onLoaded);
+document.addEventListener("keydown", onDocumentKeyDown);
+</script>
+</head>
+<body class="fill">
+</body>
+<canvas id="canvas" class="fill"></canvas>
+<div id="element-title">
+  <span id="tag-name"></span><span id="node-id"></span><span id="class-name"></span>
+  <span id="node-width"></span><span class="px">px</span><span class="px"> &#xD7; </span><span id="node-height"></span><span class="px">px</span>
+</div>
+<div id="tooltip-container"></div>
+<div id="editor" class="fill"></div>
+<div class="controls-line">
+    <div class="message-box"><div id="paused-in-debugger"></div></div>
+    <div class="button" id="resume-button" title="Resume script execution (F8)."><div class="glyph"></div></div>
+    <div class="button" id="step-over-button" title="Step over next function call (F10)."><div class="glyph"></div></div>
+</div>
+<div id="log"></div>
+</html>

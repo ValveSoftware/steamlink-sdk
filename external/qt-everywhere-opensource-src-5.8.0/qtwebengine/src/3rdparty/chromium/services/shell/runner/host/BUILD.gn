@@ -1,0 +1,128 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/mojo_application.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//testing/test.gni")
+
+group("host") {
+  testonly = true
+
+  deps = [
+    ":lib",
+    ":mojo_runner_host_unittests",
+  ]
+}
+
+source_set("native_application_support") {
+  sources = [
+    "native_application_support.cc",
+    "native_application_support.h",
+  ]
+
+  deps = [
+    "//base",
+    "//mojo/edk/system",
+    "//services/shell",
+  ]
+
+  # This target has to include the public thunk headers, which generally
+  # shouldn't be included without picking an implementation. We are providing
+  # the implementation but the thunk header target cannot declare that we are
+  # permitted to include it since it's in the public SDK and we are not.
+  # Suppress include checking so we can still check the rest of the targets in
+  # this file.
+  check_includes = false
+}
+
+source_set("child_process_base") {
+  sources = [
+    "child_process_base.cc",
+    "child_process_base.h",
+  ]
+
+  deps = [
+    "//base",
+    "//mojo/edk/system",
+    "//services/shell",
+    "//services/shell/public/interfaces",
+    "//services/shell/runner:init",
+    "//services/shell/runner/common",
+  ]
+
+  if (is_linux && !is_android) {
+    sources += [
+      "linux_sandbox.cc",
+      "linux_sandbox.h",
+    ]
+
+    deps += [
+      "//sandbox/linux:sandbox",
+      "//sandbox/linux:sandbox_services",
+      "//sandbox/linux:seccomp_bpf",
+      "//sandbox/linux:seccomp_bpf_helpers",
+    ]
+  }
+
+  if (is_mac) {
+    sources += [
+      "mach_broker.cc",
+      "mach_broker.h",
+    ]
+  }
+}
+
+source_set("lib") {
+  sources = [
+    "child_process.cc",
+    "child_process.h",
+    "child_process_host.cc",
+    "child_process_host.h",
+    "in_process_native_runner.cc",
+    "in_process_native_runner.h",
+    "out_of_process_native_runner.cc",
+    "out_of_process_native_runner.h",
+  ]
+
+  deps = [
+    ":child_process_base",
+    ":native_application_support",
+    "//base:base_static",
+    "//base:i18n",
+    "//services/shell/public/cpp:sources",
+    "//services/shell/runner:init",
+    "//services/shell/runner/common",
+  ]
+
+  public_deps = [
+    "//base",
+    "//mojo/edk/system",
+    "//mojo/public/cpp/system",
+    "//services/shell",
+    "//services/shell/public/interfaces",
+  ]
+
+  if (is_linux && !is_android) {
+    deps += [ "//sandbox/linux:sandbox_services" ]
+  }
+}
+
+test("mojo_runner_host_unittests") {
+  sources = [
+    "child_process_host_unittest.cc",
+    "host_unittests.cc",
+    "in_process_native_runner_unittest.cc",
+  ]
+
+  deps = [
+    ":lib",
+    "//base",
+    "//base/test:test_support",
+    "//mojo/edk/system",
+    "//services/shell",
+    "//services/shell/runner:init",
+    "//services/shell/runner/common",
+    "//testing/gtest",
+  ]
+}

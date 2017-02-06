@@ -1,0 +1,128 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module navigation.mojom;
+
+import "components/mus/public/interfaces/window_tree.mojom";
+import "ui/gfx/geometry/mojo/geometry.mojom";
+import "url/mojo/url.mojom";
+
+// TODO(beng): A general note about structs & methods in this file.
+//
+// These types are (for the most part) fairly rote copies of enums, structs &
+// interfaces from //content/public/browser & friends.
+// Not a huge amount of thought has been put into which values & methods should
+// be made available, the emphasis has been on getting a working service up and
+// running that is useful. It would be worth taking a pass through this set at
+// some point, condensing it, figuring out how it relates to stuff in
+// content/public/browser, etc.
+//
+// For now, it's duplicated here because this service is still experimental and
+// I didn't want to disrupt content/public/browser based on an experiment.
+
+// Copied from //content/public/browser/navigation_entry.h
+struct NavigationEntry {
+  int32 id;
+  url.mojom.Url url;
+  string title;
+  array<url.mojom.Url> redirect_chain;
+};
+
+// Copied from //content/public/browser/navigation_type.h
+enum NavigationType {
+  UNKNOWN,
+  NEW_PAGE,
+  EXISTING_PAGE,
+  SAME_PAGE,
+  NEW_SUBFRAME,
+  AUTO_SUBFRAME,
+  NAV_IGNORE
+};
+
+// Copied from //ui/base/window_open_disposition.h
+enum WindowOpenDisposition {
+  UNKNOWN,
+  SUPPRESS_OPEN,
+  CURRENT_TAB,
+  SINGLETON_TAB,
+  NEW_FOREGROUND_TAB,
+  NEW_BACKGROUND_TAB,
+  NEW_POPUP,
+  NEW_WINDOW,
+  SAVE_TO_DISK,
+  OFF_THE_RECORD,
+  IGNORE_ACTION,
+  WINDOW_OPEN_DISPOSITION_LAST = IGNORE_ACTION
+};
+
+// Copied from //content/public/browser/navigation_details.h
+struct NavigationCommittedDetails {
+  int32 entry;
+  NavigationType type;
+  int32 previous_entry_index;
+  url.mojom.Url previous_url;
+  bool did_replace_entry;
+  bool is_in_page;
+  bool is_main_frame;
+  // SSLStatus ssl_status;
+  int32 http_status_code;
+};
+
+// Copied from //content/public/browser/page_navigator.h
+struct OpenURLParams {
+  url.mojom.Url url;
+  WindowOpenDisposition disposition;
+};
+
+interface ViewFactory {
+  CreateView(ViewClient client, View& view);
+};
+
+interface ViewClient {
+  OpenURL(OpenURLParams params);
+  LoadingStateChanged(bool is_loading);
+  NavigationStateChanged(url.mojom.Url url,
+                         string title,
+                         bool can_go_back,
+                         bool can_go_forward);
+  LoadProgressChanged(double progress);
+  UpdateHoverURL(url.mojom.Url url);
+
+  ViewCreated(View view,
+              ViewClient& client,
+              bool is_popup,
+              gfx.mojom.Rect initial_rect,
+              bool user_gesture);
+  Close();
+
+  // See //content/public/browser/notification_types.h for descriptions of
+  // these events.
+  NavigationPending(NavigationEntry entry);
+  NavigationCommitted(NavigationCommittedDetails details,
+                      int32 current_index);
+  NavigationListPruned(bool from_front, int32 count);
+  NavigationEntryChanged(NavigationEntry entry, int32 entry_index);
+};
+
+interface View {
+  // Navigates the view to |url|.
+  NavigateTo(url.mojom.Url url);
+
+  GoBack();
+  GoForward();
+  NavigateToOffset(int32 offset);
+  Reload(bool skip_cache);
+  Stop();
+
+  // Obtains a Mus WindowTreeClient for the View, so it can be embedded in a
+  // UI.
+  GetWindowTreeClient(mus.mojom.WindowTreeClient& client);
+
+  ShowInterstitial(string html);
+  HideInterstitial();
+
+  // The resize area is a rectangle in the bottom corner of the view that allows
+  // the top-level window containing the view to be interactively resized.
+  SetResizerSize(gfx.mojom.Size size);
+};

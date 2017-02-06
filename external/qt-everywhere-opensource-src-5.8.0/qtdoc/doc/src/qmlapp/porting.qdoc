@@ -1,0 +1,254 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page qtquick-porting-qt5.html
+\title Porting QML Applications to Qt 5
+\brief Lists the Qt 5.0 changes that affect the existing QML applications
+
+When porting QML-related code from Qt 4.8 to Qt 5, application developers should be aware that
+the QML infrastructure has undergone considerable changes in Qt 5. The sections below describe
+these changes and the impact they have on your existing code.
+
+\section1 QML Language Changes
+
+There are very few changes in the QML language that affect the porting of existing Qt 4.8 QML code to Qt 5. These are:
+
+\list
+\li Individual file imports no longer work (for example, import "MyType.qml"). Import the containing directory instead.
+\li Relative file paths in JavaScript files are now resolved relative to the location of the JavaScript file instead of the QML file that imported it.
+\li It's no longer possible to override signals from the base component.
+\endlist
+
+\section1 QtQuick Module
+
+The QtQuick module has been updated to version 2. All QML applications should update their import
+statements to use the new version:
+
+\code
+import QtQuick 2.3
+\endcode
+
+
+\section2 Property and Method Changes
+
+\list
+\li ListView's \c highlightMoveSpeed and \c highlightResizeSpeed properties have been renamed to
+\l{ListView::}{highlightMoveVelocity} and \l{ListView::}{highlightResizeVelocity}, respectively.
+\li TextInput and TextEdit's \c openSoftwareInputPanel() and \c closeSoftwareInputPanel() methods
+have been removed. Use the new Qt.inputMethod property and call Qt.inputMethod.show()
+Qt.inputMethod.hide() to show and hide the virtual keyboard.
+\endlist
+
+\section2 Type and API Changes
+
+\list
+\li XmlListModel has moved into its own module, QtQuick.XmlListModel. Any code that uses the
+XmlListModel and XmlRole types must import \e {QtQuick.XmlListModel} instead.
+\li The local storage API that enables SQL support has been moved from the \l {QML Global Object}
+into a \c QtQuick.LocalStorage singleton type. Any code that requires the local storage API must import
+\e {QtQuick.LocalStorage} instead. See the \l {QtQuick.LocalStorage}{Qt Quick Local Storage} documentation
+for examples.
+\li The \c LayoutItem type has been removed from the \c QtQuick module as it was specific to the
+Graphics View framework backend used in \l {Qt Quick 1}.
+\endlist
+
+\section2 Behavioral Changes
+
+QtQuick 2 includes a number of behavioral changes and you should thoroughly test your applications after
+porting. These changes will not necessarily lead to run-time errors, but may break certain assumptions in your code.
+Below are the prominent changes to be aware of when porting your applications.
+
+Item opacity and visibility:
+
+\list
+\li The input handling details of \l{Item::}{opacity} and \l{Item::}{visible} have changed. An opacity of zero no
+    longer affects input handling, where previously it stopped mouse input. A visibility of false no longer affects
+    keyboard input, but still stops mouse input. The new \l{Item::}{enabled} property stops mouse and keyboard input, but does not affect how or whether
+    the item is rendered. A workaround for applying the old behavior in most cases is to bind enabled to
+    \tt {(visible && opacity > 0.0)}.
+\li Previously, if an item was in a positioner (i.e. a \l Row, \l Column, \l Grid and \l Flow)
+    and the item's \c opacity changed to 0, or its \c visible value became \c false, the positioner
+    would remove the item from its layout and collapse the space for that item. In QtQuick 2, this
+    now only happens when an item's \c visible is \c false; the item opacity no longer affects whether
+    the item is laid out. (This is consistent with the existing behavior of ListView and GridView).
+\endlist
+
+Text:
+
+\list
+\li The TextEdit::textFormat property now defaults to \c PlainText instead of \c AutoText.
+\li When Text::textFormat is set to \c Text.AutoText format, the text object will automatically
+    switch to \c Text.StyledText instead of \c Text.RichText.
+\endlist
+
+Other:
+
+\list
+\li Modifying the Image::sourceSize now fits the image to the size, maintaining aspect
+    ratio.
+\li For ListView and GridView, the \c cacheBuffer property now has a non-zero default and
+    delegates in the cache buffer are created asynchronously. Also, using a \c RightToLeft layout
+    now also reverses the \c preferredHighlightBegin and \c preferredHighlightEnd.
+\li For \l Loader, the \c sourceChanged and \c sourceComponentChanged signals are now only emitted
+    when their respective properties change value. (Previously \l Loader emitted both of these signals
+    when either of the relevant properties had changed.)
+\endlist
+
+
+\section2 Changes to experimental Qt.labs modules
+
+\list
+\li The \c Qt.labs.particles module has been removed. It is replaced by the fully-fledged \l
+QtQuick.Particles module which is an enormous improvement on its predecessor.
+\li The \c Qt.labs.shaders module has been removed as the \c ShaderEffectItem and \l
+ShaderEffectSource types from this module have been moved into the \c QtQuick module. Note the \c
+ShaderEffectItem type has been renamed to \l ShaderEffect.
+\endlist
+
+
+\section1 C++ code
+
+In Qt 5, all QML applications are rendered with an OpenGL scenegraph architecture rather than the
+Graphics View framework used in Qt 4. Due to the scale of this architectural change, the C++ API has
+been extensively restructured and the \c QtDeclarative module has been deprecated in favor of two
+new modules: \l {Qt QML}, which implements the QML engine and language infrastructure, and \l {Qt Quick},
+which implements the visual canvas and scenegraph backend.
+
+All classes that were previously in the \c QtDeclarative module have been moved into the \l {Qt QML}
+and \l {Qt Quick} modules, and their class names have been changed to reflect their new module
+locations. The class name changes are as follows:
+
+\table
+\header
+    \li Qt QML
+    \li Qt Quick
+\row
+    \li
+        \list
+        \li QDeclarativeComponent -> QQmlComponent
+        \li QDeclarativeContext -> QQmlContext
+        \li QDeclarativeEngine -> QQmlEngine
+        \li QDeclarativeError -> QQmlError
+        \li QDeclarativeExpression -> QQmlExpression
+        \li QDeclarativeExtensionPlugin -> QQmlExtensionPlugin
+        \li QDeclarativeInfo -> QQmlInfo
+        \li QDeclarativeListReference -> QQmlListReference
+        \li QDeclarativeNetworkAccessManagerFactory -> QQmlNetworkAccessManagerFactory
+        \li QDeclarativeParserStatus -> QQmlParserStatus
+        \li QDeclarativeProperty -> QQmlProperty
+        \li QDeclarativePropertyMap -> QQmlPropertyMap
+        \li QDeclarativePropertyValueSource -> QQmlPropertyValueSource
+        \li QDeclarativeScriptString -> QQmlScriptString
+        \endlist
+    \li
+        \list
+        \li QDeclarativeItem -> QQuickItem
+        \li QDeclarativeView -> QQuickView
+        \li QDeclarativeImageProvider -> QQuickImageProvider
+        \endlist
+\endtable
+
+To use the new \c QQml* and \c QQuick* classes in Qt 5, link against the approprate module from
+your qmake \c .pro file. For example the following will link against both the \l {Qt QML} and \l {Qt Quick}
+modules:
+
+\code
+QT += qml quick
+\endcode
+
+Required header files can then be included:
+
+\code
+#include <QtQml/QQmlEngine>
+#include <QtQuick/QQuickView>
+\endcode
+
+(The \c QtDeclarative module is still available to developers as the \c {Qt Quick 1} module, as
+discussed \l {Qt Quick 1}{below}. However, it should not be used for
+new applications.)
+
+
+\section3 QDeclarativeItem and QDeclarativeView
+
+When porting to QQuickItem, note that QDeclarativeItem inherited from QGraphicsItem; in contrast,
+QQuickItem inherits directly from QObject, and any QGraphicsItem-specific functionality is no longer
+available. In particular, QQuickItem does not have a \c paint() method for performing custom
+rendering through the QPainter API. Instead, in Qt 5, custom rendering should be performed through
+the new \c QSG* classes to take full advantage of the scene graph. See the \l {Qt Quick Scene Graph}
+documentation details on using these classes.
+
+Alternatively, the QQuickPaintedItem provides a \c paint() method and can be used as
+a convenient way to port QDeclarativeItem-based classes that use the QPainter API. Note this method
+is less performant than using the \c QSG* classes.
+
+When porting from QDeclarativeView to QQuickView, note that QDeclarativeView inherited from
+QGraphicsView. In contrast, QQuickView inherits from QQuickWindow and uses the QWindow
+infrastructure introduced in Qt 5; any QGraphicsView-specific functionality is no longer available.
+
+
+\section3 qmlscene Utility
+
+The \c qmlviewer tool provided for prototyping and testing QML applications in Qt 4.x has been
+replaced with the \c qmlscene tool which integrates with the new scenegraph features in Qt 5.
+
+
+\section2 QML plugins
+
+All QML plugins should extend QQmlExtensionPlugin in Qt 5.
+
+Additionally, plugins should use the new Qt plugin infrastructure introduced in Qt 5. QML plugins no
+longer require the Q_EXPORT_PLUGIN2() macro. Instead, they should use the Q_PLUGIN_METADATA() macro
+within the plugin class declaration.
+
+See the updated \l {qtqml-modules-cppplugins.html}{Creating C++ Plugins For QML} documentation for
+an overview of creating QML plugins in Qt 5.
+
+
+\keyword Qt Quick 1
+
+\section2 QtDeclarative module in Qt 5
+
+For the purposes of porting older applications, the \c {QtDeclarative} module is still available in Qt
+5 but has been renamed to \c {Qt Quick 1}. Applications that required Qt Quick 1 specific API (e.g.
+QDeclarativeView or QDeclarativeItem and the Graphics View integration) can use this module. Note
+that new applications should use the new \l {Qt QML} and \l {Qt Quick} modules instead.
+
+To use the \c {Qt Quick 1} module, add "declarative" to your qmake \c .pro file:
+
+\code
+QT += declarative
+\endcode
+
+Required header files can be included as follows:
+
+\code
+#include <QtDeclarative/QDeclarativeView>
+#include <QtDeclarative/QDeclarativeItem>
+\endcode
+
+*/

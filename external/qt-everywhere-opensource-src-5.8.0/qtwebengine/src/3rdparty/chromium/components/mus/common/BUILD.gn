@@ -1,0 +1,100 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//mojo/public/mojo_application_manifest.gni")
+import("//testing/test.gni")
+
+component("mus_common") {
+  sources = [
+    "event_matcher_util.cc",
+    "event_matcher_util.h",
+    "generic_shared_memory_id_generator.cc",
+    "generic_shared_memory_id_generator.h",
+    "gpu_memory_buffer_impl.cc",
+    "gpu_memory_buffer_impl.h",
+    "gpu_service.cc",
+    "gpu_service.h",
+    "gpu_type_converters.cc",
+    "gpu_type_converters.h",
+    "mojo_buffer_backing.cc",
+    "mojo_buffer_backing.h",
+    "mojo_gpu_memory_buffer.cc",
+    "mojo_gpu_memory_buffer.h",
+    "mojo_gpu_memory_buffer_manager.cc",
+    "mojo_gpu_memory_buffer_manager.h",
+    "mus_common_export.h",
+    "switches.cc",
+    "switches.h",
+    "transient_window_utils.h",
+    "types.h",
+    "util.h",
+  ]
+
+  defines = [ "MUS_COMMON_IMPLEMENTATION" ]
+
+  deps = [
+    "//gpu/command_buffer/client",
+    "//gpu/config",
+    "//gpu/ipc/client",
+    "//gpu/ipc/common:command_buffer_traits",
+    "//ipc:ipc",
+    "//services/shell/public/cpp",
+    "//ui/events:events",
+    "//ui/gfx/ipc/geometry",
+  ]
+
+  public_deps = [
+    "//components/mus/public/interfaces",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//ui/base",
+  ]
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+}
+
+source_set("run_all_shelltests") {
+  testonly = true
+
+  sources = [
+    "run_all_shelltests.cc",
+  ]
+
+  deps = [
+    "//base/test:test_support",
+    "//mojo/edk/system",
+    "//services/shell/background:main",
+  ]
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+}
+
+test("mus_common_unittests") {
+  sources = [
+    "gpu_type_converters_unittest.cc",
+  ]
+  public_deps = [
+    ":mus_common",
+  ]
+  deps = [
+    ":run_all_shelltests",
+    "//base",
+    "//base/test:test_config",
+    "//components/mus/public/interfaces",
+    "//ipc:ipc",
+    "//testing/gtest",
+    "//ui/gfx:test_support",
+    "//ui/gfx/ipc",
+  ]
+}
+
+mojo_application_manifest("mus_common_unittests_app_manifest") {
+  application_name = "mus_common_unittests_app"
+  source = "mus_common_unittests_app_manifest.json"
+}

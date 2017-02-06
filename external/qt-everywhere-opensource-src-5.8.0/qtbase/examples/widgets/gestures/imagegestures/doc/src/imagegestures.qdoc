@@ -1,0 +1,135 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example gestures/imagegestures
+    \title Image Gestures Example
+    \brief Demonstrates the use of simple gestures in a widget
+
+    This example shows how to enable gestures for a widget and use gesture input
+    to perform actions.
+
+    \image imagegestures-example.jpg
+
+    We use two classes to create the user interface for the application: \c MainWidget
+    and \c ImageWidget. The \c MainWidget class is simply used as a container for the
+    \c ImageWidget class, which we will configure to accept gesture input. Since we
+    are interested in the way gestures are used, we will concentrate on the
+    implementation of the \c ImageWidget class.
+
+    \section1 ImageWidget Class Definition
+
+    The \c ImageWidget class is a simple QWidget subclass that reimplements the general
+    QWidget::event() handler function in addition to several more specific event handlers:
+
+    \snippet gestures/imagegestures/imagewidget.h class definition begin
+    \dots
+    \snippet gestures/imagegestures/imagewidget.h class definition end
+
+    We also implement a private helper function, \c gestureEvent(), to help manage
+    gesture events delivered to the widget, and three functions to perform actions
+    based on gestures: \c panTriggered(), \c pinchTriggered() and \c swipeTriggered().
+
+    \section1 ImageWidget Class Implementation
+
+    In the widget's constructor, we begin by setting up various parameters that will
+    be used to control the way images are displayed.
+
+    \snippet gestures/imagegestures/imagewidget.cpp constructor
+
+    We enable three of the standard gestures for the widget by calling QWidget::grabGesture()
+    with the types of gesture we need. These will be recognized by the application's
+    default gesture recognizer, and events will be delivered to our widget.
+
+    Since QWidget does not define a specific event handler for gestures, the widget
+    needs to reimplement the general QWidget::event() to receive gesture events.
+
+    \snippet gestures/imagegestures/imagewidget.cpp event handler
+
+    We implement the event handler to delegate gesture events to a private function
+    specifically written for the task, and pass all other events to QWidget's
+    implementation.
+
+    The \c gestureHandler() function examines the gestures supplied by the
+    newly-delivered QGestureEvent. Since only one gesture of a given type can be
+    used on a widget at any particular time, we can check for each gesture type
+    using the QGestureEvent::gesture() function:
+
+    \snippet gestures/imagegestures/imagewidget.cpp gesture event handler
+
+    If a QGesture object is supplied for a certain type of gesture, we call a special
+    purpose function to deal with it, casting the gesture object to the appropriate
+    QGesture subclass.
+
+    To illustrate how a standard gesture can be interpreted by an application, we
+    show the implementation of the \c pinchTriggered() function, which handles the
+    pinch gesture when the user moves two fingers around on the display or
+    input device:
+
+    \snippet gestures/imagegestures/imagewidget.cpp pinch function
+
+    The QPinchGesture class provides properties to interpret the changing
+    distance between the two touch points as a zoom factor, and the angle delta
+    as a rotation to be applied to the image. The center point between the
+    touch points could be used to drag the image, but in this example we use
+    the pan gesture for that purpose.
+
+    The \c scaleFactor() is a relative value representing how much the zoom
+    should change from one event to the next, whereas \c totalScaleFactor()
+    provides the amount of zoom that has been expressed since the gesture
+    began. When the touch points are released and another gesture begins,
+    \c totalScaleFactor() will begin again at 1.0. In this case we store
+    \c totalScaleFactor() into the \c currentStepScaleFactor variable so that
+    it can be used in \c paintEvent() to scale the image. Alternatively it would
+    be possible to simply multiply the stored total scale factor by
+    \c scaleFactor() here in the pinch handler.
+
+    In contrast, \c rotationAngle() represents the amount of rotation since the
+    pinch gesture began, while \c lastRotationAngle() provides the previous
+    value. So it is necessary to subtract in order to get an incremental delta.
+    When the user begins a new pinch gesture, \c rotationAngle() will start
+    from zero, and we want the image to begin to rotate from its current angle.
+    This is achieved by adding the delta to the stored \c rotationAngle (which
+    will be applied in \c paintEvent()). If we simply assigned
+    \c totalRotationAngle() to the stored \c rotationAngle, a new gesture would
+    cause the image to reset to a right-side-up orientation before beginning to
+    rotate again. But it would be possible to store the rotation angle since the
+    gesture began and add it to \c rotationAngle in \c paintEvent(), just as
+    we store the amount of zoom since the gesture began.
+
+    The pan and swipe gestures in this example are also handled in separate
+    functions, and use the values of properties from the QGesture objects
+    passed to them.
+
+    \snippet gestures/imagegestures/imagewidget.cpp paint method
+
+    In \c paintEvent(), scaleFactor represents the zoom level before the pinch
+    gesture began, while currentStepScaleFactor represents the additional zoom
+    factor while a pinch gesture is in progress. But for rotation, only the
+    current rotationAngle is stored. The horizontal and vertical offsets
+    represent the distance that the image has been dragged by the pan gesture.
+*/

@@ -1,0 +1,42 @@
+{% from 'macros.tmpl' import license %}
+{{license()}}
+
+#include "core/origin_trials/OriginTrials.h"
+
+#include "core/origin_trials/OriginTrialContext.h"
+#include "platform/RuntimeEnabledFeatures.h"
+
+namespace blink {
+
+namespace {
+
+{% for feature in features %}
+{% if feature.origin_trial_feature_name %}
+
+bool {{feature.first_lowered_name}}EnabledImpl(ExecutionContext* executionContext, String* errorMessage) {
+    if (RuntimeEnabledFeatures::{{feature.first_lowered_name}}Enabled())
+        return true;
+    OriginTrialContext* context = OriginTrialContext::from(executionContext);
+    return context->isFeatureEnabled("{{feature.origin_trial_feature_name}}", errorMessage);
+}
+
+{% endif %}
+{% endfor %}
+
+} // namespace
+
+{% for feature in features %}
+{% if feature.origin_trial_feature_name %}
+
+bool OriginTrials::{{feature.first_lowered_name}}Enabled(ExecutionContext* executionContext, String& errorMessage) {
+    return {{feature.first_lowered_name}}EnabledImpl(executionContext, &errorMessage);
+}
+
+bool OriginTrials::{{feature.first_lowered_name}}Enabled(ExecutionContext* executionContext) {
+    return {{feature.first_lowered_name}}EnabledImpl(executionContext, nullptr);
+}
+
+{% endif %}
+{% endfor %}
+
+} // namespace blink

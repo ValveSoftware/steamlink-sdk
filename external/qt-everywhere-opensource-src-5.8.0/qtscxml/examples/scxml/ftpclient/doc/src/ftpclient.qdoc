@@ -1,0 +1,143 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example ftpclient
+    \title Qt SCXML FTP Client Example
+    \ingroup examples-qtscxml
+
+    \brief Implements a simple FTP client using a state machine.
+
+    \e {FTP Client} uses Qt SCXML to implement a FTP client that can communicate
+    with a FTP service by sending FTP control messages translated from state
+    machine events and by translating server replies into state machine
+    events. The data received from the FTP server is printed on the console.
+
+    \l{RFC 959} specifies state charts for the command handling of the FTP
+    client. They can be easily translated into SCXML to benefit from SCXML
+    nested states. Connections between the client and server and data transfer
+    are implemented by using C++. In addition, Qt signals and slots are used.
+
+    The state machine has the following states:
+
+    \image ftpclient-statechart.png
+
+    \list
+        \li \e I as the initial state.
+        \li \e B for sending commands.
+        \li \e S for success.
+        \li \e F for failure.
+        \li \e W for waiting for a reply.
+        \li \e P for supplying a password upon server request.
+    \endlist
+
+    The state machine is specified in the \e simpleftp.scxml file and compiled
+    into the \c FtpClient class that implements the logic of the FTP protocol.
+    It reacts to user input and to replies from the control channel by changing
+    states and sending external events. In addition, we implement a
+    \c FtpControlChannel class and a \c FtpDataChannel class that handle TCP
+    sockets and servers and convert line endings.
+
+    \include examples-run.qdocinc
+
+    \section1 Compiling the State Machine
+
+    We link against the Qt SCXML module by adding the following line to the
+    \e .pro file:
+
+    \quotefromfile ftpclient/ftpclient.pro
+    \printuntil scxml
+
+    We then specify the state machine to compile:
+
+    \skipto STATECHARTS
+    \printuntil simpleftp.scxml
+
+    The Qt SCXML Compiler, \c qscxmlc, is run automatically to generate
+    \e ftpclient.h and \e ftpclient.cpp, and to add them to the \c HEADERS
+    and \c SOURCES variables for compilation.
+
+    \section1 Instantiating the State Machine
+
+    We instantiate the generated \c FtpClient class, as well as the
+    \c FtpDataChannel and \c FtpControlChannel classes in the \e main.cpp file:
+
+    \quotefromfile ftpclient/main.cpp
+    \skipto #include
+    \printuntil ftpdatachannel.h
+    \dots
+    \skipto int main
+    \printuntil {
+    \dots
+    \skipto QCoreApplication
+    \printuntil FtpControlChannel
+    \dots
+
+    \section1 Communicating with an FTP Server
+
+    We print all data retrieved from the server on the console:
+
+    \skipto QObject::connect(&dataChannel
+    \printuntil }
+
+    We translate server replies into state machine events:
+
+    \skipto QObject::connect(&controlChannel
+    \printuntil }
+
+    We translate commands from the state machine into FTP control messages:
+
+    \skipto ftpClient.connectToEvent(
+    \printuntil }
+
+    We send commands to log into the FTP server as an anonymous user, to
+    announce a port for the data connection, and to retrive a file:
+
+    \skipto QList
+    \printuntil });
+
+    We specify that the FTP client should send the next command when entering
+    the \e B state:
+
+    \skipto ftpClient.connectToState("B"
+    \printuntil }));
+
+    We specify that the FTP client should send an empty string as a password if
+    the server asks for one:
+
+    \skipto ftpClient.connectToState("P"
+    \printuntil }
+
+    Finally, we connect to  the FTP server specified as the first argument of
+    the method and retrieve the file specified as the second argument:
+
+    \skipto controlChannel.connectToServer(server)
+    \printuntil }
+
+    For example, the following invocation prints the specified file from the
+    specified server: \c {ftpclient <server> <file>}.
+*/

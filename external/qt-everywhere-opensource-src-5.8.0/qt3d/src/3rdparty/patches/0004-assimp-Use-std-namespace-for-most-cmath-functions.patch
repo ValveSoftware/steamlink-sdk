@@ -1,0 +1,1281 @@
+From f58bcc1100afc3f5df5e7c6c2796f211ee1824cb Mon Sep 17 00:00:00 2001
+From: Andy Nichols <andy.nichols@theqtcompany.com>
+Date: Tue, 3 Nov 2015 13:09:13 +0100
+Subject: [PATCH] assimp: Use std namespace for most cmath functions
+
+This also fixes a couple of cases where the int version of abs was used
+when it should be the float version.
+
+Change-Id: Id5063545e5a6e659e95262177217be98766794b0
+---
+ src/3rdparty/assimp/code/BlenderTessellator.cpp    |  4 +-
+ src/3rdparty/assimp/code/ColladaLoader.cpp         |  2 +-
+ .../assimp/code/ComputeUVMappingProcess.cpp        | 14 ++--
+ src/3rdparty/assimp/code/FBXConverter.cpp          | 10 +--
+ .../assimp/code/FindInvalidDataProcess.cpp         |  2 +-
+ src/3rdparty/assimp/code/FixNormalsStep.cpp        |  6 +-
+ .../assimp/code/GenVertexNormalsProcess.cpp        |  2 +-
+ src/3rdparty/assimp/code/IFCBoolean.cpp            | 10 +--
+ src/3rdparty/assimp/code/IFCCurve.cpp              | 30 ++++-----
+ src/3rdparty/assimp/code/IFCGeometry.cpp           | 14 ++--
+ src/3rdparty/assimp/code/IFCOpenings.cpp           | 78 +++++++++++-----------
+ src/3rdparty/assimp/code/IFCProfile.cpp            |  2 +-
+ src/3rdparty/assimp/code/IFCUtil.cpp               |  2 +-
+ src/3rdparty/assimp/code/IFCUtil.h                 |  2 +-
+ src/3rdparty/assimp/code/IRRLoader.cpp             |  4 +-
+ src/3rdparty/assimp/code/LWOAnimation.cpp          |  2 +-
+ src/3rdparty/assimp/code/LWOBLoader.cpp            |  2 +-
+ src/3rdparty/assimp/code/LWOLoader.cpp             |  2 +-
+ src/3rdparty/assimp/code/MD5Parser.h               |  2 +-
+ src/3rdparty/assimp/code/PolyTools.h               | 12 ++--
+ src/3rdparty/assimp/code/SkeletonMeshBuilder.cpp   |  2 +-
+ src/3rdparty/assimp/code/StandardShapes.cpp        | 20 +++---
+ src/3rdparty/assimp/code/TextureTransform.h        | 14 ++--
+ src/3rdparty/assimp/code/TriangulateProcess.cpp    |  4 +-
+ src/3rdparty/assimp/code/XGLLoader.cpp             |  2 +-
+ src/3rdparty/assimp/code/fast_atof.h               |  2 +-
+ .../contrib/poly2tri/poly2tri/common/shapes.h      |  2 +-
+ src/3rdparty/assimp/include/assimp/color4.inl      |  2 +-
+ src/3rdparty/assimp/include/assimp/matrix3x3.inl   |  6 +-
+ src/3rdparty/assimp/include/assimp/matrix4x4.inl   | 38 +++++------
+ src/3rdparty/assimp/include/assimp/quaternion.inl  | 36 +++++-----
+ src/3rdparty/assimp/include/assimp/types.h         |  2 +-
+ src/3rdparty/assimp/include/assimp/vector2.inl     |  2 +-
+ src/3rdparty/assimp/include/assimp/vector3.inl     |  2 +-
+ 34 files changed, 168 insertions(+), 168 deletions(-)
+
+diff --git a/src/3rdparty/assimp/code/BlenderTessellator.cpp b/src/3rdparty/assimp/code/BlenderTessellator.cpp
+index ffe7949..98ccbad 100644
+--- a/src/3rdparty/assimp/code/BlenderTessellator.cpp
++++ b/src/3rdparty/assimp/code/BlenderTessellator.cpp
+@@ -324,7 +324,7 @@ void BlenderTessellatorP2T::Copy3DVertices( const MLoop* polyLoop, int vertexCou
+ aiMatrix4x4 BlenderTessellatorP2T::GeneratePointTransformMatrix( const Blender::PlaneP2T& plane ) const
+ {
+ 	aiVector3D sideA( 1.0f, 0.0f, 0.0f );
+-	if ( fabs( plane.normal * sideA ) > 0.999f )
++	if ( std::fabs( plane.normal * sideA ) > 0.999f )
+ 	{
+ 		sideA = aiVector3D( 0.0f, 1.0f, 0.0f );
+ 	}
+@@ -420,7 +420,7 @@ float BlenderTessellatorP2T::FindLargestMatrixElem( const aiMatrix3x3& mtx ) con
+ 	{
+ 		for ( int y = 0; y < 3; ++y )
+ 		{
+-			result = p2tMax( fabs( mtx[ x ][ y ] ), result );
++			result = p2tMax( std::fabs( mtx[ x ][ y ] ), result );
+ 		}
+ 	}
+ 
+diff --git a/src/3rdparty/assimp/code/ColladaLoader.cpp b/src/3rdparty/assimp/code/ColladaLoader.cpp
+index 058baf9..2096e95 100644
+--- a/src/3rdparty/assimp/code/ColladaLoader.cpp
++++ b/src/3rdparty/assimp/code/ColladaLoader.cpp
+@@ -341,7 +341,7 @@ void ColladaLoader::BuildLightsForNode( const ColladaParser& pParser, const Coll
+ 				{
+ 					// Need to rely on falloff_exponent. I don't know how to interpret it, so I need to guess ....
+ 					// epsilon chosen to be 0.1
+-					out->mAngleOuterCone = AI_DEG_TO_RAD (acos(pow(0.1f,1.f/srcLight->mFalloffExponent))+
++					out->mAngleOuterCone = AI_DEG_TO_RAD (std::acos(std::pow(0.1f,1.f/srcLight->mFalloffExponent))+
+ 						srcLight->mFalloffAngle);
+ 				}
+ 				else {
+diff --git a/src/3rdparty/assimp/code/ComputeUVMappingProcess.cpp b/src/3rdparty/assimp/code/ComputeUVMappingProcess.cpp
+index 091f6a0..c25a17c 100644
+--- a/src/3rdparty/assimp/code/ComputeUVMappingProcess.cpp
++++ b/src/3rdparty/assimp/code/ComputeUVMappingProcess.cpp
+@@ -197,9 +197,9 @@ void ComputeUVMappingProcess::ComputeSphereMapping(aiMesh* mesh,const aiVector3D
+ 		// UV axes. Problems occur around the poles ... unsolvable.
+ 		//
+ 		// The spherical coordinate system looks like this:
+-		// x = cos(lon)*cos(lat)
+-		// y = sin(lon)*cos(lat)
+-		// z = sin(lat)
++		// x = std::cos(lon)*std::cos(lat)
++		// y = std::sin(lon)*std::cos(lat)
++		// z = std::sin(lat)
+ 		// 
+ 		// Thus we can derive:
+ 		// lat  = arcsin (z)
+@@ -207,7 +207,7 @@ void ComputeUVMappingProcess::ComputeSphereMapping(aiMesh* mesh,const aiVector3D
+ 		for (unsigned int pnt = 0; pnt < mesh->mNumVertices;++pnt)	{
+ 			const aiVector3D diff = (mesh->mVertices[pnt]-center).Normalize();
+ 			out[pnt] = aiVector3D((atan2 (diff.z, diff.y) + AI_MATH_PI_F ) / AI_MATH_TWO_PI_F,
+-				(asin  (diff.x) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
++				(std::asin  (diff.x) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
+ 		}
+ 	}
+ 	else if (axis * base_axis_y >= angle_epsilon)	{
+@@ -215,7 +215,7 @@ void ComputeUVMappingProcess::ComputeSphereMapping(aiMesh* mesh,const aiVector3D
+ 		for (unsigned int pnt = 0; pnt < mesh->mNumVertices;++pnt)	{
+ 			const aiVector3D diff = (mesh->mVertices[pnt]-center).Normalize();
+ 			out[pnt] = aiVector3D((atan2 (diff.x, diff.z) + AI_MATH_PI_F ) / AI_MATH_TWO_PI_F,
+-				(asin  (diff.y) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
++				(std::asin  (diff.y) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
+ 		}
+ 	}
+ 	else if (axis * base_axis_z >= angle_epsilon)	{
+@@ -223,7 +223,7 @@ void ComputeUVMappingProcess::ComputeSphereMapping(aiMesh* mesh,const aiVector3D
+ 		for (unsigned int pnt = 0; pnt < mesh->mNumVertices;++pnt)	{
+ 			const aiVector3D diff = (mesh->mVertices[pnt]-center).Normalize();
+ 			out[pnt] = aiVector3D((atan2 (diff.y, diff.x) + AI_MATH_PI_F ) / AI_MATH_TWO_PI_F,
+-				(asin  (diff.z) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
++				(std::asin  (diff.z) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
+ 		}
+ 	}
+ 	// slower code path in case the mapping axis is not one of the coordinate system axes
+@@ -235,7 +235,7 @@ void ComputeUVMappingProcess::ComputeSphereMapping(aiMesh* mesh,const aiVector3D
+ 		for (unsigned int pnt = 0; pnt < mesh->mNumVertices;++pnt)	{
+ 			const aiVector3D diff = ((mTrafo*mesh->mVertices[pnt])-center).Normalize();
+ 			out[pnt] = aiVector3D((atan2 (diff.y, diff.x) + AI_MATH_PI_F ) / AI_MATH_TWO_PI_F,
+-				(asin  (diff.z) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
++				(std::asin  (diff.z) + AI_MATH_HALF_PI_F) / AI_MATH_PI_F, 0.f);
+ 		}
+ 	}
+ 	
+diff --git a/src/3rdparty/assimp/code/FBXConverter.cpp b/src/3rdparty/assimp/code/FBXConverter.cpp
+index 89854fc..56643bc 100644
+--- a/src/3rdparty/assimp/code/FBXConverter.cpp
++++ b/src/3rdparty/assimp/code/FBXConverter.cpp
+@@ -499,15 +499,15 @@ private:
+ 		bool is_id[3] = { true, true, true };
+ 
+ 		aiMatrix4x4 temp[3];
+-		if(fabs(rotation.z) > angle_epsilon) {
++		if(std::fabs(rotation.z) > angle_epsilon) {
+ 			aiMatrix4x4::RotationZ(AI_DEG_TO_RAD(rotation.z),temp[2]);
+ 			is_id[2] = false;
+ 		}
+-		if(fabs(rotation.y) > angle_epsilon) {
++		if(std::fabs(rotation.y) > angle_epsilon) {
+ 			aiMatrix4x4::RotationY(AI_DEG_TO_RAD(rotation.y),temp[1]);
+ 			is_id[1] = false;
+ 		}
+-		if(fabs(rotation.x) > angle_epsilon) {
++		if(std::fabs(rotation.x) > angle_epsilon) {
+ 			aiMatrix4x4::RotationX(AI_DEG_TO_RAD(rotation.x),temp[0]);
+ 			is_id[0] = false;
+ 		}
+@@ -676,7 +676,7 @@ private:
+ 		}
+ 
+ 		const aiVector3D& Scaling = PropertyGet<aiVector3D>(props,"Lcl Scaling",ok);
+-		if(ok && fabs(Scaling.SquareLength()-1.0f) > zero_epsilon) {
++		if(ok && std::fabs(Scaling.SquareLength()-1.0f) > zero_epsilon) {
+ 			aiMatrix4x4::Scaling(Scaling,chain[TransformationComp_Scaling]);
+ 		}
+ 
+@@ -686,7 +686,7 @@ private:
+ 		}
+ 		
+ 		const aiVector3D& GeometricScaling = PropertyGet<aiVector3D>(props, "GeometricScaling", ok);
+-		if (ok && fabs(GeometricScaling.SquareLength() - 1.0f) > zero_epsilon) {
++		if (ok && std::fabs(GeometricScaling.SquareLength() - 1.0f) > zero_epsilon) {
+ 			aiMatrix4x4::Scaling(GeometricScaling, chain[TransformationComp_GeometricScaling]);
+ 		}
+ 		
+diff --git a/src/3rdparty/assimp/code/FindInvalidDataProcess.cpp b/src/3rdparty/assimp/code/FindInvalidDataProcess.cpp
+index 618e7d3..ba47810 100644
+--- a/src/3rdparty/assimp/code/FindInvalidDataProcess.cpp
++++ b/src/3rdparty/assimp/code/FindInvalidDataProcess.cpp
+@@ -221,7 +221,7 @@ AI_FORCE_INLINE bool EpsilonCompare(const T& n, const T& s, float epsilon);
+ 
+ // ------------------------------------------------------------------------------------------------
+ AI_FORCE_INLINE bool EpsilonCompare(float n, float s, float epsilon) {
+-	return fabs(n-s)>epsilon;
++	return std::fabs(n-s)>epsilon;
+ }
+ 
+ // ------------------------------------------------------------------------------------------------
+diff --git a/src/3rdparty/assimp/code/FixNormalsStep.cpp b/src/3rdparty/assimp/code/FixNormalsStep.cpp
+index f95dfbc..9b85222 100644
+--- a/src/3rdparty/assimp/code/FixNormalsStep.cpp
++++ b/src/3rdparty/assimp/code/FixNormalsStep.cpp
+@@ -144,9 +144,9 @@ bool FixInfacingNormalsProcess::ProcessMesh( aiMesh* pcMesh, unsigned int index)
+ 	// Check whether this is a planar surface
+ 	const float fDelta1_yz = fDelta1_y * fDelta1_z;
+ 
+-	if (fDelta1_x < 0.05f * sqrtf( fDelta1_yz ))return false;
+-	if (fDelta1_y < 0.05f * sqrtf( fDelta1_z * fDelta1_x ))return false;
+-	if (fDelta1_z < 0.05f * sqrtf( fDelta1_y * fDelta1_x ))return false;
++    if (fDelta1_x < 0.05f * sqrtf( fDelta1_yz ))return false;
++    if (fDelta1_y < 0.05f * sqrtf( fDelta1_z * fDelta1_x ))return false;
++    if (fDelta1_z < 0.05f * sqrtf( fDelta1_y * fDelta1_x ))return false;
+ 
+ 	// now compare the volumes of the bounding boxes
+ 	if (::fabsf(fDelta0_x * fDelta1_yz) <
+diff --git a/src/3rdparty/assimp/code/GenVertexNormalsProcess.cpp b/src/3rdparty/assimp/code/GenVertexNormalsProcess.cpp
+index 643dc8f..231b655 100644
+--- a/src/3rdparty/assimp/code/GenVertexNormalsProcess.cpp
++++ b/src/3rdparty/assimp/code/GenVertexNormalsProcess.cpp
+@@ -204,7 +204,7 @@ bool GenVertexNormalsProcess::GenMeshVertexNormals (aiMesh* pMesh, unsigned int
+ 	// Slower code path if a smooth angle is set. There are many ways to achieve
+ 	// the effect, this one is the most straightforward one.
+ 	else	{
+-		const float fLimit = ::cos(configMaxAngle); 
++        const float fLimit = std::cos(configMaxAngle);
+ 		for (unsigned int i = 0; i < pMesh->mNumVertices;++i)	{
+ 			// Get all vertices that share this one ...
+ 			vertexFinder->FindPositions( pMesh->mVertices[i] , posEpsilon, verticesFound);
+diff --git a/src/3rdparty/assimp/code/IFCBoolean.cpp b/src/3rdparty/assimp/code/IFCBoolean.cpp
+index 8573e4d..3581d2a 100644
+--- a/src/3rdparty/assimp/code/IFCBoolean.cpp
++++ b/src/3rdparty/assimp/code/IFCBoolean.cpp
+@@ -69,8 +69,8 @@ Intersect IntersectSegmentPlane(const IfcVector3& p,const IfcVector3& n, const I
+ 	const IfcVector3 pdelta = e0 - p, seg = e1-e0;
+ 	const IfcFloat dotOne = n*seg, dotTwo = -(n*pdelta);
+ 
+-	if (fabs(dotOne) < 1e-6) {
+-		return fabs(dotTwo) < 1e-6f ? Intersect_LiesOnPlane : Intersect_No;
++	if (std::fabs(dotOne) < 1e-6) {
++		return std::fabs(dotTwo) < 1e-6f ? Intersect_LiesOnPlane : Intersect_No;
+ 	}
+ 
+ 	const IfcFloat t = dotTwo/dotOne;
+@@ -210,7 +210,7 @@ bool IntersectsBoundaryProfile( const IfcVector3& e0, const IfcVector3& e1, cons
+ 		// segment-segment intersection
+ 		// solve b0 + b*s = e0 + e*t for (s,t)
+ 		const IfcFloat det = (-b.x * e.y + e.x * b.y);
+-		if(fabs(det) < 1e-6) {
++		if(std::fabs(det) < 1e-6) {
+ 			// no solutions (parallel lines)
+ 			continue;
+ 		}
+@@ -234,7 +234,7 @@ bool IntersectsBoundaryProfile( const IfcVector3& e0, const IfcVector3& e1, cons
+ 		if (t >= -epsilon && (t <= 1.0+epsilon || half_open) && s >= -epsilon && s <= 1.0) {
+ 
+ 			if (e0_hits_border && !*e0_hits_border) {
+-				*e0_hits_border = fabs(t) < 1e-5f;
++				*e0_hits_border = std::fabs(t) < 1e-5f;
+ 			}
+ 	
+ 			const IfcVector3& p = e0 + e*t;
+@@ -419,7 +419,7 @@ void ProcessPolygonalBoundedBooleanHalfSpaceDifference(const IfcPolygonalBounded
+ 
+ #ifdef ASSIMP_BUILD_DEBUG
+ 			if (isect == Intersect_Yes) {
+-				const IfcFloat f = fabs((isectpos - p)*n);
++				const IfcFloat f = std::fabs((isectpos - p)*n);
+ 				ai_assert(f < 1e-5);
+ 			}
+ #endif
+diff --git a/src/3rdparty/assimp/code/IFCCurve.cpp b/src/3rdparty/assimp/code/IFCCurve.cpp
+index 4919b52..1079c1e 100644
+--- a/src/3rdparty/assimp/code/IFCCurve.cpp
++++ b/src/3rdparty/assimp/code/IFCCurve.cpp
+@@ -88,10 +88,10 @@ public:
+ 		a *= conv.angle_scale;
+ 		b *= conv.angle_scale;
+ 
+-		a = fmod(a,static_cast<IfcFloat>( AI_MATH_TWO_PI ));
+-		b = fmod(b,static_cast<IfcFloat>( AI_MATH_TWO_PI ));
++        a = std::fmod(a,static_cast<IfcFloat>( AI_MATH_TWO_PI ));
++        b = std::fmod(b,static_cast<IfcFloat>( AI_MATH_TWO_PI ));
+ 		const IfcFloat setting = static_cast<IfcFloat>( AI_MATH_PI * conv.settings.conicSamplingAngle / 180.0 );
+-		return static_cast<size_t>( ceil(abs( b-a)) / setting);
++        return static_cast<size_t>( std::ceil(std::abs( b-a)) / setting);
+ 	}
+ 
+ 	// --------------------------------------------------
+@@ -124,8 +124,8 @@ public:
+ 	// --------------------------------------------------
+ 	IfcVector3 Eval(IfcFloat u) const {
+ 		u = -conv.angle_scale * u;
+-		return location + static_cast<IfcFloat>(entity.Radius)*(static_cast<IfcFloat>(::cos(u))*p[0] + 
+-			static_cast<IfcFloat>(::sin(u))*p[1]);
++        return location + static_cast<IfcFloat>(entity.Radius)*(static_cast<IfcFloat>(std::cos(u))*p[0] +
++            static_cast<IfcFloat>(std::sin(u))*p[1]);
+ 	}
+ 
+ private:
+@@ -153,8 +153,8 @@ public:
+ 	// --------------------------------------------------
+ 	IfcVector3 Eval(IfcFloat u) const {
+ 		u = -conv.angle_scale * u;
+-		return location + static_cast<IfcFloat>(entity.SemiAxis1)*static_cast<IfcFloat>(::cos(u))*p[0] +
+-			static_cast<IfcFloat>(entity.SemiAxis2)*static_cast<IfcFloat>(::sin(u))*p[1];
++        return location + static_cast<IfcFloat>(entity.SemiAxis1)*static_cast<IfcFloat>(std::cos(u))*p[0] +
++            static_cast<IfcFloat>(entity.SemiAxis2)*static_cast<IfcFloat>(std::sin(u))*p[1];
+ 	}
+ 
+ private:
+@@ -276,7 +276,7 @@ public:
+ 		IfcFloat acc = 0;
+ 		BOOST_FOREACH(const CurveEntry& entry, curves) {
+ 			const ParamRange& range = entry.first->GetParametricRange();
+-			const IfcFloat delta = abs(range.second-range.first);
++            const IfcFloat delta = std::abs(range.second-range.first);
+ 			if (u < acc+delta) {
+ 				return entry.first->Eval( entry.second ? (u-acc) + range.first : range.second-(u-acc));
+ 			}
+@@ -295,7 +295,7 @@ public:
+ 		IfcFloat acc = 0;
+ 		BOOST_FOREACH(const CurveEntry& entry, curves) {
+ 			const ParamRange& range = entry.first->GetParametricRange();
+-			const IfcFloat delta = abs(range.second-range.first);
++            const IfcFloat delta = std::abs(range.second-range.first);
+ 			if (a <= acc+delta && b >= acc) {
+ 				const IfcFloat at =  std::max(static_cast<IfcFloat>( 0. ),a-acc), bt = std::min(delta,b-acc);
+ 				cnt += entry.first->EstimateSampleCount( entry.second ? at + range.first : range.second - bt, entry.second ? bt + range.first : range.second - at );
+@@ -486,7 +486,7 @@ public:
+ 	IfcVector3 Eval(IfcFloat p) const {
+ 		ai_assert(InRange(p));
+ 		
+-		const size_t b = static_cast<size_t>(floor(p));  
++        const size_t b = static_cast<size_t>(std::floor(p));
+ 		if (b == points.size()-1) {
+ 			return points.back();
+ 		}
+@@ -498,7 +498,7 @@ public:
+ 	// --------------------------------------------------
+ 	size_t EstimateSampleCount(IfcFloat a, IfcFloat b) const {
+ 		ai_assert(InRange(a) && InRange(b));
+-		return static_cast<size_t>( ceil(b) - floor(a) );
++        return static_cast<size_t>( std::ceil(b) - std::floor(a) );
+ 	}
+ 
+ 	// --------------------------------------------------
+@@ -558,7 +558,7 @@ bool Curve :: InRange(IfcFloat u) const
+ 	if (IsClosed()) {
+ 		return true;
+ 		//ai_assert(range.first != std::numeric_limits<IfcFloat>::infinity() && range.second != std::numeric_limits<IfcFloat>::infinity());
+-		//u = range.first + fmod(u-range.first,range.second-range.first);
++        //u = range.first + std::fmod(u-range.first,range.second-range.first);
+ 	}
+ 	const IfcFloat epsilon = 1e-5;
+ 	return u - range.first > -epsilon && range.second - u > -epsilon;
+@@ -569,7 +569,7 @@ bool Curve :: InRange(IfcFloat u) const
+ IfcFloat Curve :: GetParametricRangeDelta() const
+ {
+ 	const ParamRange& range = GetParametricRange();
+-	return abs(range.second - range.first);
++    return std::abs(range.second - range.first);
+ }
+ 
+ // ------------------------------------------------------------------------------------------------
+@@ -606,12 +606,12 @@ IfcFloat RecursiveSearch(const Curve* cv, const IfcVector3& val, IfcFloat a, Ifc
+ 	}
+ 
+ 	ai_assert(min_diff[0] != inf && min_diff[1] != inf);
+-	if ( fabs(a-min_point[0]) < threshold || recurse >= max_recurse) {
++    if ( std::fabs(a-min_point[0]) < threshold || recurse >= max_recurse) {
+ 		return min_point[0];
+ 	}
+ 
+ 	// fix for closed curves to take their wrap-over into account
+-	if (cv->IsClosed() && fabs(min_point[0]-min_point[1]) > cv->GetParametricRangeDelta()*0.5  ) {
++    if (cv->IsClosed() && std::fabs(min_point[0]-min_point[1]) > cv->GetParametricRangeDelta()*0.5  ) {
+ 		const Curve::ParamRange& range = cv->GetParametricRange();
+ 		const IfcFloat wrapdiff = (cv->Eval(range.first)-val).SquareLength();
+ 
+diff --git a/src/3rdparty/assimp/code/IFCGeometry.cpp b/src/3rdparty/assimp/code/IFCGeometry.cpp
+index a3c6711..96ccf29 100644
+--- a/src/3rdparty/assimp/code/IFCGeometry.cpp
++++ b/src/3rdparty/assimp/code/IFCGeometry.cpp
+@@ -250,17 +250,17 @@ void ProcessRevolvedAreaSolid(const IfcRevolvedAreaSolid& solid, TempMesh& resul
+ 	
+ 	bool has_area = solid.SweptArea->ProfileType == "AREA" && size>2;
+ 	const IfcFloat max_angle = solid.Angle*conv.angle_scale;
+-	if(fabs(max_angle) < 1e-3) {
++	if(std::fabs(max_angle) < 1e-3) {
+ 		if(has_area) {
+ 			result = meshout;
+ 		}
+ 		return;
+ 	}
+ 
+-	const unsigned int cnt_segments = std::max(2u,static_cast<unsigned int>(16 * fabs(max_angle)/AI_MATH_HALF_PI_F));
++	const unsigned int cnt_segments = std::max(2u,static_cast<unsigned int>(16 * std::fabs(max_angle)/AI_MATH_HALF_PI_F));
+ 	const IfcFloat delta = max_angle/cnt_segments;
+ 
+-	has_area = has_area && fabs(max_angle) < AI_MATH_TWO_PI_F*0.99;
++	has_area = has_area && std::fabs(max_angle) < AI_MATH_TWO_PI_F*0.99;
+ 	
+ 	result.verts.reserve(size*((cnt_segments+1)*4+(has_area?2:0)));
+ 	result.vertcnt.reserve(size*cnt_segments+2);
+@@ -375,21 +375,21 @@ void ProcessSweptDiskSolid(const IfcSweptDiskSolid solid, TempMesh& result, Conv
+ 		bool take_any = false;
+ 
+ 		for (unsigned int i = 0; i < 2; ++i, take_any = true) {
+-			if ((last_dir == 0 || take_any) && abs(d.x) > 1e-6) {
++            if ((last_dir == 0 || take_any) && std::abs(d.x) > 1e-6) {
+ 				q.y = startvec.y;
+ 				q.z = startvec.z;
+ 				q.x = -(d.y * q.y + d.z * q.z) / d.x;
+ 				last_dir = 0;
+ 				break;
+ 			}
+-			else if ((last_dir == 1 || take_any) && abs(d.y) > 1e-6) {
++            else if ((last_dir == 1 || take_any) && std::abs(d.y) > 1e-6) {
+ 				q.x = startvec.x;
+ 				q.z = startvec.z;
+ 				q.y = -(d.x * q.x + d.z * q.z) / d.y;
+ 				last_dir = 1;
+ 				break;
+ 			}
+-			else if ((last_dir == 2 && abs(d.z) > 1e-6) || take_any) { 
++            else if ((last_dir == 2 && std::abs(d.z) > 1e-6) || take_any) {
+ 				q.y = startvec.y;
+ 				q.x = startvec.x;
+ 				q.z = -(d.y * q.y + d.x * q.x) / d.z;
+@@ -480,7 +480,7 @@ IfcMatrix3 DerivePlaneCoordinateSpace(const TempMesh& curmesh, bool& ok, IfcVect
+ 	for (i = 0; !done && i < s-2; done || ++i) {
+ 		for (j = i+1; j < s-1; ++j) {
+ 			nor = -((out[i]-any_point)^(out[j]-any_point));
+-			if(fabs(nor.Length()) > 1e-8f) {
++			if(std::fabs(nor.Length()) > 1e-8f) {
+ 				done = true;
+ 				break;
+ 			}
+diff --git a/src/3rdparty/assimp/code/IFCOpenings.cpp b/src/3rdparty/assimp/code/IFCOpenings.cpp
+index c26574c..850403d 100644
+--- a/src/3rdparty/assimp/code/IFCOpenings.cpp
++++ b/src/3rdparty/assimp/code/IFCOpenings.cpp
+@@ -303,20 +303,20 @@ void InsertWindowContours(const ContourVector& contours,
+ 			const IfcVector2& v = contour[n];
+ 
+ 			bool hit = false;
+-			if (fabs(v.x-bb.first.x)<epsilon) {
++			if (std::fabs(v.x-bb.first.x)<epsilon) {
+ 				edge.x = bb.first.x;
+ 				hit = true;
+ 			}
+-			else if (fabs(v.x-bb.second.x)<epsilon) {
++			else if (std::fabs(v.x-bb.second.x)<epsilon) {
+ 				edge.x = bb.second.x;
+ 				hit = true;
+ 			}
+ 
+-			if (fabs(v.y-bb.first.y)<epsilon) {
++			if (std::fabs(v.y-bb.first.y)<epsilon) {
+ 				edge.y = bb.first.y;
+ 				hit = true;
+ 			}
+-			else if (fabs(v.y-bb.second.y)<epsilon) {
++			else if (std::fabs(v.y-bb.second.y)<epsilon) {
+ 				edge.y = bb.second.y;
+ 				hit = true;
+ 			}
+@@ -343,17 +343,17 @@ void InsertWindowContours(const ContourVector& contours,
+ 
+ 						IfcVector2 corner = edge;
+ 
+-						if (fabs(contour[last_hit].x-bb.first.x)<epsilon) {
++						if (std::fabs(contour[last_hit].x-bb.first.x)<epsilon) {
+ 							corner.x = bb.first.x;
+ 						}
+-						else if (fabs(contour[last_hit].x-bb.second.x)<epsilon) {
++						else if (std::fabs(contour[last_hit].x-bb.second.x)<epsilon) {
+ 							corner.x = bb.second.x;
+ 						}
+ 
+-						if (fabs(contour[last_hit].y-bb.first.y)<epsilon) {
++						if (std::fabs(contour[last_hit].y-bb.first.y)<epsilon) {
+ 							corner.y = bb.first.y;
+ 						}
+-						else if (fabs(contour[last_hit].y-bb.second.y)<epsilon) {
++						else if (std::fabs(contour[last_hit].y-bb.second.y)<epsilon) {
+ 							corner.y = bb.second.y;
+ 						}
+ 
+@@ -590,10 +590,10 @@ bool BoundingBoxesAdjacent(const BoundingBox& bb, const BoundingBox& ibb)
+ {
+ 	// TODO: I'm pretty sure there is a much more compact way to check this
+ 	const IfcFloat epsilon = 1e-5f;
+-	return	(fabs(bb.second.x - ibb.first.x) < epsilon && bb.first.y <= ibb.second.y && bb.second.y >= ibb.first.y) ||
+-		(fabs(bb.first.x - ibb.second.x) < epsilon && ibb.first.y <= bb.second.y && ibb.second.y >= bb.first.y) || 
+-		(fabs(bb.second.y - ibb.first.y) < epsilon && bb.first.x <= ibb.second.x && bb.second.x >= ibb.first.x) ||
+-		(fabs(bb.first.y - ibb.second.y) < epsilon && ibb.first.x <= bb.second.x && ibb.second.x >= bb.first.x);
++	return	(std::fabs(bb.second.x - ibb.first.x) < epsilon && bb.first.y <= ibb.second.y && bb.second.y >= ibb.first.y) ||
++		(std::fabs(bb.first.x - ibb.second.x) < epsilon && ibb.first.y <= bb.second.y && ibb.second.y >= bb.first.y) || 
++		(std::fabs(bb.second.y - ibb.first.y) < epsilon && bb.first.x <= ibb.second.x && bb.second.x >= ibb.first.x) ||
++		(std::fabs(bb.first.y - ibb.second.y) < epsilon && ibb.first.x <= bb.second.x && ibb.second.x >= bb.first.x);
+ }
+ 
+ // ------------------------------------------------------------------------------------------------
+@@ -615,11 +615,11 @@ bool IntersectingLineSegments(const IfcVector2& n0, const IfcVector2& n1,
+ 
+ 	static const IfcFloat inf = std::numeric_limits<IfcFloat>::infinity();
+ 
+-	if (!(n0_to_m0.SquareLength() < e*e || fabs(n0_to_m0 * n0_to_n1) / (n0_to_m0.Length() * n0_to_n1.Length()) > 1-1e-5 )) {
++	if (!(n0_to_m0.SquareLength() < e*e || std::fabs(n0_to_m0 * n0_to_n1) / (n0_to_m0.Length() * n0_to_n1.Length()) > 1-1e-5 )) {
+ 		return false;
+ 	}
+ 
+-	if (!(n1_to_m1.SquareLength() < e*e || fabs(n1_to_m1 * n0_to_n1) / (n1_to_m1.Length() * n0_to_n1.Length()) > 1-1e-5 )) {
++	if (!(n1_to_m1.SquareLength() < e*e || std::fabs(n1_to_m1 * n0_to_n1) / (n1_to_m1.Length() * n0_to_n1.Length()) > 1-1e-5 )) {
+ 		return false;
+ 	}
+ 
+@@ -631,14 +631,14 @@ bool IntersectingLineSegments(const IfcVector2& n0, const IfcVector2& n1,
+ 	// the higher absolute difference is big enough as to avoid
+ 	// divisions by zero, the case 0/0 ~ infinity is detected and
+ 	// handled separately.
+-	if(fabs(n0_to_n1.x) > fabs(n0_to_n1.y)) {
++	if(std::fabs(n0_to_n1.x) > std::fabs(n0_to_n1.y)) {
+ 		s0 = n0_to_m0.x / n0_to_n1.x;
+ 		s1 = n0_to_m1.x / n0_to_n1.x;
+ 
+-		if (fabs(s0) == inf && fabs(n0_to_m0.x) < smalle) {
++		if (std::fabs(s0) == inf && std::fabs(n0_to_m0.x) < smalle) {
+ 			s0 = 0.;
+ 		}
+-		if (fabs(s1) == inf && fabs(n0_to_m1.x) < smalle) {
++		if (std::fabs(s1) == inf && std::fabs(n0_to_m1.x) < smalle) {
+ 			s1 = 0.;
+ 		}
+ 	}
+@@ -646,10 +646,10 @@ bool IntersectingLineSegments(const IfcVector2& n0, const IfcVector2& n1,
+ 		s0 = n0_to_m0.y / n0_to_n1.y;
+ 		s1 = n0_to_m1.y / n0_to_n1.y;
+ 
+-		if (fabs(s0) == inf && fabs(n0_to_m0.y) < smalle) {
++		if (std::fabs(s0) == inf && std::fabs(n0_to_m0.y) < smalle) {
+ 			s0 = 0.;
+ 		}
+-		if (fabs(s1) == inf && fabs(n0_to_m1.y) < smalle) {
++		if (std::fabs(s1) == inf && std::fabs(n0_to_m1.y) < smalle) {
+ 			s1 = 0.;
+ 		}
+ 	}
+@@ -664,7 +664,7 @@ bool IntersectingLineSegments(const IfcVector2& n0, const IfcVector2& n1,
+ 	s0 = std::min(1.0,s0);
+ 	s1 = std::min(1.0,s1);
+ 
+-	if (fabs(s1-s0) < e) {
++	if (std::fabs(s1-s0) < e) {
+ 		return false;
+ 	}
+ 
+@@ -755,7 +755,7 @@ void FindAdjacentContours(ContourVector::iterator current, const ContourVector&
+ AI_FORCE_INLINE bool LikelyBorder(const IfcVector2& vdelta)
+ {
+ 	const IfcFloat dot_point_epsilon = static_cast<IfcFloat>(1e-5);
+-	return fabs(vdelta.x * vdelta.y) < dot_point_epsilon;
++	return std::fabs(vdelta.x * vdelta.y) < dot_point_epsilon;
+ }
+ 
+ // ------------------------------------------------------------------------------------------------
+@@ -812,9 +812,9 @@ void FindBorderContours(ContourVector::iterator current)
+ // ------------------------------------------------------------------------------------------------
+ AI_FORCE_INLINE bool LikelyDiagonal(IfcVector2 vdelta)
+ {
+-	vdelta.x = fabs(vdelta.x);
+-	vdelta.y = fabs(vdelta.y);
+-	return (fabs(vdelta.x-vdelta.y) < 0.8 * std::max(vdelta.x, vdelta.y));
++	vdelta.x = std::fabs(vdelta.x);
++	vdelta.y = std::fabs(vdelta.y);
++	return (std::fabs(vdelta.x-vdelta.y) < 0.8 * std::max(vdelta.x, vdelta.y));
+ }
+ 
+ // ------------------------------------------------------------------------------------------------
+@@ -926,7 +926,7 @@ size_t CloseWindows(ContourVector& contours,
+ 				/* debug code to check for unwanted diagonal lines in window contours
+ 				if (cit != cbegin) {
+ 					const IfcVector2& vdelta = proj_point - last_proj;
+-					if (fabs(vdelta.x-vdelta.y) < 0.5 * std::max(vdelta.x, vdelta.y)) {
++					if (std::fabs(vdelta.x-vdelta.y) < 0.5 * std::max(vdelta.x, vdelta.y)) {
+ 						//continue;
+ 					}
+ 				} */
+@@ -1065,7 +1065,7 @@ IfcMatrix4 ProjectOntoPlane(std::vector<IfcVector2>& out_contour, const TempMesh
+ 	}
+ #ifdef ASSIMP_BUILD_DEBUG
+ 	const IfcFloat det = m.Determinant();
+-	ai_assert(fabs(det-1) < 1e-5);
++	ai_assert(std::fabs(det-1) < 1e-5);
+ #endif
+ 
+ 	IfcFloat zcoord = 0;
+@@ -1085,7 +1085,7 @@ IfcMatrix4 ProjectOntoPlane(std::vector<IfcVector2>& out_contour, const TempMesh
+ 		// XXX this should be guarded, but we somehow need to pick a suitable
+ 		// epsilon
+ 		// if(coord != -1.0f) {
+-		//	assert(fabs(coord - vv.z) < 1e-3f);
++		//	assert(std::fabs(coord - vv.z) < 1e-3f);
+ 		// }
+ 		zcoord += vv.z;
+ 		vmin = std::min(vv, vmin);
+@@ -1125,7 +1125,7 @@ IfcMatrix4 ProjectOntoPlane(std::vector<IfcVector2>& out_contour, const TempMesh
+ 		const IfcVector3& vv = m * x;
+ 
+ 		out_contour2.push_back(IfcVector2(vv.x,vv.y));
+-		ai_assert(fabs(vv.z) < vmax.z + 1e-8);
++		ai_assert(std::fabs(vv.z) < vmax.z + 1e-8);
+ 	} 
+ 
+ 	for(size_t i = 0; i < out_contour.size(); ++i) {
+@@ -1188,9 +1188,9 @@ bool GenerateOpenings(std::vector<TempOpening>& openings,
+ 		bool is_2d_source = false;
+ 		if (opening.profileMesh2D && norm_extrusion_dir.SquareLength() > 0) {
+ 			
+-			if(fabs(norm_extrusion_dir * wall_extrusion_axis_norm) < 0.1) {
++			if(std::fabs(norm_extrusion_dir * wall_extrusion_axis_norm) < 0.1) {
+ 				// horizontal extrusion
+-				if (fabs(norm_extrusion_dir * nor) > 0.9) {
++				if (std::fabs(norm_extrusion_dir * nor) > 0.9) {
+ 					profile_data = opening.profileMesh2D.get();
+ 					is_2d_source = true;
+ 				}
+@@ -1200,7 +1200,7 @@ bool GenerateOpenings(std::vector<TempOpening>& openings,
+ 			}
+ 			else {
+ 				// vertical extrusion
+-				if (fabs(norm_extrusion_dir * nor) > 0.9) {
++				if (std::fabs(norm_extrusion_dir * nor) > 0.9) {
+ 					continue;
+ 				}
+ 				continue;
+@@ -1244,7 +1244,7 @@ bool GenerateOpenings(std::vector<TempOpening>& openings,
+ 				const IfcVector3& face_nor = ((profile_verts[vi_total+2] - profile_verts[vi_total]) ^
+ 					(profile_verts[vi_total+1] - profile_verts[vi_total])).Normalize();
+ 
+-				const IfcFloat abs_dot_face_nor = abs(nor * face_nor);
++                const IfcFloat abs_dot_face_nor = std::abs(nor * face_nor);
+ 				if (abs_dot_face_nor < 0.9) {
+ 					vi_total += profile_vertcnts[f];
+ 					continue;
+@@ -1289,7 +1289,7 @@ bool GenerateOpenings(std::vector<TempOpening>& openings,
+ 			ai_assert(!is_2d_source);
+ 			const IfcVector2 area = vpmax-vpmin;
+ 			const IfcVector2 area2 = vpmax2-vpmin2;
+-			if (temp_contour.size() <= 2 || fabs(area2.x * area2.y) > fabs(area.x * area.y)) {
++			if (temp_contour.size() <= 2 || std::fabs(area2.x * area2.y) > std::fabs(area.x * area.y)) {
+ 				temp_contour.swap(temp_contour2);
+ 
+ 				vpmax = vpmax2;
+@@ -1301,7 +1301,7 @@ bool GenerateOpenings(std::vector<TempOpening>& openings,
+ 		}
+ 
+ 		// TODO: This epsilon may be too large
+-		const IfcFloat epsilon = fabs(dmax-dmin) * 0.0001;
++		const IfcFloat epsilon = std::fabs(dmax-dmin) * 0.0001;
+ 		if (!is_2d_source && check_intersection && (0 < dmin-epsilon || 0 > dmax+epsilon)) {
+ 			continue;
+ 		}
+@@ -1310,7 +1310,7 @@ bool GenerateOpenings(std::vector<TempOpening>& openings,
+ 
+ 		// Skip over very small openings - these are likely projection errors
+ 		// (i.e. they don't belong to this side of the wall)
+-		if(fabs(vpmax.x - vpmin.x) * fabs(vpmax.y - vpmin.y) < static_cast<IfcFloat>(1e-10)) {
++		if(std::fabs(vpmax.x - vpmin.x) * std::fabs(vpmax.y - vpmin.y) < static_cast<IfcFloat>(1e-10)) {
+ 			continue;
+ 		}
+ 		std::vector<TempOpening*> joined_openings(1, &opening);
+@@ -1480,7 +1480,7 @@ bool TryAddOpenings_Poly2Tri(const std::vector<TempOpening>& openings,const std:
+ 		// XXX this should be guarded, but we somehow need to pick a suitable
+ 		// epsilon
+ 		// if(coord != -1.0f) {
+-		//	assert(fabs(coord - vv.z) < 1e-3f);
++		//	assert(std::fabs(coord - vv.z) < 1e-3f);
+ 		// }
+ 
+ 		coord = vv.z;
+@@ -1515,7 +1515,7 @@ bool TryAddOpenings_Poly2Tri(const std::vector<TempOpening>& openings,const std:
+ 		BOOST_FOREACH(const TempOpening& t,openings) {
+ 			const IfcVector3& outernor = nors[c++];
+ 			const IfcFloat dot = nor * outernor;
+-			if (fabs(dot)<1.f-1e-6f) {
++			if (std::fabs(dot)<1.f-1e-6f) {
+ 				continue;
+ 			}
+ 
+@@ -1529,7 +1529,7 @@ bool TryAddOpenings_Poly2Tri(const std::vector<TempOpening>& openings,const std:
+ 			BOOST_FOREACH(const IfcVector3& xx, t.profileMesh->verts) {
+ 				IfcVector3 vv = m *  xx, vv_extr = m * (xx + t.extrusionDir);
+ 				
+-				const bool is_extruded_side = fabs(vv.z - coord) > fabs(vv_extr.z - coord);
++				const bool is_extruded_side = std::fabs(vv.z - coord) > std::fabs(vv_extr.z - coord);
+ 				if (first) {
+ 					first = false;
+ 					if (dot > 0.f) {
+@@ -1741,4 +1741,4 @@ bool TryAddOpenings_Poly2Tri(const std::vector<TempOpening>& openings,const std:
+ #undef from_int64
+ #undef one_vec
+ 
+-#endif 
+\ No newline at end of file
++#endif 
+diff --git a/src/3rdparty/assimp/code/IFCProfile.cpp b/src/3rdparty/assimp/code/IFCProfile.cpp
+index 48ccd56..78f0381 100644
+--- a/src/3rdparty/assimp/code/IFCProfile.cpp
++++ b/src/3rdparty/assimp/code/IFCProfile.cpp
+@@ -124,7 +124,7 @@ void ProcessParametrizedProfile(const IfcParameterizedProfileDef& def, TempMesh&
+ 
+ 		IfcFloat angle = 0.f;
+ 		for(size_t i = 0; i < segments; ++i, angle += delta) {
+-			meshout.verts.push_back( IfcVector3( cos(angle)*radius, sin(angle)*radius, 0.f ));
++            meshout.verts.push_back( IfcVector3( std::cos(angle)*radius, std::sin(angle)*radius, 0.f ));
+ 		}
+ 
+ 		meshout.vertcnt.push_back(segments);
+diff --git a/src/3rdparty/assimp/code/IFCUtil.cpp b/src/3rdparty/assimp/code/IFCUtil.cpp
+index 92e55c9..d28f91a 100644
+--- a/src/3rdparty/assimp/code/IFCUtil.cpp
++++ b/src/3rdparty/assimp/code/IFCUtil.cpp
+@@ -278,7 +278,7 @@ void TempMesh::RemoveAdjacentDuplicates()
+ 		//		continue;
+ 		//	}
+ 
+-		//	const IfcFloat d = (d0/sqrt(l0))*(d1/sqrt(l1));
++		//	const IfcFloat d = (d0/std::sqrt(l0))*(d1/std::sqrt(l1));
+ 
+ 		//	if ( d >= 1.f-dotepsilon ) {
+ 		//		v1 = v0;
+diff --git a/src/3rdparty/assimp/code/IFCUtil.h b/src/3rdparty/assimp/code/IFCUtil.h
+index e78d779..81b8f11 100644
+--- a/src/3rdparty/assimp/code/IFCUtil.h
++++ b/src/3rdparty/assimp/code/IFCUtil.h
+@@ -220,7 +220,7 @@ struct FuzzyVectorCompare {
+ 
+ 	FuzzyVectorCompare(IfcFloat epsilon) : epsilon(epsilon) {}
+ 	bool operator()(const IfcVector3& a, const IfcVector3& b) {
+-		return fabs((a-b).SquareLength()) < epsilon;
++		return std::fabs((a-b).SquareLength()) < epsilon;
+ 	}
+ 
+ 	const IfcFloat epsilon;
+diff --git a/src/3rdparty/assimp/code/IRRLoader.cpp b/src/3rdparty/assimp/code/IRRLoader.cpp
+index 4e1296d..03393f4 100644
+--- a/src/3rdparty/assimp/code/IRRLoader.cpp
++++ b/src/3rdparty/assimp/code/IRRLoader.cpp
+@@ -533,8 +533,8 @@ void IRRImporter::ComputeAnimations(Node* root, aiNode* real, std::vector<aiNode
+ 					aiVectorKey& key = anim->mPositionKeys[i];
+ 
+ 					const float dt = (i * in.speed * 0.001f );
+-					const float u = dt - floor(dt);
+-					const int idx = (int)floor(dt) % size;
++					const float u = dt - std::floor(dt);
++					const int idx = (int)std::floor(dt) % size;
+ 
+ 					// get the 4 current points to evaluate the spline
+ 					const aiVector3D& p0 = in.splineKeys[ ClampSpline( idx - 1, size ) ].mValue;
+diff --git a/src/3rdparty/assimp/code/LWOAnimation.cpp b/src/3rdparty/assimp/code/LWOAnimation.cpp
+index e1ef576..68efa17 100644
+--- a/src/3rdparty/assimp/code/LWOAnimation.cpp
++++ b/src/3rdparty/assimp/code/LWOAnimation.cpp
+@@ -156,7 +156,7 @@ void AnimResolver::UpdateAnimRangeSetup()
+ 			case LWO::PrePostBehaviour_Repeat:
+ 			case LWO::PrePostBehaviour_Oscillate:
+ 				{
+-				const double start_time = delta - fmod(my_first-first,delta);
++				const double start_time = delta - std::fmod(my_first-first,delta);
+ 				std::vector<LWO::Key>::iterator n = std::find_if((*it).keys.begin(),(*it).keys.end(), 
+ 					std::bind1st(std::greater<double>(),start_time)),m;
+ 
+diff --git a/src/3rdparty/assimp/code/LWOBLoader.cpp b/src/3rdparty/assimp/code/LWOBLoader.cpp
+index 5d874c5..9776b89 100644
+--- a/src/3rdparty/assimp/code/LWOBLoader.cpp
++++ b/src/3rdparty/assimp/code/LWOBLoader.cpp
+@@ -303,7 +303,7 @@ void LWOImporter::LoadLWOBSurface(unsigned int size)
+ 		case AI_LWO_SMAN:
+ 			{
+ 				AI_LWO_VALIDATE_CHUNK_LENGTH(head->length,SMAN,4);
+-				surf.mMaximumSmoothAngle = fabs( GetF4() );
++				surf.mMaximumSmoothAngle = std::fabs( GetF4() );
+ 				break;
+ 			}
+ 		// glossiness
+diff --git a/src/3rdparty/assimp/code/LWOLoader.cpp b/src/3rdparty/assimp/code/LWOLoader.cpp
+index e0891b7..b23a9fe 100644
+--- a/src/3rdparty/assimp/code/LWOLoader.cpp
++++ b/src/3rdparty/assimp/code/LWOLoader.cpp
+@@ -503,7 +503,7 @@ void LWOImporter::ComputeNormals(aiMesh* mesh, const std::vector<unsigned int>&
+ 	// Generate vertex normals. We have O(logn) for the binary lookup, which we need
+ 	// for n elements, thus the EXPECTED complexity is O(nlogn)
+ 	if (surface.mMaximumSmoothAngle < 3.f && !configSpeedFlag)	{
+-		const float fLimit = cos(surface.mMaximumSmoothAngle);
++		const float fLimit = std::cos(surface.mMaximumSmoothAngle);
+ 
+ 		for( begin =  mesh->mFaces, it = smoothingGroups.begin(); begin != end; ++begin, ++it)	{
+ 			const aiFace& face = *begin;
+diff --git a/src/3rdparty/assimp/code/MD5Parser.h b/src/3rdparty/assimp/code/MD5Parser.h
+index eecf354..4fd147d 100644
+--- a/src/3rdparty/assimp/code/MD5Parser.h
++++ b/src/3rdparty/assimp/code/MD5Parser.h
+@@ -259,7 +259,7 @@ inline void ConvertQuaternion (const aiVector3D& in, aiQuaternion& out) {
+ 
+ 	if (t < 0.0f)
+ 		out.w = 0.0f;
+-	else out.w = sqrt (t);
++	else out.w = std::sqrt (t);
+ }
+ 
+ // ---------------------------------------------------------------------------
+diff --git a/src/3rdparty/assimp/code/PolyTools.h b/src/3rdparty/assimp/code/PolyTools.h
+index d8040f6..7975959 100644
+--- a/src/3rdparty/assimp/code/PolyTools.h
++++ b/src/3rdparty/assimp/code/PolyTools.h
+@@ -118,9 +118,9 @@ inline bool IsCCW(T* in, size_t npoints) {
+ 			((-in[i+2].y + in[i+1].y) *
+ 			(-in[i+2].y + in[i+1].y));
+ 
+-		b = sqrt(bb);
+-		c = sqrt(cc);
+-		theta = acos((bb + cc - aa) / (2 * b * c));
++		b = std::sqrt(bb);
++		c = std::sqrt(cc);
++		theta = std::acos((bb + cc - aa) / (2 * b * c));
+ 
+ 		if (OnLeftSideOfLine2D(in[i],in[i+2],in[i+1])) {
+ 			//	if (convex(in[i].x, in[i].y,
+@@ -146,9 +146,9 @@ inline bool IsCCW(T* in, size_t npoints) {
+ 	cc = ((in[1].x - in[0].x) * (in[1].x - in[0].x)) +
+ 		((-in[1].y + in[0].y) * (-in[1].y + in[0].y));
+ 
+-	b = sqrt(bb);
+-	c = sqrt(cc);
+-	theta = acos((bb + cc - aa) / (2 * b * c));
++	b = std::sqrt(bb);
++	c = std::sqrt(cc);
++	theta = std::acos((bb + cc - aa) / (2 * b * c));
+ 
+ 	//if (convex(in[npoints-2].x, in[npoints-2].y,
+ 	//	in[0].x, in[0].y,
+diff --git a/src/3rdparty/assimp/code/SkeletonMeshBuilder.cpp b/src/3rdparty/assimp/code/SkeletonMeshBuilder.cpp
+index 242c596..7e0d68a 100644
+--- a/src/3rdparty/assimp/code/SkeletonMeshBuilder.cpp
++++ b/src/3rdparty/assimp/code/SkeletonMeshBuilder.cpp
+@@ -101,7 +101,7 @@ void SkeletonMeshBuilder::CreateGeometry( const aiNode* pNode)
+ 			aiVector3D up = aiVector3D( childpos).Normalize();
+ 
+ 			aiVector3D orth( 1.0f, 0.0f, 0.0f);
+-			if( fabs( orth * up) > 0.99f)
++			if( std::fabs( orth * up) > 0.99f)
+ 				orth.Set( 0.0f, 1.0f, 0.0f);
+ 
+ 			aiVector3D front = (up ^ orth).Normalize();
+diff --git a/src/3rdparty/assimp/code/StandardShapes.cpp b/src/3rdparty/assimp/code/StandardShapes.cpp
+index ef3f66c..5924a20 100644
+--- a/src/3rdparty/assimp/code/StandardShapes.cpp
++++ b/src/3rdparty/assimp/code/StandardShapes.cpp
+@@ -192,7 +192,7 @@ unsigned int StandardShapes::MakeIcosahedron(std::vector<aiVector3D>& positions)
+ 	positions.reserve(positions.size()+60);
+ 
+ 	const float t = (1.f + 2.236067977f)/2.f;
+-	const float s = sqrt(1.f + t*t);
++    const float s = std::sqrt(1.f + t*t);
+ 	
+ 	const aiVector3D v0  = aiVector3D(t,1.f, 0.f)/s;
+ 	const aiVector3D v1  = aiVector3D(-t,1.f, 0.f)/s;
+@@ -242,8 +242,8 @@ unsigned int StandardShapes::MakeDodecahedron(std::vector<aiVector3D>& positions
+ 	positions.reserve(positions.size()+108);
+ 
+ 	const float a = 1.f / 1.7320508f;
+-	const float b = sqrt((3.f-2.23606797f)/6.f);
+-	const float c = sqrt((3.f+2.23606797f)/6.f);
++    const float b = std::sqrt((3.f-2.23606797f)/6.f);
++    const float c = std::sqrt((3.f+2.23606797f)/6.f);
+ 
+ 	const aiVector3D v0  = aiVector3D(a,a,a);
+ 	const aiVector3D v1  = aiVector3D(a,a,-a);
+@@ -390,8 +390,8 @@ void StandardShapes::MakeCone(float height,float radius1,
+ 	size_t old = positions.size();
+ 
+ 	// No negative radii
+-	radius1 = ::fabs(radius1);
+-	radius2 = ::fabs(radius2);
++    radius1 = std::fabs(radius1);
++    radius2 = std::fabs(radius2);
+ 
+ 	float halfHeight = height / 2;
+ 
+@@ -424,8 +424,8 @@ void StandardShapes::MakeCone(float height,float radius1,
+ 		const aiVector3D v2 = aiVector3D (s * radius2,  halfHeight, t * radius2 );
+ 
+ 		const float next = angle + angle_delta;
+-		float s2 = ::cos(next);
+-		float t2 = ::sin(next);
++        float s2 = std::cos(next);
++        float t2 = std::sin(next);
+ 
+ 		const aiVector3D v3 = aiVector3D (s2 * radius2,  halfHeight, t2 * radius2 );
+ 		const aiVector3D v4 = aiVector3D (s2 * radius1, -halfHeight, t2 * radius1 );
+@@ -476,7 +476,7 @@ void StandardShapes::MakeCircle(float radius, unsigned int tess,
+ 	if (tess < 3 || !radius)
+ 		return;
+ 
+-	radius = ::fabs(radius);
++    radius = std::fabs(radius);
+ 
+ 	// We will need 3 vertices per segment 
+ 	positions.reserve(positions.size()+tess*3);
+@@ -491,8 +491,8 @@ void StandardShapes::MakeCircle(float radius, unsigned int tess,
+ 	{
+ 		positions.push_back(aiVector3D(s * radius,0.f,t * radius));
+ 		angle += angle_delta;
+-		s = ::cos(angle);
+-		t = ::sin(angle);
++        s = std::cos(angle);
++        t = std::sin(angle);
+ 		positions.push_back(aiVector3D(s * radius,0.f,t * radius));
+ 
+ 		positions.push_back(aiVector3D(0.f,0.f,0.f));
+diff --git a/src/3rdparty/assimp/code/TextureTransform.h b/src/3rdparty/assimp/code/TextureTransform.h
+index 4826527..1f8580f 100644
+--- a/src/3rdparty/assimp/code/TextureTransform.h
++++ b/src/3rdparty/assimp/code/TextureTransform.h
+@@ -116,19 +116,19 @@ struct STransformVecInfo : public aiUVTransform
+ 		// We use a small epsilon here
+ 		const static float epsilon = 0.05f;
+ 
+-		if (fabs( mTranslation.x - other.mTranslation.x ) > epsilon ||
+-			fabs( mTranslation.y - other.mTranslation.y ) > epsilon)
++		if (std::fabs( mTranslation.x - other.mTranslation.x ) > epsilon ||
++			std::fabs( mTranslation.y - other.mTranslation.y ) > epsilon)
+ 		{
+ 			return false;
+ 		}
+ 
+-		if (fabs( mScaling.x - other.mScaling.x ) > epsilon ||
+-			fabs( mScaling.y - other.mScaling.y ) > epsilon)
++		if (std::fabs( mScaling.x - other.mScaling.x ) > epsilon ||
++			std::fabs( mScaling.y - other.mScaling.y ) > epsilon)
+ 		{
+ 			return false;
+ 		}
+ 
+-		if (fabs( mRotation - other.mRotation) > epsilon)
++		if (std::fabs( mRotation - other.mRotation) > epsilon)
+ 		{
+ 			return false;
+ 		}
+@@ -168,8 +168,8 @@ struct STransformVecInfo : public aiUVTransform
+ 		if (mRotation)
+ 		{
+ 			aiMatrix3x3 mRot; 
+-			mRot.a1 = mRot.b2 = cos(mRotation);
+-			mRot.a2 = mRot.b1 = sin(mRotation);
++			mRot.a1 = mRot.b2 = std::cos(mRotation);
++            mRot.a2 = mRot.b1 = std::sin(mRotation);
+ 			mRot.a2 = -mRot.a2;
+ 			mOut *= mRot;
+ 		}
+diff --git a/src/3rdparty/assimp/code/TriangulateProcess.cpp b/src/3rdparty/assimp/code/TriangulateProcess.cpp
+index 1e3b96c..147e38e 100644
+--- a/src/3rdparty/assimp/code/TriangulateProcess.cpp
++++ b/src/3rdparty/assimp/code/TriangulateProcess.cpp
+@@ -241,7 +241,7 @@ bool TriangulateProcess::TriangulateMesh( aiMesh* pMesh)
+ 				diag.Normalize();
+ 				right.Normalize();
+ 
+-				const float angle = acos(left*diag) + acos(right*diag);
++				const float angle = std::acos(left*diag) + std::acos(right*diag);
+ 				if (angle > AI_MATH_PI_F) {
+ 					// this is the concave point
+ 					start_vertex = i;
+@@ -486,7 +486,7 @@ bool TriangulateProcess::TriangulateMesh( aiMesh* pMesh)
+ 			unsigned int* i = f->mIndices;
+ 
+ 			//  drop dumb 0-area triangles
+-			if (fabs(GetArea2D(temp_verts[i[0]],temp_verts[i[1]],temp_verts[i[2]])) < 1e-5f) {
++			if (std::fabs(GetArea2D(temp_verts[i[0]],temp_verts[i[1]],temp_verts[i[2]])) < 1e-5f) {
+ 				DefaultLogger::get()->debug("Dropping triangle with area 0");
+ 				--curOut;
+ 
+diff --git a/src/3rdparty/assimp/code/XGLLoader.cpp b/src/3rdparty/assimp/code/XGLLoader.cpp
+index 49ff686..963407b 100644
+--- a/src/3rdparty/assimp/code/XGLLoader.cpp
++++ b/src/3rdparty/assimp/code/XGLLoader.cpp
+@@ -489,7 +489,7 @@ aiMatrix4x4 XGLImporter::ReadTrafo()
+ 	up.Normalize();
+ 
+ 	right = forward ^ up;
+-	if (fabs(up * forward) > 1e-4) {
++	if (std::fabs(up * forward) > 1e-4) {
+ 		// this is definitely wrong - a degenerate coordinate space ruins everything
+ 		// so subtitute identity transform.
+ 		LogError("<forward> and <up> vectors in <transform> are skewing, ignoring trafo");
+diff --git a/src/3rdparty/assimp/code/fast_atof.h b/src/3rdparty/assimp/code/fast_atof.h
+index 580447b..3cdb1e8 100644
+--- a/src/3rdparty/assimp/code/fast_atof.h
++++ b/src/3rdparty/assimp/code/fast_atof.h
+@@ -273,7 +273,7 @@ inline const char* fast_atoreal_move( const char* c, Real& out, bool check_comma
+ 		if (einv) {
+ 			exp = -exp;
+ 		}
+-		f *= pow(static_cast<Real>(10.0), exp);
++		f *= std::pow(static_cast<Real>(10.0), exp);
+ 	}
+ 
+ 	if (inv) {
+diff --git a/src/3rdparty/assimp/contrib/poly2tri/poly2tri/common/shapes.h b/src/3rdparty/assimp/contrib/poly2tri/poly2tri/common/shapes.h
+index 4f69183..f3b3c65 100644
+--- a/src/3rdparty/assimp/contrib/poly2tri/poly2tri/common/shapes.h
++++ b/src/3rdparty/assimp/contrib/poly2tri/poly2tri/common/shapes.h
+@@ -107,7 +107,7 @@ struct Point {
+   /// Get the length of this point (the norm).
+   double Length() const
+   {
+-    return sqrt(x * x + y * y);
++    return std::sqrt(x * x + y * y);
+   }
+ 
+   /// Convert this point into a unit point. Returns the Length.
+diff --git a/src/3rdparty/assimp/include/assimp/color4.inl b/src/3rdparty/assimp/include/assimp/color4.inl
+index 9a92e14..b0791fa 100644
+--- a/src/3rdparty/assimp/include/assimp/color4.inl
++++ b/src/3rdparty/assimp/include/assimp/color4.inl
+@@ -175,7 +175,7 @@ template <typename TReal>
+ inline bool aiColor4t<TReal> :: IsBlack() const	{
+ 	// The alpha component doesn't care here. black is black.
+ 	static const TReal epsilon = 10e-3f;
+-	return fabs( r ) < epsilon && fabs( g ) < epsilon && fabs( b ) < epsilon;
++	return std::fabs( r ) < epsilon && std::fabs( g ) < epsilon && std::fabs( b ) < epsilon;
+ }
+ 
+ #endif // __cplusplus
+diff --git a/src/3rdparty/assimp/include/assimp/matrix3x3.inl b/src/3rdparty/assimp/include/assimp/matrix3x3.inl
+index 56cac6c..dcced7b 100644
+--- a/src/3rdparty/assimp/include/assimp/matrix3x3.inl
++++ b/src/3rdparty/assimp/include/assimp/matrix3x3.inl
+@@ -200,8 +200,8 @@ inline aiMatrix3x3t<TReal>& aiMatrix3x3t<TReal>::Inverse()
+ template <typename TReal>
+ inline aiMatrix3x3t<TReal>& aiMatrix3x3t<TReal>::RotationZ(TReal a, aiMatrix3x3t<TReal>& out)
+ {
+-	out.a1 = out.b2 = ::cos(a);
+-	out.b1 = ::sin(a);
++    out.a1 = out.b2 = std::cos(a);
++    out.b1 = std::sin(a);
+ 	out.a2 = - out.b1;
+ 
+ 	out.a3 = out.b3 = out.c1 = out.c2 = 0.f;
+@@ -215,7 +215,7 @@ inline aiMatrix3x3t<TReal>& aiMatrix3x3t<TReal>::RotationZ(TReal a, aiMatrix3x3t
+ template <typename TReal>
+ inline aiMatrix3x3t<TReal>& aiMatrix3x3t<TReal>::Rotation( TReal a, const aiVector3t<TReal>& axis, aiMatrix3x3t<TReal>& out)
+ {
+-  TReal c = cos( a), s = sin( a), t = 1 - c;
++  TReal c = std::cos( a), s = std::sin( a), t = 1 - c;
+   TReal x = axis.x, y = axis.y, z = axis.z;
+ 
+   // Many thanks to MathWorld and Wikipedia
+diff --git a/src/3rdparty/assimp/include/assimp/matrix4x4.inl b/src/3rdparty/assimp/include/assimp/matrix4x4.inl
+index 4fb86b1..8fdabcf 100644
+--- a/src/3rdparty/assimp/include/assimp/matrix4x4.inl
++++ b/src/3rdparty/assimp/include/assimp/matrix4x4.inl
+@@ -379,12 +379,12 @@ inline aiMatrix4x4t<TReal>& aiMatrix4x4t<TReal>::FromEulerAnglesXYZ(TReal x, TRe
+ {
+ 	aiMatrix4x4t<TReal>& _this = *this;
+ 
+-	TReal cr = cos( x );
+-	TReal sr = sin( x );
+-	TReal cp = cos( y );
+-	TReal sp = sin( y );
+-	TReal cy = cos( z );
+-	TReal sy = sin( z );
++    TReal cr = std::cos( x );
++    TReal sr = std::sin( x );
++    TReal cp = std::cos( y );
++    TReal sp = std::sin( y );
++    TReal cy = std::cos( z );
++    TReal sy = std::sin( z );
+ 
+ 	_this.a1 = cp*cy ;
+ 	_this.a2 = cp*sy;
+@@ -435,12 +435,12 @@ inline aiMatrix4x4t<TReal>& aiMatrix4x4t<TReal>::RotationX(TReal a, aiMatrix4x4t
+ {
+ 	/*
+ 	     |  1  0       0       0 |
+-     M = |  0  cos(A) -sin(A)  0 |
+-         |  0  sin(A)  cos(A)  0 |
++     M = |  0  std::cos(A) -std::sin(A)  0 |
++         |  0  std::sin(A)  std::cos(A)  0 |
+          |  0  0       0       1 |	*/
+ 	out = aiMatrix4x4t<TReal>();
+-	out.b2 = out.c3 = cos(a);
+-	out.b3 = -(out.c2 = sin(a));
++    out.b2 = out.c3 = std::cos(a);
++    out.b3 = -(out.c2 = std::sin(a));
+ 	return out;
+ }
+ 
+@@ -449,14 +449,14 @@ template <typename TReal>
+ inline aiMatrix4x4t<TReal>& aiMatrix4x4t<TReal>::RotationY(TReal a, aiMatrix4x4t<TReal>& out)
+ {
+ 	/*
+-	     |  cos(A)  0   sin(A)  0 |
++         |  std::cos(A)  0   std::sin(A)  0 |
+      M = |  0       1   0       0 |
+-         | -sin(A)  0   cos(A)  0 |
++         | -std::sin(A)  0   std::cos(A)  0 |
+          |  0       0   0       1 |
+ 		*/
+ 	out = aiMatrix4x4t<TReal>();
+-	out.a1 = out.c3 = cos(a);
+-	out.c1 = -(out.a3 = sin(a));
++    out.a1 = out.c3 = std::cos(a);
++    out.c1 = -(out.a3 = std::sin(a));
+ 	return out;
+ }
+ 
+@@ -465,13 +465,13 @@ template <typename TReal>
+ inline aiMatrix4x4t<TReal>& aiMatrix4x4t<TReal>::RotationZ(TReal a, aiMatrix4x4t<TReal>& out)
+ {
+ 	/*
+-	     |  cos(A)  -sin(A)   0   0 |
+-     M = |  sin(A)   cos(A)   0   0 |
++         |  std::cos(A)  -std::sin(A)   0   0 |
++     M = |  std::sin(A)   std::cos(A)   0   0 |
+          |  0        0        1   0 |
+          |  0        0        0   1 |	*/
+ 	out = aiMatrix4x4t<TReal>();
+-	out.a1 = out.b2 = cos(a);
+-	out.a2 = -(out.b1 = sin(a));
++    out.a1 = out.b2 = std::cos(a);
++    out.a2 = -(out.b1 = std::sin(a));
+ 	return out;
+ }
+ 
+@@ -480,7 +480,7 @@ inline aiMatrix4x4t<TReal>& aiMatrix4x4t<TReal>::RotationZ(TReal a, aiMatrix4x4t
+ template <typename TReal>
+ inline aiMatrix4x4t<TReal>& aiMatrix4x4t<TReal>::Rotation( TReal a, const aiVector3t<TReal>& axis, aiMatrix4x4t<TReal>& out)
+ {
+-  TReal c = cos( a), s = sin( a), t = 1 - c;
++  TReal c = std::cos( a), s = std::sin( a), t = 1 - c;
+   TReal x = axis.x, y = axis.y, z = axis.z;
+ 
+   // Many thanks to MathWorld and Wikipedia
+diff --git a/src/3rdparty/assimp/include/assimp/quaternion.inl b/src/3rdparty/assimp/include/assimp/quaternion.inl
+index 0230d21..b966433 100644
+--- a/src/3rdparty/assimp/include/assimp/quaternion.inl
++++ b/src/3rdparty/assimp/include/assimp/quaternion.inl
+@@ -84,7 +84,7 @@ inline aiQuaterniont<TReal>::aiQuaterniont( const aiMatrix3x3t<TReal> &pRotMatri
+ 	// large enough
+ 	if( t > static_cast<TReal>(0))
+ 	{
+-		TReal s = sqrt(1 + t) * static_cast<TReal>(2.0);
++        TReal s = std::sqrt(1 + t) * static_cast<TReal>(2.0);
+ 		x = (pRotMatrix.c2 - pRotMatrix.b3) / s;
+ 		y = (pRotMatrix.a3 - pRotMatrix.c1) / s;
+ 		z = (pRotMatrix.b1 - pRotMatrix.a2) / s;
+@@ -93,7 +93,7 @@ inline aiQuaterniont<TReal>::aiQuaterniont( const aiMatrix3x3t<TReal> &pRotMatri
+ 	else if( pRotMatrix.a1 > pRotMatrix.b2 && pRotMatrix.a1 > pRotMatrix.c3 )  
+ 	{	
+ 		// Column 0: 
+-		TReal s = sqrt( static_cast<TReal>(1.0) + pRotMatrix.a1 - pRotMatrix.b2 - pRotMatrix.c3) * static_cast<TReal>(2.0);
++        TReal s = std::sqrt( static_cast<TReal>(1.0) + pRotMatrix.a1 - pRotMatrix.b2 - pRotMatrix.c3) * static_cast<TReal>(2.0);
+ 		x = static_cast<TReal>(0.25) * s;
+ 		y = (pRotMatrix.b1 + pRotMatrix.a2) / s;
+ 		z = (pRotMatrix.a3 + pRotMatrix.c1) / s;
+@@ -102,7 +102,7 @@ inline aiQuaterniont<TReal>::aiQuaterniont( const aiMatrix3x3t<TReal> &pRotMatri
+ 	else if( pRotMatrix.b2 > pRotMatrix.c3) 
+ 	{ 
+ 		// Column 1: 
+-		TReal s = sqrt( static_cast<TReal>(1.0) + pRotMatrix.b2 - pRotMatrix.a1 - pRotMatrix.c3) * static_cast<TReal>(2.0);
++        TReal s = std::sqrt( static_cast<TReal>(1.0) + pRotMatrix.b2 - pRotMatrix.a1 - pRotMatrix.c3) * static_cast<TReal>(2.0);
+ 		x = (pRotMatrix.b1 + pRotMatrix.a2) / s;
+ 		y = static_cast<TReal>(0.25) * s;
+ 		z = (pRotMatrix.c2 + pRotMatrix.b3) / s;
+@@ -110,7 +110,7 @@ inline aiQuaterniont<TReal>::aiQuaterniont( const aiMatrix3x3t<TReal> &pRotMatri
+ 	} else 
+ 	{ 
+ 		// Column 2:
+-		TReal s = sqrt( static_cast<TReal>(1.0) + pRotMatrix.c3 - pRotMatrix.a1 - pRotMatrix.b2) * static_cast<TReal>(2.0);
++        TReal s = std::sqrt( static_cast<TReal>(1.0) + pRotMatrix.c3 - pRotMatrix.a1 - pRotMatrix.b2) * static_cast<TReal>(2.0);
+ 		x = (pRotMatrix.a3 + pRotMatrix.c1) / s;
+ 		y = (pRotMatrix.c2 + pRotMatrix.b3) / s;
+ 		z = static_cast<TReal>(0.25) * s;
+@@ -123,12 +123,12 @@ inline aiQuaterniont<TReal>::aiQuaterniont( const aiMatrix3x3t<TReal> &pRotMatri
+ template<typename TReal>
+ inline aiQuaterniont<TReal>::aiQuaterniont( TReal fPitch, TReal fYaw, TReal fRoll )
+ {
+-	const TReal fSinPitch(sin(fPitch*static_cast<TReal>(0.5)));
+-	const TReal fCosPitch(cos(fPitch*static_cast<TReal>(0.5)));
+-	const TReal fSinYaw(sin(fYaw*static_cast<TReal>(0.5)));
+-	const TReal fCosYaw(cos(fYaw*static_cast<TReal>(0.5)));
+-	const TReal fSinRoll(sin(fRoll*static_cast<TReal>(0.5)));
+-	const TReal fCosRoll(cos(fRoll*static_cast<TReal>(0.5)));
++    const TReal fSinPitch(std::sin(fPitch*static_cast<TReal>(0.5)));
++    const TReal fCosPitch(std::cos(fPitch*static_cast<TReal>(0.5)));
++    const TReal fSinYaw(std::sin(fYaw*static_cast<TReal>(0.5)));
++    const TReal fCosYaw(std::cos(fYaw*static_cast<TReal>(0.5)));
++    const TReal fSinRoll(std::sin(fRoll*static_cast<TReal>(0.5)));
++    const TReal fCosRoll(std::cos(fRoll*static_cast<TReal>(0.5)));
+ 	const TReal fCosPitchCosYaw(fCosPitch*fCosYaw);
+ 	const TReal fSinPitchSinYaw(fSinPitch*fSinYaw);
+ 	x = fSinRoll * fCosPitchCosYaw     - fCosRoll * fSinPitchSinYaw;
+@@ -163,8 +163,8 @@ inline aiQuaterniont<TReal>::aiQuaterniont( aiVector3t<TReal> axis, TReal angle)
+ {
+ 	axis.Normalize();
+ 
+-	const TReal sin_a = sin( angle / 2 );
+-	const TReal cos_a = cos( angle / 2 );
++    const TReal sin_a = std::sin( angle / 2 );
++    const TReal cos_a = std::cos( angle / 2 );
+ 	x    = axis.x * sin_a;
+ 	y    = axis.y * sin_a;
+ 	z    = axis.z * sin_a;
+@@ -184,7 +184,7 @@ inline aiQuaterniont<TReal>::aiQuaterniont( aiVector3t<TReal> normalized)
+ 	if (t < static_cast<TReal>(0.0)) {
+ 		w = static_cast<TReal>(0.0);
+ 	}
+-	else w = sqrt (t);
++    else w = std::sqrt (t);
+ }
+ 
+ // ---------------------------------------------------------------------------
+@@ -214,10 +214,10 @@ inline void aiQuaterniont<TReal>::Interpolate( aiQuaterniont& pOut, const aiQuat
+ 	{
+ 		// Standard case (slerp)
+ 		TReal omega, sinom;
+-		omega = acos( cosom); // extract theta from dot product's cos theta
+-		sinom = sin( omega);
+-		sclp  = sin( (static_cast<TReal>(1.0) - pFactor) * omega) / sinom;
+-		sclq  = sin( pFactor * omega) / sinom;
++		omega = std::acos( cosom); // extract theta from dot product's cos theta
++        sinom = std::sin( omega);
++        sclp  = std::sin( (static_cast<TReal>(1.0) - pFactor) * omega) / sinom;
++        sclq  = std::sin( pFactor * omega) / sinom;
+ 	} else
+ 	{
+ 		// Very close, do linear interp (because it's faster)
+@@ -236,7 +236,7 @@ template<typename TReal>
+ inline aiQuaterniont<TReal>& aiQuaterniont<TReal>::Normalize()
+ {
+ 	// compute the magnitude and divide through it
+-	const TReal mag = sqrt(x*x + y*y + z*z + w*w);
++    const TReal mag = std::sqrt(x*x + y*y + z*z + w*w);
+ 	if (mag)
+ 	{
+ 		const TReal invMag = static_cast<TReal>(1.0)/mag;
+diff --git a/src/3rdparty/assimp/include/assimp/types.h b/src/3rdparty/assimp/include/assimp/types.h
+index 8b35bd3..a8200a7 100644
+--- a/src/3rdparty/assimp/include/assimp/types.h
++++ b/src/3rdparty/assimp/include/assimp/types.h
+@@ -217,7 +217,7 @@ struct aiColor3D
+ 	/** Check whether a color is black */
+ 	bool IsBlack() const {
+ 		static const float epsilon = 10e-3f;
+-		return fabs( r ) < epsilon && fabs( g ) < epsilon && fabs( b ) < epsilon;
++		return std::fabs( r ) < epsilon && std::fabs( g ) < epsilon && std::fabs( b ) < epsilon;
+ 	}
+ 
+ #endif // !__cplusplus
+diff --git a/src/3rdparty/assimp/include/assimp/vector2.inl b/src/3rdparty/assimp/include/assimp/vector2.inl
+index eb1b986..da085ea 100644
+--- a/src/3rdparty/assimp/include/assimp/vector2.inl
++++ b/src/3rdparty/assimp/include/assimp/vector2.inl
+@@ -71,7 +71,7 @@ TReal aiVector2t<TReal>::SquareLength() const {
+ // ------------------------------------------------------------------------------------------------
+ template <typename TReal>
+ TReal aiVector2t<TReal>::Length() const {
+-	return ::sqrt( SquareLength());
++    return std::sqrt( SquareLength());
+ }
+ 
+ // ------------------------------------------------------------------------------------------------
+diff --git a/src/3rdparty/assimp/include/assimp/vector3.inl b/src/3rdparty/assimp/include/assimp/vector3.inl
+index 01e0b6f..4892f62 100644
+--- a/src/3rdparty/assimp/include/assimp/vector3.inl
++++ b/src/3rdparty/assimp/include/assimp/vector3.inl
+@@ -92,7 +92,7 @@ AI_FORCE_INLINE TReal aiVector3t<TReal>::SquareLength() const {
+ // ------------------------------------------------------------------------------------------------
+ template <typename TReal>
+ AI_FORCE_INLINE TReal aiVector3t<TReal>::Length() const {
+-	return ::sqrt( SquareLength()); 
++    return std::sqrt( SquareLength());
+ }
+ // ------------------------------------------------------------------------------------------------
+ template <typename TReal>
+-- 
+2.4.9 (Apple Git-60)
+

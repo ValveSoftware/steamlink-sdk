@@ -1,0 +1,389 @@
+/*
+    Copyright (C) 2015 The Qt Company Ltd.
+    Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2008 Holger Hans Peter Freyther
+    Copyright (C) 2009 Girish Ramakrishnan <girish@forwardbias.in>
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Library General Public
+    License as published by the Free Software Foundation; either
+    version 2 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Library General Public License for more details.
+
+    You should have received a copy of the GNU Library General Public License
+    along with this library; see the file COPYING.LIB.  If not, write to
+    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+    Boston, MA 02110-1301, USA.
+*/
+
+// The documentation in this file was imported from QtWebKit and is thus constrained
+// by its LGPL license. Documentation written from scratch for new methods should be
+// placed inline in the code as usual.
+
+/*!
+    \class QWebEngineView
+    \brief The QWebEngineView class provides a widget that is used to view and edit
+    web documents.
+    \since 5.4
+    \ingroup advanced
+
+    \inmodule QtWebEngineWidgets
+
+    A \e {web view} is the main widget component of the Qt WebEngine web browsing module.
+    It can be used in various applications to display web content live from the
+    Internet.
+
+    A \e {web site} can be loaded to a web view with the load() function. The
+    GET method is always used to load URLs.
+
+    Like all Qt widgets, the show() function must be invoked in order to display
+    the web view. The snippet below illustrates this:
+
+    \snippet simple/main.cpp Using QWebEngineView
+
+    Alternatively, setUrl() can be used to load a web site. If you have
+    the HTML content readily available, you can use setHtml() instead.
+
+    The loadStarted() signal is emitted when the view begins loading and the loadProgress()
+    signal is emitted whenever an element of the web view completes loading, such as an embedded
+    image or a script. The loadFinished() signal is emitted when the view has been loaded
+    completely. Its argument, either \c true or \c false, indicates whether loading was
+    successful or failed.
+
+    The page() function returns a pointer to a \e {web page} object. A QWebEngineView contains a
+    QWebEnginePage, which in turn allows access to the QWebEngineHistory in the page's context.
+
+    The title of an HTML document can be accessed with the title() property.
+    Additionally, a web site may specify an icon, which can be accessed
+    using the icon() or its URL using the iconUrl() property.
+    If the title or the icon changes, the corresponding titleChanged(), iconChanged()
+    and iconUrlChanged() signals will be emitted.
+    The zoomFactor() property enables zooming the contents of the web page by a
+    scale factor.
+
+    The widget features a context menu that is tailored to the element at
+    hand, and includes actions useful in a browser. For a custom context menu,
+    or for embedding actions in a menu or toolbar, the individual actions are available
+    via \l pageAction(). The web view maintains the state of the returned actions,
+    but allows modification of action properties such as \l{QAction::}{text} or
+    \l{QAction::}{icon}. The action semantics can also be triggered directly through
+    triggerPageAction().
+
+    If you want to provide support for web sites that allow the user to open
+    new windows, such as pop-up windows, you can subclass QWebEngineView and
+    reimplement the createWindow() function.
+
+    \sa {WebEngine Demo Browser Example}, {WebEngine Content Manipulation Example}, {WebEngine Markdown Editor Example}
+*/
+
+
+/*!
+    \fn QWebEngineView::QWebEngineView(QWidget *parent)
+    Constructs an empty web view with the parent \a parent.
+
+    \sa load()
+*/
+
+/*!
+    \fn QWebEngineView::~QWebEngineView()
+    Destroys the web view.
+*/
+
+/*!
+    \fn QWebEnginePage *QWebEngineView::page() const
+    Returns a pointer to the underlying web page.
+
+    \sa setPage()
+*/
+
+/*!
+    \fn void QWebEngineView::setPage(QWebEnginePage* page)
+    Makes \a page the new web page of the web view.
+
+    The parent QObject of the provided page remains the owner
+    of the object. If the current page is a child of the web
+    view, it will be deleted.
+
+    \sa page()
+*/
+
+/*!
+    \fn void QWebEngineView::load(const QUrl &url)
+    Loads the specified \a url and displays it.
+
+    \note The view remains the same until enough data has arrived to display the new URL.
+
+    \sa setUrl(), url(), urlChanged(), QUrl::fromUserInput()
+*/
+
+/*!
+    \fn void QWebEngineView::setHtml(const QString &html, const QUrl &baseUrl)
+    Sets the content of the web view to the specified \a html content.
+
+    External objects, such as stylesheets or images referenced in the HTML
+    document, are located relative to \a baseUrl.
+
+    The HTML document is loaded immediately, whereas external objects are loaded asynchronously.
+
+    When using this method, Qt WebEngine assumes that external resources, such as
+    JavaScript programs or style sheets, are encoded in UTF-8 unless otherwise
+    specified. For example, the encoding of an external script can be specified
+    through the \c charset attribute of the HTML script tag. Alternatively, the
+    encoding can be specified by the web server.
+
+    This is a convenience function equivalent to
+    \c{setContent(html, "text/html;charset=UTF-8", baseUrl)}.
+
+    \warning This function works only for HTML. For other MIME types (such as XHTML or SVG),
+    setContent() should be used instead.
+
+    \sa load(), setContent(), QWebEnginePage::toHtml(), QWebEnginePage::setContent()
+*/
+
+/*!
+    \fn void QWebEngineView::setContent(const QByteArray &data, const QString &mimeType, const QUrl &baseUrl)
+    Sets the content of the web view to the specified content \a data. If the \a mimeType argument
+    is empty, it is currently assumed that the content is HTML but in future versions we may
+    introduce auto-detection.
+
+    External objects referenced in the content are located relative to \a baseUrl.
+
+    The data is loaded immediately; external objects are loaded asynchronously.
+
+    \sa load(), setHtml(), QWebEnginePage::toHtml()
+*/
+
+/*!
+    \fn QWebEngineHistory *QWebEngineView::history() const
+    Returns a pointer to the view's history of navigated web pages.
+
+    It is equivalent to:
+
+    \snippet qtwebengine_qwebengineview_snippet.cpp 0
+*/
+
+/*!
+    \property QWebEngineView::title
+    \brief the title of the web page currently viewed
+
+    By default, this property contains an empty string.
+
+    \sa titleChanged()
+*/
+
+/*!
+    \property QWebEngineView::url
+    \brief the URL of the web page currently viewed
+
+    Setting this property clears the view and loads the URL.
+
+    By default, this property contains an empty, invalid URL.
+
+    \sa load(), urlChanged()
+*/
+
+/*!
+    \property QWebEngineView::iconUrl
+    \brief the URL of the icon associated with the page currently viewed
+
+    By default, this property contains an empty URL.
+
+    \sa iconUrlChanged(), icon(), iconChanged()
+*/
+
+/*!
+    \property QWebEngineView::hasSelection
+    \brief whether this page contains selected content or not.
+
+    By default, this property is \c false.
+
+    \sa selectionChanged()
+*/
+
+/*!
+    \property QWebEngineView::selectedText
+    \brief the text currently selected
+
+    By default, this property contains an empty string.
+
+    \sa findText(), selectionChanged()
+*/
+
+/*!
+    \fn QAction *QWebEngineView::pageAction(QWebEnginePage::WebAction action) const
+    Returns a pointer to a QAction that encapsulates the specified web action \a action.
+*/
+
+/*!
+    \fn void QWebEngineView::triggerPageAction(QWebEnginePage::WebAction action, bool checked)
+    Triggers the specified \a action. If it is a checkable action, the specified
+    \a checked state is assumed.
+
+    The following example triggers the copy action and therefore copies any
+    selected text to the clipboard.
+
+    \snippet qtwebengine_qwebengineview_snippet.cpp 2
+
+    \sa pageAction()
+*/
+
+/*!
+    \property QWebEngineView::zoomFactor
+    \brief the zoom factor for the view
+
+    Valid values are within the range from \c{0.25} to \c{5.0}. The default factor is \c{1.0}.
+*/
+
+/*!
+    \fn void QWebEngineView::findText(const QString &subString, QWebEnginePage::FindFlags options)
+    Finds the specified string, \a subString, in the page, using the given \a options.
+
+    To clear the selection, just pass an empty string.
+
+    \sa selectedText(), selectionChanged()
+*/
+
+/*!
+    \fn void QWebEngineView::findText(const QString &subString, QWebEnginePage::FindFlags options, FunctorOrLambda resultCallback)
+    Finds the specified string, \a subString, in the page, using the given \a options.
+
+    To clear the selection, just pass an empty string.
+
+    \a resultCallback must take a boolean parameter. It will be called with a value of \c true
+    if \a subString was found; otherwise the callback value will be \c false.
+
+    \sa selectedText(), selectionChanged()
+*/
+
+/*!
+    \fn void QWebEngineView::stop()
+    Convenience slot that stops loading the document.
+
+    It is equivalent to:
+
+    \snippet qtwebengine_qwebengineview_snippet.cpp 3
+
+    \sa reload(), pageAction(), loadFinished()
+*/
+
+/*!
+    \fn void QWebEngineView::back()
+    Convenience slot that loads the previous document in the list of documents
+    built by navigating links. Does nothing if there is no previous document.
+
+    It is equivalent to:
+
+    \snippet qtwebengine_qwebengineview_snippet.cpp 4
+
+    \sa forward(), pageAction()
+*/
+
+/*!
+    \fn void QWebEngineView::forward()
+    Convenience slot that loads the next document in the list of documents
+    built by navigating links. Does nothing if there is no next document.
+
+    It is equivalent to:
+
+    \snippet qtwebengine_qwebengineview_snippet.cpp 5
+
+    \sa back(), pageAction()
+*/
+
+/*!
+    \fn void QWebEngineView::reload()
+    Reloads the current document.
+
+    \sa stop(), pageAction(), loadStarted()
+*/
+
+/*!
+    \fn QWebEngineView *QWebEngineView::createWindow(QWebEnginePage::WebWindowType type)
+    This function is called from the \l{QWebEnginePage::}{createWindow()} method of the associated
+    QWebEnginePage each time the page wants to create a new window of the given \a type. For
+    example, when a JavaScript request to open a document in a new window is issued.
+
+    \note If the \c createWindow() method of the associated page is reimplemented, this
+    method is not called, unless explicitly done so in the reimplementation.
+
+    \sa QWebEnginePage::createWindow()
+*/
+
+/*!
+    \fn void QWebEngineView::titleChanged(const QString &title)
+
+    This signal is emitted whenever the \a title of the view changes.
+
+    \sa title()
+*/
+
+/*!
+    \fn void QWebEngineView::urlChanged(const QUrl &url)
+
+    This signal is emitted when the \a url of the view changes.
+
+    \sa url(), load()
+*/
+
+/*!
+    \fn void QWebEngineView::iconUrlChanged(const QUrl &url)
+
+    This signal is emitted when the URL of the icon ("favicon") associated with the
+    view is changed. The new URL is specified by \a url.
+
+    \sa iconUrl(), icon(), iconChanged()
+*/
+
+/*!
+    \fn void QWebEngineView::loadStarted()
+
+    This signal is emitted when a new load of the page is started.
+
+    \sa loadProgress(), loadFinished()
+*/
+
+/*!
+    \fn void QWebEngineView::loadFinished(bool ok)
+
+    This signal is emitted when a load of the page has finished.
+    \a ok will indicate whether the load was successful or an error occurred.
+
+    \sa loadStarted()
+*/
+
+/*!
+    \fn void QWebEngineView::selectionChanged()
+
+    This signal is emitted whenever the selection changes.
+
+    \sa selectedText()
+*/
+
+/*!
+    \fn void QWebEngineView::loadProgress(int progress)
+
+    This signal is emitted every time an element in the web view
+    completes loading, such as an embedded image or a script. Therefore, it
+    tracks the collective progress of loading the web view.
+
+    The current value is provided by \a progress and scales from 0 to 100,
+    which is the default range of QProgressBar.
+
+    \sa loadStarted(), loadFinished()
+*/
+
+/*!
+    \fn QWebEngineSettings *QWebEngineView::settings() const
+
+    Returns a pointer to the view or page specific settings object.
+
+    It is equivalent to:
+
+    \snippet qtwebengine_qwebengineview_snippet.cpp 6
+
+    \sa QWebEngineSettings::globalSettings()
+*/

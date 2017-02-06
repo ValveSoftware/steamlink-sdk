@@ -1,0 +1,46 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//tools/grit/grit_rule.gni")
+import("//tools/grit/repack.gni")
+
+mojom("mojo_bindings") {
+  sources = [
+    "mojo_test.mojom",
+  ]
+}
+
+repack_and_bundle("packed_resources") {
+  testonly = true
+  sources = [
+    "$root_gen_dir/ios/web/ios_web_resources.pak",
+    "$root_gen_dir/ios/web/test/test_resources.pak",
+  ]
+  deps = [
+    ":resources",
+    "//ios/web:resources",
+  ]
+  output = "$target_gen_dir/resources.pak"
+  bundle_output = "{{bundle_resources_dir}}/{{source_file_part}}"
+}
+
+grit("resources") {
+  source = "test_resources.grd"
+  use_qualified_include = true
+  inputs = [
+    "${root_gen_dir}/ios/web/test/mojo_test.mojom.js",
+  ]
+  deps = [
+    ":mojo_bindings",
+  ]
+  outputs = [
+    "grit/test_resources.h",
+    "test_resources.pak",
+  ]
+  grit_flags = [
+    "-E",
+    "root_gen_dir=" + rebase_path(root_gen_dir, root_build_dir),
+  ]
+}

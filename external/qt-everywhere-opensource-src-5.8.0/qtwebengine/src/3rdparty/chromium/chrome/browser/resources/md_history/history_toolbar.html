@@ -1,0 +1,158 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icons/hardware-icons.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-tabs/paper-tab.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-tabs/paper-tabs.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_toolbar/cr_toolbar.html">
+<link rel="import" href="chrome://history/icons.html">
+<link rel="import" href="chrome://history/shared_style.html">
+
+<dom-module id="history-toolbar">
+  <template>
+    <style include="shared-style">
+      :host {
+        color: #fff;
+        display: block;
+        transition: background-color 150ms;
+        width: 100%;
+      }
+
+      cr-toolbar,
+      #overlay-buttons,
+      #overlay-wrapper,
+      #toolbar-container {
+        @apply(--layout-center);
+        @apply(--layout-horizontal);
+        width: 100%;
+      }
+
+      :host([items-selected_]) {
+        background: rgb(68, 136, 255);
+      }
+
+      #toolbar-container {
+        height: var(--toolbar-height);
+      }
+
+      #overlay-buttons {
+        margin: 0 auto;
+        max-width: var(--card-max-width);
+        padding: 0 var(--card-padding-side);
+      }
+
+      #number-selected {
+        @apply(--layout-flex);
+      }
+
+      #cancel-icon-button {
+        -webkit-margin-end: 24px;
+        -webkit-margin-start: 2px;
+        height: 36px;
+        min-width: 36px;
+        width: 36px;
+      }
+
+      #grouped-nav-container paper-icon-button {
+        --paper-icon-button-ink-color: rgba(255, 255, 255, 0.4);
+        -webkit-margin-start: 24px;
+        flex: 0 0 auto;
+      }
+
+      paper-tab {
+        --paper-tab-ink: rgba(255, 255, 255, 0.4);
+        font-size: 13px;
+        text-transform: uppercase;
+      }
+
+      paper-tabs {
+        --paper-tabs-selection-bar-color: var(--google-blue-500);
+        height: calc(var(--toolbar-grouped-height) - var(--toolbar-height));
+        min-width: 300px;
+      }
+
+      #grouped-buttons-container {
+        @apply(--layout-center);
+        @apply(--layout-horizontal);
+      }
+
+      #grouped-range-buttons {
+        -webkit-margin-start: 32px;
+      }
+
+      #grouped-nav-container {
+        @apply(--layout-center);
+        @apply(--layout-end-justified);
+        @apply(--layout-flex);
+        @apply(--layout-horizontal);
+        -webkit-margin-end: 24px;
+        overflow: hidden;
+        transition: opacity 150ms;
+      }
+
+      :host([grouped-range='0']) #grouped-nav-container {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #grouped-date {
+        flex: 0 1 auto;
+        opacity: 0.7;
+        overflow: hidden;
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      :host-context([dir=rtl]) .rtl-reversible {
+        transform: rotate(180deg);
+      }
+    </style>
+    <div id="toolbar-container">
+      <cr-toolbar id="main-toolbar" page-name="$i18n{title}"
+          clear-label="$i18n{clearSearch}" search-prompt="$i18n{searchPrompt}"
+          hidden$="[[itemsSelected_]]" spinner-active="[[spinnerActive]]"
+          on-search-changed="onSearchChanged_">
+      </cr-toolbar>
+      <div id="overlay-wrapper" hidden$="[[!itemsSelected_]]">
+        <div id="overlay-buttons">
+          <paper-icon-button icon="cr:clear" id="cancel-icon-button"
+              on-tap="onClearSelectionTap_"></paper-icon-button>
+          <div id="number-selected">[[numberOfItemsSelected_(count)]]</div>
+          <paper-button id="cancel-button" on-tap="onClearSelectionTap_">
+            $i18n{cancel}
+          </paper-button>
+          <paper-button id="delete-button" on-tap="onDeleteTap_">
+            $i18n{delete}
+          </paper-button>
+        </div>
+      </div>
+    </div>
+    <template is="dom-if" if="[[isGroupedMode]]">
+      <div id="grouped-buttons-container">
+        <paper-tabs attr-for-selected="value" selected="{{groupedRange}}"
+            id="grouped-range-buttons">
+          <paper-tab value="0">$i18n{rangeAllTime}</paper-tab>
+          <paper-tab value="1">$i18n{rangeWeek}</paper-tab>
+          <paper-tab value="2">$i18n{rangeMonth}</paper-tab>
+        </paper-tabs>
+        <div id="grouped-nav-container">
+          <span id="grouped-date">
+            {{getHistoryInterval_(queryStartTime, queryEndTime)}}
+          </span>
+          <paper-icon-button icon="history:today" alt="$i18n{rangeToday}"
+              title="$i18n{rangeToday}"></paper-icon-button>
+          <paper-icon-button icon="history:chevron-left"
+              alt="$i18n{rangePrevious}" title="$i18n{rangePrevious}"
+              class="rtl-reversible"></paper-icon-button>
+          <paper-icon-button icon="cr:chevron-right"
+              alt="$i18n{rangeNext}" title="$i18n{rangeNext}"
+              class="rtl-reversible"></paper-icon-button>
+        </div>
+      </div>
+    </template>
+  </template>
+  <script src="chrome://history/history_toolbar.js"></script>
+</dom-module>

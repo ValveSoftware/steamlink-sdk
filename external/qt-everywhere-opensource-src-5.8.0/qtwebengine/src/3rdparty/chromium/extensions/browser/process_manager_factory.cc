@@ -1,0 +1,55 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "components/keyed_service/content/browser_context_dependency_manager.h"
+#include "extensions/browser/extension_registry_factory.h"
+#include "extensions/browser/process_manager.h"
+#include "extensions/browser/process_manager_factory.h"
+
+using content::BrowserContext;
+
+namespace extensions {
+
+// static
+ProcessManager* ProcessManagerFactory::GetForBrowserContext(
+    BrowserContext* context) {
+  return static_cast<ProcessManager*>(
+      GetInstance()->GetServiceForBrowserContext(context, true));
+}
+
+// static
+ProcessManager* ProcessManagerFactory::GetForBrowserContextIfExists(
+    BrowserContext* context) {
+  return static_cast<ProcessManager*>(
+      GetInstance()->GetServiceForBrowserContext(context, false));
+}
+
+// static
+ProcessManagerFactory* ProcessManagerFactory::GetInstance() {
+  return base::Singleton<ProcessManagerFactory>::get();
+}
+
+ProcessManagerFactory::ProcessManagerFactory()
+    : BrowserContextKeyedServiceFactory(
+          "ProcessManager",
+          BrowserContextDependencyManager::GetInstance()) {
+  DependsOn(extensions::ExtensionRegistryFactory::GetInstance());
+}
+
+ProcessManagerFactory::~ProcessManagerFactory() {
+}
+
+KeyedService* ProcessManagerFactory::BuildServiceInstanceFor(
+    BrowserContext* context) const {
+  return ProcessManager::Create(context);
+}
+
+BrowserContext* ProcessManagerFactory::GetBrowserContextToUse(
+    BrowserContext* context) const {
+  // ProcessManager::Create handles guest and incognito profiles, returning an
+  // IncognitoProcessManager in incognito mode.
+  return context;
+}
+
+}  // namespace extensions

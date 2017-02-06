@@ -1,0 +1,21 @@
+{%- import "interface_macros.tmpl" as interface_macros %}
+class {{interface.name}}Proxy
+    : public {{interface.name}},
+      public mojo::internal::ControlMessageProxy {
+ public:
+  explicit {{interface.name}}Proxy(mojo::MessageReceiverWithResponder* receiver);
+
+{%- for method in interface.methods %}
+{%-   if method.sync %}
+  bool {{method.name}}({{interface_macros.declare_sync_method_params("", method)}}) override;
+{%-   endif %}
+  void {{method.name}}({{interface_macros.declare_request_params("", method)}}) override;
+{%- endfor %}
+
+  mojo::internal::SerializationContext* serialization_context() {
+    return &serialization_context_;
+  }
+
+ private:
+  mojo::internal::SerializationContext serialization_context_;
+};

@@ -1,0 +1,300 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Virtual Keyboard module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+
+\page qtvirtualkeyboard-build.html
+\contentspage {Building Qt Virtual Keyboard} {Contents}
+
+\title Building Qt Virtual Keyboard
+
+\section1 Overview
+
+This document describes how to build the Qt Virtual Keyboard plugin.
+
+The project is split into the following subprojects:
+\table
+\row
+    \li \e examples/virtualkeyboard/basic/basic.pro
+    \li Qt Virtual Keyboard Demo application
+\row
+    \li \e src/virtualkeyboard/virtualkeyboard.pro
+    \li Qt Virtual Keyboard plugin
+\row
+    \li \e src/virtualkeyboard/styles/styles.pro
+    \li Qt Virtual Keyboard Style plugin that enables style decorations for the
+        keyboard
+\row
+    \li \e src/virtualkeyboard/3rdparty/hunspell/hunspell.pro
+    \li A project file for compiling the Hunspell library.
+    \note This project is used if the Hunspell library is built from
+          sources rather than depending on the system library. The project
+          will be activated when the source code is extracted to this
+          directory.
+\row
+    \li \e src/virtualkeyboard/3rdparty/lipi-toolkit/lipi-toolkit.pro
+    \li A project file for compiling the lipi-toolkit library.
+\row
+    \li \e src/virtualkeyboard/3rdparty/openwnn/openwnn.pro
+    \li A project file for compiling the OpenWNN library.
+\row
+    \li \e src/virtualkeyboard/3rdparty/pinyin/pinyin.pro
+    \li A project file for compiling the PinyinIME library.
+\row
+    \li \e src/virtualkeyboard/3rdparty/t9write/t9write.pro
+    \li A project file for including T9 Write dictionaries as resources.
+\row
+    \li \e src/virtualkeyboard/3rdparty/tcime/tcime.pro
+    \li A project file for compiling the TCIME library.
+\endtable
+
+The input methods are implemented either in C++ or QML.
+Qt Virtual Keyboard provides implementations of \e PlainInputMethod,
+\e MultitapInputMethod and \e HunspellInputMethod.
+The \e MultitapInputMethod is implemented in QML while the others are implemented
+in C++.
+
+\section1 Build Instructions
+
+The Qt Virtual Keyboard can be built for Linux Desktop/X11, Windows Desktop
+or Boot2Qt targets.
+The target is automatically detected by QMAKE and requires no special
+configuration parameters.
+
+Qt Creator is the preferred build environment for Qt Virtual Keyboard as you
+can then leverage the shadow build functionality and rapidly switch between
+build targets.
+
+\section2 Configuration Options
+
+The table below contains the top-level options for configuring the virtual
+keyboard features.
+
+\table
+\header
+    \li CONFIG
+    \li Description
+    \li Remarks
+\row
+    \li \e lang-<code>
+    \li Enables the specified language
+    \li The specified language can be activated using \e lang-<code> option, which
+        has the format "language[_country]", where:
+        \list
+            \li language is a lowercase, two-letter, ISO 639 language code
+            \li country is an uppercase, two-letter, ISO 3166 country code
+        \endlist
+
+        This option can be used to define the language support as required. The virtual
+        keyboard can support one or more languages at a time.
+
+        For example, \c CONFIG+=lang-fi activates the Finnish language.
+
+        The virtual keyboard automatically includes the English language if no other languages
+        are specified.
+\row
+    \li \e lang-all
+    \li Enables all the languages
+    \li Enables all the languages supported by the virtual keyboard. This flag is essentially
+        an alias for \c {CONFIG+="lang-ar_AR lang-da_DK lang-de_DE lang-en_GB lang-es_ES
+        lang-fa_FA lang-fi_FI lang-fr_FR lang-hi_IN lang-it_IT lang-ja_JP lang-ko_KR lang-nb_NO
+        lang-pl_PL lang-pt_PT lang-ru_RU lang-sv_SE lang-zh_CN lang-zh_TW"}
+\row
+    \li \e handwriting
+    \li Enables handwriting input
+    \li This flag enables handwriting input using the first engine available at
+        build time in the following order: \c t9write, \c lipi-toolkit. To enable handwriting
+        input using a specific engine, use the feature-specific configuration instead.
+        For example, \c CONFIG+=lipi-toolkit.
+\row
+    \li \e arrow-key-navigation
+    \li Enables arrow key navigation for the keyboard
+    \li Allows controlling the keyboard using the arrow and return keys.
+\endtable
+
+\section3 Advanced Configuration Options
+
+The table below shows the advanced configuration options that will be applied
+automatically when activating a certain top-level feature. The options can also be
+used for enabling or disabling a specific feature.
+
+In most cases, these options are not needed, but there are also cases where their use is
+justified. For example, the Traditional Chinese language (CONFIG=lang-zh_TW) will include
+both Zhuyin and Cangjie input methods by default. This behavior can be changed by adding
+the preferred input method to the configuration, e.g., \c CONFIG+="lang-zh_TW zhuyin".
+
+\table
+\header
+    \li Advanced CONFIG
+    \li Top-level CONFIG
+    \li Description
+    \li Remarks
+\row
+    \li \e disable-desktop
+    \li \e n/a
+    \li Disables Desktop integration
+    \li By default, the desktop integration is enabled when the target environment
+        is X11 or Windows desktop. With this option, the desktop integration can be
+        disabled.
+        \note For embedded integration, where the InputPanel is instantitated by
+        the application, there is no need to use this option explicitly. The virtual
+        keyboard will not create the desktop input panel if the application creates
+        InputPanel before the focus is set to an input field.
+\row
+    \li \e disable-xcb
+    \li \e n/a
+    \li Disables X11 integration
+    \li \note Deprecated since 1.3. Use \e disable-desktop instead.
+\row
+    \li \e disable-hunspell
+    \li \e n/a
+    \li Disables Hunspell integration
+    \li Hunspell integration is enabled if the Hunspell library is available on the
+        system, or if it is built using the local project file. Integration can be
+        disabled using this option.
+\row
+    \li \e static
+    \li Enables static builds of the virtual keyboard
+    \li This option enables \l {Static builds}{static builds}.
+\row
+    \li \e retro-style
+    \li \e n/a
+    \li Enables Retro style
+    \li Changes the default keyboard style to the Retro style. Both styles are still
+        included in the package, but this option allows you to change the built-in
+        default style.
+\row
+    \li \e pinyin
+    \li \e lang-zh_CN
+    \li Enables the Pinyin input method for Simplified Chinese.
+    \li This option activates the Pinyin input method for the Simplified Chinese
+        language.
+\row
+    \li \e tcime
+    \li \e lang-zh_TW
+    \li Enables the both Cangjie and Zhuyin input methods for Traditional Chinese.
+    \li This option activates the both Cangjie and Zhuyin input methods for the
+        Traditional Chinese language.
+\row
+    \li \e cangjie
+    \li \e lang-zh_TW
+    \li Enables the Cangjie input method for Traditional Chinese.
+    \li This option activates the Cangjie input method for the Traditional Chinese
+        language.
+\row
+    \li \e zhuyin
+    \li \e lang-zh_TW
+    \li Enables the Zhuyin input method for Traditional Chinese.
+    \li This option activates the Zhuyin input method for the Traditional Chinese
+        language.
+\row
+    \li \e hangul
+    \li \e lang-ko_KR
+    \li Enables the Hangul input method for Korean.
+    \li This option activates the Hangul input method for the Korean language.
+\row
+    \li \e openwnn
+    \li \e lang-ja_JP
+    \li Enables the OpenWnn input method for Japanese.
+    \li This option activates the OpenWnn input method for the Japanese language.
+\row
+    \li \e lipi-toolkit
+    \li \e handwriting
+    \li Enables the handwriting input method using Lipi Toolkit.
+    \li Handwriting recognition is based on the open source Lipi Toolkit.
+\row
+    \li \e t9write
+    \li \e handwriting
+    \li Enables the handwriting input method using T9 Write.
+    \li Handwriting recognition is based on the commercial T9 Write product from Nuance Communications.
+\endtable
+
+\section2 Building Documentation
+
+\table
+\row
+    \li \e {make docs}
+    \li Generates documentation
+\endtable
+
+\section2 Hunspell Integration
+
+By default, \e HunspellInputMethod will not be available unless the Hunspell
+library and development headers are found. For Linux/X11 targets, the Hunspell
+library can be provided by installing the libhunspell-dev package.
+Alternatively, the Hunspell sources can be extracted into the
+\e src/virtualkeyboard/3rdparty/hunspell directory. If Hunspell sources are used,
+then the dictionary files must also be copied into the
+\e src/virtualkeyboard/3rdparty/hunspell/data directory. Furthermore, if Hunspell
+sources are used, \e hunspell.pro will be used for all targets.
+
+\section2 Static builds
+
+The virtual keyboard can be built and linked statically against the application.
+This implies that Qt is also built statically (using the -static option in the
+configure command line).
+
+Static builds of the virtual keyboard are enabled by adding \c CONFIG+=static to
+the qmake command line and then rebuilding.
+
+Some third party modules used by the virtual keyboard are always built as shared
+libraries. These modules are Hunspell and Lipi Toolkit.
+
+\section3 Using the static plugin
+
+The following section should be added to the application project file that uses the
+statically built virtual keyboard.
+
+\code
+static {
+    QTPLUGIN += qtvirtualkeyboardplugin
+    QT += svg
+}
+\endcode
+
+\c QTPLUGIN causes qmake to pull linker dependencies for the virtual keyboard
+plugin. The SVG module is required as an extra dependency for Qt, since the SVG format is
+required by the default styles.
+
+From here on, using a statically built virtual keyboard is no different from the normal
+case.
+
+\section1 Deployment
+
+\section2 Desktop Targets
+
+Add a Deploy Step that executes the \e {make install} command, then deploy using
+the \e {Deploy All} command.
+
+\section2 Boot2Qt Targets
+
+The installation is done by copying the necessary files to the memory card, or
+by using the adb push command.
+
+*/

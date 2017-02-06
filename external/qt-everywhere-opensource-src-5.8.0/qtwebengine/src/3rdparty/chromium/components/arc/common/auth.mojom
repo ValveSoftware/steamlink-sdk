@@ -1,0 +1,81 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module arc.mojom;
+
+// These values describe failure reason of sign-in.
+[Extensible]
+enum ArcSignInFailureReason {
+  // Negative values are reserved for internal use.
+  // The values are shuffled to keep the backward compatibility.
+  // Next value: 15.
+  UNKNOWN_ERROR = 0,
+
+  // Mojo errors:
+  // MOJO_VERSION_MISMATCH: is sent when an API is not supported
+  //   due to Host/Instance version mismatch.
+  // MOJO_CALL_TIMEOUT: is sent when a Mojo invocation is started
+  //   but not completed with time out.
+  MOJO_VERSION_MISMATCH = 6,
+  MOJO_CALL_TIMEOUT = 7,
+
+  // Device check-in errors:
+  // DEVICE_CHECK_IN_FAILED: is sent when "check-in" procedure is completed
+  //   but is actually failed.
+  // DEVICE_CHECK_IN_TIMEOUT: is sent when "check-in" procedure started
+  //   but is not completed.
+  // DEVICE_CHECK_IN_INTERNAL_ERROR: is sent when "check-in" procedure is
+  //   started, but some unexpected error situation happens so that it could
+  //   not completed.
+  DEVICE_CHECK_IN_FAILED = 4,
+  DEVICE_CHECK_IN_TIMEOUT = 8,
+  DEVICE_CHECK_IN_INTERNAL_ERROR = 9,
+
+  // GMS errors:
+  // GMS_NETWORK_ERROR: is sent when GMS sign-in procedure is started, but
+  //   it reports NETWORK_ERROR.
+  // GMS_SERVICE_UNAVAILABLE: is sent when GMS sign-in procedure is started
+  //   but it reports SERVICE_UNAVAILABLE. Note that this is not generic
+  //   service unavailable error code.
+  // GMS_BAD_AUTHENTICATION: is sent when GMS sign-in procedure is started
+  //   but it reports BAD_AUTHENTICATION.
+  // GMS_SIGN_IN_FAILED: is sent when GMS sign in procedure is started but
+  //   it reports an error other than above NETWORK_ERROR, SERVICE_UNAVAILABLE
+  //   or BAD_AUTHENTICATION. In general, we do not expect this kind of cases.
+  // GMS_SIGN_IN_TIMEOUT: is sent when GMS sign in procedure is started but
+  //   not returned.
+  // GMS_SIGN_IN_INTERNAL_ERROR: is sent when GMS sign in procedure is started
+  //   but could not completed.
+  GMS_NETWORK_ERROR = 1,
+  GMS_SERVICE_UNAVAILABLE = 2,
+  GMS_BAD_AUTHENTICATION = 3,
+  GMS_SIGN_IN_FAILED = 10,
+  GMS_SIGN_IN_TIMEOUT = 11,
+  GMS_SIGN_IN_INTERNAL_ERROR = 12,
+
+  // Cloud provisioning errors.
+  CLOUD_PROVISION_FLOW_FAILED = 5,
+  CLOUD_PROVISION_FLOW_TIMEOUT = 13,
+  CLOUD_PROVISION_FLOW_INTERNAL_ERROR = 14,
+};
+
+interface AuthHost {
+  // Returns an authorization code, which can be used to sign in.
+  GetAuthCodeDeprecated@0() => (string auth_code);
+  // Returns an authorization code in case is_enforced is set, which can be used
+  // to sign in.
+  [MinVersion=1] GetAuthCode@1() => (string auth_code, bool is_enforced);
+  // Gets whether the account is managed from Chrome OS.
+  [MinVersion=3] GetIsAccountManaged@4() => (bool is_managed);
+  // Notifies Chrome that the sign-in is completed successfully.
+  [MinVersion=2] OnSignInComplete@2();
+  // Notifies Chrome that the sign-in fails to complete and provides failure
+  // reason.
+  [MinVersion=2] OnSignInFailed@3(ArcSignInFailureReason reason);
+};
+
+interface AuthInstance {
+  // Establishes full-duplex communication with the host.
+  Init@0(AuthHost host_ptr);
+};

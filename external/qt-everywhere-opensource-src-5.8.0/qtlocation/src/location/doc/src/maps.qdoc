@@ -1,0 +1,250 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+
+/*!
+\page location-maps-qml.html
+\title Maps and Navigation (QML)
+
+\brief Provides QtQuick user interfaces for displaying, navigating and
+       interacting with maps, as well as geocoding and navigation.
+
+\b{Maps and Navigation} provides QtQuick user interface types for
+displaying geographic information on a map, as well as allowing user
+interaction with map overlay objects and the display itself. It also
+contains utilities for geocoding (finding a geographic coordinate from a
+street address) and navigation (including driving and walking directions).
+
+It builds upon the API concepts and types in the \l{Positioning (QML)}{QML Positioning API}.
+A more hands-on introduction of the Maps and Navigation types can be found in the
+\l {QML Maps}{Maps and Navigation tutorial}.
+
+\section1 Maps
+
+\section2 Displaying Maps
+
+Displaying a map is done using the \l{QtLocation::Map}{Map} QML types.  The Map type supports
+user interaction through the \l{QtLocation::MapGestureArea}{MapGestureArea} QML type. The Map
+object draws the map on-screen using OpenGL (ES), allowing for hardware-accelerated rendering
+where available.
+
+\b{Key Types}
+\table
+    \row
+        \li \l{QtLocation::Plugin}{Plugin}
+        \li A location-based services plugin provides data including map data which is then displayed in a Map object.
+    \row
+        \li \l{QtLocation::Map}{Map}
+        \li QtQuick item to display a map on-screen.
+    \row
+        \li \l{QtLocation::MapGestureArea}{MapGestureArea}
+        \li Interaction helper for panning, flicking and pinch-to-zoom gesture on a Map.
+\endtable
+
+Note that the client must create a \l{QtLocation::Plugin}{Plugin} object
+prior to using a \l{QtLocation::Map}{Map} type in order to have access
+to map data to display.
+
+\section2 Putting Objects on a Map (Map Overlay Objects)
+
+Maps can also contain map overlay objects, which are used to display information
+on its surface. There is a set of basic pre-defined map overlay objects, as well
+as the ability to implement custom map overlay objects using the
+\l{QtLocation::MapQuickItem}{MapQuickItem} type, which can contain any
+standard QtQuick item.
+
+\b{Key Types}
+\table
+    \row
+        \li \l{QtLocation::MapCircle}{MapCircle}
+        \li A geographic circle (all points at a set distance from a center), optionally with a border.
+    \row
+        \li \l{QtLocation::MapRectangle}{MapRectangle}
+        \li A rectangle whose top left and bottom right points are specified as
+            \l {coordinate} types, optionally with a border.
+    \row
+        \li \l{QtLocation::MapPolygon}{MapPolygon}
+        \li A polygon made of an arbitrary list of \l {coordinate}{coordinates}.
+    \row
+        \li \l{QtLocation::MapPolyline}{MapPolyline}
+        \li A polyline made of an arbitrary list of \l {coordinate}{coordinates}.
+    \row
+        \li \l{QtLocation::MapQuickItem}{MapQuickItem}
+        \li Turns any arbitrary QtQuick Item into a map overlay object.  MapQuickItem is an enabler for specifying custom map overlay objects.
+\endtable
+
+\section2 Model-View Design with Map Overlay Objects
+
+To automatically generate map overlay objects based on the contents of a QtQuick
+model (for example a ListModel item), the \l{QtLocation::MapItemView}{MapItemView}
+type is available. It accepts any map overlay object as its delegate, and can
+only be created within a \l{QtLocation::Map}{Map}.
+
+\b{Key Types}
+\table
+    \row
+        \li \l{QtLocation::MapItemView}{MapItemView}
+        \li Populates a Map with map overlay objects based on the data provided by a model.
+\endtable
+
+\section2 Interaction with Map Overlay Objects
+
+Properties of map overlay objects that influence their appearance on the display can
+be changed at any time, and many can also be used in animations. Animating
+coordinate-based map overlay objects, such as MapPolygon and MapPolyline, is not yet
+available.
+
+\section1 Geocoding -- Address to Coordinate and Vice Versa
+
+Geocoding is the translation of geographic coordinates into addresses, or vice
+versa.  Such a translation usually involves sending the source data to a server
+which then performs the translation and returns the results, although some
+location-based service provider \l{QtLocation::Plugin}{plugins} may be able to
+provide some geocoding functionality without sending data to a remote server.
+The availability and accuracy of the translation usually depends on the location
+or address being translated, as different areas of the Earth are mapped to
+varying degrees of accuracy.
+
+A geocoding query in QML is performed using the
+\l{QtLocation::GeocodeModel}{GeocodeModel} type. For an address-to-coordinate
+query, its \c{query} property may be set to either an
+\l [QtPositioning]{Address} object or a string containing the textual
+form of the address to search for. To perform the reverse, the same property
+can be set to a \l {coordinate} instead. Results are made available in the
+contents of the model.
+
+\b{Key Types}
+\table
+    \row
+        \li \l{QtLocation::Plugin}{Plugin}
+        \li A location-based services plugin provides data including geocoding translation results which are exposed to clients via a GeocodeModel.
+    \row
+        \li \l{QtLocation::GeocodeModel}{GeocodeModel}
+        \li Queries the Plugin for geocoding translations and provides access to results via indexes in the model.
+    \row
+        \li \l[QtPositioning]{Address}
+        \li Structured address for use in queries and results of geocoding.
+\endtable
+
+Note that the client must create a \l{QtLocation::Plugin}{Plugin} object
+prior to using a \l{QtLocation::GeocodeModel}{GeocodeModel} object. This
+will enable access to geocoding translation services and thus data to display.
+
+\section1 Routing and Navigation
+
+Routing is the determination of a navigable path from one point to another on
+a map. Given a map that is aware of features that aid or hinder navigation, such as
+bridges, waterways and so on, a series of segments that make
+up the journey can be constructed. If these \l {RouteSegment}s are simple then we can
+add navigation information at the connecting points, \l {RouteManeuver}s,
+between the segments.
+
+\b{Key Types}
+\table
+    \row
+        \li \l{QtLocation::Route}{Route}
+        \li The entire path to be navigated.
+    \row
+        \li \l{QtLocation::RouteSegment}{RouteSegment}
+        \li The individual components of a route.
+    \row
+        \li \l{QtLocation::RouteManeuver}{RouteManeuver}
+        \li The navigation information that joins segments.
+    \row
+        \li \l{QtLocation::RouteModel}{RouteModel}
+        \li The means of making requests on the backend to supply route
+        information.
+\endtable
+
+
+
+
+
+
+*/
+
+
+/*!
+\page location-maps-cpp.html
+\title Maps and Navigation (C++)
+
+\brief Provides C++ classes for Geocoding and Navigation.
+
+\b{Maps and Navigation} provides C++ utilities for geocoding (finding a
+geographic coordinate from a street address) and navigation (including driving
+and walking directions).
+
+Currently it is not possible to interact with maps via C++. Mapping applications
+must use the \l {Maps and Navigation (QML)} API.
+
+
+\section1 Geocoding
+
+In C++, an address-to-coordinate query is performed using the
+\l{QGeoCodingManager::geocode()}{geocode()} method of the QGeoCodingManager
+class. For coordinate-to-address queries, the
+\l{QGeoCodingManager::reverseGeocode()}{reverseGeocode()} method is available
+on the same class. Instances of QGeoCodingManager are available via
+\l{QGeoServiceProvider}.
+
+\b{Key Classes}
+\table
+    \row
+        \li \l{QGeoServiceProvider}
+        \li Provides a QGeoCodingManager instance ready for use.
+    \row
+        \li \l{QGeoCodingManager}
+        \li Accepts queries and produces QGeoCodeReply objects.
+    \row
+        \li \l{QGeoCodeReply}
+        \li Contains the results of a geocoding query.
+\endtable
+
+\section1 Navigation
+
+In C++, a route query is performed using the \l{QGeoRoutingManager::calculateRoute()}{calculate()}
+method of the QGeoRoutingManager class. The returned route reply can contain
+multiple routes to the same destination.
+
+\b{Key Classes}
+\table
+    \row
+        \li \l{QGeoServiceProvider}
+        \li Provides a QGeoCodingManager instance ready for use.
+    \row
+        \li \l{QGeoRoutingManager}
+        \li Accepts queries and produces QGeoRouteReply objects.
+    \row
+        \li \l{QGeoRouteReply}
+        \li Contains the results of a routing query.
+    \row
+        \li \l{QGeoRoute}
+        \li Contains information about a route.
+\endtable
+
+
+*/

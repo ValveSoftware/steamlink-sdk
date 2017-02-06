@@ -1,0 +1,67 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "media/cdm/external_clear_key_test_helper.h"
+
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/native_library.h"
+#include "base/path_service.h"
+#include "media/cdm/api/content_decryption_module.h"
+#include "media/cdm/cdm_paths.h"
+#include "testing/gtest/include/gtest/gtest.h"
+
+namespace media {
+
+// INITIALIZE_CDM_MODULE is a macro in api/content_decryption_module.h.
+// However, we need to pass it as a string to GetFunctionPointer() once it
+// is expanded.
+#define STRINGIFY(X) #X
+#define MAKE_STRING(X) STRINGIFY(X)
+
+const char kClearKeyCdmBaseDirectory[] = "ClearKeyCdm";
+
+ExternalClearKeyTestHelper::ExternalClearKeyTestHelper() {
+  LoadLibrary();
+}
+
+ExternalClearKeyTestHelper::~ExternalClearKeyTestHelper() {
+  UnloadLibrary();
+}
+
+void ExternalClearKeyTestHelper::LoadLibrary() {
+  // Determine the location of the CDM. It is expected to be in the same
+  // directory as the current module.
+  base::FilePath cdm_base_path;
+  ASSERT_TRUE(PathService::Get(base::DIR_MODULE, &cdm_base_path));
+  cdm_base_path = cdm_base_path.Append(
+      GetPlatformSpecificDirectory(kClearKeyCdmBaseDirectory));
+  library_path_ = cdm_base_path.AppendASCII(
+      base::GetNativeLibraryName(kClearKeyCdmLibraryName));
+  ASSERT_TRUE(base::PathExists(library_path_)) << library_path_.value();
+
+  // Now load the CDM library.
+  base::NativeLibraryLoadError error;
+  library_.Reset(base::LoadNativeLibrary(library_path_, &error));
+  ASSERT_TRUE(library_.is_valid()) << error.ToString();
+
+  // Call INITIALIZE_CDM_MODULE()
+  typedef void (*InitializeCdmFunc)();
+  InitializeCdmFunc initialize_cdm_func = reinterpret_cast<InitializeCdmFunc>(
+      library_.GetFunctionPointer(MAKE_STRING(INITIALIZE_CDM_MODULE)));
+  ASSERT_TRUE(initialize_cdm_func) << "No INITIALIZE_CDM_MODULE in library";
+  initialize_cdm_func();
+}
+
+void ExternalClearKeyTestHelper::UnloadLibrary() {
+  // Call DeinitializeCdmModule()
+  typedef void (*DeinitializeCdmFunc)();
+  DeinitializeCdmFunc deinitialize_cdm_func =
+      reinterpret_cast<DeinitializeCdmFunc>(
+          library_.GetFunctionPointer("DeinitializeCdmModule"));
+  ASSERT_TRUE(deinitialize_cdm_func) << "No DeinitializeCdmModule() in library";
+  deinitialize_cdm_func();
+}
+
+}  // namespace media

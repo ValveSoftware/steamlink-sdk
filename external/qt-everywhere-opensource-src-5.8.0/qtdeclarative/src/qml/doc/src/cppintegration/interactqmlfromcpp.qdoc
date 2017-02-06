@@ -1,0 +1,265 @@
+﻿/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtqml-cppintegration-interactqmlfromcpp.html
+\title Interacting with QML Objects from C++
+\brief Description of how to load and access QML objects from C++ code
+
+All QML object types are QObject-derived types, whether they are internally
+implemented by the engine or \l
+{qtqml-cppintegration-definetypes.html}{defined by third-party
+sources}. This means the QML engine can use the Qt \l{Meta Object System} to
+dynamically instantiate any QML object type and inspect the created objects.
+
+This is useful for creating QML objects from C++ code, whether to display a QML
+object that can be visually rendered, or to integrate non-visual QML object data
+into a C++ application. Once a QML object is created, it can be inspected from
+C++ in order to read and write to properties, invoke methods and receive signal
+notifications.
+
+
+\section1 Loading QML Objects from C++
+
+A QML document can be loaded with QQmlComponent or QQuickView. QQmlComponent
+loads a QML document as a C++ object that can then be modified from C++ code.
+QQuickView also does this, but as QQuickView is a QWindow-derived class, the
+loaded object will also be rendered into a visual display; QQuickView is
+generally used to integrate a displayable QML object into an application's
+user interface.
+
+For example, suppose there is a \c MyItem.qml file that looks like this:
+
+\snippet qml/qtbinding/loading/MyItem.qml start
+\snippet qml/qtbinding/loading/MyItem.qml end
+
+This QML document can be loaded with QQmlComponent or QQuickView with the
+following
+C++ code. Using a QQmlComponent requires calling QQmlComponent::create() to
+create
+a new instance of the component, while a QQuickView automatically creates an
+instance of the
+component, which is accessible via QQuickView::rootObject():
+
+\table
+\row
+\li
+\snippet qml/qtbinding/loading/main.cpp QQmlComponent-a
+\dots 0
+\snippet qml/qtbinding/loading/main.cpp QQmlComponent-b
+\li
+\snippet qml/qtbinding/loading/main.cpp QQuickView
+\endtable
+
+This \c object is the instance of the \c MyItem.qml component that has been
+created. You can now modify the item's properties using QObject::setProperty()
+or QQmlProperty:
+
+\snippet qml/qtbinding/loading/main.cpp properties
+
+Alternatively, you can cast the object to its actual type and call methods with
+compile-time safety. In this case the base object of \c MyItem.qml is an
+\l Item, which is defined by the QQuickItem class:
+
+\snippet qml/qtbinding/loading/main.cpp cast
+
+You can also connect to any signals or call methods defined in the component
+using QMetaObject::invokeMethod() and QObject::connect(). See \l {Invoking QML Methods}
+and \l {Connecting to QML Signals} below for further details.
+
+
+\section1 Accessing Loaded QML Objects by Object Name
+
+QML components are essentially object trees with children that have siblings and
+their own children. Child objects of QML components can be located using the
+QObject::objectName property with QObject::findChild(). For example, if the root
+item in \c MyItem.qml had a child \l Rectangle item:
+
+\snippet qml/qtbinding/loading/MyItem.qml start
+\codeline
+\snippet qml/qtbinding/loading/MyItem.qml child
+\snippet qml/qtbinding/loading/MyItem.qml end
+
+The child could be located like this:
+
+\snippet qml/qtbinding/loading/main.cpp findChild
+
+Note that an object may have multiple children with the same \c objectName.
+For example, \l ListView creates multiple instances of its delegate, so if its
+delegate is declared with a particular objectName, the \l ListView will have
+multiple children with the same \c objectName. In this case,
+QObject::findChildren() can be used to find all children with a matching
+\c objectName.
+
+\warning While it is possible to use C++ to access and manipulate QML objects
+deep into the object tree, we recommend that you do not take this approach
+outside of application testing and prototyping. One strength of QML and C++
+integration is the ability to implement the QML user interface separately
+from the C++ logic and dataset backend, and this strategy breaks if the C++
+side reaches deep into the QML components to manipulate them directly. This
+would make it difficult to, for example, swap a QML view component for
+another view, if the new component was missing a required \c objectName. It
+is better for the C++ implementation to know as little as possible about the
+QML user interface implementation and the composition of the QML object tree.
+
+
+\section1 Accessing Members of a QML Object Type from C++
+
+\section2 Properties
+
+Any properties declared in a QML object are automatically accessible from C++.
+Given a QML item like this:
+
+\snippet qml/qtbinding/properties-qml/MyItem.qml 0
+
+The value of the \c someNumber property can be set and read using QQmlProperty,
+or QObject::setProperty() and QObject::property():
+
+\snippet qml/qtbinding/properties-qml/main.cpp 0
+
+You should always use QObject::setProperty(), QQmlProperty or
+QMetaProperty::write() to change a QML property value, to ensure the QML
+engine is made aware of the property change. For example, say you have a
+custom type \c PushButton with a \c buttonText property that internally
+reflects the value of a \c m_buttonText member variable. Modifying the member
+variable directly like this is not a good idea:
+
+\code
+//bad code
+QQmlComponent component(engine, "MyButton.qml");
+PushButton *button = qobject_cast<PushButton*>(component.create());
+button->m_buttonText = "Click me";
+\endcode
+
+Since the value is changed directly, this bypasses Qt's \l{The Meta-Object
+System}{meta-object system} and the QML engine is not made aware of the
+property change. This means property bindings to \c buttonText would not be
+updated, and any \c onButtonTextChanged handlers would not be called.
+
+\section2 Invoking QML Methods
+
+All QML methods are exposed to the meta-object system and can be called from C++
+using QMetaObject::invokeMethod(). Method parameters and return values passed
+from QML are always translated into QVariant values in C++.
+
+Here is a C++ application that calls a QML method using
+QMetaObject::invokeMethod():
+
+\table
+\row
+\li QML
+\li \snippet qml/qtbinding/functions-qml/MyItem.qml 0
+\row
+\li C++
+\li \snippet qml/qtbinding/functions-qml/main.cpp 0
+\endtable
+
+Notice the Q_RETURN_ARG() and Q_ARG() arguments for QMetaObject::invokeMethod()
+must be specified as QVariant types, as this is the generic data type used for
+QML method parameters and return values.
+
+
+\section2 Connecting to QML Signals
+
+All QML signals are automatically available to C++, and can be connected to
+using QObject::connect() like any ordinary Qt C++ signal. In return, any C++
+signal can be received by a QML object using
+\l {qtqml-syntax-signals.html}{signal handlers}.
+
+Here is a QML component with a signal named \c qmlSignal that is emitted with
+a string-type parameter. This signal is connected to a C++ object's slot using
+QObject::connect(), so that the \c cppSlot() method is called whenever the
+\c qmlSignal is emitted:
+
+\table
+\row
+\li
+\snippet qml/qtbinding/signals-qml/MyItem.qml 0
+\row
+\li
+\snippet qml/qtbinding/signals-qml/myclass.h 0
+\codeline
+\snippet qml/qtbinding/signals-qml/main.cpp 0
+\endtable
+
+When a QML object type is used as a signal parameter, the parameter should
+use \l var as the type, and the value should be received in C++ using the
+QVariant type:
+
+\table
+\row
+\li
+
+\qml
+ // MyItem.qml
+ import QtQuick 2.0
+
+ Item {
+     id: item
+     width: 100; height: 100
+
+     signal qmlSignal(var anObject)
+
+     MouseArea {
+         anchors.fill: parent
+         onClicked: item.qmlSignal(item)
+     }
+ }
+\endqml
+
+\li
+\code
+ class MyClass : public QObject
+ {
+     Q_OBJECT
+ public slots:
+     void cppSlot(const QVariant &v) {
+        qDebug() << "Called the C++ slot with value:" << v;
+
+        QQuickItem *item =
+            qobject_cast<QQuickItem*>(v.value<QObject*>());
+        qDebug() << "Item dimensions:" << item->width()
+                 << item->height();
+     }
+ };
+
+ int main(int argc, char *argv[]) {
+     QApplication app(argc, argv);
+
+     QQuickView view(QUrl::fromLocalFile("MyItem.qml"));
+     QObject *item = view.rootObject();
+
+     MyClass myClass;
+     QObject::connect(item, SIGNAL(qmlSignal(QVariant)),
+                      &myClass, SLOT(cppSlot(QVariant)));
+
+     view.show();
+     return app.exec();
+ }
+\endcode
+\endtable
+
+*/

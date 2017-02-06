@@ -1,0 +1,171 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example mapviewer
+    \title Map Viewer (QML)
+    \ingroup qtlocation-examples
+
+    \brief The Map Viewer example shows how to display and interact with a map,
+           search for an address, and find driving directions.
+
+    \image mapviewer.png
+
+    This is a large example covering many basic uses of maps, positioning, and
+    navigation services in Qt Location. This page is divided into sections
+    covering each of these areas of functionality with snippets from the code.
+
+    \include examples-run.qdocinc
+
+    \include example-parameters.qdocinc
+
+    \section1 Overview
+
+    QML types shown in this example:
+
+    \list
+    \li Displaying a map
+        \list
+        \li \l{QtLocation::Map}{Map}
+        \li \l{QtLocation::MapGestureArea}{MapGestureArea}
+        \li \l[QML]{coordinate}
+        \endlist
+    \li Finding an address
+        \list
+        \li \l{QtLocation::GeocodeModel}{GeocodeModel}
+        \li \l{QtLocation::MapItemView}{MapItemView}
+        \li \l{QtLocation::MapCircle}{MapCircle}
+        \endlist
+    \li Directions and travel routes
+        \list
+        \li \l{QtLocation::RouteModel}{RouteModel}
+        \li \l{QtLocation::MapRoute}{MapRoute}
+        \endlist
+    \endlist
+
+    \section1 Displaying a Map
+
+    Drawing a map on-screen is accomplished using the Map type, as shown
+    below.
+
+    \snippet mapviewer/map/MapComponent.qml top
+    \snippet mapviewer/map/MapComponent.qml coord
+    \snippet mapviewer/map/MapComponent.qml end
+
+    In this example, we give the map an initial center \l [QML]{coordinate}
+    with a set latitude and longitude. We also set the initial zoom level to 50% (halfway between
+    the maximum and minimum).
+
+    \section1 Finding an Address (Geocoding)
+
+    To locate a certain address or place on the map uses a process called
+    geocoding. In order to perform a geocode operation, we first need to adjust
+    our Map object to be able to receive the result.
+
+    Receiving results of geocoding is done through a GeocodeModel:
+
+    \snippet mapviewer/map/MapComponent.qml geocodemodel0
+
+    To display the contents of the GeocodeModel we use a MapItemView:
+
+    \snippet mapviewer/map/MapComponent.qml geocodeview
+
+    MapItemView uses an object called a "delegate" to act as a template for the
+    items it creates. This can contain any map object desired, but in this case
+    we show a MapCircle:
+
+    \snippet mapviewer/map/MapComponent.qml pointdel0
+    \snippet mapviewer/map/MapComponent.qml pointdel1
+
+    With these three objects, we have enough to receive Geocode responses and
+    display them on our Map. The final piece is to send the actual Geocode
+    request.
+
+    To send a geocode request, first we create an \l [QML]{Address} object, and fill it
+    in with the desired parameters.
+
+    \snippet mapviewer/mapviewer.qml geocode0
+
+    Then we set "geocodeModel.query" to the filled in \l [QML]{Address},
+    and call update() on the GeocodeModel.
+
+    \snippet mapviewer/map/MapComponent.qml geocode1
+
+    \section1 Directions and Travel Routes
+
+    Similar to the GeocodeModel, Qt Location also features the RouteModel type,
+    which allows information about routes (for example driving directions) between two
+    or more points, to be received and used with a Map.
+
+    Here again, we instantiate the RouteModel as a property of our Map:
+
+    \snippet mapviewer/map/MapComponent.qml routemodel0
+
+    To display the contents of a model to the user, we need a view. Once again
+    we will use a MapItemView, to display the Routes as objects on the Map:
+
+    \snippet mapviewer/map/MapComponent.qml routeview0
+    \snippet mapviewer/map/MapComponent.qml routeview1
+
+    To act as a template for the objects we wish the view to create, we create
+    a delegate component:
+
+    \snippet mapviewer/map/MapComponent.qml routedelegate0
+    \snippet mapviewer/map/MapComponent.qml routedelegate1
+
+    With the model, view and delegate now complete, the only missing component
+    is some kind of control over the model to begin the Route request process.
+    In the simplest case, we can fill out a Route request using two already
+    available \l [QML]{coordinate}{coordinates}:
+
+    \snippet mapviewer/mapviewer.qml routecoordinate
+
+    In the next snippet, we show how to set up the request object and instruct
+    the model to update. We also instruct the map to center on the start
+    coordinate for our routing request.
+
+    \snippet mapviewer/map/MapComponent.qml routerequest0
+    \snippet mapviewer/map/MapComponent.qml routerequest1
+    \snippet mapviewer/map/MapComponent.qml routerequest2
+
+    This is all that is required to display a Route on the Map. However, it is
+    also useful to be able to retrieve the written directions and explanation
+    of the travel route. In the example, these are displayed in a \l {ListView} element.
+    To create this content, we use a standard \l {Models and Views in Qt Quick#ListModel}{ListModel} and
+    \l {ListView} pair. The data in the \l {Models and Views in Qt Quick#ListModel}{ListModel} is
+    built from the routeModel's output:
+
+    \snippet mapviewer/forms/RouteList.qml routeinfomodel0
+    \snippet mapviewer/forms/RouteList.qml routeinfomodel1
+    \snippet mapviewer/forms/RouteList.qml routeinfomodel3
+
+    Inside the RouteModel, as you can see above, we add an
+    \l{QtLocation::RouteModel::status}{onStatusChanged} handler, which
+    calls the \c{showRouteList()} which updates the \c{routeInfoModel}:
+
+    \snippet mapviewer/forms/RouteList.qml routeinfomodel2
+*/

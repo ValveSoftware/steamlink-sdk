@@ -1,0 +1,78 @@
+/*
+ * Copyright 2015 Google Inc.
+ *
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+#ifndef GrContextOptions_DEFINED
+#define GrContextOptions_DEFINED
+
+#include "SkTypes.h"
+
+struct GrContextOptions {
+    GrContextOptions()
+        : fSuppressPrints(false)
+        , fMaxTextureSizeOverride(SK_MaxS32)
+        , fMaxTileSizeOverride(0)
+        , fSuppressDualSourceBlending(false)
+        , fBufferMapThreshold(-1)
+        , fUseDrawInsteadOfPartialRenderTargetWrite(false)
+        , fImmediateMode(false)
+        , fClipBatchToBounds(false)
+        , fDrawBatchBounds(false)
+        , fMaxBatchLookback(-1)
+        , fMaxBatchLookahead(-1)
+        , fUseShaderSwizzling(false)
+        , fDoManualMipmapping(false) {}
+
+    // Suppress prints for the GrContext.
+    bool fSuppressPrints;
+
+    /** Overrides: These options override feature detection using backend API queries. These
+        overrides can only reduce the feature set or limits, never increase them beyond the
+        detected values. */
+
+    int  fMaxTextureSizeOverride;
+    /** If non-zero, overrides the maximum size of a tile for sw-backed images and bitmaps rendered
+        by SkGpuDevice. */
+    int  fMaxTileSizeOverride;
+    bool fSuppressDualSourceBlending;
+
+    /** the threshold in bytes above which we will use a buffer mapping API to map vertex and index
+        buffers to CPU memory in order to update them.  A value of -1 means the GrContext should
+        deduce the optimal value for this platform. */
+    int  fBufferMapThreshold;
+
+    /** some gpus have problems with partial writes of the rendertarget */
+    bool fUseDrawInsteadOfPartialRenderTargetWrite;
+
+    /** The GrContext operates in immediate mode. It will issue all draws to the backend API
+        immediately. Intended to ease debugging. */
+    bool fImmediateMode;
+
+    /** For debugging purposes turn each GrBatch's bounds into a clip rect. This is used to
+        verify that the clip bounds are conservative. */
+    bool fClipBatchToBounds;
+
+    /** For debugging purposes draw a wireframe device bounds rect for each GrBatch. The wire
+        frame rect is draw before the GrBatch in order to visualize batches that draw outside
+        of their dev bounds. */
+    bool fDrawBatchBounds;
+
+    /** For debugging, override the default maximum look-back or look-ahead window for GrBatch
+        combining. */
+    int fMaxBatchLookback;
+    int fMaxBatchLookahead;
+
+    /** Force us to do all swizzling manually in the shader and don't rely on extensions to do
+        swizzling. */
+    bool fUseShaderSwizzling;
+
+    /** Construct mipmaps manually, via repeated downsampling draw-calls. This is used when
+        the driver's implementation (glGenerateMipmap) contains bugs. This requires mipmap
+        level and LOD control (ie desktop or ES3). */
+    bool fDoManualMipmapping;
+};
+
+#endif

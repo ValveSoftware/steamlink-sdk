@@ -1,0 +1,169 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+    \page qtserialbus-socketcan-overview.html
+    \title Using SocketCAN Plugin
+
+    \brief Overview of how to use the SocketCAN plugin.
+
+    The SocketCAN plugin encapsulates the Linux sockets API for accessing the CAN devices.
+    This API is a set of open source CAN drivers and a networking stack contributed by
+    Volkswagen Research to the Linux kernel.
+
+    \section1 SocketCAN usage
+
+    To list all (including unconfigured) network interfaces, the command
+    \c{ifconfig -a} can be used.
+
+    To use SocketCAN, the corresponding Linux Kernel modules must be loaded
+    and the network interface must be configured.
+
+    \section2 Setting up real CAN hardware
+
+    This section assumes, that the device driver is already loaded
+    (most likely automatically when connecting the CAN hardware).
+
+    To set the device can0 to a bitrate of 250 kBit/s:
+    \code
+        sudo ip link set can0 type can bitrate 250000
+        sudo ip link set up can0
+    \endcode
+
+    \section2 Setting up a virtual CAN bus
+
+    \note For CAN FD usage, the MTU (Maximum Transmission Unit) has to be set
+    to 72 byte.
+
+    \code
+        sudo modprobe vcan
+        sudo ip link add dev vcan0 type vcan
+        sudo ip link set vcan0 mtu 72
+        sudo ip link set up vcan0
+    \endcode
+
+    The command line test programs used in the following are from
+    the \l{https://github.com/linux-can/can-utils}{can-utils} package:
+
+    \code
+        # Display received CAN messages
+        candump vcan0
+
+        # Send a CAN message
+        cansend vcan0 123##3112233445566778899aabbccddeeff
+
+        # Generate random CAN messages
+        cangen vcan0
+    \endcode
+
+    \section1 Creating CAN Bus Devices
+
+    At first it is necessary to check that QCanBus provides the desired plugin:
+
+    \code
+        if (QCanBus::instance()->plugins().contains(QStringLiteral("socketcan"))) {
+            // plugin available
+        }
+    \endcode
+
+    Where \e socketcan is the plugin name.
+
+    Next, a connection to a specific interface can be established:
+
+    \code
+        QCanBusDevice *device = QCanBus::instance()->createDevice(
+            QStringLiteral("socketcan"), QStringLiteral("can0"));
+        device->connectDevice();
+    \endcode
+
+    Where \e can0 is the active CAN interface name. CAN interfaces act like regular
+    network interfaces on Linux systems and can be discovered using \c ifconfig.
+
+    The device is now open for writing and reading CAN frames:
+
+    \code
+        QCanBusFrame frame;
+        frame.setFrameId(8);
+        QByteArray payload("A36E");
+        frame.setPayload(payload);
+        device->writeFrame(frame);
+    \endcode
+
+    The reading can be done using the \l {QCanBusDevice::}{readFrame()} method. The
+    \l {QCanBusDevice::}{framesReceived()} signal is emitted when at least one new frame
+    is available for reading:
+
+    \code
+        QCanBusFrame frame = device->readFrame();
+    \endcode
+
+    SocketCAN supports the following configurations that can be controlled through
+    \l {QCanBusDevice::}{setConfigurationParameter()}:
+
+    \table
+        \header
+            \li Configuration parameter key
+            \li Description
+        \row
+            \li QCanBusDevice::LoopbackKey
+            \li To meet the multiple-user needs, the local loopback is enabled by default.
+                This means, whenever a CAN frame is transmitted on the CAN bus, a local
+                echo of this frame is sent to all applications connected to this CAN device.
+        \row
+            \li QCanBusDevice::ReceiveOwnKey
+            \li The reception of the CAN frames on the same socket that was sending the CAN frame
+                is disabled by default. When enabling this option, all CAN frames sent to the CAN
+                bus immediately appear in the receive buffer. This can be used to check if sending
+                was successful.
+        \row
+            \li QCanBusDevice::ErrorFilterKey
+            \li A CAN interface driver can generate so called \e {Error Message Frames} that can
+                optionally be passed to the user application in the same way as other CAN frames.
+                The possible errors are divided into different error classes that may be filtered
+                using the appropriate error mask. The values for the error mask are defined in
+                \c {linux/can/error.h}.
+        \row
+            \li QCanBusDevice::RawFilterKey
+            \li This configuration can contain multiple filters of type \l QCanBusDevice::Filter.
+                By default, the connection is configured to accept any CAN bus message.
+        \row
+            \li QCanBusDevice::BitRateKey
+            \li This configuration is not supported by the socketcan plugin. However
+                it is possible to set the rate when configuring the CAN network interface using
+                the \c {ip link} command.
+        \row
+            \li QCanBusDevice::CanFdKey
+            \li This configuration option determines whether CANFD frames may be sent or received.
+                By default, this option is disabled. It controls the CAN_RAW_FD_FRAMES
+                option of the CAN socket.
+    \endtable
+
+    For example:
+
+    \snippet snippetmain.cpp SocketCan Filter Example
+
+    Extended frame format and flexible data-rate are supported in SocketCAN.
+ */

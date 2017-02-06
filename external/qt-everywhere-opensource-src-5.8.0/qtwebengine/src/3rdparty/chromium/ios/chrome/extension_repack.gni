@@ -1,0 +1,103 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//tools/grit/repack.gni")
+
+# Pack all resources for an application extension for a given locale.
+#
+# Arguments:
+#
+#   extension [required]
+#       name of the application extension.
+#
+#   input_locale [required]
+#       name of the locale to pack.
+#
+#   output_locale [required]
+#       name of the locale (may be different from input_locale as iOS
+#       and Chrome does not use the same convention for naming locales
+#       with country variants).
+#
+#   visibility [optional]
+#       usual meaning.
+#
+template("_extension_repack_one_locale") {
+  assert(defined(invoker.extension), "Need extension for $target_name")
+  assert(defined(invoker.input_locale), "Need input_locale for $target_name")
+  assert(defined(invoker.output_locale), "Need output_locale for $target_name")
+
+  repack_and_bundle(target_name) {
+    forward_variables_from(invoker, [ "visibility" ])
+
+    deps = [
+      "//ios/chrome/${invoker.extension}/strings",
+    ]
+
+    sources = [
+      "$root_gen_dir/ios/${invoker.extension}/" +
+          "ios_${invoker.extension}_strings_${invoker.input_locale}.pak",
+    ]
+
+    output = "$target_gen_dir/${invoker.output_locale}.lproj/locale.pak"
+    bundle_output = "{{bundle_resources_dir}}/" +
+                    "${invoker.output_locale}.lproj/locale.pak"
+  }
+}
+
+# Pack all resoruces for an application extension for all locales.
+#
+# Arguments:
+#
+#   extension [required]
+#       name of the application extension.
+#
+#   input_locales [required]
+#       list of all locales to pack.
+#
+#   output_locales [required]
+#       list of all locales in application bundle (may differ from input
+#       locales as iOS and Chrome does not use the same convention for
+#       naming locales with country variants).
+#
+#       Must be the same length as input_locales.
+#
+#   visibility [optional]
+#       usual meaning.
+#
+template("extension_repack_all_locales") {
+  assert(defined(invoker.extension), "Need extension for $target_name")
+  assert(defined(invoker.input_locales), "Need input_locales for $target_name")
+  assert(defined(invoker.output_locales),
+         "Need output_locales for $target_name")
+
+  _target_name = target_name
+
+  # TODO(614747): GN parser does not grok invoker.output_locales[foo]. Use a
+  # local variables to workaround this issue until the issue is fixed.
+  _current_locale = 0
+  _output_locales = invoker.output_locales
+
+  # Collect all locale targets to avoid looping twice over the locales.
+  _locale_targets = []
+
+  foreach(_input_locale, invoker.input_locales) {
+    _output_locale = _output_locales[_current_locale]
+
+    _locale_target = _target_name + "_$_input_locale"
+    _extension_repack_one_locale(_locale_target) {
+      visibility = [ ":$_target_name" ]
+      input_locale = _input_locale
+      output_locale = _output_locale
+      extension = invoker.extension
+    }
+
+    _locale_targets += [ ":$_locale_target" ]
+    _current_locale = _current_locale + 1
+  }
+
+  group(_target_name) {
+    forward_variables_from(invoker, [ "visibility" ])
+    public_deps = _locale_targets
+  }
+}

@@ -1,0 +1,61 @@
+{%- import "interface_macros.tmpl" as interface_macros %}
+class {{interface.name}}Proxy;
+class {{interface.name}}Stub;
+
+class {{interface.name}}RequestValidator;
+{%- if interface|has_callbacks %}
+class {{interface.name}}ResponseValidator;
+{%- endif %}
+
+class {{interface.name}} {
+ public:
+  static const char Name_[];
+  static const uint32_t Version_ = {{interface.version}};
+  static const bool PassesAssociatedKinds_ = {% if interface|passes_associated_kinds %}true{% else %}false{% endif %};
+  static const bool HasSyncMethods_ = {% if interface|has_sync_methods %}true{% else %}false{% endif %};
+
+  using Proxy_ = {{interface.name}}Proxy;
+  using Stub_ = {{interface.name}}Stub;
+
+  using RequestValidator_ = {{interface.name}}RequestValidator;
+{%- if interface|has_callbacks %}
+  using ResponseValidator_ = {{interface.name}}ResponseValidator;
+{%- else %}
+  using ResponseValidator_ = mojo::PassThroughFilter;
+{%- endif %}
+
+{#--- Enums #}
+{% from "enum_macros.tmpl" import enum_decl -%}
+{%- for enum in interface.enums %}
+{%-   if enum|is_native_only_kind %}
+  using {{enum.name}} = mojo::NativeEnum;
+{%-   else %}
+  {{enum_decl(enum)|indent(2)}}
+{%-   endif %}
+{%- endfor %}
+
+{#--- Constants #}
+{%- for constant in interface.constants %}
+{%-   if constant.kind|is_integral_kind %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}} = {{constant|constant_value}};
+{%-   else %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}};
+{%-   endif %}
+{%- endfor %}
+
+{#--- Methods #}
+  virtual ~{{interface.name}}() {}
+
+{%- for method in interface.methods %}
+{%    if method.response_parameters != None %}
+{%-     if method.sync %}
+  // Sync method. This signature is used by the client side; the service side
+  // should implement the signature with callback below.
+  virtual bool {{method.name}}({{interface_macros.declare_sync_method_params("", method)}});
+{%-     endif %}
+
+  using {{method.name}}Callback = {{interface_macros.declare_callback(method, for_blink)}};
+{%-   endif %}
+  virtual void {{method.name}}({{interface_macros.declare_request_params("", method)}}) = 0;
+{%- endfor %}
+};

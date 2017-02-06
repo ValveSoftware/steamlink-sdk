@@ -1,0 +1,115 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Paths to the JSON files are kind of gross. They're stored in the gypi
+# relative to //components, since that's the working directory gyp seems
+# to use for all of the components. When we depend on them here, we need
+# to remove the leading domain_reliability, since *our* working directory
+# is one level deeper. When we call bake_in_configs.py, we need to give
+# it a properly-rebased path to //components so it can properly join the
+# paths relative to that and find the JSON files.
+
+baked_in_configs_gypi = exec_script("//build/gypi_to_gn.py",
+                                    [ rebase_path("baked_in_configs.gypi") ],
+                                    "scope",
+                                    [ "baked_in_configs.gypi" ])
+
+# The config file names in the .gypi are relative to "//components".
+baked_in_configs =
+    rebase_path(baked_in_configs_gypi.baked_in_configs, ".", "//components")
+
+action("bake_in_configs") {
+  visibility = [ ":*" ]
+  script = "bake_in_configs.py"
+
+  inputs = baked_in_configs + [ "baked_in_configs.gypi" ]
+  output_file = "$target_gen_dir/baked_in_configs.cc"
+  outputs = [
+    output_file,
+  ]
+
+  # The JSON file list is too long for the command line on Windows, so put
+  # them in a response file.
+  response_file_contents = rebase_path(baked_in_configs, root_build_dir)
+  args = [
+    "--file-list",
+    "{{response_file_name}}",
+    "--output",
+    rebase_path(output_file, root_build_dir),
+  ]
+}
+
+component("domain_reliability") {
+  sources = [
+    "baked_in_configs.h",
+    "beacon.cc",
+    "beacon.h",
+    "clear_mode.h",
+    "config.cc",
+    "config.h",
+    "context.cc",
+    "context.h",
+    "context_manager.cc",
+    "context_manager.h",
+    "dispatcher.cc",
+    "dispatcher.h",
+    "domain_reliability_export.h",
+    "google_configs.cc",
+    "google_configs.h",
+    "header.cc",
+    "header.h",
+    "monitor.cc",
+    "monitor.h",
+    "quic_error_mapping.cc",
+    "quic_error_mapping.h",
+    "scheduler.cc",
+    "scheduler.h",
+    "service.cc",
+    "service.h",
+    "uploader.cc",
+    "uploader.h",
+    "util.cc",
+    "util.h",
+  ]
+  sources += get_target_outputs(":bake_in_configs")
+
+  defines = [ "DOMAIN_RELIABILITY_IMPLEMENTATION" ]
+
+  deps = [
+    ":bake_in_configs",
+    "//base",
+    "//components/data_use_measurement/core",
+    "//components/keyed_service/core",
+    "//content/public/common",
+    "//net",
+    "//url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+  sources = [
+    "config_unittest.cc",
+    "context_unittest.cc",
+    "dispatcher_unittest.cc",
+    "google_configs_unittest.cc",
+    "header_unittest.cc",
+    "monitor_unittest.cc",
+    "scheduler_unittest.cc",
+    "test_util.cc",
+    "test_util.h",
+    "uploader_unittest.cc",
+    "util_unittest.cc",
+  ]
+
+  configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+
+  deps = [
+    ":domain_reliability",
+    "//base",
+    "//base/test:test_support",
+    "//net:test_support",
+    "//testing/gtest",
+  ]
+}

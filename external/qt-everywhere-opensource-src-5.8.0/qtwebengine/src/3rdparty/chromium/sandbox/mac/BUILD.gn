@@ -1,0 +1,64 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/mac/mac_sdk.gni")
+import("//testing/test.gni")
+
+component("sandbox") {
+  sources = [
+    "bootstrap_sandbox.cc",
+    "bootstrap_sandbox.h",
+    "launchd_interception_server.cc",
+    "launchd_interception_server.h",
+    "mach_message_server.cc",
+    "mach_message_server.h",
+    "message_server.h",
+    "os_compatibility.cc",
+    "os_compatibility.h",
+    "policy.cc",
+    "policy.h",
+    "pre_exec_delegate.cc",
+    "pre_exec_delegate.h",
+    "xpc.h",
+    "xpc_message_server.cc",
+    "xpc_message_server.h",
+  ]
+
+  defines = [ "SANDBOX_IMPLEMENTATION" ]
+  libs = [ "bsm" ]
+
+  deps = [
+    "//base",
+  ]
+}
+
+component("seatbelt") {
+  sources = [
+    "seatbelt.cc",
+    "seatbelt.h",
+    "seatbelt_export.h",
+  ]
+  libs = [ "sandbox" ]
+  defines = [ "SEATBELT_IMPLEMENTATION" ]
+}
+
+test("sandbox_mac_unittests") {
+  sources = [
+    "bootstrap_sandbox_unittest.mm",
+    "policy_unittest.cc",
+    "xpc_message_server_unittest.cc",
+  ]
+
+  libs = [
+    "CoreFoundation.framework",
+    "Foundation.framework",
+  ]
+
+  deps = [
+    ":sandbox",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//testing/gtest",
+  ]
+}

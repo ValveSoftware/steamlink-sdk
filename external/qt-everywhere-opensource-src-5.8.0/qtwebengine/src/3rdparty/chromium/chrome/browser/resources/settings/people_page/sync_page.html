@@ -1,0 +1,209 @@
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-pages/iron-pages.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-dropdown-menu/paper-dropdown-menu.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-input/paper-input.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-radio-button/paper-radio-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-radio-group/paper-radio-group.html">
+<link rel="import" href="/controls/settings_checkbox.html">
+<link rel="import" href="/people_page/sync_browser_proxy.html">
+<link rel="import" href="/settings_shared_css.html">
+
+<dom-module id="settings-sync-page">
+  <template>
+    <style include="settings-shared">
+      #create-password-box {
+        /* The password fields line up with the encryption radio box text. */
+        -webkit-margin-start: 36px;
+      }
+
+      paper-input {
+        width: var(--paper-input-max-width);
+      }
+    </style>
+    <iron-pages id="pages" selected="[[selectedPage_]]" attr-for-selected="id">
+      <div id="[[pages.SPINNER]]" class="settings-box first">
+        $i18n{syncLoading}
+      </div>
+      <div id="[[pages.TIMEOUT]]" class="settings-box first">
+        $i18n{syncTimeout}
+      </div>
+      <div id="[[pages.CONFIGURE]]">
+        <div class="settings-box first">
+          <paper-checkbox id="syncAllDataTypesCheckbox"
+              checked="{{syncPrefs.syncAllDataTypes}}"
+              on-change="onSyncAllDataTypesChanged_">
+            $i18n{syncEverythingCheckboxLabel}
+          </paper-checkbox>
+        </div>
+
+        <div class="list-frame">
+          <paper-checkbox checked="{{syncPrefs.appsSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.appsRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.appsEnforced)]]">
+            $i18n{appCheckboxLabel}
+          </paper-checkbox>
+
+          <!-- Autofill has a special on-change handler to deal with
+               Payments integriation. -->
+          <paper-checkbox checked="{{syncPrefs.autofillSynced}}"
+              on-change="onAutofillDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.autofillRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.autofillEnforced)]]">
+            $i18n{autofillCheckboxLabel}
+          </paper-checkbox>
+
+          <paper-checkbox checked="{{syncPrefs.bookmarksSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.bookmarksRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.bookmarksEnforced)]]">
+            $i18n{bookmarksCheckboxLabel}
+          </paper-checkbox>
+          <paper-checkbox checked="{{syncPrefs.extensionsSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.extensionsRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.extensionsEnforced)]]">
+            $i18n{extensionsCheckboxLabel}
+          </paper-checkbox>
+          <paper-checkbox checked="{{syncPrefs.typedUrlsSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.typedUrlsRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.typedUrlsEnforced)]]">
+            $i18n{historyCheckboxLabel}
+          </paper-checkbox>
+          <paper-checkbox checked="{{syncPrefs.passwordsSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.passwordsRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.passwordsEnforced)]]">
+            $i18n{passwordsCheckboxLabel}
+          </paper-checkbox>
+          <paper-checkbox checked="{{syncPrefs.preferencesSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.preferencesRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.preferencesEnforced)]]">
+            $i18n{settingsCheckboxLabel}
+          </paper-checkbox>
+          <paper-checkbox checked="{{syncPrefs.themesSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.themesRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.themesEnforced)]]">
+            $i18n{themesAndWallpapersCheckboxLabel}
+          </paper-checkbox>
+          <paper-checkbox checked="{{syncPrefs.tabsSynced}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.tabsRegistered]]"
+              disabled="[[shouldSyncCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.tabsEnforced)]]">
+            $i18n{openTabsCheckboxLabel}
+          </paper-checkbox>
+
+          <!-- The Payments integration checkbox is a special case in many ways.
+               It's visible only if autofill is registered. It's disabled and
+               unchecked if autofill is unchecked.-->
+          <paper-checkbox checked="{{syncPrefs.paymentsIntegrationEnabled}}"
+              on-change="onSingleSyncDataTypeChanged_" class="list-item"
+              hidden="[[!syncPrefs.autofillRegistered]]"
+              disabled="[[shouldPaymentsCheckboxBeDisabled_(
+                  syncPrefs.syncAllDataTypes, syncPrefs.autofillSynced)]]">
+            $i18n{enablePaymentsIntegrationCheckboxLabel}
+            <a href="$i18nRaw{autofillHelpURL}" target="_blank">
+              $i18n{learnMore}
+            </a>
+          </paper-checkbox>
+        </div>
+
+        <div class="settings-box two-line" on-tap="onManageSyncedDataTap_"
+            actionable>
+          <div class="start">
+            $i18n{manageSyncedDataTitle}
+            <div class="secondary">
+              $i18n{manageSyncedDataDescription}
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-box two-line">
+          <div class="start">
+            $i18n{encryptionOptionsTitle}
+            <div class="secondary">
+              $i18n{syncDataEncryptedText}
+            </div>
+          </div>
+        </div>
+
+        <div id="encryptionRadioGroupContainer" class="list-frame"
+            hidden="[[syncPrefs.passphraseRequired]]">
+          <paper-radio-group
+              selected="[[selectedEncryptionRadio_(
+                  syncPrefs.passphraseTypeIsCustom)]]"
+              on-paper-radio-group-changed="onEncryptionRadioSelectionChanged_">
+            <paper-radio-button name="encrypt-with-google"
+                class="list-item" disabled="[[syncPrefs.encryptAllData]]">
+              $i18n{encryptWithGoogleCredentialsLabel}
+            </paper-radio-button>
+            <paper-radio-button name="encrypt-with-passphrase"
+                class="list-item" disabled="[[syncPrefs.encryptAllData]]">
+              <span>
+                [[encryptWithPassphraseBody_(syncPrefs.fullEncryptionBody)]]
+              </span>
+            </paper-radio-button>
+          </paper-radio-group>
+        </div>
+
+        <template is="dom-if" if="[[creatingNewPassphrase_]]">
+          <div class="list-frame">
+            <div id="create-password-box">
+              <div>$i18n{passphraseExplanationText}</div>
+              <paper-input id="passphraseInput" type="password"
+                  placeholder="$i18n{passphrasePlaceholder}"
+                  error-message="$i18n{emptyPassphraseError}">
+              </paper-input>
+              <paper-input id="passphraseConfirmationInput" type="password"
+                  placeholder="$i18n{passphraseConfirmationPlaceholder}"
+                  error-message="$i18n{mismatchedPassphraseError}">
+              </paper-input>
+              <paper-button id="saveNewPassphrase"
+                  on-tap="onSaveNewPassphraseTap_" class="action-button">
+                $i18n{save}
+              </paper-button>
+            </div>
+          </div>
+        </template>
+
+        <template is="dom-if" if="[[syncPrefs.passphraseRequired]]">
+          <div class="list-frame">
+            <div id="askCustomPassphraseMessage"
+                hidden$="[[!syncPrefs.passphraseTypeIsCustom]]">
+              [[syncPrefs.enterPassphraseBody]]
+            </div>
+            <div id="askOldGooglePassphraseMessage"
+                hidden$="[[syncPrefs.passphraseTypeIsCustom]]">
+              [[syncPrefs.enterGooglePassphraseBody]]
+            </div>
+            <paper-input id="existingPassphraseInput" type="password"
+                placeholder="$i18n{passphrasePlaceholder}"
+                error-message="$i18n{incorrectPassphraseError}">
+            </paper-input>
+            <paper-button id="submitExistingPassphrase"
+                on-tap="onSubmitExistingPassphraseTap_" class="action-button">
+              $i18n{submitPassphraseButton}
+            </paper-button>
+          </div>
+        </template>
+      </div>
+    </iron-pages>
+  </template>
+  <script src="sync_page.js"></script>
+</dom-module>

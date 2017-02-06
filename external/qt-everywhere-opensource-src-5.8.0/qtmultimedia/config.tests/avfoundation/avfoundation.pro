@@ -1,0 +1,1 @@
+OBJECTIVE_SOURCES += main.mm

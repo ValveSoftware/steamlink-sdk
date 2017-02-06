@@ -1,0 +1,47 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module shell.mojom;
+
+// Mojo Capabilities -----------------------------------------------------------
+//
+// Mojo applications expose interfaces and capability classes to one another.
+//
+// An interface is just a Mojo interface, defined in a mojom file like this one.
+// In a CapabilitySpec, an interface is represented by its fully qualified name,
+// which is serialized based on the interface name and module:
+// module::path::InterfaceName.
+//
+// A class is an alias to something, either a set of interface names granted
+// with that class, or some behavior specific to the application that provides
+// it.
+
+// Describes the set of classes and interfaces required by an application.
+// Note that there may be overlap between the interfaces implied by the
+// resolution of classes and those specified in |interfaces|. The set of
+// interfaces granted to the requestor is the union of these sets.
+struct CapabilityRequest {
+  // An array of class names required.
+  array<string> classes;
+  // An array of interface names required.
+  array<string> interfaces;
+};
+
+// Describes the capabilities offered and requested by an application.
+// This struct is populated from the application manifest.
+struct CapabilitySpec {
+  // The classes offered by this application, and for each class an array of
+  // interfaces. If no interfaces are granted with a class, the array will be
+  // empty.
+  // A map of class name -> array of interfaces. The array can be empty,
+  // non-empty, or ["*"], which means allow access to all interfaces.
+  map<string, array<string>> provided;
+
+  // The applications this application needs to speak to, and the classes and
+  // interfaces it requests.
+  // A map of application name -> spec. "*" is also supported as the key, which
+  // supplies a CapabilityRequest for all applications in addition to specific
+  // ones specified.
+  map<string, CapabilityRequest> required;
+};

@@ -1,0 +1,177 @@
+From 0a5da8cd79a6b502edc01c40037ae418b2d5c828 Mon Sep 17 00:00:00 2001
+From: dumi <dumi@chromium.org>
+Date: Mon, 20 Jul 2009 23:40:51 +0000
+Subject: [PATCH 04/10] Modify default VFS to support WebDatabase.
+
+The renderer WebDatabase implementation needs to broker certain requests
+to the browser.  This modifies SQLite to allow monkey-patching the VFS
+to support this.
+
+NOTE(shess): This patch relies on core SQLite implementation details
+remaining unchanged.  When importing a new version of SQLite, pay very
+close attention to whether the change is still doing what is intended.
+
+Original review URLs:
+https://codereview.chromium.org/159044
+https://codereview.chromium.org/384075
+https://codereview.chromium.org/377039
+[Possibly not a complete list.]
+---
+ third_party/sqlite/src/src/os_unix.c   | 49 ++++++++++++++++++++++++++++++++++
+ third_party/sqlite/src/src/os_win.c    |  8 ++++++
+ third_party/sqlite/src/src/sqlite.h.in | 23 ++++++++++++++++
+ 3 files changed, 80 insertions(+)
+
+diff --git a/third_party/sqlite/src/src/os_unix.c b/third_party/sqlite/src/src/os_unix.c
+index 791ba5d..fa85638 100644
+--- a/third_party/sqlite/src/src/os_unix.c
++++ b/third_party/sqlite/src/src/os_unix.c
+@@ -1297,6 +1297,12 @@ static int fileHasMoved(unixFile *pFile){
+   return pFile->pInode!=0 && pFile->pId!=pFile->pInode->fileId.pId;
+ #else
+   struct stat buf;
++
++  /* TODO(shess): This check doesn't work when the Chromium's WebDB code is
++  ** running in the sandbox.
++  */
++  return 0;
++
+   return pFile->pInode!=0 &&
+       (osStat(pFile->zPath, &buf)!=0 || buf.st_ino!=pFile->pInode->fileId.ino);
+ #endif
+@@ -5554,6 +5560,44 @@ static int findCreateFileMode(
+ }
+ 
+ /*
++** Initialize |unixFile| internals of |file| on behalf of chromiumOpen() in
++** WebDatabase SQLiteFileSystemPosix.cpp.  Function is a subset of unixOpen(),
++** each duplicated piece is marked by "Duplicated in" comment in unixOpen().
++*/
++CHROMIUM_SQLITE_API
++int chromium_sqlite3_fill_in_unix_sqlite3_file(sqlite3_vfs* pVfs,
++                                               int fd,
++                                               sqlite3_file* pFile,
++                                               const char* zPath,
++                                               int noLock,
++                                               int flags) {
++  unixFile *p = (unixFile *)pFile;
++  const int eType = flags&0xFFFFFF00;  /* Type of file to open */
++  const int ctrlFlags = (noLock ? UNIXFILE_NOLOCK : 0);
++  int rc;
++
++  memset(p, 0, sizeof(unixFile));
++
++  /* osStat() will not work in the sandbox, so findReusableFd() will always
++  ** fail, so directly include the failure-case setup then initialize pUnused.
++  */
++  if( eType==SQLITE_OPEN_MAIN_DB ){
++    p->pUnused = sqlite3_malloc(sizeof(*p->pUnused));
++    if (!p->pUnused) {
++      return SQLITE_NOMEM;
++    }
++    p->pUnused->fd = fd;
++    p->pUnused->flags = flags;
++  }
++
++  rc = fillInUnixFile(pVfs, fd, pFile, zPath, ctrlFlags);
++  if( rc!=SQLITE_OK ){
++    sqlite3_free(p->pUnused);
++  }
++  return rc;
++}
++
++/*
+ ** Open the file zPath.
+ ** 
+ ** Previously, the SQLite OS layer used three functions in place of this
+@@ -5654,6 +5698,7 @@ static int unixOpen(
+     sqlite3_randomness(0,0);
+   }
+ 
++  /* Duplicated in chromium_sqlite3_fill_in_unix_sqlite3_file(). */
+   memset(p, 0, sizeof(unixFile));
+ 
+   if( eType==SQLITE_OPEN_MAIN_DB ){
+@@ -5662,6 +5707,7 @@ static int unixOpen(
+     if( pUnused ){
+       fd = pUnused->fd;
+     }else{
++      /* Duplicated in chromium_sqlite3_fill_in_unix_sqlite3_file(). */
+       pUnused = sqlite3_malloc64(sizeof(*pUnused));
+       if( !pUnused ){
+         return SQLITE_NOMEM;
+@@ -5739,6 +5785,7 @@ static int unixOpen(
+   }
+ 
+   if( p->pUnused ){
++    /* Duplicated in chromium_sqlite3_fill_in_unix_sqlite3_file(). */
+     p->pUnused->fd = fd;
+     p->pUnused->flags = flags;
+   }
+@@ -5819,10 +5866,12 @@ static int unixOpen(
+   }
+ #endif
+   
++  /* Duplicated in chromium_sqlite3_fill_in_unix_sqlite3_file(). */
+   rc = fillInUnixFile(pVfs, fd, pFile, zPath, ctrlFlags);
+ 
+ open_finished:
+   if( rc!=SQLITE_OK ){
++    /* Duplicated in chromium_sqlite3_fill_in_unix_sqlite3_file(). */
+     sqlite3_free(p->pUnused);
+   }
+   return rc;
+diff --git a/third_party/sqlite/src/src/os_win.c b/third_party/sqlite/src/src/os_win.c
+index c54bfd6..00ad6fd 100644
+--- a/third_party/sqlite/src/src/os_win.c
++++ b/third_party/sqlite/src/src/os_win.c
+@@ -5639,4 +5639,12 @@ int sqlite3_os_end(void){
+   return SQLITE_OK;
+ }
+ 
++CHROMIUM_SQLITE_API
++void chromium_sqlite3_initialize_win_sqlite3_file(sqlite3_file* file, HANDLE handle) {
++  winFile* winSQLite3File = (winFile*)file;
++  memset(file, 0, sizeof(*file));
++  winSQLite3File->pMethod = &winIoMethod;
++  winSQLite3File->h = handle;
++}
++
+ #endif /* SQLITE_OS_WIN */
+diff --git a/third_party/sqlite/src/src/sqlite.h.in b/third_party/sqlite/src/src/sqlite.h.in
+index 59b30cd..e5673fd 100644
+--- a/third_party/sqlite/src/src/sqlite.h.in
++++ b/third_party/sqlite/src/src/sqlite.h.in
+@@ -7411,6 +7411,29 @@ int sqlite3_strnicmp(const char *, const char *, int);
+ */
+ int sqlite3_strglob(const char *zGlob, const char *zStr);
+ 
++/* Begin WebDatabase patch for Chromium */
++/* Expose some SQLite internals for the WebDatabase vfs.
++** DO NOT EXTEND THE USE OF THIS.
++*/
++#ifndef CHROMIUM_SQLITE_API
++#define CHROMIUM_SQLITE_API SQLITE_API
++#endif
++#if defined(CHROMIUM_SQLITE_INTERNALS)
++#ifdef _WIN32
++CHROMIUM_SQLITE_API
++void chromium_sqlite3_initialize_win_sqlite3_file(sqlite3_file* file, HANDLE handle);
++#else  /* _WIN32 */
++CHROMIUM_SQLITE_API
++int chromium_sqlite3_fill_in_unix_sqlite3_file(sqlite3_vfs* pVfs,
++                                               int fd,
++                                               sqlite3_file* pFile,
++                                               const char* zPath,
++                                               int noLock,
++                                               int flags);
++#endif  /* _WIN32 */
++#endif  /* CHROMIUM_SQLITE_INTERNALS */
++/* End WebDatabase patch for Chromium */
++
+ /*
+ ** CAPI3REF: String LIKE Matching
+ *
+-- 
+2.7.0
+

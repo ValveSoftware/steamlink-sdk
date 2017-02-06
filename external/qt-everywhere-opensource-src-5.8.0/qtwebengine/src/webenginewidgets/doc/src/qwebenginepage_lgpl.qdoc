@@ -1,0 +1,764 @@
+/*
+    Copyright (C) 2015 The Qt Company Ltd.
+    Copyright (C) 2008, 2009, 2012 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2007 Staikos Computing Services Inc.
+    Copyright (C) 2007 Apple Inc.
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Library General Public
+    License as published by the Free Software Foundation; either
+    version 2 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Library General Public License for more details.
+
+    You should have received a copy of the GNU Library General Public License
+    along with this library; see the file COPYING.LIB.  If not, write to
+    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+    Boston, MA 02110-1301, USA.
+*/
+
+// The documentation in this file was imported from QtWebKit and is thus constrained
+// by its LGPL license. Documentation written from scratch for new methods should be
+// placed inline in the code as usual.
+
+/*!
+    \class QWebEnginePage
+    \brief The QWebEnginePage class provides an object to view and edit web documents.
+    \since 5.4
+    \inmodule QtWebEngineWidgets
+
+    A \e {web engine page} holds the contents of an HTML document, the history of navigated
+    links, and actions.
+
+    QWebEnginePage's API is very similar to QWebEngineView, as you are still provided with
+    common functions like action() (known as
+    \l{QWebEngineView::pageAction()}{pageAction}() in QWebEngineView), triggerAction(),
+    and findText().
+
+    A page can be loaded using load() or setUrl(). Alternatively, if you have
+    the HTML content readily available, you can use setHtml(). The GET method is
+    always used to load URLs.
+
+    The QWebEnginePage class also offers methods to retrieve both the URL currently
+    loaded by the page (see url()) as well as the URL originally requested
+    to be loaded (see requestedUrl()). These methods make possible the retrieval
+    of the URL before and after a DNS resolution or a redirection occurs during
+    the load process. The requestedUrl() also matches to the URL added to the
+    page history (\l{QWebEngineHistory}) if load is successful.
+
+    The title of an HTML page can be accessed with the title() property.
+    Additionally, a page may also specify an icon, which can be accessed
+    using the icon() or its URL using the iconUrl() property.
+    If the title or the icon changes, the corresponding titleChanged(), iconChanged()
+    and iconUrlChanged() signals will be emitted.
+    The zoomFactor() property enables zooming the contents of the web page by a
+    scale factor.
+
+    The loadStarted() signal is emitted when the page begins to load, whereas the loadProgress()
+    signal is emitted whenever an element of the web page completes loading, such as an embedded
+    image or a script. The loadFinished() signal is emitted when the page contents
+    have been loaded completely, independent of script execution or page rendering.
+    Its argument, either \c true or \c false, indicates whether or not the load
+    operation succeeded.
+
+    An HTML document is loaded in a \e {main frame} within the web page. If it references
+    \e {child frames} (as defined by the \c  <frame> or \c <iframe> elements), they are considered
+    part of the content. Child frames are individually accessible only through JavaScript.
+
+    Web sites define \e {security origin} for safely accessing each other's resources for
+    client-side scripting or databases. An origin consist of a host name, a scheme, and a port
+    number. For example, the sites \c http://www.example.com/my/page.html and
+    \c http://www.example.com/my/overview.html are allowed to share the same database or access
+    each other's documents when used in HTML frame sets and JavaScript. At the same time,
+    \c http://www.malicious.com/evil.html is prevented from accessing the resources of
+    \c http://www.example.com/, because they are of a different security origin.
+    By default, local schemes like \c file:// and \c qrc:// are considered to be in the same
+    security origin, and can access each other's resources. Local resources are by default
+    restricted from accessing remote content, which means that \c file:// will not be able to
+    access \c http://domain.com/foo.html.
+
+    Scripts can be executed on the web page by using runJavaScript(), either in the main
+    JavaScript \e world, along with the rest of the JavaScript coming from the web contents, or in
+    their own isolated world. While the DOM of the page can be accessed from any world, JavaScript
+    variables of a function defined in one world are not accessible from a different one.
+    QWebEngineScript::ScriptWorldId provides some predefined IDs for this purpose. Using the
+    \c runJavaScript() version without the world ID is the same as running the script in the
+    \c MainWorld.
+
+    The \l {QWebEngineSettings::FocusOnNavigationEnabled} {FocusOnNavigationEnabled} setting can be
+    used to stop the view associated with the page from automatically receiving focus when a
+    navigation operation occurs (like loading or reloading a page or navigating through history).
+*/
+
+/*!
+   \enum QWebEnginePage::FindFlag
+
+   This enum describes the options available to the findText() function. The options
+   can be OR-ed together from the following list:
+
+   \value FindBackward Searches backwards instead of forwards.
+   \value FindCaseSensitively By default findText() works case insensitive. Specifying this option
+   changes the behavior to a case sensitive find operation.
+*/
+
+/*!
+    \enum QWebEnginePage::WebAction
+
+    This enum describes the types of action which can be performed on the web page.
+
+    Actions only have an effect when they are applicable. The availability of
+    actions can be be determined by checking \l{QAction::}{isEnabled()} on the
+    action returned by action().
+
+    \value NoWebAction No action is triggered.
+    \value Back Navigate back in the history of navigated links.
+    \value Forward Navigate forward in the history of navigated links.
+    \value Stop Stop loading the current page.
+    \value Reload Reload the current page.
+    \value ReloadAndBypassCache Reload the current page, but do not use any local cache.
+    \value Cut Cut the content currently selected into the clipboard.
+    \value Copy Copy the content currently selected into the clipboard.
+    \value Paste Paste content from the clipboard.
+    \value Undo Undo the last editing action.
+    \value Redo Redo the last editing action.
+    \value SelectAll Select all content.
+    \value PasteAndMatchStyle Paste content from the clipboard with current style.
+
+    \value OpenLinkInThisWindow Open the current link in the current window. (Added in Qt 5.6)
+    \value OpenLinkInNewWindow Open the current link in a new window. (Added in Qt 5.6)
+    \value OpenLinkInNewTab Open the current link in a new tab. (Added in Qt 5.6)
+    \value OpenLinkInNewBackgroundTab Open the current link in a new background tab. (Added in Qt 5.7)
+    \value CopyLinkToClipboard Copy the current link to the clipboard. (Added in Qt 5.6)
+
+    \value CopyImageToClipboard Copy the clicked image to the clipboard. (Added in Qt 5.6)
+    \value CopyImageUrlToClipboard Copy the clicked image's URL to the clipboard. (Added in Qt 5.6)
+    \value CopyMediaUrlToClipboard Copy the hovered audio or video's URL to the clipboard. (Added in Qt 5.6)
+    \value ToggleMediaControls Toggle between showing and hiding the controls for the hovered audio
+           or video element. (Added in Qt 5.6)
+    \value ToggleMediaLoop Toggle whether the hovered audio or video should loop on completetion or
+           not. (Added in Qt 5.6)
+    \value ToggleMediaPlayPause Toggle the play/pause state of the hovered audio or video element.
+           (Added in Qt 5.6)
+    \value ToggleMediaMute Mute or unmute the hovered audio or video element. (Added in Qt 5.6)
+    \value DownloadLinkToDisk Download the current link to the disk. (Added in Qt 5.6)
+    \value DownloadImageToDisk Download the highlighted image to the disk. (Added in Qt 5.6)
+    \value DownloadMediaToDisk Download the hovered audio or video to the disk. (Added in Qt 5.6)
+
+    \value InspectElement Trigger any attached Web Inspector to inspect the highlighed element.
+           (Added in Qt 5.6)
+    \value ExitFullScreen Exit the fullscreen mode. (Added in Qt 5.6)
+    \value RequestClose Request to close the web page. If defined, the \c{window.onbeforeunload}
+           handler is run, and the user can confirm or reject to close the page. If the close
+           request is confirmed, \c windowCloseRequested is emitted. (Added in Qt 5.6)
+    \value Unselect Clear the current selection. (Added in Qt 5.7)
+    \value SavePage Save the current page to disk. MHTML is the default format that is used to store
+           the web page on disk. (Added in Qt 5.7)
+    \value ViewSource Show the source of the current page in a new tab. (Added in Qt 5.8)
+
+    \omitvalue WebActionCount
+
+*/
+
+/*!
+    \enum QWebEnginePage::WebWindowType
+
+    This enum describes the types of window that can be created by the createWindow() function:
+
+    \value  WebBrowserWindow
+            A complete web browser window.
+    \value  WebBrowserTab
+            A web browser tab.
+    \value  WebDialog
+            A window without decoration.
+    \value  WebBrowserBackgroundTab
+            A web browser tab without hiding the current visible WebEngineView. (Added in Qt 5.7)
+*/
+
+/*!
+    \enum QWebEnginePage::JavaScriptConsoleMessageLevel
+
+    This enum describes the different severity levels a JavaScript console message can have:
+
+    \value InfoMessageLevel The message is purely informative and can safely be ignored.
+    \value WarningMessageLevel The message informs about unexpected behavior or errors that may
+           need attention.
+    \value ErrorMessageLevel The message indicates there has been an error.
+*/
+
+/*!
+    \enum QWebEnginePage::FileSelectionMode
+
+    This enum indicates whether the implementation of the chooseFiles() function should
+    return only one file or may return multiple files:
+
+    \value  FileSelectOpen
+            Return only one file name.
+    \value  FileSelectOpenMultiple
+            Return multiple file names.
+
+    \sa chooseFiles()
+*/
+
+/*!
+    \enum QWebEnginePage::PermissionPolicy
+
+    This enum describes the permission policies that the user may set for data or device access:
+
+    \value PermissionUnknown It is unknown whether the user grants or denies permission.
+    \value PermissionGrantedByUser The user has granted permission.
+    \value PermissionDeniedByUser The user has denied permission.
+
+    \sa featurePermissionRequested(), featurePermissionRequestCanceled(), setFeaturePermission(), Feature
+*/
+
+/*!
+    \enum QWebEnginePage::NavigationType
+
+    This enum describes the type of a navigation request:
+
+    \value NavigationTypeLinkClicked The navigation request resulted from a clicked link.
+    \value NavigationTypeTyped The navigation request resulted from an explicitly loaded URL.
+    \value NavigationTypeFormSubmitted The navigation request resulted from a form submission.
+    \value NavigationTypeBackForward The navigation request resulted from a back or forward action.
+    \value NavigationTypeReload The navigation request resulted from a reload action.
+    \value NavigationTypeOther The navigation request was triggered by other means not covered by the above.
+
+    \sa acceptNavigationRequest()
+*/
+
+/*!
+    \enum QWebEnginePage::Feature
+
+    This enum describes the platform feature access categories that the user may be asked to grant
+    or deny access to:
+
+    \value  Geolocation
+            Location hardware or service.
+    \value  MediaAudioCapture
+            Audio capture devices, such as microphones.
+    \value  MediaVideoCapture
+            Video devices, such as cameras.
+    \value  MediaAudioVideoCapture
+            Both audio and video capture devices.
+    \value  MouseLock
+            Mouse locking, which locks the mouse pointer to the web view and is typically used in
+            games.
+
+    \sa featurePermissionRequested(), featurePermissionRequestCanceled(), setFeaturePermission(), PermissionPolicy
+
+*/
+
+/*!
+    \fn QWebEnginePage::QWebEnginePage(QObject *parent)
+    Constructs an empty QWebEnginePage with the parent \a parent.
+*/
+
+/*!
+    \fn QWebEnginePage::~QWebEnginePage()
+    Destroys the web page.
+*/
+
+/*!
+    \fn QWebEngineHistory *QWebEnginePage::history() const
+    Returns a pointer to the view's history of navigated web pages.
+*/
+
+/*!
+    \fn void QWebEnginePage::setView(QWidget* view)
+    Sets the \a view that is associated with the web page.
+
+    \sa view()
+*/
+
+/*!
+    \fn QWidget *QWebEnginePage::view() const
+    Returns the view widget that is associated with the web page.
+
+    \sa setView()
+*/
+
+/*!
+    \fn QMenu *QWebEnginePage::createStandardContextMenu()
+    Creates the standard context menu which is shown when
+    the user clicks on the web page with the right mouse button. It is
+    called from the default \l{QWidget::}{contextMenuEvent()} handler. The popup menu's
+    ownership is transferred to the caller.
+
+    Returns \c nullptr if the context menu data is not initialized, for example when it
+    is called when there is actually no context menu requested.
+ */
+
+/*!
+    \fn void QWebEnginePage::javaScriptConsoleMessage(JavaScriptConsoleMessageLevel level, const QString& message, int lineNumber, const QString& sourceID)
+    This function is called when a JavaScript program tries to print the \a message to the web
+    browser's console.
+
+    For example, in case of evaluation errors the source URL may be provided in \a sourceID as well
+    as the \a lineNumber.
+
+    \a level indicates the severity of the event that triggered the message. That is, whether it
+    was triggered by an error or a less severe event.
+
+    Since Qt 5.6, the default implementation logs the messages in a \c js
+    \l{QLoggingCategory}{logging category}.
+
+    \sa{Console Logging}
+*/
+
+/*!
+    \fn bool acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame)
+    \since 5.5
+    This function is called upon receiving a request to navigate to the specified \a url by means of
+    the specified navigation type \a type. \a isMainFrame indicates whether the request corresponds
+    to the main frame or a child frame. If the function returns \c true, the navigation request is
+    accepted and \c url is loaded. The default implementation accepts all navigation requests.
+
+    This function is called for absolute URLs that are prefixed with \c {http://} or \c {https://}
+    and for unrecognized schemes, such as \c {mailto:}, which will be handled by QDesktopServices
+    if accepted. To have this function called also upon receiving navigation requests to local URLs,
+    prefix the URLs with \c {http://}.
+
+    Navigation requests can be delegated to the Qt application instead of having the HTML handler
+    engine process them by overloading this function. This is necessary when an HTML document is
+    used as part of the user interface, and not to display external data, for example, when
+    displaying a list of results.
+*/
+
+/*!
+    \fn void QWebEnginePage::javaScriptAlert(const QUrl &securityOrigin, const QString& msg)
+    This function is called whenever a JavaScript program running in a frame affiliated with
+    \a securityOrigin calls the \c alert() function with the message \a msg.
+
+    The default implementation shows the message, \a msg, with QMessageBox::information.
+*/
+
+/*!
+    \fn bool QWebEnginePage::javaScriptConfirm(const QUrl &securityOrigin, const QString& msg)
+    This function is called whenever a JavaScript program running in a frame affiliated with
+    \a securityOrigin calls the \c confirm() function with the message \a msg. Returns \c true
+    if the user confirms the message; otherwise returns \c false.
+
+    The default implementation executes the query using QMessageBox::information with QMessageBox::Ok and QMessageBox::Cancel buttons.
+*/
+
+/*!
+    \fn bool QWebEnginePage::javaScriptPrompt(const QUrl &securityOrigin, const QString& msg, const QString& defaultValue, QString* result)
+    This function is called whenever a JavaScript program running in a frame affiliated with \a securityOrigin tries to prompt the user for input.
+    The program may provide an optional message, \a msg, as well as a default value for the input in \a defaultValue.
+
+    If the prompt was cancelled by the user, the implementation should return \c false; otherwise the
+    result should be written to \a result and \c true should be returned. If the prompt was not
+    cancelled by the user, the implementation should return \c true and the result string must not
+    be null.
+
+    The default implementation uses QInputDialog::getText().
+*/
+
+/*!
+    \fn QWebEnginePage *QWebEnginePage::createWindow(WebWindowType type)
+    This function is called to create a new window of the specified \a type. For example, when a
+    JavaScript program requests to open a document in a new window.
+
+    If the new window can be created, the new window's QWebEnginePage is returned; otherwise a null pointer is returned.
+
+    If the view associated with the web page is a QWebEngineView object, then the default implementation forwards
+    the request to QWebEngineView::createWindow(); otherwise it returns a null pointer.
+
+    \note In the cases when the window creation is being triggered by JavaScript, apart from
+    reimplementing this method the application must also set
+    QWebEngineSettings::JavascriptCanOpenWindows to \c true in order for the method to get called.
+
+    \sa QWebEngineView::createWindow()
+*/
+
+/*!
+    \fn void QWebEnginePage::triggerAction(WebAction action, bool checked = false)
+    This function can be called to trigger the specified \a action.
+    It is also called by Qt WebEngine if the user triggers the action, for example
+    through a context menu item.
+
+    If \a action is a checkable action, then \a checked specifies whether the action
+    is toggled or not.
+
+    \sa action()
+*/
+
+/*!
+    \property QWebEnginePage::hasSelection
+    \brief whether this page contains selected content or not.
+
+    \sa selectionChanged()
+*/
+
+/*!
+    \property QWebEnginePage::selectedText
+    \brief the text currently selected
+
+    By default, this property contains an empty string.
+
+    \sa selectionChanged()
+*/
+
+/*!
+    \fn QAction *QWebEnginePage::action(WebAction action) const
+    Returns a QAction for the specified WebAction \a action.
+
+    The action is owned by the QWebEnginePage but you can customize the look by
+    changing its properties.
+
+    QWebEnginePage also takes care of implementing the action, so that upon
+    triggering the corresponding action is performed on the page.
+
+    \sa triggerAction()
+*/
+
+/*!
+    \fn void QWebEnginePage::findText(const QString &subString, FindFlags options)
+    Finds the specified string, \a subString, in the page, using the given \a options.
+
+    To clear the search highlight, just pass an empty string.
+*/
+
+/*!
+    \fn void QWebEnginePage::findText(const QString &subString, FindFlags options, FunctorOrLambda resultCallback)
+    Finds the specified string, \a subString, in the page, using the given \a options.
+
+    To clear the search highlight, just pass an empty string.
+
+    The \a resultCallback must take a boolean parameter. It will be called with a value of \c true
+    if the \a subString was found; otherwise the callback value will be \c false.
+
+    For example:
+    \snippet qtwebengine_qwebenginepage_snippet.cpp 0
+*/
+
+/*!
+    \fn QWebEngineSettings *QWebEnginePage::settings() const
+    Returns a pointer to the page's settings object.
+
+    \sa QWebEngineSettings::globalSettings()
+*/
+
+/*!
+    \fn bool QWebEnginePage::certificateError(const QWebEngineCertificateError & certificateError)
+    This function is called when an invalid certificate error is raised while loading a given request.
+
+    The \a certificateError parameter contains information about the certificate and details of the error.
+
+    Return \c true to ignore the error and complete the request. Return \c false to stop loading
+    the request.
+
+    \sa QWebEngineCertificateError
+*/
+
+/*!
+    \fn QString QWebEnginePage::chooseFiles(FileSelectionMode mode, const QStringList& oldFiles, const QStringList& acceptedMimeTypes)
+    This function is called when the web content requests a file name, for example
+    as a result of the user clicking on a file upload button in an HTML form.
+
+    \a mode indicates whether only one file or multiple files are expected to be returned.
+
+    A suggested filename may be provided as the first entry of \a oldFiles. \a acceptedMimeTypes is ignored by the default implementation,
+    but might be used by overrides.
+*/
+
+/*!
+    \fn void QWebEnginePage::loadStarted()
+
+    This signal is emitted when a page starts loading content.
+
+    \sa loadFinished()
+*/
+
+/*!
+    \fn void QWebEnginePage::loadProgress(int progress)
+
+    This signal is emitted when the global progress status changes.
+    The current value is provided by \a progress and scales from 0 to 100,
+    which is the default range of QProgressBar.
+    It accumulates changes from all the child frames.
+
+*/
+
+/*!
+    \fn void QWebEnginePage::loadFinished(bool ok)
+
+    This signal is emitted when the page finishes loading content. This signal
+    is independent of script execution or page rendering.
+    \a ok will indicate whether the load was successful or any error occurred.
+
+    \sa loadStarted()
+*/
+
+/*!
+    \fn void QWebEnginePage::selectionChanged()
+
+    This signal is emitted whenever the selection changes, either interactively
+    or programmatically. For example, by calling triggerAction() with a selection action.
+
+    \sa selectedText()
+*/
+
+/*!
+    \fn void QWebEnginePage::linkHovered(const QString &url)
+
+    This signal is emitted when the mouse hovers over a link.
+    \a url contains the target URL of the link.
+*/
+
+/*!
+
+    \fn void QWebEnginePage::authenticationRequired(const QUrl &requestUrl, QAuthenticator *authenticator)
+
+    This signal is emitted when access to \a requestUrl requires authentication.
+    \a authenticator should be used to pass the user name and password for the connection.
+*/
+
+/*!
+    \fn void QWebEnginePage::proxyAuthenticationRequired(const QUrl &requestUrl, QAuthenticator *authenticator, const QString &proxyHost)
+
+    This signal is emitted when access to \a requestUrl via \a proxyHost requires authentication for the proxy.
+    \a authenticator should be used to pass the user name and password for the connection.
+
+*/
+
+/*!
+    \fn void QWebEnginePage::geometryChangeRequested(const QRect& geom)
+
+    This signal is emitted whenever the document wants to change the position and size of the
+    page to \a geom. This can happen for example through JavaScript.
+*/
+
+/*!
+    \fn void QWebEnginePage::windowCloseRequested()
+
+    This signal is emitted whenever the page requests the web browser window to be closed,
+    for example through the JavaScript \c{window.close()} call.
+
+    \sa QWebEnginePage::RequestClose
+*/
+
+/*!
+    \fn void QWebEnginePage::toHtml(FunctorOrLambda resultCallback) const
+    Asynchronous method to retrieve the page's content as HTML, enclosed in HTML and BODY tags.
+    Upon successful completion, \a resultCallback is called with the page's content.
+
+    \note \a resultCallback can be any of a function pointer, a functor or a lambda, and it is expected to take a QString parameter.
+
+    \sa setHtml(), toPlainText()
+*/
+
+/*!
+    \fn void QWebEnginePage::toPlainText(FunctorOrLambda resultCallback) const
+    Asynchronous method to retrieve the page's content converted to plain text, completely stripped of all
+    HTML formatting.
+    Upon successful completion, \a resultCallback is called with the page's content.
+
+    \note \a resultCallback can be any of a function pointer, a functor or a lambda, and it is expected to take a QString parameter.
+
+    \sa toHtml()
+*/
+
+/*!
+    \property QWebEnginePage::title
+    \brief the title of the page as defined by the HTML \c <title> element
+
+    \sa titleChanged()
+*/
+
+/*!
+    \property QWebEnginePage::url
+    \brief the URL of the page currently viewed
+
+    Setting this property clears the view and loads the URL.
+
+    By default, this property contains an empty, invalid URL.
+
+    \sa urlChanged()
+*/
+
+/*!
+    \property QWebEnginePage::requestedUrl
+    \brief the URL that was originally requested to be loaded by the page
+    that is currently viewed
+
+    \note The URL may differ from the one returned by url(), which is the actual
+    URL that results from DNS resolution or redirection.
+
+    \sa url(), setUrl()
+*/
+
+/*!
+    \fn void QWebEnginePage::load(const QUrl &url)
+    Loads \a url into this page.
+
+    \note The view remains the same until enough data has arrived to display the new URL.
+
+    \sa setUrl(), setHtml(), setContent()
+*/
+
+/*!
+    \fn void QWebEnginePage::setHtml(const QString &html, const QUrl &baseUrl)
+    Sets the content of this page to \a html. \a baseUrl is optional and used to resolve relative
+    URLs in the document, such as referenced images or stylesheets.
+
+    The \a html is loaded immediately; external objects are loaded asynchronously.
+
+    If a script in the \a html runs longer than the default script timeout (currently 10 seconds),
+    for example due to being blocked by a modal JavaScript alert dialog, this method will return
+    as soon as possible after the timeout and any subsequent \a html will be loaded asynchronously.
+
+    When using this method, the web engine assumes that external resources, such as JavaScript programs or style
+    sheets, are encoded in UTF-8 unless otherwise specified. For example, the encoding of an external
+    script can be specified through the charset attribute of the HTML script tag. It is also possible
+    for the encoding to be specified by the web server.
+
+    This is a convenience function equivalent to setContent(html, "text/html", baseUrl).
+
+    \note This method will not affect session or global history for the page.
+
+    \warning This function works only for HTML, for other mime types (such as XHTML and SVG)
+    setContent() should be used instead.
+
+    \warning The content will be percent encoded before being sent to the renderer via IPC.
+    This may increase its size. The maximum size of the percent encoded content is
+    2 megabytes minus 30 bytes.
+
+    \sa toHtml(), setContent(), load()
+*/
+
+/*!
+    \fn void QWebEnginePage::setContent(const QByteArray &data, const QString &mimeType, const QUrl &baseUrl)
+    Sets the content of this page to \a data. If the \a mimeType argument
+    is empty, it is currently assumed that the content is HTML but in future versions we may introduce
+    auto-detection.
+
+    External objects referenced in the content are located relative to \a baseUrl.
+
+    The \a data is loaded immediately; external objects are loaded asynchronously.
+
+    \note This method will not affect session or global history for the page.
+
+    \warning The content will be percent encoded before being sent to the renderer via IPC.
+    This may increase its size. The maximum size of the percent encoded content is
+    2 megabytes minus 6 bytes plus the length of the mime type string.
+
+    \sa toHtml(), setHtml()
+*/
+
+/*!
+    \property QWebEnginePage::zoomFactor
+    \brief the zoom factor for the page content
+
+    Valid values are within the range from \c{0.25} to \c{5.0}. The default factor is \c{1.0}.
+*/
+
+/*!
+    \fn void QWebEnginePage::runJavaScript(const QString& scriptSource, quint32 worldId, FunctorOrLambda resultCallback)
+    \since 5.7
+
+    Runs the JavaScript code contained in \a scriptSource in the world specified by \a worldId.
+    The world ID values are the same as provided by QWebEngineScript::ScriptWorldId. Using the
+    \e runJavaScript() versions without the world ID is the same as running the script in the
+    \c MainWorld.
+
+    When the script has been executed, \a resultCallback is called with the result of the last
+    executed statement. \c resultCallback can be any of a function pointer, a functor or a lambda,
+    and it is expected to take a QVariant parameter. For example:
+
+    \code
+    page.runJavaScript("document.title", [](const QVariant &v) { qDebug() << v.toString(); });
+    \endcode
+
+    \warning Do not execute lengthy routines in the callback function, because it might block the
+    rendering of the web engine page.
+
+    See scripts() for an alternative API to inject scripts.
+
+    \sa QWebEngineScript::ScriptWorldId
+*/
+
+/*!
+    \fn void QWebEnginePage::runJavaScript(const QString &scriptSource, quint32 worldId)
+    \since 5.7
+    \overload runJavaScript()
+
+    This convenience function runs the JavaScript code contained in \a scriptSource in the world
+    specified by \a worldId.
+*/
+
+/*!
+    \fn void QWebEnginePage::runJavaScript(const QString& scriptSource)
+    \overload runJavaScript()
+
+    This convenience function runs the JavaScript code contained in \a scriptSource in the same
+    world as other scripts that are part of the loaded site.
+
+    \sa QWebEngineScript::MainWorld
+*/
+
+/*!
+    \fn void QWebEnginePage::runJavaScript(const QString& scriptSource, FunctorOrLambda resultCallback)
+    \overload runJavaScript()
+
+    Runs the JavaScript code contained in \a scriptSource.
+
+    The script will run in the same world as other scripts that are part of the loaded site.
+
+    When the script has been executed, \a resultCallback is called with the result of the last
+    executed statement.
+
+    \sa QWebEngineScript::MainWorld
+*/
+
+/*!
+    \fn void QWebEnginePage::setFeaturePermission(const QUrl &securityOrigin, Feature feature, PermissionPolicy policy)
+
+    Sets the permission for the web site identified by \a securityOrigin to use \a feature to \a policy.
+
+    \note Call this method on the featurePermissionRequested() signal, as it is
+    meant to serve pending feature requests only. Setting feature permissions
+    ahead of a request has no effect.
+
+    \sa featurePermissionRequested(), featurePermissionRequestCanceled()
+*/
+
+/*!
+    \fn void QWebEnginePage::featurePermissionRequested(const QUrl &securityOrigin, Feature feature)
+
+    This is signal is emitted when the web site identified by \a securityOrigin requests to make use of
+    the resource or device identified by \a feature.
+
+    \sa featurePermissionRequestCanceled(), setFeaturePermission()
+*/
+
+/*!
+    \fn void QWebEnginePage::featurePermissionRequestCanceled(const QUrl &securityOrigin, Feature feature)
+
+    This is signal is emitted when the web site identified by \a securityOrigin cancels a previously issued
+    request to make use of \a feature.
+
+    \sa featurePermissionRequested(), setFeaturePermission()
+
+*/
+
+/*!
+    \fn void QWebEnginePage::titleChanged(const QString &title)
+
+    This signal is emitted whenever the title of the page changes.
+    The \a title string specifies the new title.
+
+    \sa title()
+*/
+
+/*!
+    \fn void QWebEnginePage::urlChanged(const QUrl &url)
+
+    This signal is emitted with the URL of the page when the page title is
+    received. The new URL is specified by \a url.
+
+    \sa url()
+*/

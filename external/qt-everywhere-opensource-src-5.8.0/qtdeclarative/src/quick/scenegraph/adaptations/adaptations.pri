@@ -1,0 +1,1 @@
+include(software/software.pri)

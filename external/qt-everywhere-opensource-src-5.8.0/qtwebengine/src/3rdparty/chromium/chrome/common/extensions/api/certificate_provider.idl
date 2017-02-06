@@ -1,0 +1,79 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use this API to expose certificates to the platform which can use these
+// certificates for TLS authentications.
+namespace certificateProvider {
+  enum Hash {
+    MD5_SHA1,
+    SHA1,
+    SHA256,
+    SHA384,
+    SHA512
+  };
+
+  [noinline_doc] dictionary CertificateInfo {
+    // Must be the DER encoding of a X.509 certificate. Currently, only
+    // certificates of RSA keys are supported.
+    ArrayBuffer certificate;
+
+    // Must be set to all hashes supported for this certificate. This extension
+    // will only be asked for signatures of digests calculated with one of these
+    // hash algorithms. This should be in order of decreasing hash preference.
+    Hash[] supportedHashes;
+  };
+
+  [noinline_doc] dictionary SignRequest {
+    // The digest that must be signed.
+    ArrayBuffer digest;
+
+    // Refers to the hash algorithm that was used to create <code>digest</code>.
+    Hash hash;
+
+    // The DER encoding of a X.509 certificate. The extension must sign
+    // <code>digest</code> using the associated private key.
+    ArrayBuffer certificate;
+  };
+
+  // The callback provided by the extension that Chrome uses to report back
+  // rejected certificates. See <code>CertificatesCallback</code>.
+  callback ResultCallback = void (ArrayBuffer[] rejectedCertificates);
+
+  // If no error occurred, this function must be called with the signature of
+  // the digest using the private key of the requested certificate.
+  // For an RSA key, the signature must be a PKCS#1 signature. The extension
+  // is responsible for prepending the DigestInfo prefix and adding PKCS#1
+  // padding. If an <code>MD5_SHA1</code> hash is to be signed, the extension
+  // must not prepend a DigestInfo prefix but only add PKCS#1 padding.
+  // If an error occurred, this callback should be called without signature.
+  callback SignCallback = void (optional ArrayBuffer signature);
+
+  // Call this exactly once with the list of certificates that this extension is
+  // providing. The list must only contain certificates for which the extension
+  // can sign data using the associated private key. If the list contains
+  // invalid certificates, these will be ignored. All valid certificates are
+  // still registered for the extension. Chrome will call back with the list of
+  // rejected certificates, which might be empty.
+  callback CertificatesCallback =
+      void (CertificateInfo[] certificates, ResultCallback callback);
+
+  interface Events {
+    // This event fires every time the browser requests the current list of
+    // certificates provided by this extension. The extension must call
+    // <code>reportCallback</code> exactly once with the current list of
+    // certificates.
+    static void onCertificatesRequested(CertificatesCallback reportCallback);
+
+    // This event fires every time the browser needs to sign a message using a
+    // certificate provided by this extension in reply to an
+    // $(ref:onCertificatesRequested) event.
+    // The extension must sign the data in <code>request</code> using the
+    // appropriate algorithm and private key and return it by calling
+    // <code>reportCallback</code>. <code>reportCallback</code> must be called
+    // exactly once.
+    // |request|: Contains the details about the sign request.
+    static void onSignDigestRequested(SignRequest request,
+                                      SignCallback reportCallback);
+  };
+};

@@ -1,0 +1,170 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webenginewidgets/markdowneditor
+    \title WebEngine Markdown Editor Example
+    \ingroup webengine-widgetexamples
+    \brief Demonstrates how to integrate a web engine in a hybrid desktop
+    application.
+
+    \image markdowneditor-example.png
+
+    \e {Markdown Editor} demonstrates how to use QWebChannel and JavaScript
+    libraries to provide a rich text preview tool for a custom markup language.
+
+    \l{http://daringfireball.net/projects/markdown/}{Markdown} is a lightweight
+    markup language with a plain text formatting syntax.
+    Some services, such as \l{http://github.com}{github}, acknowledge the
+    format, and render the content as rich text when viewed in a browser.
+
+    The Markdown Editor main window is split into an editor and a preview area.
+    The editor supports the Markdown syntax and is implemented by using
+    QPlainTextEdit. The document is rendered as rich text in the preview area,
+    which is implemented by using QWebEngineView. To render the text, the
+    Markdown text is converted to HTML format with the help of a JavaScript
+    library inside the web engine. The preview is updated from the editor
+    through QWebChannel.
+
+    \include examples-run.qdocinc
+
+    \section1 Exposing Document Text
+
+    Because we expose the current Markdown text to be rendered to the web engine
+    through QWebChannel, we need to somehow make the current text available
+    through the Qt metatype system. This is done by using a dedicated
+    \c Document class that exposes the document text as a \c{Q_PROPERTY}:
+
+    \quotefromfile webenginewidgets/markdowneditor/document.h
+    \skipto class Document
+    \printto #endif
+
+    The \c Document class wraps a QString to be set on the C++ side with
+    the \c setText() method and exposes it at runtime as a \c text property
+    with a \c textChanged signal.
+
+    We define the \c setText method as follows:
+
+    \quotefromfile webenginewidgets/markdowneditor/document.cpp
+    \skipto Document::setText
+    \printuntil
+
+    \section1 Previewing Text
+
+    We implement our own \c PreviewPage class that publicly inherits from
+    \c QWebEnginePage:
+
+    \quotefromfile webenginewidgets/markdowneditor/previewpage.h
+    \skipto class PreviewPage
+    \printto #endif
+
+    We reimplement the virtual \c acceptNavigationRequest method to
+    stop the page from navigating away from the current document. Instead,
+    we redirect external links to the system browser:
+
+    \quotefromfile webenginewidgets/markdowneditor/previewpage.cpp
+    \skipto acceptNavigationRequest
+    \printuntil
+
+    \section1 Creating the Main Window
+
+    The \c MainWindow class inherits the QMainWindow class:
+
+    \quotefromfile webenginewidgets/markdowneditor/mainwindow.h
+    \skipto class MainWindow :
+    \printto endif
+
+    The class declares private slots that match the actions in the menu,
+    as well as the \c isModified() helper method.
+
+    The actual layout of the main window is specified in a \c .ui file.
+    The widgets and actions are available at runtime in the \c ui member
+    variable.
+
+    \c m_filePath holds the file path to the currently loaded document.
+    \c m_content is an instance of the \c Document class.
+
+    The actual setup of the different objects is done in the \c MainWindow
+    constructor:
+
+    \quotefromfile webenginewidgets/markdowneditor/mainwindow.cpp
+    \skipto MainWindow::MainWindow
+    \printto PreviewPage
+
+    The constructor first calls \c setupUi to construct the widgets and menu
+    actions according to the UI file. The text editor font is set to one
+    with a fixed character width, and the QWebEngineView widget is told not
+    to show a context menu.
+
+    \printto connect
+
+    Here the constructor makes sure our custom
+    \c PreviewPage is used by the QWebEngineView instance in \c{ui->preview}.
+
+    \printto ui->preview
+
+    Here the \c textChanged signal of the editor is connected to a lambda that
+    updates the text in \c m_content. This object is then exposed to the JS side
+    by \c QWebChannel under the name \c{content}.
+
+    \printto connect
+
+    Now we can actually load the \e index.html file from the
+    resources. For more information about the file, see
+    \l{Creating an Index File}.
+
+    \printto defaultTextFile
+
+    The menu items are connected to the mapping member slots. The
+    \uicontrol Save item is activated or deactivated depending on whether
+    the user has edited the content.
+
+    \printuntil }
+
+    Finally, we load a default document \e default.md from the resources.
+
+    \section1 Creating an Index File
+
+    \quotefile webenginewidgets/markdowneditor/resources/index.html
+
+    In the \e index.html, we load a custom stylesheet and two JavaScript
+    libraries. \l{http://kevinburke.bitbucket.org/markdowncss/}{markdown.css} is
+    a markdown-friendly stylesheet created by Kevin Burke.
+    \l{https://github.com/chjj/marked}{marked.min.js} is a markdown parser and
+    compiler designed for speed written by Christopher Jeffrey and
+    \e qwebchannel.js is part of the \l{QWebChannel} module.
+
+    In the \c <body> element we first define a \c placeholder element, and
+    make it available as a JavaScript variable. We then define the \c updateText
+    helper method that updates the content of \c placeholder with the HTML
+    that the JavaScript method \c marked() returns.
+
+    Finally, we set up the web channel to access the \c content proxy object
+    and make sure that \c updateText() is called whenever \c content.text
+    changes.
+*/
+

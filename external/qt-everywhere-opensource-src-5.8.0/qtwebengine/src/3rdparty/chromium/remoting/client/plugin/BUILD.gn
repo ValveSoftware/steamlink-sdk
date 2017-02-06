@@ -1,0 +1,57 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(is_nacl,
+       "These targets must only be built using the untrusted NaCl toolchains.")
+
+import("//build/config/features.gni")
+import("//remoting/remoting_srcs.gni")
+
+config("enable_linker_optimization") {
+  ldflags = [ "-Wl,-O1" ]
+}
+
+executable("remoting_client_plugin_newlib") {
+  sources =
+      rebase_path(remoting_srcs_gypi_values.remoting_client_plugin_sources,
+                  ".",
+                  "//remoting")
+
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  if (is_debug) {
+    # Always enable link-time optimization in debug builds to workaround
+    # crbug.com/538243 .
+    configs += [ ":enable_linker_optimization" ]
+  }
+
+  deps = [
+    "//net",
+    "//ppapi/cpp",
+    "//ppapi/native_client:ppapi_lib",
+    "//remoting/base",
+    "//remoting/client",
+    "//remoting/codec",
+    "//remoting/protocol",
+    "//third_party/libyuv",
+    "//third_party/webrtc/modules/desktop_capture:primitives",
+    "//ui/events:dom_keycode_converter",
+  ]
+
+  include_dirs = [ "//ppapi/lib/gl/include" ]
+}
+
+if (enable_nacl && is_debug) {
+  copy("remoting_client_plugin_newlib_debug") {
+    public_deps = [
+      ":remoting_client_plugin_newlib",
+    ]
+    sources = [
+      "$root_out_dir/exe.unstripped/remoting_client_plugin_newlib.pexe",
+    ]
+    outputs = [
+      "$root_out_dir/remoting_client_plugin_newlib.pexe.debug",
+    ]
+  }
+}

@@ -1,0 +1,545 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+source_set("session") {
+  sources = [
+    "session/assignment_source.cc",
+    "session/assignment_source.h",
+    "session/blimp_client_session.cc",
+    "session/blimp_client_session.h",
+  ]
+
+  public_deps = [
+    ":feature",
+    ":switches",
+    "//components/safe_json",
+    "//ui/events",
+  ]
+
+  deps = [
+    ":compositor",
+    "//base",
+    "//blimp/common",
+    "//blimp/common/proto",
+    "//blimp/net",
+    "//net",
+    "//ui/gfx/geometry",
+    "//url:url",
+  ]
+}
+
+source_set("client") {
+  sources = [
+    "app/blimp_discardable_memory_allocator.cc",
+    "app/blimp_discardable_memory_allocator.h",
+    "app/blimp_startup.cc",
+    "app/blimp_startup.h",
+  ]
+
+  public_deps = [
+    ":session",
+    ":switches",
+    "//components/safe_json",
+    "//components/url_formatter",
+    "//skia",
+    "//ui/events",
+  ]
+
+  deps = [
+    ":compositor",
+    "//base",
+    "//blimp/client/core",
+    "//blimp/common",
+    "//blimp/common/proto",
+    "//blimp/net",
+    "//cc",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//gpu/skia_bindings",
+    "//net",
+    "//third_party/libwebp",
+    "//ui/gfx/geometry",
+    "//ui/gl",
+    "//ui/gl/init",
+    "//url:url",
+  ]
+}
+
+source_set("switches") {
+  sources = [
+    "app/blimp_client_switches.cc",
+    "app/blimp_client_switches.h",
+  ]
+}
+
+source_set("blimp_client_unit_tests") {
+  testonly = true
+
+  sources = []
+
+  deps = [
+    ":client",
+    ":session",
+    ":switches",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//blimp/common",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+
+  data = []
+
+  # TODO(dtrainor): Fix the test harness to allow this to run on Android.
+  # See crbug.com/588240.
+  if (is_linux) {
+    sources += [ "session/assignment_source_unittest.cc" ]
+    deps += [
+      "//blimp/common",
+      "//blimp/common:test_support",
+      "//components/safe_json:test_support",
+      "//net:test_support",
+    ]
+    data += [
+      "session/test_selfsigned_cert.pem",
+      "//blimp/test/data/test_client_token",
+    ]
+  }
+}
+
+source_set("app_unit_tests") {
+  testonly = true
+
+  sources = [
+    "app/blimp_discardable_memory_allocator_unittest.cc",
+  ]
+
+  deps = [
+    ":client",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+source_set("feature") {
+  sources = [
+    "feature/ime_feature.cc",
+    "feature/ime_feature.h",
+    "feature/navigation_feature.cc",
+    "feature/navigation_feature.h",
+    "feature/render_widget_feature.cc",
+    "feature/render_widget_feature.h",
+    "feature/settings_feature.cc",
+    "feature/settings_feature.h",
+    "feature/tab_control_feature.cc",
+    "feature/tab_control_feature.h",
+  ]
+
+  deps = [
+    "//base:base",
+    "//blimp/common",
+    "//blimp/net",
+    "//cc",
+    "//cc/proto",
+    "//components/url_formatter",
+    "//net:net",
+    "//skia",
+    "//ui/base/ime:text_input_types",
+    "//ui/gfx/geometry:geometry",
+  ]
+
+  public_deps = [
+    "//blimp/common/proto",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+
+  sources = [
+    "feature/mock_ime_feature_delegate.cc",
+    "feature/mock_ime_feature_delegate.h",
+    "feature/mock_navigation_feature_delegate.cc",
+    "feature/mock_navigation_feature_delegate.h",
+    "feature/mock_render_widget_feature_delegate.cc",
+    "feature/mock_render_widget_feature_delegate.h",
+    "session/test_client_session.cc",
+    "session/test_client_session.h",
+  ]
+
+  deps = [
+    ":session",
+    "//skia",
+    "//testing/gmock",
+    "//url",
+  ]
+}
+
+source_set("compositor") {
+  sources = [
+    "feature/compositor/blimp_client_picture_cache.cc",
+    "feature/compositor/blimp_client_picture_cache.h",
+    "feature/compositor/blimp_compositor.cc",
+    "feature/compositor/blimp_compositor.h",
+    "feature/compositor/blimp_compositor_manager.cc",
+    "feature/compositor/blimp_compositor_manager.h",
+    "feature/compositor/blimp_context_provider.cc",
+    "feature/compositor/blimp_context_provider.h",
+    "feature/compositor/blimp_gpu_memory_buffer_manager.cc",
+    "feature/compositor/blimp_gpu_memory_buffer_manager.h",
+    "feature/compositor/blimp_image_decoder.cc",
+    "feature/compositor/blimp_image_decoder.h",
+    "feature/compositor/blimp_input_handler_wrapper.cc",
+    "feature/compositor/blimp_input_handler_wrapper.h",
+    "feature/compositor/blimp_input_manager.cc",
+    "feature/compositor/blimp_input_manager.h",
+    "feature/compositor/blimp_layer_tree_settings.cc",
+    "feature/compositor/blimp_layer_tree_settings.h",
+    "feature/compositor/blimp_output_surface.cc",
+    "feature/compositor/blimp_output_surface.h",
+    "feature/compositor/blob_image_serialization_processor.cc",
+    "feature/compositor/blob_image_serialization_processor.h",
+    "feature/compositor/decoding_image_generator.cc",
+    "feature/compositor/decoding_image_generator.h",
+  ]
+
+  deps = [
+    "//blimp/common",
+    "//blimp/net",
+    "//cc",
+    "//cc/proto",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:gl_in_process_context",
+    "//gpu/command_buffer/client:gles2_c_lib",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//gpu/command_buffer/common:gles2_utils",
+    "//gpu/skia_bindings",
+    "//net",
+    "//skia",
+    "//third_party/WebKit/public:blink_headers",
+    "//third_party/libwebp",
+    "//ui/base/ime:text_input_types",
+    "//ui/events:gesture_detection",
+    "//ui/events/blink",
+    "//ui/events/gestures/blink",
+    "//ui/gl",
+  ]
+
+  public_deps = [
+    ":feature",
+    "//blimp/common/proto",
+    "//skia",
+  ]
+}
+
+source_set("feature_unit_tests") {
+  testonly = true
+
+  sources = [
+    "feature/compositor/blimp_client_picture_cache_unittest.cc",
+    "feature/compositor/blimp_compositor_manager_unittest.cc",
+    "feature/navigation_feature_unittest.cc",
+    "feature/render_widget_feature_unittest.cc",
+    "feature/tab_control_feature_unittest.cc",
+  ]
+
+  deps = [
+    ":compositor",
+    ":test_support",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//blimp/common",
+    "//blimp/common/proto",
+    "//blimp/net",
+    "//blimp/net:test_support",
+    "//blimp/test:support",
+    "//cc/proto",
+    "//net",
+    "//net:test_support",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/events:gesture_detection",
+    "//ui/gfx/geometry",
+  ]
+
+  if (is_linux) {
+    #TODO(khushalsagar): Run these tests for android.
+    sources += [ "feature/compositor/blimp_compositor_unittest.cc" ]
+  }
+}
+
+if (is_linux && !is_chromeos && use_x11) {
+  executable("blimp_shell") {
+    sources = [
+      "app/linux/blimp_client_session_linux.cc",
+      "app/linux/blimp_client_session_linux.h",
+      "app/linux/blimp_display_manager.cc",
+      "app/linux/blimp_display_manager.h",
+      "app/linux/blimp_main.cc",
+    ]
+
+    deps = [
+      ":client",
+      "//base",
+      "//blimp/client:compositor",
+      "//blimp/net",
+      "//net",
+      "//services/shell/public/cpp",
+
+      # TODO(khushalsagar|scottmg): Remove this dependency from browser to
+      # blink. See https://crbug.com/608114.
+      "//third_party/WebKit/public:blink",
+      "//ui/events/platform/x11",
+      "//ui/platform_window",
+      "//ui/platform_window/x11",
+    ]
+
+    public_configs = [ "//build/config/linux:x11" ]
+    public_deps = [
+      "//ui/events/platform/x11",
+    ]
+  }
+}
+
+if (is_android) {
+  declare_args() {
+    # Package name used in the manifest for the Blimp APK.
+    blimp_package_name = "org.chromium.blimp"
+  }
+
+  manifest_package = blimp_package_name
+  blimp_apk_manifest = "$target_gen_dir/blimp_apk_manifest/AndroidManifest.xml"
+  blimp_test_apk_manifest =
+      "$target_gen_dir/blimp_test_apk_manifest/AndroidManifest.xml"
+
+  jinja_variables = [ "manifest_package=$manifest_package" ]
+
+  jinja_template("blimp_apk_manifest") {
+    input = "app/android/AndroidManifest.xml.jinja2"
+    output = blimp_apk_manifest
+    variables = jinja_variables
+  }
+
+  jinja_template("blimp_test_apk_manifest") {
+    input = "app/android/javatests/AndroidManifest.xml.jinja2"
+    output = blimp_test_apk_manifest
+    variables = jinja_variables
+  }
+
+  generate_jni("jni_headers") {
+    sources = [
+      "app/android/java/src/org/chromium/blimp/BlimpLibraryLoader.java",
+      "app/android/java/src/org/chromium/blimp/BlimpView.java",
+      "app/android/java/src/org/chromium/blimp/input/WebInputBox.java",
+      "app/android/java/src/org/chromium/blimp/session/BlimpClientSession.java",
+      "app/android/java/src/org/chromium/blimp/session/TabControlFeature.java",
+      "app/android/java/src/org/chromium/blimp/toolbar/Toolbar.java",
+    ]
+
+    jni_package = "blimp"
+  }
+
+  android_resources("blimp_java_resources") {
+    resource_dirs = [ "app/android/java/res" ]
+    deps = [
+      ":blimp_strings_grd",
+    ]
+    custom_package = "org.chromium.blimp"
+  }
+
+  java_strings_grd("blimp_strings_grd") {
+    grd_file = "app/android/java/strings/android_blimp_strings.grd"
+    outputs = [
+      "values-am/android_blimp_strings.xml",
+      "values-ar/android_blimp_strings.xml",
+      "values-bg/android_blimp_strings.xml",
+      "values-ca/android_blimp_strings.xml",
+      "values-cs/android_blimp_strings.xml",
+      "values-da/android_blimp_strings.xml",
+      "values-de/android_blimp_strings.xml",
+      "values-el/android_blimp_strings.xml",
+      "values/android_blimp_strings.xml",
+      "values-en-rGB/android_blimp_strings.xml",
+      "values-es/android_blimp_strings.xml",
+      "values-es-rUS/android_blimp_strings.xml",
+      "values-fa/android_blimp_strings.xml",
+      "values-fi/android_blimp_strings.xml",
+      "values-tl/android_blimp_strings.xml",
+      "values-fr/android_blimp_strings.xml",
+      "values-hi/android_blimp_strings.xml",
+      "values-hr/android_blimp_strings.xml",
+      "values-hu/android_blimp_strings.xml",
+      "values-in/android_blimp_strings.xml",
+      "values-it/android_blimp_strings.xml",
+      "values-iw/android_blimp_strings.xml",
+      "values-ja/android_blimp_strings.xml",
+      "values-ko/android_blimp_strings.xml",
+      "values-lt/android_blimp_strings.xml",
+      "values-lv/android_blimp_strings.xml",
+      "values-nl/android_blimp_strings.xml",
+      "values-nb/android_blimp_strings.xml",
+      "values-pl/android_blimp_strings.xml",
+      "values-pt-rBR/android_blimp_strings.xml",
+      "values-pt-rPT/android_blimp_strings.xml",
+      "values-ro/android_blimp_strings.xml",
+      "values-ru/android_blimp_strings.xml",
+      "values-sk/android_blimp_strings.xml",
+      "values-sl/android_blimp_strings.xml",
+      "values-sr/android_blimp_strings.xml",
+      "values-sv/android_blimp_strings.xml",
+      "values-sw/android_blimp_strings.xml",
+      "values-th/android_blimp_strings.xml",
+      "values-tr/android_blimp_strings.xml",
+      "values-uk/android_blimp_strings.xml",
+      "values-vi/android_blimp_strings.xml",
+      "values-zh-rCN/android_blimp_strings.xml",
+      "values-zh-rTW/android_blimp_strings.xml",
+    ]
+  }
+
+  java_cpp_enum("blimp_java_enums_srcjar") {
+    sources = [
+      "session/assignment_source.h",
+    ]
+  }
+
+  android_library("blimp_java") {
+    srcjar_deps = [ ":blimp_java_enums_srcjar" ]
+
+    deps = [
+      ":blimp_java_resources",
+      "//base:base_java",
+      "//blimp/client/core:core_java",
+      "//blimp/client/core/public:public_java",
+
+      # TODO(dtrainor): Remove the ui_java target once no more Android Toast
+      # notifications are used.
+      "//ui/android:ui_java",
+      google_play_services_library,
+    ]
+
+    java_files = [
+      "app/android/java/src/org/chromium/blimp/auth/RetryingTokenSource.java",
+      "app/android/java/src/org/chromium/blimp/auth/TokenSource.java",
+      "app/android/java/src/org/chromium/blimp/auth/TokenSourceImpl.java",
+      "app/android/java/src/org/chromium/blimp/BlimpApplication.java",
+      "app/android/java/src/org/chromium/blimp/BlimpClientSwitches.java",
+      "app/android/java/src/org/chromium/blimp/BlimpLibraryLoader.java",
+      "app/android/java/src/org/chromium/blimp/BlimpRendererActivity.java",
+      "app/android/java/src/org/chromium/blimp/BlimpView.java",
+      "app/android/java/src/org/chromium/blimp/BrowserRestartActivity.java",
+      "app/android/java/src/org/chromium/blimp/input/WebInputBox.java",
+      "app/android/java/src/org/chromium/blimp/preferences/PreferencesUtil.java",
+      "app/android/java/src/org/chromium/blimp/session/BlimpClientSession.java",
+      "app/android/java/src/org/chromium/blimp/session/EngineInfo.java",
+      "app/android/java/src/org/chromium/blimp/session/TabControlFeature.java",
+      "app/android/java/src/org/chromium/blimp/settings/AboutBlimpPreferences.java",
+      "app/android/java/src/org/chromium/blimp/settings/Preferences.java",
+      "app/android/java/src/org/chromium/blimp/toolbar/Toolbar.java",
+      "app/android/java/src/org/chromium/blimp/toolbar/ToolbarMenu.java",
+      "app/android/java/src/org/chromium/blimp/toolbar/UrlBar.java",
+    ]
+  }
+
+  android_library("blimp_test_java") {
+    testonly = true
+
+    deps = [
+      ":blimp_java",
+      "//base:base_java",
+      "//base:base_java_test_support",
+      "//blimp/client/core:core_java",
+      "//blimp/client/core/public:public_java",
+      google_play_services_library,
+    ]
+
+    java_files = [
+      "app/android/javatests/src/org/chromium/blimp/auth/MockTokenSource.java",
+      "app/android/javatests/src/org/chromium/blimp/auth/RetryingTokenSourceTest.java",
+      "app/android/javatests/src/org/chromium/blimp/core/BlimpContentsTest.java",
+      "app/android/javatests/src/org/chromium/blimp/BlimpNativeInstrumentationTestCase.java",
+    ]
+  }
+
+  shared_library("blimp_client_android") {
+    deps = [
+      ":client",
+      ":jni_headers",
+      "//base",
+      "//blimp/client:compositor",
+      "//blimp/client/core",
+      "//blimp/common",
+      "//blimp/common/proto",
+      "//blimp/net",
+      "//components/safe_json/android:safe_json_jni_headers",
+      "//components/url_formatter",
+      "//components/version_info",
+      "//net",
+      "//skia",
+      "//ui/base/ime:text_input_types",
+      "//ui/gfx/geometry",
+      "//ui/gl",
+      "//url:url",
+    ]
+
+    sources = [
+      "app/android/blimp_client_session_android.cc",
+      "app/android/blimp_client_session_android.h",
+      "app/android/blimp_compositor_manager_android.cc",
+      "app/android/blimp_compositor_manager_android.h",
+      "app/android/blimp_jni_registrar.cc",
+      "app/android/blimp_jni_registrar.h",
+      "app/android/blimp_library_loader.cc",
+      "app/android/blimp_library_loader.h",
+      "app/android/blimp_view.cc",
+      "app/android/blimp_view.h",
+      "app/android/tab_control_feature_android.cc",
+      "app/android/tab_control_feature_android.h",
+      "app/android/toolbar.cc",
+      "app/android/toolbar.h",
+      "app/android/web_input_box.cc",
+      "app/android/web_input_box.h",
+      "app/user_agent.cc",
+      "app/user_agent.h",
+    ]
+
+    libs = [ "android" ]
+  }
+
+  android_apk("blimp_apk") {
+    deps = [
+      ":blimp_java",
+      "//base:base_java",
+      "//blimp/client/core:core_java",
+      "//components/safe_json/android:safe_json_java",
+      "//net/android:net_java",
+    ]
+    apk_name = "Blimp"
+    android_manifest = blimp_apk_manifest
+    android_manifest_dep = ":blimp_apk_manifest"
+    shared_libraries = [ ":blimp_client_android" ]
+  }
+
+  instrumentation_test_apk("blimp_test_apk") {
+    apk_name = "BlimpTest"
+    apk_under_test = ":blimp_apk"
+    android_manifest = blimp_test_apk_manifest
+    android_manifest_dep = ":blimp_test_apk_manifest"
+    deps = [
+      ":blimp_test_java",
+    ]
+  }
+}

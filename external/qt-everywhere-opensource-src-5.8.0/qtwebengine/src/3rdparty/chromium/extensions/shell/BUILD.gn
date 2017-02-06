@@ -1,0 +1,218 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//extensions/shell/app_shell.gni")
+
+# Technically, this directory should not depend on files from src/chrome, but
+# that's where the VERSION file is. This  should probably all be moved to
+# src/build.
+import("//chrome/version.gni")
+import("//testing/test.gni")
+import("//tools/grit/grit_rule.gni")
+
+assert(enable_extensions)
+
+grit("resources") {
+  source = "app_shell_resources.grd"
+  outputs = [
+    "grit/app_shell_resources.h",
+    "app_shell_resources.pak",
+  ]
+}
+
+source_set("app_shell_lib") {
+  # TODO(jamescook): investigate and get rid of test dependencies. This library
+  # is testonly because it depends on testonly libraries, namely
+  # //content/shell:content_shell_lib. See http://crbug.com/438283
+  testonly = true
+  deps = [
+    ":resources",
+    ":version_header",
+    "//base",
+    "//components/devtools_discovery",
+    "//components/devtools_http_handler",
+    "//components/guest_view/browser",
+    "//components/guest_view/common",
+    "//components/guest_view/renderer",
+    "//components/pref_registry",
+    "//components/prefs",
+    "//components/update_client",
+    "//components/user_prefs",
+    "//components/web_cache/renderer",
+    "//content",
+    "//content/shell:content_shell_lib",
+    "//device/core",
+    "//device/hid",
+    "//extensions:extensions_resources",
+    "//extensions:shell_and_test_pak",
+    "//extensions/browser",
+    "//extensions/common",
+    "//extensions/common/api",
+    "//extensions/common/api:api_registration",
+    "//extensions/renderer",
+    "//extensions/shell/common/api",
+    "//extensions/shell/common/api:api_registration",
+    "//extensions/utility",
+    "//skia",
+    "//third_party/WebKit/public:blink",
+    "//third_party/cld_2",
+    "//ui/base",
+    "//ui/base/ime",
+    "//v8",
+  ]
+
+  sources = rebase_path(app_shell_gypi_values.app_shell_lib_sources,
+                        ".",
+                        "//extensions/shell")
+
+  if (use_aura) {
+    deps += [ "//ui/wm" ]
+
+    aura_sources = rebase_path(app_shell_gypi_values.app_shell_lib_sources_aura,
+                               ".",
+                               "//extensions/shell")
+    sources += aura_sources
+  }
+
+  if (is_chromeos) {
+    deps += [
+      "//chromeos",
+      "//ui/chromeos:ui_chromeos",
+      "//ui/display",
+    ]
+    chromeos_sources =
+        rebase_path(app_shell_gypi_values.app_shell_lib_sources_chromeos,
+                    ".",
+                    "//extensions/shell")
+    sources += chromeos_sources
+  }
+
+  if (enable_nacl) {
+    sources += [
+      "browser/shell_nacl_browser_delegate.cc",
+      "browser/shell_nacl_browser_delegate.h",
+    ]
+
+    deps += [
+      "//components/nacl/browser",
+      "//components/nacl/common",
+      "//components/nacl/loader",
+      "//components/nacl/renderer",
+      "//components/nacl/renderer/plugin:nacl_trusted_plugin",
+    ]
+
+    if (is_linux) {
+      deps += [
+        "//components/nacl/loader:helper_nonsfi",
+        "//components/nacl/loader:nacl_helper",
+      ]
+    }
+  }
+}
+
+executable("app_shell") {
+  # testonly because :app_shell_lib is testonly. See :app_shell_lib comment.
+  testonly = true
+  sources = rebase_path(app_shell_gypi_values.app_shell_sources,
+                        ".",
+                        "//extensions/shell")
+  deps = [
+    ":app_shell_lib",
+    "//build/config/sanitizers:deps",
+    "//build/win:default_exe_manifest",
+    "//extensions:shell_and_test_pak",
+  ]
+
+  if (is_win) {
+    configs += [ "//build/config/win:windowed" ]
+    configs -= [ "//build/config/win:console" ]
+  }
+
+  if (is_mac) {
+    output_name = "App Shell"
+
+    # TODO(GYP): Mac bundling. See also content_shell which this is basically
+    # a copy-paste of.
+    deps += [ ":app_shell_framework" ]
+
+    # TODO(GYP): Mac app_shell_helper stuff.
+  }
+}
+
+test("app_shell_unittests") {
+  sources = rebase_path(app_shell_gypi_values.app_shell_unittests_sources,
+                        ".",
+                        "//extensions/shell")
+
+  data = [
+    "//extensions/test/data/",
+    "$root_out_dir/extensions_shell_and_test.pak",
+
+    #"$root_out_dir/natives_blob.bin", # move to gin
+    #"$root_out_dir/snapshot_blob.bin",
+  ]
+
+  deps = [
+    ":app_shell_lib",
+    "//base",
+    "//base/test:test_support",
+    "//content/test:test_support",
+    "//extensions:shell_and_test_pak",
+    "//extensions:test_support",
+    "//testing/gtest",
+  ]
+
+  data_deps = [
+    # "//gin", # TODO(dpranke): Either gin or v8 data is needed ...
+    "//third_party/mesa:osmesa",
+  ]
+
+  if (use_aura) {
+    deps += [ "//ui/aura:test_support" ]
+
+    aura_sources =
+        rebase_path(app_shell_gypi_values.app_shell_unittests_sources_aura,
+                    ".",
+                    "//extensions/shell")
+    sources += aura_sources
+  }
+
+  if (is_chromeos) {
+    deps += [ "//chromeos:test_support_without_gmock" ]
+
+    chromeos_sources =
+        rebase_path(app_shell_gypi_values.app_shell_unittests_sources_chromeos,
+                    ".",
+                    "//extensions/shell")
+    sources += chromeos_sources
+  }
+
+  if (enable_nacl) {
+    sources +=
+        rebase_path(app_shell_gypi_values.app_shell_unittests_sources_nacl,
+                    ".",
+                    "//extensions/shell")
+  }
+}
+
+process_version("version_header") {
+  template_file = "common/version.h.in"
+  output = "$target_gen_dir/common/version.h"
+}
+
+if (is_mac) {
+  # TODO(GYP) this should be a bundle. Lots of other stuff in this target.
+  # Should be able to copy content shell framework (this is basically a
+  # copy-paste of that target).
+  shared_library("app_shell_framework") {
+    testonly = true
+    sources = [
+      "app/shell_main_mac.cc",
+      "app/shell_main_mac.h",
+    ]
+    deps = [
+      ":app_shell_lib",
+    ]
+  }
+}

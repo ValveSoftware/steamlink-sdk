@@ -1,0 +1,90 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use chrome.logPrivate API to retrieve log information from multiple
+// resources in a consistent format.
+namespace logPrivate {
+
+  // A filter class that filters log entries by different fields
+  dictionary Filter {
+    // Only logs from |sources| will be returned.
+    DOMString[] sources;
+    // Only logs created in [|start_timestamp|, |end_timestamp|] will
+    // be returned.
+    double start_timestamp;
+    double end_timestamp;
+    // Only logs have process name in |process| will be returned.
+    DOMString[] process;
+    //  Only logs have level in |level| will be returned.
+    DOMString[] level;
+    // Private information will be scrubbed if |scrub| is true.
+    boolean scrub;
+  };
+
+  // The class that contains log information.
+  dictionary LogEntry {
+    // The time of the log in milliseconds.
+    double timestamp;
+    // The raw text of log.
+    DOMString full_entry;
+    // The name of the process that the log associated with.
+    DOMString process;
+    // The ID of the process that the log associated with.
+    DOMString process_id;
+    // The log level.
+    DOMString level;
+  };
+
+  // The class that is returned to callback function.
+  dictionary Result {
+    // The filter specified to filter log result.
+    Filter filter;
+    // Log entries returned based on the filter.
+    LogEntry[] data;
+  };
+
+  callback GetHistoricalCallback = void (Result res);
+
+  callback DumpLogsCallback = void ([instanceOf=FileEntry] object logs);
+
+  callback CompletionCallback = void ();
+
+  // The type of the events to be recorded.
+  enum EventType { network };
+
+  // The type of the event sink where captured events will be sent.
+  enum EventSink {
+    // Events will be sent to the webapp via onCapturedEvents. 
+    capture,
+    // Events will be sent to a log file which can be collected
+    // through archive generated with dumpLogs() call.
+    file
+  };
+
+  interface Functions {
+    // Get the existing logs from ChromeOS system.
+    static void getHistorical(Filter filter, GetHistoricalCallback callback);
+    // Start capturing events of specific type.
+    static void startEventRecorder(EventType eventType,
+                                   EventSink sink,
+                                   CompletionCallback callback);
+    // Stop  capturing events of specific type.
+    static void stopEventRecorder(EventType eventType, CompletionCallback callback);
+    // Dump all system and captured events into a .tar.gz file.
+    // The archive file will contain following top level directories:
+    //   /var/log/
+    //       ChromeOS system logs.
+    //   /home/chronos/user/log/
+    //       Session specific logs (chrome app logs).
+    //   /home/chronos/user/log/apps/<app_id>
+    //       Contains webapp specific logs including those collected with
+    //       startEventRecorder(..., sink="file") call.
+    static void dumpLogs(DumpLogsCallback callback);
+  };
+
+  interface Events {
+    // Receives events of type which is currently being captured.
+    static void onCapturedEvents(object[] entries);
+  };
+};

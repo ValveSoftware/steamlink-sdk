@@ -1,0 +1,229 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+
+  \page qtpurchasing-gettingstarted-cpp.html
+  \title Getting Started with Qt Purchasing in C++
+  \brief Guide to getting started with Qt Purchasing using C++.
+
+  This guide assumes that you have registered the in-app products for your
+  application in the external store. For more information about registering
+  products, see \l{Registering Products in Google Play},
+  \l{Registering Products in App Store}, and
+  \l{Registering Products in Windows Store}.
+
+  \section1 Preparing the Application
+
+  Use the following include statement to access the C++ classes:
+
+  \code
+  #include <QtPurchasing>
+  \endcode
+
+  Before building your application, add the following statement to your \c .pro
+  file to link against the Qt Purchasing library:
+
+  \code
+  QT += purchasing
+  \endcode
+
+
+  \section1 Registering Products
+
+  In order to allow in-app purchases in your application, register the
+  products in your application. Start by creating an application-global instance of
+  \l QInAppStore, and use the registerProduct() function to register each product.
+
+  The following example is a hypothetical role-playing game, which provides two
+  in-app products to the user.
+
+  \code
+  MyApplication::MyApplication(QObject *parent)
+      : QObject(parent)
+  {
+      m_myStore = new QInAppStore(this);
+      setupConnections();
+
+      m_myStore->registerProduct(QInAppProduct::Consumable,
+                                 QStringLiteral("healthPotion"));
+      m_myStore->registerProduct(QInAppProduct::Unlockable,
+                                 QStringLiteral("dlcForestOfFooBar"));
+  }
+  \endcode
+
+  As you can see, there are \l{QInAppProduct::Consumable}{consumable products} and
+  \l{QInAppProduct::Unlockable}{unlockable products}. The former can be purchased
+  any number of times by the same user, whereas the latter can only be purchased
+  once.
+
+  In our example, the \c "healthPotion" is a consumable product, because the user should
+  be able to buy any number of health potions and add them to their in-game inventory.
+
+  The \c "dlcForestOfFooBar" is downloadable content, which unlocks a new part
+  of the game, and once it is bought, the purchase should be persistent across
+  the user's devices and across reinstallations.
+
+  \section1 Making Connections
+
+  Registering a product is an asynchronous operation, as are all operations
+  supported by Qt Purchasing. Before you start registering a product, you must
+  listen to the \l{QInAppStore::productRegistered()} and
+  \l{QInAppStore::productUnknown()} signals in QInAppStore to know the status
+  of your registration.
+
+  If the application intends to allow users to purchase products, it also needs
+  to listen for the \l{QInAppStore::transactionReady()} signal to be notified
+  when a transaction is pending.
+
+  \code
+  void MyApplication::setupConnections()
+  {
+      connect(m_myStore, SIGNAL(productRegistered(QInAppProduct*)),
+              this, SLOT(markProductAvailable(QInAppProduct*)));
+      connect(m_myStore, SIGNAL(productUnknown(QInAppProduct*)),
+              this, SLOT(handleErrorGracefully(QInAppProduct*)));
+
+      connect(m_myStore, SIGNAL(transactionReady(QInAppTransaction*)),
+              this, SLOT(handleTransaction(QInAppTransaction*)));
+  }
+  \endcode
+
+  \section1 Purchasing A Product
+
+  When the user wants to purchase a product, call \l{QInAppProduct::purchase()}
+  on the product. This launches a platform-specific, asynchronous process to
+  purchase the product, for example by requesting the user's password and
+  confirmation of the purchase. In most cases, you must make sure that the
+  application UI is not accepting input while the purchase request is being
+  processed, as this is not handled automatically on all platforms.
+
+  \code
+  void MyApplication::purchaseHealthPotion()
+  {
+      QInAppProduct *product = m_myStore->registeredProduct(QStringLiteral("healthPotion"));
+
+      // Should not get here if product is not registered
+      Q_ASSERT(product != 0);
+
+      product->purchase();
+  }
+  \endcode
+
+  When this function is called, the purchase process is initiated. At some
+  point during the process, the \l{QInAppStore::transactionReady()} signal is
+  emitted, and the slot registered earlier is called. In this function, you
+  can save data about a successful purchase so that it survives across
+  application runs. After verifying that the data has been stored, finalize the
+  transaction. If the transaction fails, display information about the
+  failure to the user and finalize the transaction.
+
+  \code
+  void MyApplication::handleTransaction(QInAppTransaction *transaction)
+  {
+      if (transaction->status() == QInAppTransaction::PurchaseApproved
+          && transaction->product()->identifier() == QStringLiteral("healthPotion")) {
+          if (!hasAlreadyStoredTransaction(transaction->orderId()) {
+              ++m_healthPotions;
+              if (!addHealthPotionToPersistentStorage(transaction->orderId())
+                  popupErrorDialog(tr("Unable to write to persistent storage. Please make sure there is sufficient space and restart."))
+              else
+                  transaction->finalize();
+          }
+      } else if (transaction->status() == QInAppTransaction::PurchaseFailed) {
+          popupErrorDialog(tr("Purchase not completed."));
+          transaction->finalize();
+      }
+  }
+  \endcode
+
+  If a transaction is not finalized, the
+  \l{QInAppStore::transactionReady()}{transactionReady() signal} is emitted
+  again for the same transaction the next time the product is registered,
+  providing another chance to store the data. The transaction for a consumable
+  product must be finalized before the product can be purchased again.
+
+  \section1 Restoring Previously Purchased Products
+
+  If the application is uninstalled and subsequently reinstalled (or installed
+  by the same user on a different device), you must provide a way to restore
+  the previously purchased unlockable products.
+
+  To start the process of restoring purchases, call the
+  \l{QInAppStore::restorePurchases()} function. This emits the
+  \l{QInAppStore::transactionReady()} signal for each of the application's
+  unlockable products that were purchased previously by the current user. The
+  status of these transactions will be \l{QInAppTransaction::PurchaseRestored}.
+
+  Continuing on the example from earlier, lets imagine that the game has
+  downloadable content that you can buy to extend the game further. This must
+  be an unlockable product, because the user need not purchase it more than
+  once.
+
+  \code
+  void MyApplication::handleTransaction(QInAppTransaction *transaction)
+  {
+      if ((transaction->status() == QInAppTransaction::PurchaseApproved
+           || transaction->status() == QInAppTransaction::PurchaseRestored)
+          && transaction->product()->identifier() == QStringLiteral("dlcForestOfFooBar"))
+      {
+
+          if (!hasMap(QStringLiteral("forestOfFooBar.map")) {
+              if (!downloadExtraMap(QStringLiteral("forestOfFooBar.map")))
+                  popupErrorDialog(tr("Unable to download The Forest of FooBar map. Please make sure there is sufficient space and restart."))
+              else
+                  transaction->finalize()
+          }
+
+      } else if (transaction->status() == QInAppTransaction::PurchaseApproved
+          && transaction->product()->identifier() == QStringLiteral("healthPotion")) {
+
+          // ... handle healthPotion purchase
+
+      } else {
+          popupErrorDialog(tr("Purchase not completed."));
+          transaction->finalize();
+      }
+  }
+  \endcode
+
+  If a user buys the downloadable content and later either installs the game on
+  another device or uninstalls and reinstalls the game, you can provide a way
+  to restore the purchase by calling \l{QInAppStore::restorePurchases()}.
+  Purchases must be restored in response to a user input, as it may present a
+  password dialog on some platforms.
+
+  \note While the function behaves as documented on Android, this functionality
+  is technically not needed there. Android manages all unlockable purchases
+  with no intervention from the application. If an application is uninstalled
+  and reinstalled (or installed on a different Android device),
+  \l{QInAppStore::transactionReady()} is emitted at application start-up for
+  each previously purchased unlockable product, with the
+                             \l{QInAppTransaction::PurchaseApproved} status.
+
+*/
+

@@ -1,0 +1,175 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/linux/pkg_config.gni")
+import("//build/config/ui.gni")
+import("//build/json_schema_api.gni")
+import("//testing/test.gni")
+if (is_android) {
+  import("//build/config/android/rules.gni")
+}
+
+if (use_x11) {
+  pkg_config("atk") {
+    packages = [ "atk" ]
+    atk_lib_dir = exec_script(pkg_config_script,
+                              pkg_config_args + [
+                                    "--libdir",
+                                    "atk",
+                                  ],
+                              "string")
+    defines = [ "ATK_LIB_DIR=\"$atk_lib_dir\"" ]
+  }
+
+  # gn orders flags on a target before flags from configs. The default config
+  # adds -Wall, and these flags have to be after -Wall -- so they need to come
+  # from a config and can't be on the target directly.
+  config("atk_warnings") {
+    cflags = [
+      # glib uses the pre-c++11 typedef-as-static_assert hack.
+      "-Wno-unused-local-typedef",
+
+      # G_DEFINE_TYPE automatically generates a *get_instance_private
+      # inline function after glib 2.37. That's unused. Prevent to
+      # complain about it.
+      "-Wno-unused-function",
+    ]
+  }
+}
+
+component("accessibility") {
+  sources = [
+    "ax_node.cc",
+    "ax_node.h",
+    "ax_node_data.cc",
+    "ax_node_data.h",
+    "ax_serializable_tree.cc",
+    "ax_serializable_tree.h",
+    "ax_text_utils.cc",
+    "ax_text_utils.h",
+    "ax_tree.cc",
+    "ax_tree.h",
+    "ax_tree_combiner.cc",
+    "ax_tree_combiner.h",
+    "ax_tree_data.cc",
+    "ax_tree_data.h",
+    "ax_tree_serializer.cc",
+    "ax_tree_serializer.h",
+    "ax_tree_source.h",
+    "ax_tree_update.h",
+    "ax_view_state.cc",
+    "ax_view_state.h",
+    "platform/ax_platform_node.cc",
+    "platform/ax_platform_node.h",
+    "platform/ax_platform_node_base.cc",
+    "platform/ax_platform_node_base.h",
+    "platform/ax_platform_node_delegate.h",
+    "platform/ax_platform_node_mac.h",
+    "platform/ax_platform_node_mac.mm",
+    "platform/ax_platform_node_win.cc",
+    "platform/ax_platform_node_win.h",
+  ]
+
+  defines = [ "ACCESSIBILITY_IMPLEMENTATION" ]
+
+  public_deps = [
+    ":ax_gen",
+    "//base",
+    "//base:i18n",
+    "//ui/base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (is_win) {
+    public_deps += [ "//third_party/iaccessible2" ]
+  }
+
+  if (is_mac) {
+    libs = [
+      "AppKit.framework",
+      "Foundation.framework",
+    ]
+  }
+
+  if (use_atk) {
+    sources += [
+      "platform/atk_util_auralinux.cc",
+      "platform/atk_util_auralinux.h",
+      "platform/ax_platform_node_auralinux.cc",
+      "platform/ax_platform_node_auralinux.h",
+    ]
+
+    configs += [
+      ":atk",
+      ":atk_warnings",
+      "//build/config/linux/gconf",
+      "//build/config/linux:glib",
+    ]
+  }
+}
+
+if (is_android) {
+  android_library("ui_accessibility_java") {
+    deps = []
+    srcjar_deps = [ ":ax_enumerations_srcjar" ]
+  }
+
+  java_cpp_enum("ax_enumerations_srcjar") {
+    sources = [
+      "ax_enums.idl",
+    ]
+  }
+}
+
+source_set("test_support") {
+  sources = [
+    "platform/test_ax_node_wrapper.cc",
+    "platform/test_ax_node_wrapper.h",
+    "tree_generator.cc",
+    "tree_generator.h",
+  ]
+
+  deps = [
+    ":accessibility",
+  ]
+}
+
+test("accessibility_unittests") {
+  sources = [
+    "ax_generated_tree_unittest.cc",
+    "ax_text_utils_unittest.cc",
+    "ax_tree_combiner_unittest.cc",
+    "ax_tree_serializer_unittest.cc",
+    "ax_tree_unittest.cc",
+    "platform/ax_platform_node_win_unittest.cc",
+  ]
+
+  deps = [
+    ":accessibility",
+    ":test_support",
+    "//base",
+    "//base/test:run_all_unittests",
+    "//skia",
+    "//testing/gtest",
+    "//ui/base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+  ]
+
+  if (is_win) {
+    deps += [ "//third_party/iaccessible2" ]
+  }
+}
+
+json_schema_api("ax_gen") {
+  sources = [
+    "ax_enums.idl",
+  ]
+  deps = [
+    "//base/third_party/dynamic_annotations",
+  ]
+  root_namespace = "ui"
+  schemas = true
+}

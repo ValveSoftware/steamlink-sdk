@@ -1,0 +1,444 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtqml-javascript-expressions.html
+\title JavaScript Expressions in QML Documents
+\brief Description of where JavaScript expressions are valid in QML documents
+
+
+The \l{JavaScript Host Environment} provided by QML can run valid standard
+JavaScript constructs such as conditional operators, arrays, variable setting,
+loops. In addition to the standard JavaScript properties, the \l {QML Global
+Object} includes a number of helper methods that simplify building UIs and
+interacting with the QML environment.
+
+The JavaScript environment provided by QML is stricter than that in a web
+browser.  For example, in QML you cannot add to, or modify, members of the
+JavaScript global object.  In regular JavaScript, it is possible to do this
+accidentally by using a variable without declaring it. In QML this will throw
+an exception, so all local variables must be explicitly declared.  See
+\l{JavaScript Environment Restrictions} for a complete description of the
+restrictions on JavaScript code executed from QML.
+
+Various parts of \l{QML Documents}{QML documents} can contain JavaScript code:
+
+\list 1
+  \li The body of \l{Property Binding}{property bindings}. These JavaScript
+      expressions describe relationships between QML object \l{Property Attributes}
+      {properties}. When any of a property's \e dependencies change, the property
+      is automatically updated too, according to the specified relationship.
+  \li The body of \l{Signal Attributes}{Signal handlers}. These JavaScript
+      statements are automatically evaluated whenever a QML object emits the
+      associated signal.
+  \li The definition of \l{Method Attributes}{custom methods}. JavaScript functions
+      that are defined within the body of a QML object become methods of that
+      object.
+  \li Standalone \l{Importing JavaScript Resources in QML}{JavaScript resource
+      (.js) files}. These files are actually separate from QML documents, but
+      they can be imported into QML documents. Functions and variables that are
+      defined within the imported files can be used in property bindings, signal
+      handlers, and custom methods.
+\endlist
+
+
+
+\section1 JavaScript in Property Bindings
+
+In the following example, the \l Rectangle's \c color depends on the
+\l MouseArea's \c pressed property. This relationship is described using a
+conditional expression:
+
+\qml
+import QtQuick 2.0
+
+Rectangle {
+    id: colorbutton
+    width: 200; height: 80;
+
+    color: mousearea.pressed ? "steelblue" : "lightsteelblue"
+
+    MouseArea {
+        id: mousearea
+        anchors.fill: parent
+    }
+}
+\endqml
+
+In fact, any JavaScript expression (no matter how complex) may be used in a
+property binding definition, as long as the result of the expression is a
+value whose type can be assigned to the property.  This includes side effects.
+However, complex bindings and side effects are discouraged because they can
+reduce the performance, readability, and maintainability of the code.
+
+There are two ways to define a property binding: the first (and most common)
+is, as previously shown, in a \l{QML Object Attributes#Value Assignment on Initialization}
+{property initialization}.  The second (and much rarer) way is to assign the
+property a function returned from the \l{Qt::binding()}{Qt.binding()} function,
+from within imperative JavaScript code, as shown below:
+
+\qml
+import QtQuick 2.0
+
+Rectangle {
+    id: colorbutton
+    width: 200; height: 80;
+
+    color: "red"
+
+    MouseArea {
+        id: mousearea
+        anchors.fill: parent
+    }
+
+    Component.onCompleted: {
+        color = Qt.binding(function() { return mousearea.pressed ? "steelblue" : "lightsteelblue" });
+    }
+}
+\endqml
+
+See the \l{Property Binding}{property bindings} documentation for more
+information about how to define property bindings, and see the documentation
+about \l{qml-javascript-assignment}
+{Property Assignment versus Property Binding} for information about how
+bindings differ from value assignments.
+
+
+
+\section1 JavaScript in Signal Handlers
+
+QML object types can emit signals in reaction to certain events occurring.
+Those signals can be handled by signal handler functions, which can be defined
+by clients to implement custom program logic.
+
+Suppose that a button represented by a Rectangle type has a MouseArea and a
+Text label. The MouseArea will emit its \l{MouseArea::}{pressed} signal when the
+user presses the defined interactive area, which will automatically trigger the
+\c onPressed handler, which can be defined by clients. The QML
+engine will execute the JavaScript expressions defined in the \c onPressed and
+\c onReleased handlers, as required. Typically, a signal handler is bound to
+JavaScript expressions to initiate other events or to simply assign property
+values.
+
+\qml
+import QtQuick 2.0
+
+Rectangle {
+    id: button
+    width: 200; height: 80; color: "lightsteelblue"
+
+    MouseArea {
+        id: mousearea
+        anchors.fill: parent
+
+        onPressed: {
+            // arbitrary JavaScript expression
+            label.text = "I am Pressed!"
+        }
+        onReleased: {
+            // arbitrary JavaScript expression
+            label.text = "Click Me!"
+        }
+
+    }
+
+    Text {
+        id: label
+        anchors.centerIn: parent
+        text: "Press Me!"
+    }
+}
+\endqml
+
+Please see the \l{Signal and Handler Event System} documentation for in-depth
+discussion of signals and signal handlers, and see the
+\l{QML Object Attributes} documentation for in-depth discussion of how
+to define the implementation of signal handlers in QML with JavaScript.
+
+
+
+\section1 JavaScript in Standalone Functions
+
+Program logic can also be defined in JavaScript functions.  These functions can
+be defined inline in QML documents (as custom methods) or externally in
+imported JavaScript files.
+
+
+
+\section2 JavaScript in Custom Object Methods
+
+Custom methods can be defined in QML documents and may be called from signal
+handlers, property bindings, or functions in other QML objects.  Methods
+defined in this way are often referred to as \e{inline JavaScript functions}
+because their implementation is included in the QML object type definition
+(QML document), as opposed to an external JavaScript file.
+
+An example of an inline custom method is as follows:
+
+\qml
+import QtQuick 2.0
+
+Item {
+    function factorial(a) {
+        a = parseInt(a);
+        if (a <= 0)
+            return 1;
+        else
+            return a * factorial(a - 1);
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        onClicked: console.log(factorial(10))
+    }
+}
+\endqml
+
+The factorial function will run whenever the MouseArea detects a \c clicked signal.
+
+Importantly, custom methods defined inline in a QML document are exposed to
+other objects, and therefore inline functions on the root object in a QML
+component can be invoked by callers outside the component.  If this is not
+desired, the method can be added to a non-root object or, preferably, written
+in an external JavaScript file.
+
+See the \l{QML Object Attributes} documentation for in-depth discussion of how
+to define custom methods in QML with JavaScript code implementations.
+
+
+
+\section2 Functions in Imported JavaScript Files
+
+Non-trivial program logic is best separated into external JavaScript files.
+These files can be imported into QML files using an \c import statement, in
+the same way that \l {QML Modules}{modules} are imported.
+
+For example, the \c {factorial()} method in the above example could be moved
+into an external file named \c factorial.js, and accessed like this:
+
+\qml
+import "factorial.js" as MathFunctions
+
+Item {
+    MouseArea {
+        anchors.fill: parent
+        onClicked: console.log(MathFunctions.factorial(10))
+    }
+}
+\endqml
+
+For more information about loading external JavaScript files into QML, read
+the section about \l{Importing JavaScript Resources in QML}.
+
+
+
+\section2 Connecting Signals to JavaScript Functions
+
+QML object types which emit signals also provide default signal handlers for
+their signals, as described in a previous section.  Sometimes, however, a
+client will want to cause a signal emitted from one object to trigger a
+function defined in another object; and in that case, a signal connection
+is often preferable.
+
+A signal emitted by a QML object may be connected to a JavaScript function
+by calling the signal's \c connect() method and passing the JavaScript function
+as an argument.  For example, the following code connects the MouseArea
+\c clicked signal to the \c jsFunction() in \c script.js:
+
+\table
+\row
+\li \snippet qml/integrating-javascript/connectjs.qml 0
+\li \snippet qml/integrating-javascript/script.js 0
+\endtable
+
+The \c jsFunction() will now be called whenever MouseArea's \c clicked signal
+is emitted.
+
+See \l{qtqml-syntax-signals.html}
+{Connecting Signals to Methods and Signals} for more information.
+
+
+
+
+
+\section1 JavaScript in Application Startup Code
+
+It is occasionally necessary to run some imperative code at application (or
+component instance) startup.  While it is tempting to just include the startup
+script as \e {global code} in an external script file, this can have severe
+limitations as the QML environment may not have been fully established.  For
+example, some objects might not have been created or some
+\l {Property Binding}{property bindings} may not have been established. See
+\l {JavaScript Environment Restrictions} for the exact limitations of global
+script code.
+
+A QML object will emit the \c{Component.completed} \l{Signal and Handler Event
+System#Attached Signal Handlers}{attached signal} when its instantiation is
+complete.  JavaScript code in the corresponding \c{Component.onCompleted} handler
+runs after the object is instantiated.  Thus, the best place to write application
+startup code is in the \c{Component.onCompleted} handler of the top-level
+object, because this object emits \c{Component.completed} when the QML environment
+is fully established.
+
+For example:
+
+\qml
+import QtQuick 2.0
+
+Rectangle {
+    function startupFunction() {
+        // ... startup code
+    }
+
+    Component.onCompleted: startupFunction();
+}
+\endqml
+
+Any object in a QML file - including nested objects and nested QML component
+instances - can use this attached property.  If there is more than one
+\c onCompleted() handler to execute at startup, they are run sequentially in
+an undefined order.
+
+Likewise, every \c Component will emit a \l {Component::destruction}{destruction()}
+signal just before being destroyed.
+
+*/
+
+/*
+ \internal
+    NOTE: TODO Qt 5.1: We are not sufficiently confident about the implementation of scarce
+    resources in Qt 5.0.0, so mark this section as internal for now.
+    It should eventually become public API
+
+    There is another section about scarce resources in basictypes.qdoc. It should
+    be enabled at the same time.
+
+
+
+\section1 Scarce Resources in JavaScript
+
+As described in the documentation for \l{QML Basic Types}, a \c var type
+property may hold a \e{scarce resource} (image or pixmap).  There are several
+important semantics of scarce resources which should be noted:
+
+\list
+\li By default, a scarce resource is automatically released by the declarative engine as soon as evaluation of the expression in which the scarce resource is allocated is complete if there are no other references to the resource
+\li A client may explicitly preserve a scarce resource, which will ensure that the resource will not be released until all references to the resource are released and the JavaScript engine runs its garbage collector
+\li A client may explicitly destroy a scarce resource, which will immediately release the resource
+\endlist
+
+In most cases, allowing the engine to automatically release the resource is
+the correct choice.  In some cases, however, this may result in an invalid
+variant being returned from a function in JavaScript, and in those cases it
+may be necessary for clients to manually preserve or destroy resources for
+themselves.
+
+For the following examples, imagine that we have defined the following class:
+
+\snippet qml/integrating-javascript/scarceresources/avatarExample.h 0
+
+and that we have registered it with the QML type-system as follows:
+
+\snippet qml/integrating-javascript/scarceresources/avatarExample.cpp 0
+
+The AvatarExample class has a property which is a pixmap.  When the property
+is accessed in JavaScript scope, a copy of the resource will be created and
+stored in a JavaScript object which can then be used within JavaScript.  This
+copy will take up valuable system resources, and so by default the scarce
+resource copy in the JavaScript object will be released automatically by the
+declarative engine once evaluation of the JavaScript expression is complete,
+unless the client explicitly preserves it.
+
+\section2 Example One: Automatic Release
+
+In the following example, the scarce resource will be automatically released
+after the binding evaluation is complete. Assume we have the following qml file:
+
+\snippet qml/integrating-javascript/scarceresources/exampleOne.qml 0
+
+And then use it from C++:
+
+\snippet qml/integrating-javascript/scarceresources/avatarExample.cpp 1
+
+\section2 Example Two: Automatic Release Prevented By Reference
+
+In this example, the resource will not be automatically
+released after the binding expression evaluation is
+complete, because there is a property var referencing the
+scarce resource.
+
+\snippet qml/integrating-javascript/scarceresources/exampleTwo.qml 0
+
+And from C++:
+
+\snippet qml/integrating-javascript/scarceresources/avatarExample.cpp 2
+
+\section2 Example Three: Explicit Preservation
+
+In this example, the resource must be explicitly preserved in order
+to prevent the declarative engine from automatically releasing the
+resource after evaluation of the imported script.
+
+We create a JavaScript file:
+\snippet qml/integrating-javascript/scarceresources/exampleThree.js 0
+
+Import it in QML:
+\snippet qml/integrating-javascript/scarceresources/exampleThree.qml 0
+
+Run it in C++:
+\snippet qml/integrating-javascript/scarceresources/avatarExample.cpp 3
+
+\section2 Example Four: Explicit Destruction
+
+In the following example, we release (via destroy()) an explicitly preserved
+scarce resource variant.  This example shows how a client may free system
+resources by releasing the scarce resource held in a JavaScript object, if
+required, during evaluation of a JavaScript expression.
+
+We create a JavaScript file:
+\snippet qml/integrating-javascript/scarceresources/exampleFour.js 0
+
+Import it in QML:
+\snippet qml/integrating-javascript/scarceresources/exampleFour.qml 0
+
+Run it in C++:
+\snippet qml/integrating-javascript/scarceresources/avatarExample.cpp 4
+
+\section2 Example Five: Explicit Destruction and JavaScript References
+
+One thing to be aware of when using "var" type properties is that they
+hold references to JavaScript objects.  As such, if multiple references
+to one scarce resource is held, and the client calls destroy() on one
+of those references (to explicitly release the scarce resource), all of
+the references will be affected.
+
+
+\snippet qml/integrating-javascript/scarceresources/exampleFive.qml 0
+
+Run it in C++:
+\snippet qml/integrating-javascript/scarceresources/avatarExample.cpp 5
+
+*/

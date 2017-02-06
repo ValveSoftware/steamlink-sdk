@@ -1,0 +1,42 @@
+{% from 'macros.tmpl' import license %}
+{{license()}}
+
+#ifndef InternalRuntimeFlags_h
+#define InternalRuntimeFlags_h
+
+#include "bindings/core/v8/ScriptWrappable.h"
+#include "platform/RuntimeEnabledFeatures.h"
+#include "platform/heap/Handle.h"
+#include "wtf/PassRefPtr.h"
+#include "wtf/RefPtr.h"
+#include "wtf/RefCounted.h"
+
+namespace blink {
+
+class InternalRuntimeFlags : public GarbageCollected<InternalRuntimeFlags>, public ScriptWrappable {
+    DEFINE_WRAPPERTYPEINFO();
+public:
+    static InternalRuntimeFlags* create()
+    {
+        return new InternalRuntimeFlags;
+    }
+
+    // These are reset between layout tests from Internals::resetToConsistentState
+    // using RuntimeEnabledFeatures::Backup.
+    {% for feature in standard_features if feature.settable_from_internals %}
+    void set{{feature.name}}Enabled(bool isEnabled) { RuntimeEnabledFeatures::set{{feature.name}}Enabled(isEnabled); }
+    {% endfor %}
+
+    {% for feature in standard_features %}
+    bool {{feature.first_lowered_name}}Enabled() { return RuntimeEnabledFeatures::{{feature.first_lowered_name}}Enabled(); }
+    {% endfor %}
+
+    DEFINE_INLINE_TRACE() { }
+
+private:
+    InternalRuntimeFlags() { }
+};
+
+} // namespace blink
+
+#endif // InternalRuntimeFlags_h

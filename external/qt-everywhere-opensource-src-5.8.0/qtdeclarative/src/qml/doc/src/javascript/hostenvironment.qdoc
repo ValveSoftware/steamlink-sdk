@@ -1,0 +1,176 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtqml-javascript-hostenvironment.html
+\title JavaScript Host Environment
+\brief Description of the JavaScript host environment provided by the QML engine
+
+
+QML provides a JavaScript host environment tailored to writing QML applications.
+This environment is different from the host environment provided by a browser
+or a server-side JavaScript environment such as Node.js. For example, QML does
+not provide a \c window object or \c{DOM API} as commonly found in a browser environment.
+
+\section1 Common Base
+
+Like a browser or server-side JavaScript environment, the QML runtime implements the
+\l{ECMA-262}{ECMAScript Language Specification} standard. This provides access to
+all of the built-in types and functions defined by the standard, such as Object, Array, and Math.
+The QML runtime implements the 5th edition of the standard, which is the same edition commonly
+implemented by browsers.
+
+The standard ECMAScript built-ins are not explicitly documented in the QML documentation. For more
+information on their use, please refer to the ECMA-262 5th edition standard or one of the many online
+JavaScript reference and tutorial sites, such as the \l{W3Schools JavaScript Reference} (JavaScript Objects
+Reference section). Many sites focus on JavaScript in the browser, so in some cases you may need to double
+check the specification to determine whether a given function or object is part of standard ECMAScript or
+specific to the browser environment. In the case of the W3Schools link above, the \c{JavaScript Objects
+Reference} section generally covers the standard, while the \c{Browser Objects Reference} and \c{HTML DOM
+Objects Reference} sections are browser specific (and thus not applicable to QML).
+
+
+\section1 QML Global Object
+
+The QML JavaScript host environment implements a number of host objects and functions, as
+detailed in the \l{QML Global Object} documentation.
+
+These host objects and functions are always available, regardless of whether any modules
+have been imported.
+
+
+\section1 JavaScript Objects and Functions
+
+A list of the JavaScript objects, functions and properties supported by the
+QML engine can be found in the \l{List of JavaScript Objects and Functions}.
+
+Note that QML makes the following modifications to native objects:
+
+\list
+\li An \l {String::arg}{arg()} function is added to the \l String prototype.
+\li Locale-aware conversion functions are added to the \l Date and \l Number prototypes.
+\endlist
+
+
+\section1 JavaScript Environment Restrictions
+
+QML implements the following restrictions for JavaScript code:
+
+\list
+\li JavaScript code written in a \c .qml file cannot modify the global object.
+    JavaScript code in a .js file can modify the global object,
+    and those modifications will be visible to the .qml file when
+    \l {Importing a JavaScript Resource from a QML Document}{imported}.
+
+In QML, the global object is constant - existing properties cannot be modified
+or deleted, and no new properties may be created.
+
+Most JavaScript programs do not intentionally modify the global object.
+However, JavaScript's automatic creation of undeclared variables is an implicit
+modification of the global object, and is prohibited in QML.
+
+Assuming that the \c a variable does not exist in the scope chain, the
+following code is illegal in QML:
+
+\code
+// Illegal modification of undeclared variable
+a = 1;
+for (var ii = 1; ii < 10; ++ii)
+    a = a * ii;
+console.log("Result: " + a);
+\endcode
+
+It can be trivially modified to this legal code.
+
+\code
+var a = 1;
+for (var ii = 1; ii < 10; ++ii)
+    a = a * ii;
+console.log("Result: " + a);
+\endcode
+
+Any attempt to modify the global object - either implicitly or explicitly - will
+cause an exception.  If uncaught, this will result in a warning being printed,
+that includes the file and line number of the offending code.
+
+\li Global code is run in a reduced scope.
+
+During startup, if a QML file includes an external JavaScript file with "global"
+code, it is executed in a scope that contains only the external file itself and
+the global object.  That is, it will not have access to the QML objects and
+properties it \l {Scope and Naming Resolution}{normally would}.
+
+Global code that only accesses script local variables is permitted.  This is an
+example of valid global code.
+
+\code
+var colors = [ "red", "blue", "green", "orange", "purple" ];
+\endcode
+
+Global code that accesses QML objects will not run correctly.
+
+\code
+// Invalid global code - the "rootObject" variable is undefined
+var initialPosition = { rootObject.x, rootObject.y }
+\endcode
+
+This restriction exists as the QML environment is not yet fully established.
+To run code after the environment setup has completed, see
+\l {JavaScript in Application Startup Code}.
+
+\li The value of \c this is currently undefined in QML in the majority of contexts.
+
+The \c this keyword is supported when binding properties from JavaScript.
+In all other situations, the value of
+\c this is undefined in QML.
+
+To refer to a specific object, provide an \c id.  For example:
+
+\qml
+Item {
+    width: 200; height: 100
+    function mouseAreaClicked(area) {
+        console.log("Clicked in area at: " + area.x + ", " + area.y);
+    }
+    // This will not work because this is undefined
+    MouseArea {
+        height: 50; width: 200
+        onClicked: mouseAreaClicked(this)
+    }
+    // This will pass area2 to the function
+    MouseArea {
+        id: area2
+        y: 50; height: 50; width: 200
+        onClicked: mouseAreaClicked(area2)
+    }
+}
+\endqml
+
+\endlist
+
+
+
+*/

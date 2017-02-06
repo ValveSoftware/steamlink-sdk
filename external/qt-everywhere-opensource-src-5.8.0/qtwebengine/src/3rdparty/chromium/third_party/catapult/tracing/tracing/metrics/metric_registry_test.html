@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<!--
+Copyright 2016 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<link rel="import" href="/tracing/core/test_utils.html">
+<link rel="import" href="/tracing/metrics/metric_registry.html">
+<link rel="import" href="/tracing/value/numeric.html">
+<link rel="import" href="/tracing/value/value.html">
+
+
+<script>
+'use strict';
+
+tr.b.unittest.testSuite(function() {
+  var test_utils = tr.c.TestUtils;
+  var ThreadSlice = tr.model.ThreadSlice;
+
+  test('FindMetricByName', function() {
+    function sampleMetricA(values, model) {
+      var unit = tr.v.Unit.byName.sizeInBytes_smallerIsBetter;
+      var n1 = new tr.v.ScalarNumeric(unit, 1);
+      values.addValue(new tr.v.NumericValue('foo', n1));
+    }
+    tr.metrics.MetricRegistry.register(sampleMetricA);
+
+    function sampleMetricB(values, model) {
+      var unit = tr.v.Unit.byName.sizeInBytes_smallerIsBetter;
+      var n1 = new tr.v.ScalarNumeric(unit, 1);
+      var n2 = new tr.v.ScalarNumeric(unit, 2);
+      values.addValue(new tr.v.NumericValue('foo', n1));
+      values.addValue(new tr.v.NumericValue('bar', n2));
+    }
+    tr.metrics.MetricRegistry.register(sampleMetricB);
+
+    function sampleMetricC(values, model) {
+      var unit = tr.v.Unit.byName.sizeInBytes_smallerIsBetter;
+      var n1 = new tr.v.ScalarNumeric(unit, 1);
+      var n2 = new tr.v.ScalarNumeric(unit, 2);
+      var n3 = new tr.v.ScalarNumeric(unit, 3);
+      values.addValue(new tr.v.NumericValue('foo', n1));
+      values.addValue(new tr.v.NumericValue('bar', n2));
+      values.addValue(new tr.v.NumericValue('baz', n3));
+    }
+    tr.metrics.MetricRegistry.register(sampleMetricC);
+
+    assert.isTrue(tr.metrics.MetricRegistry.findTypeInfoWithName('sampleMetricB').constructor === sampleMetricB); // @suppress longLineCheck
+  });
+
+  test('registerNonFunctionThrows', function() {
+    assert.throws(function() {
+      tr.metrics.MetricRegistry.register('not a function');
+    });
+
+    assert.throws(function() {
+      tr.metrics.MetricRegistry.register(function() {});
+    });
+
+    assert.throws(function() {
+      tr.metrics.MetricRegistry.register(function(a) {});
+    });
+  });
+});
+</script>

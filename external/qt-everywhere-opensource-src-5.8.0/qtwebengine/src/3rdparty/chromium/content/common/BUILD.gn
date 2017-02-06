@@ -1,0 +1,263 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//content/common/common.gni")
+import("//media/media_options.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//tools/ipc_fuzzer/ipc_fuzzer.gni")
+if (is_mac) {
+  import("//build/config/mac/mac_sdk.gni")
+}
+
+source_set("common") {
+  # Targets external to content should always link to the public API.
+  # In addition, targets outside of the content component (shell and tests)
+  # must not link to this because it will duplicate the code in the component
+  # build.
+  visibility = [ "//content/*" ]
+
+  sources = rebase_path(content_common_gypi_values.private_common_sources,
+                        ".",
+                        "//content")
+
+  configs += [
+    "//content:content_implementation",
+    "//build/config:precompiled_headers",
+    "//build/config/compiler:no_size_t_to_int_warning",
+  ]
+
+  public_deps = [
+    ":mojo_bindings",
+    "//gpu/command_buffer/common",
+    "//ipc",
+    "//third_party/WebKit/public:blink_headers",
+  ]
+  deps = [
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//build/util:webkit_version",
+    "//cc",
+    "//cc/ipc",
+    "//cc/surfaces",
+    "//components/mus/public/interfaces",
+    "//components/tracing",
+    "//components/tracing:startup_tracing",
+    "//content:resources",
+    "//content/app/resources",
+    "//device/bluetooth",
+    "//gpu",
+    "//gpu/command_buffer/client:gles2_c_lib",
+    "//gpu/command_buffer/client:gles2_cmd_helper",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//gpu/command_buffer/client:gles2_interface",
+    "//gpu/command_buffer/common:gles2_utils",
+    "//gpu/command_buffer/service",
+    "//gpu/ipc/client",
+    "//gpu/ipc/common",
+    "//gpu/skia_bindings",
+    "//ipc",
+    "//media",
+    "//media:shared_memory_support",
+    "//media/base/ipc",
+    "//media/capture",
+    "//media/gpu/ipc/client",
+    "//media/gpu/ipc/common",
+    "//media/midi",
+    "//mojo/common:common_base",
+    "//mojo/edk/system",
+    "//net",
+    "//sandbox",
+    "//services/shell",
+    "//services/shell/public/cpp",
+    "//services/shell/public/interfaces",
+    "//services/shell/runner/common",
+    "//skia",
+    "//storage/common",
+    "//third_party/WebKit/public:blink_minimal",
+    "//third_party/boringssl",
+    "//third_party/icu",
+    "//third_party/libjingle",
+    "//third_party/webrtc/base:rtc_base",
+    "//ui/accessibility",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/display",
+    "//ui/events/ipc",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gfx/ipc",
+    "//ui/gfx/ipc/geometry",
+    "//ui/gfx/ipc/skia",
+    "//ui/gl",
+    "//ui/shell_dialogs",
+    "//url",
+    "//url/ipc:url_ipc",
+  ]
+
+  defines = []
+  include_dirs = []
+  libs = []
+  ldflags = []
+
+  if (is_android && use_seccomp_bpf) {
+    set_sources_assignment_filter([])
+    sources += [
+      "sandbox_linux/sandbox_bpf_base_policy_linux.cc",
+      "sandbox_linux/sandbox_bpf_base_policy_linux.h",
+    ]
+    set_sources_assignment_filter(sources_assignment_filter)
+  }
+
+  if (is_mac) {
+    deps += [ "//sandbox/mac:seatbelt" ]
+  }
+
+  if (is_android) {
+    deps += [
+      "//content/public/android:common_aidl",
+      "//content/public/android:jni",
+    ]
+
+    libs += [ "android" ]
+  }
+
+  if (is_debug && !is_component_build && enable_plugins) {
+    # Content depends on the PPAPI message logging stuff; if this isn't here,
+    # some unit test binaries won't compile. This only worked in release mode
+    # because logging is disabled there.
+    deps += [ "//ppapi/proxy:ipc_sources" ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  } else {
+    sources -= [
+      "cursors/webcursor_ozone.cc",
+      "font_list_ozone.cc",
+    ]
+  }
+
+  if (!use_aura || is_android) {
+    sources -= [ "cursors/webcursor_aura.cc" ]
+  }
+
+  if (!use_aura || !use_x11) {
+    sources -= [ "cursors/webcursor_aurax11.cc" ]
+  }
+
+  if (use_pango) {
+    configs += [ "//build/config/linux/pangocairo" ]
+    if (use_ozone) {
+      # If we're using pango, never use this ozone file (it was removed in all
+      # non-ozone cases above).
+      sources -= [ "font_list_ozone.cc" ]
+    }
+  } else {
+    sources -= [ "font_list_pango.cc" ]
+  }
+
+  if (enable_plugins) {
+    deps += [
+      "//ppapi/proxy",
+      "//ppapi/shared_impl",
+    ]
+  } else {
+    sources -= [
+      "pepper_file_util.cc",
+      "pepper_file_util.h",
+      "pepper_plugin_list.cc",
+      "pepper_plugin_list.h",
+      "pepper_renderer_instance_data.cc",
+      "pepper_renderer_instance_data.h",
+      "plugin_list.cc",
+      "plugin_list.h",
+    ]
+  }
+
+  if (!is_win || !use_aura) {
+    sources -= [ "cursors/webcursor_aurawin.cc" ]
+  }
+
+  if (use_seccomp_bpf) {
+    defines += [ "USE_SECCOMP_BPF" ]
+  } else {
+    if (is_linux) {
+      sources -= [
+        "sandbox_linux/bpf_cros_arm_gpu_policy_linux.cc",
+        "sandbox_linux/bpf_cros_arm_gpu_policy_linux.h",
+        "sandbox_linux/bpf_gpu_policy_linux.cc",
+        "sandbox_linux/bpf_gpu_policy_linux.h",
+        "sandbox_linux/bpf_ppapi_policy_linux.cc",
+        "sandbox_linux/bpf_ppapi_policy_linux.h",
+        "sandbox_linux/bpf_renderer_policy_linux.cc",
+        "sandbox_linux/bpf_renderer_policy_linux.h",
+        "sandbox_linux/bpf_utility_policy_linux.cc",
+        "sandbox_linux/bpf_utility_policy_linux.h",
+        "sandbox_linux/sandbox_bpf_base_policy_linux.cc",
+        "sandbox_linux/sandbox_bpf_base_policy_linux.h",
+      ]
+    }
+    if (is_android) {
+      sources -= [
+        "sandbox_linux/android/sandbox_bpf_base_policy_android.cc",
+        "sandbox_linux/android/sandbox_bpf_base_policy_android.h",
+      ]
+    }
+  }
+
+  if (is_mac) {
+    deps += [ "//media/gpu" ]
+  }
+
+  if (enable_ipc_fuzzer) {
+    configs += [ "//tools/ipc_fuzzer:ipc_fuzzer_config" ]
+    sources += [
+      "external_ipc_dumper.cc",
+      "external_ipc_dumper.h",
+    ]
+  }
+}
+
+# See comment at the top of //content/BUILD.gn for how this works.
+group("for_content_tests") {
+  visibility = [ "//content/test/*" ]
+  if (!is_component_build) {
+    public_deps = [
+      ":common",
+    ]
+  }
+}
+
+mojom("mojo_bindings") {
+  # This interface is internal to content. However, this is not exported from
+  # the content component shared library. Code in content but outside of the
+  # content component (content/test or content/shell) should link to this
+  # directly.
+  visibility = [ "//content/*" ]
+
+  sources = [
+    "frame.mojom",
+    "image_downloader/image_downloader.mojom",
+    "leveldb_wrapper.mojom",
+    "process_control.mojom",
+    "render_widget_window_tree_client_factory.mojom",
+    "service_worker/embedded_worker_setup.mojom",
+    "storage_partition_service.mojom",
+  ]
+
+  import_dirs = [ "//mojo/services" ]
+
+  public_deps = [
+    "//components/leveldb/public/interfaces",
+    "//components/mus/public/interfaces",
+    "//services/shell/public/interfaces",
+    "//skia/public/interfaces",
+    "//third_party/WebKit/public:mojo_bindings",
+    "//ui/gfx/geometry/mojo",
+    "//url/mojo:url_mojom_gurl",
+    "//url/mojo:url_mojom_origin",
+  ]
+}

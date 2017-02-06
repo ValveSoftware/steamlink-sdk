@@ -1,0 +1,394 @@
+defineTest(isQtMinimum) {
+    !equals(QT_MAJOR_VERSION, $$1): return(false)
+    count(ARGS, 1, greaterThan) {
+        lessThan(QT_MINOR_VERSION, $$2): return(false)
+    }
+    return(true)
+}
+
+!isQtMinimum(5, 8) {
+    defineTest(qtConfig) {
+        contains(QT_CONFIG, $$1): return(true)
+        return(false)
+    }
+}
+
+defineTest(isPlatformSupported) {
+  QT_FOR_CONFIG += gui-private
+  linux {
+    !gcc:!clang {
+      skipBuild("Qt WebEngine on Linux requires clang or GCC.")
+      return(false)
+    }
+    gcc:!clang:!isGCCVersionSupported(): return(false)
+  } else:win32 {
+    winrt {
+      skipBuild("WinRT is not supported.")
+      return(false)
+    }
+    msvc {
+      !equals(MSVC_VER, "14.0") {
+        skipBuild("Qt WebEngine on Windows requires MSVC 2015 Update 2 or later.")
+        return(false)
+      }
+    } else {
+      skipBuild("Qt WebEngine on Windows requires MSVC 2015 Update 2 or later.")
+      return(false)
+    }
+    isBuildingOnWin32() {
+      skipBuild("Qt WebEngine on Windows must be built on a 64-bit machine.")
+    }
+    !isMinWinSDKVersion(10, 10586): {
+      skipBuild("Qt WebEngine on Windows requires a Windows SDK version 10.0.10586 or newer.")
+      return(false)
+    }
+  } else:osx {
+    lessThan(QMAKE_XCODE_VERSION, 5.1) {
+      skipBuild("Using XCode version $$QMAKE_XCODE_VERSION, but at least version 5.1 is required to build Qt WebEngine.")
+      return(false)
+    }
+    # We require OS X 10.9 (darwin version 13.0.0) or newer
+    darwin_major_version = $$section(QMAKE_HOST.version, ., 0, 0)
+    lessThan(darwin_major_version, 13) {
+      skipBuild("Qt WebEngine requires OS X version 10.9 or newer.")
+      return(false)
+    }
+    !isMinOSXSDKVersion(10, 10): {
+      skipBuild("Qt WebEngine requires an OS X SDK version of 10.10 or newer. Current version is $${WEBENGINE_OSX_SDK_PRODUCT_VERSION}.")
+      return(false)
+    }
+  } else {
+    skipBuild("Unknown platform. Qt WebEngine only supports Linux, Windows, and OS X.")
+    return(false)
+  }
+
+  !contains(QT_CONFIG, c++11) {
+    skipBuild("C++11 support is required in order to build chromium.")
+    return(false)
+  }
+  qtConfig(mirclient) {
+    skipBuild("Mir is not yet supported as graphics backend for Qt WebEngine.")
+    return(false)
+  }
+  static {
+    skipBuild("Static builds of QtWebEngine aren't supported.")
+    return(false)
+  }
+  !isPythonVersionSupported(): return(false)
+  !isArchSupported(): return(false)
+  isSanitizerEnabled():!isSanitizerSupported():!forceSanitizerBuild(): return(false)
+  return(true)
+}
+
+defineTest(isArchSupported) {
+    contains(QT_ARCH, "i386")|contains(QT_ARCH, "x86_64"): return(true)
+    contains(QT_ARCH, "arm")|contains(QT_ARCH, "arm64"): return(true)
+    contains(QT_ARCH, "mips")|contains(QT_ARCH, "mips64"): return(true)
+
+    skipBuild("QtWebEngine can only be built for x86, x86-64, ARM, Aarch64, MIPSel, and MIPS64 architectures.")
+    return(false)
+}
+
+defineTest(isPythonVersionSupported) {
+    python_error_msg = "Python version 2 (2.7.5 or later) is required to build Qt WebEngine."
+    python_version = $$system('python -c "import sys; print(sys.version_info[0:3])"')
+    python_version ~= s/[()]//g
+    python_version = $$split(python_version, ',')
+    python_major_version = $$first(python_version)
+    greaterThan(python_major_version, 2) {
+        skipBuild("Python version 3 is not supported by Chromium.")
+        skipBuild($$python_error_msg)
+        return(false)
+    }
+    python_minor_version = $$member(python_version, 1)
+    python_patch_version = $$member(python_version, 2)
+    greaterThan(python_major_version, 1): greaterThan(python_minor_version, 6): greaterThan(python_patch_version, 4): return(true)
+    skipBuild("Using Python version $${python_major_version}.$${python_minor_version}.$${python_patch_version}.")
+    skipBuild($$python_error_msg)
+    return(false)
+}
+
+defineTest(isSanitizerEnabled) {
+  sanitize_address|sanitize_memory|sanitize_undefined|sanitize_thread: return(true)
+  return(false)
+}
+
+defineTest(forceSanitizerBuild) {
+  contains(WEBENGINE_CONFIG, force_sanitizer_build): return(true)
+  skipBuild("Chosen sanitizer configuration is not supported. Use WEBENGINE_CONFIG+=force_sanitizer_build to force build with the chosen sanitizer configuration.")
+  return(false)
+}
+
+defineTest(isSanitizerSupported) {
+  sanitizer_combo_supported = true
+  sanitize_address {
+    asan_supported = false
+    linux-clang-libc++:isSanitizerSupportedOnLinux() {
+      asan_supported = true
+    } else:macos:isSanitizerSupportedOnMacOS() {
+      asan_supported = true
+    }
+    !$$asan_supported {
+      sanitizer_combo_supported = false
+      warning("An address sanitizer-enabled Qt WebEngine build can only be built on Linux or macOS using Clang and libc++.")
+    }
+  }
+
+  sanitize_memory {
+    sanitizer_combo_supported = false
+    warning("A memory sanitizer-enabled Qt WebEngine build is not supported.")
+  }
+
+  sanitize_undefined {
+    ubsan_supported = false
+    linux-clang-libc++:isSanitizerSupportedOnLinux():CONFIG(release, debug|release):!debug_and_release {
+      ubsan_supported = true
+    }
+    !$$ubsan_supported {
+      sanitizer_combo_supported = false
+      warning("An undefined behavior sanitizer-enabled Qt WebEngine build can only be built on Linux using Clang and libc++ in release mode.")
+    }
+  }
+
+  sanitize_thread {
+    tsan_supported = false
+    linux-clang-libc++:isSanitizerSupportedOnLinux() {
+      tsan_supported = true
+    }
+    !$$tsan_supported {
+      sanitizer_combo_supported = false
+      warning("A thread sanitizer-enabled Qt WebEngine build can only be built on Linux using Clang and libc++.")
+    }
+  }
+
+  $$sanitizer_combo_supported: return(true)
+  return(false)
+}
+
+defineTest(isSanitizerSupportedOnLinux) {
+  isSanitizerLinuxClangVersionSupported(): return(true)
+  return(false)
+}
+
+defineTest(isSanitizerSupportedOnMacOS) {
+  isEmpty(QT_APPLE_CLANG_MAJOR_VERSION) {
+    QTWEBENGINE_CLANG_IS_APPLE = false
+  } else {
+    QTWEBENGINE_CLANG_IS_APPLE = true
+  }
+  $$QTWEBENGINE_CLANG_IS_APPLE:isSanitizerMacOSAppleClangVersionSupported(): return(true)
+  else:isSanitizerMacOSClangVersionSupported(): return(true)
+  return(false)
+}
+
+defineTest(isSanitizerMacOSAppleClangVersionSupported) {
+  # Clang sanitizer suppression attributes work from Apple Clang version 7.3.0+.
+  greaterThan(QT_APPLE_CLANG_MAJOR_VERSION, 7): return(true)
+  greaterThan(QT_APPLE_CLANG_MINOR_VERSION, 2): return(true)
+
+  warning("Using Apple Clang version $${QT_APPLE_CLANG_MAJOR_VERSION}.$${QT_APPLE_CLANG_MINOR_VERSION}.$${QT_APPLE_CLANG_PATCH_VERSION}, but at least Apple Clang version 7.3.0 is required to build a sanitizer-enabled Qt WebEngine.")
+  return(false)
+}
+
+defineTest(isSanitizerMacOSClangVersionSupported) {
+  # Clang sanitizer suppression attributes work from non-apple Clang version 3.7+.
+  greaterThan(QT_CLANG_MAJOR_VERSION, 3): return(true)
+  greaterThan(QT_CLANG_MINOR_VERSION, 6): return(true)
+
+  warning("Using Clang version $${QT_CLANG_MAJOR_VERSION}.$${QT_CLANG_MINOR_VERSION}, but at least Clang version 3.7 is required to build a sanitizer-enabled Qt WebEngine.")
+  return(false)
+}
+
+defineTest(isSanitizerLinuxClangVersionSupported) {
+  # Clang sanitizer suppression attributes work from Clang version 3.7+.
+  greaterThan(QT_CLANG_MAJOR_VERSION, 3): return(true)
+  greaterThan(QT_CLANG_MINOR_VERSION, 6): return(true)
+
+  warning("Using Clang version $${QT_CLANG_MAJOR_VERSION}.$${QT_CLANG_MINOR_VERSION}, but at least Clang version 3.7 is required to build a sanitizer-enabled Qt WebEngine.")
+  return(false)
+}
+
+defineTest(isGCCVersionSupported) {
+  # The below will work for gcc 4.7 and up and also match gcc 5
+  greaterThan(QT_GCC_MINOR_VERSION, 6):return(true)
+  greaterThan(QT_GCC_MAJOR_VERSION, 4):return(true)
+  skipBuild("Using gcc version "$$QT_GCC_MAJOR_VERSION"."$$QT_GCC_MINOR_VERSION", but at least gcc version 4.7 is required to build Qt WebEngine.")
+  return(false)
+}
+
+defineTest(isQMLTestSupportApiEnabled) {
+    qtConfig(private_tests): return(true) # enable for developer-build
+    contains(QT_BUILD_PARTS, tests): return(true)
+    contains(WEBENGINE_CONFIG, testsupport): return(true)
+    return(false)
+}
+
+defineTest(isBuildingOnWin32) {
+    # The check below is ugly, but necessary, as it seems to be the only reliable way to detect if the host
+    # architecture is 32 bit. QMAKE_HOST.arch does not work as it returns the architecture that the toolchain
+    # is building for, not the system's actual architecture.
+    PROGRAM_FILES_X86 = $$(ProgramW6432)
+    isEmpty(PROGRAM_FILES_X86): return(true)
+    return(false)
+}
+
+defineTest(isMinOSXSDKVersion) {
+    requested_major = $$1
+    requested_minor = $$2
+    requested_patch = $$3
+    isEmpty(requested_patch): requested_patch = 0
+    WEBENGINE_OSX_SDK_PRODUCT_VERSION = $$system("/usr/bin/xcodebuild -sdk $$QMAKE_MAC_SDK -version ProductVersion 2>/dev/null")
+    export(WEBENGINE_OSX_SDK_PRODUCT_VERSION)
+    isEmpty(WEBENGINE_OSX_SDK_PRODUCT_VERSION) {
+        skipBuild("Could not resolve SDK product version for \'$$QMAKE_MAC_SDK\'.")
+        return(false)
+    }
+    major_version = $$section(WEBENGINE_OSX_SDK_PRODUCT_VERSION, ., 0, 0)
+    minor_version = $$section(WEBENGINE_OSX_SDK_PRODUCT_VERSION, ., 1, 1)
+    patch_version = $$section(WEBENGINE_OSX_SDK_PRODUCT_VERSION, ., 2, 2)
+    isEmpty(patch_version): patch_version = 0
+
+    greaterThan(major_version, $$requested_major):return(true)
+    equals(major_version, $$requested_major):greaterThan(minor_version, $$requested_minor):return(true)
+    equals(major_version, $$requested_major):equals(minor_version, $$requested_minor):!lessThan(patch_version, $$requested_patch):return(true)
+
+    return(false)
+}
+
+defineTest(isMinWinSDKVersion) {
+    requested_major = $$1
+    requested_minor = $$2
+    WIN_SDK_VERSION = $$(WindowsSDKVersion)
+
+    # major.0.minor
+    major_version = $$section(WIN_SDK_VERSION, ., 0, 0)
+    minor_version = $$section(WIN_SDK_VERSION, ., 2, 2)
+
+    greaterThan(major_version, $$requested_major):return(true)
+    equals(major_version, $$requested_major):greaterThan(minor_version, $$requested_minor):return(true)
+    equals(major_version, $$requested_major):equals(minor_version, $$requested_minor)::return(true)
+
+    return(false)
+}
+
+# Map to the correct target type for gyp
+defineReplace(toGypTargetType) {
+  equals(TEMPLATE, "app"):return("executable")
+  equals(TEMPLATE, "lib") {
+    CONFIG(static): return("static_library")
+    return("shared_library")
+  }
+  return("none")
+}
+
+defineReplace(getConfigDir) {
+  win32:contains(QMAKE_TARGET.arch, x86_64) {
+      CONFIG(release, debug|release):return("Release_x64")
+      return("Debug_x64")
+  }
+
+  CONFIG(release, debug|release):return("Release")
+  return("Debug")
+}
+
+defineReplace(getChromiumSrcDir) {
+  exists($$QTWEBENGINE_ROOT/.git): git_chromium_src_dir = $$system("git config qtwebengine.chromiumsrcdir")
+  # Fall back to the snapshot path if git does not know about chromium sources (i.e. init-repository.py has not been used)
+  isEmpty(git_chromium_src_dir): git_chromium_src_dir = "src/3rdparty/chromium"
+  return($$git_chromium_src_dir)
+}
+
+defineReplace(extractCFlag) {
+    CFLAGS = $$QMAKE_CC $$QMAKE_CFLAGS
+    OPTION = $$find(CFLAGS, $$1)
+    OPTION = $$split(OPTION, =)
+    return ($$member(OPTION, 1))
+}
+
+defineReplace(findMocables) {
+  mocables = $$system("$$system_path(python $$QTWEBENGINE_ROOT/tools/buildscripts/find-mocables $$_PRO_FILE_PWD_ $$1)")
+  mocables = $$replace(mocables, $$re_escape($$system_path($${_PRO_FILE_PWD_}/)), '')
+  return($$mocables)
+}
+
+defineReplace(findIncludedMocFiles) {
+  return($$system("$$system_path(python $$QTWEBENGINE_ROOT/tools/buildscripts/find-included-moc-files $$_PRO_FILE_PWD_ $$1)"))
+}
+
+defineReplace(mocOutput) {
+  out = $$1
+  # The order is important, since the output of the second replace would end up accidentaly transformed by the first one
+  for(ext, $$list($${QMAKE_EXT_CPP})): \
+      out = $$replace(out, ^(.*)($$re_escape($${ext})), $${QMAKE_CPP_MOD_MOC}\\1$${QMAKE_EXT_CPP_MOC})
+  for(ext, $$list($${QMAKE_EXT_H})): \
+      out = $$replace(out, ^(.*)($$re_escape($${ext})), $${QMAKE_H_MOD_MOC}\\1$${first(QMAKE_EXT_CPP)})
+  return($$out)
+}
+
+defineReplace(rccOutput) {
+  out = $$1
+  out = $$replace(out, .qrc, .cpp)
+  out = $$join(out, qrc_, qrc_)
+  return($$out)
+}
+
+defineReplace(rccExternFunc) {
+  out = $$1
+  out = $$replace(out, .qrc, )
+  return($$out)
+}
+
+defineReplace(which) {
+  out = $$1
+  win32 {
+    command = $$split(out, " ")
+    executable = $$first(command)
+    # Return the first match only
+    out = $$system("((for /f \"usebackq delims=\" %i in (`where $$executable 2^> NUL`) do @if not defined _endwhich (@echo %i & set _endwhich=true)) & set _endwhich=)")
+    isEmpty(out) {
+      message($$executable not found)
+      out = $$executable
+    }
+    for(arg, command): !equals(arg, $$executable): out += $$arg
+  } else:unix {
+    command = $$split(out, " ")
+    executable = $$first(command)
+    out = $$system("which $$executable 2>/dev/null")
+    isEmpty(out) {
+      message($$executable not found)
+      out = $$executable
+    }
+    for(arg, command): !equals(arg, $$executable): out += $$arg
+  }
+  return($$out)
+}
+
+defineTest(use?) {
+    contains(WEBENGINE_CONFIG, use_$$lower($$1)): return(true)
+    return(false)
+}
+
+defineReplace(findOrBuildNinja) {
+  # If NINJA_PATH env var is set, prefer that.
+  # Fallback to locating our own bootstrapped ninja.
+  out = $(NINJA_PATH)
+  !exists($$out) {
+    src_3rd_party_dir = $$absolute_path("$${getChromiumSrcDir()}/../", "$$QTWEBENGINE_ROOT")
+
+    out = $$shadowed($$absolute_path(ninja/ninja, $$src_3rd_party_dir))
+    win32: out = $${out}.exe
+
+    # If we did not find ninja, then we bootstrap it.
+    !exists($$out) {
+      mkpath($$dirname(out))
+      ninja_configure = $$absolute_path(ninja/configure.py, $$src_3rd_party_dir)
+      system("cd $$system_quote($$system_path($$dirname(out))) && python $$system_quote($$system_path($$ninja_configure)) --bootstrap")
+    }
+  }
+  return($$system_path($$out))
+}
+
+defineTest(skipBuild) {
+    skipBuildReason = "$$skipBuildReason $${EOL}$$1"
+    export(skipBuildReason)
+}

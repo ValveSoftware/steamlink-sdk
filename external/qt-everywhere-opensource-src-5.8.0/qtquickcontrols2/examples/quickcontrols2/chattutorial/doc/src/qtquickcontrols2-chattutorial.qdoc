@@ -1,0 +1,852 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\example chattutorial
+\title Qt Quick Controls 2 - Chat Tutorial
+\brief Tutorial about writing a basic chat client using Qt Quick Controls 2.
+\ingroup qtquickcontrols2-examples
+
+This tutorial shows how to write a basic chat application using Qt Quick
+Controls 2. It will also explain how to integrate an SQL database into a Qt
+application.
+
+\section1 Chapter 1: Setting Up
+
+When setting up a new project, it's easiest to use
+\l {Qt Creator Manual}{Qt Creator}. For this project, we chose the
+\l {Qt Creator: Creating Qt Quick Projects}{Qt Quick application} template, which creates a
+basic "Hello World" application with all of the necessary files.
+
+\section2 main.cpp
+
+As we created a Qt Quick application, our \c main.cpp has two includes:
+
+\quotefromfile chattutorial/chapter1-settingup/main.cpp
+\skipto include
+\printline include
+\printline include
+
+The first gives us access to QGuiApplication. All Qt applications require
+an application object, but the precise type depends on what the application
+does. QCoreApplication is sufficient for non-graphical applications.
+QGuiApplication is sufficient for graphical applications that do not use
+\l {Qt Widgets}, while QApplication is required for those that do.
+
+The second include makes QQmlApplicationEngine available, along with
+some useful functions required for making C++ types accessible from QML.
+
+Within \c main(), we set up the application object and QML engine:
+
+\skipto main
+\printuntil }
+
+To enable Qt's support for \l {High DPI Displays}{high DPI scaling}, it
+is necessary to set an attribute before the application object is constructed.
+
+After that's done, we construct the application object, passing any application
+arguments provided by the user.
+
+Next, the QML engine is created. \l QQmlApplicationEngine is a convenient
+wrapper over QQmlEngine, providing the \l {QQmlApplicationEngine::load}{load()}
+function to easily load QML for an application. It also adds some convenience
+for using \l {Using File Selectors with Qt Quick Controls 2}{file selectors}.
+
+Once we've set up things in C++, we can move on to the user interface in QML.
+
+\section2 main.qml
+
+\quotefromfile chattutorial/chapter1-settingup/main.qml
+\skipto import
+\printuntil import QtQuick.Controls 2.1
+
+First, we import the \l {Qt Quick} module. This gives us
+access to graphical primitives such as \l Item, \l Rectangle, \l Text, and so
+on.
+For the full list of types, see the \l {Qt Quick QML Types} documentation.
+
+Next, we import the Qt Quick Controls 2 module. Amongst other things, this
+makes \l ApplicationWindow available:
+
+\skipto ApplicationWindow
+\printuntil visible: true
+\printuntil }
+\printuntil }
+\printuntil }
+
+ApplicationWindow is a \l Window with some added convenience for creating a
+\l {ApplicationWindow::}{header} and a \l {ApplicationWindow::}{footer}.
+It also provides the foundation for \l {Popup}{popups} and supports some
+basic styling, such as the background \l {Window::}{color}.
+
+There are three properties that are almost always set when using
+ApplicationWindow: \l {Window::}{width}, \l {Window::}{height}, and
+\l {Window::}{visible}.
+Once we've set these, we have a properly sized, empty window ready to be
+filled with content.
+
+The first \e "screen" in our application will be a list of contacts. It would
+be nice to have some text at the top of each screen that describes its purpose.
+The header and footer properties of ApplicationWindow could work in
+this situation. They have some characteristics that make them ideal for
+items that should be displayed on every screen of an application:
+
+\list
+\li They are anchored to the top and bottom of the window, respectively.
+\li They fill the width of the window.
+\endlist
+
+However, when the contents of the header and footer varies depending on
+which screen the user is viewing, it can be much easier to use \l Page.
+For now, we'll just add one page, but in the next chapter, we'll demonstrate
+how to navigate between several pages.
+
+Now that we have a Page, we can assign a \l Label to its \l {Page::}{header}
+property. Label extends the primitive \l Text item from the Qt Quick module by
+adding \l {Styling Qt Quick Controls 2}{styling} and \l {Control::}{font}
+inheritance. This means that a Label can look different depending on which
+style is in use, and can also propagate its pixel size to its children.
+
+We want some distance between the top of the application window and the text,
+so we set the \l {Text::padding}{padding} property. This will allocate extra
+space on each side of the label (within its bounds). We could have also set the
+\l {Text::}{topPadding} and \l {Text::}{bottomPadding} properties explicitly.
+
+We set the text of the label using the \c qsTr() function, which ensures that
+the text can be translated by \l {Writing Source Code for Translation}{Qt's
+translation system}. It's a good idea to do this for text that will
+be visible to the end users of your application.
+
+By default, text is vertically aligned to the top of its bounds, while the
+horizontal alignment depends on the natural direction of the text; for example,
+text that is read from left to right will be aligned to the left. If we
+used these defaults, our text would be at the top-left corner of the window.
+This is not desirable for a header, so we align the text to the center of its
+bounds, both horizontally and vertically.
+
+\section2 The Project File
+
+The \c .pro or \l {Creating Project Files}{project} file contains all of the
+information needed by \l {qmake Manual}{qmake} to generate a Makefile, which is
+then used to compile and link the application.
+
+\quotefromfile chattutorial/chapter1-settingup/chapter1-settingup.pro
+\printline TEMPLATE
+
+The first line tells \c qmake which kind of project this is. We're building an
+application, so we use the \c app template.
+
+\printline QT
+
+The next line declares the Qt libraries that we want to use from C++.
+
+\printline CONFIG
+
+This line states that a C++11 compatible compiler is required to build the
+project.
+
+\printline SOURCES
+
+The \c SOURCES variable lists all of the source files that should be compiled.
+A similar variable, \c HEADERS, is available for header files.
+
+\printline RESOURCES
+
+The next line tells \c qmake that we have a collection of
+\l {The Qt Resource System}{resources} that should be built into the
+executable.
+
+\printline target.path
+
+This line determines where the example will be copied to when running
+\c {make install}.
+
+Now we can build and run the application:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter1.png
+
+\section1 Chapter 2: Lists
+
+In this chapter, we'll explain how to create a list of interactive items using
+\l ListView and \l ItemDelegate.
+
+ListView comes from the Qt Quick module, and displays a list of items
+populated from a \l {Models and Views in Qt Quick}{model}. ItemDelegate comes from
+the Qt Quick Controls 2 module, and provides a standard view item for use in views
+and controls such as ListView and \l ComboBox. For example, each ItemDelegate
+can display text, be checked on and off, and react to mouse clicks.
+
+Here is our ListView:
+
+\quotefromfile chattutorial/chapter2-lists/main.qml
+\dots 8
+\codeline
+\skipto ListView
+\printuntil }
+\printuntil }
+\printuntil }
+\codeline
+\dots 8
+
+\section2 Sizing and Positioning
+
+The first thing we do is set a size for the view. It should fill the available
+space on the page, so we use \l {Item::anchors}{anchors.fill}. Note that
+Page ensures that its header and footer have enough of their own space
+reserved, so the view in this case will sit below the header, for example.
+
+Next, we set \l {Flickable::leftMargin}{margins} around the ListView to put
+some distance between it and the edges of the window. The margin properties
+reserve space within the bounds of the view, which means that the empty areas
+can still be \e "flicked" by the user.
+
+The items should be nicely spaced out within the view, so the
+\l {ListView::}{spacing} property is set to \c 20.
+
+\section2 Model
+
+In order to quickly populate the view with some items, we've used a JavaScript
+array as the model. One of the greatest strengths of QML is its ability to
+make prototyping an application extremely quick, and this is an example of
+that. It's also possible to simply assign a \l {Integers as Models}{number} to
+the model property to indicate how many items you need. For example, if you
+assign \c 10 to the \c model property, each item's display text will be a
+number from \c 0 to \c 9.
+
+However, once the application gets past the prototype stage, it quickly becomes
+necessary to use some real data. For this, it's best to use a proper C++ model
+by \l {QAbstractItemModel}{subclassing QAbstractItemModel}.
+
+\section2 Delegate
+
+On to the \l {ListView::}{delegate}. We assign the corresponding text from the
+model to the \l {AbstractButton::text}{text} property of ItemDelegate. The exact
+manner in which the data from the model is made available to each delegate
+depends on the type of model used. See \l {Models and Views in Qt Quick} for
+more information.
+
+In our application, the width of each item in the view should be the same
+as the width of the view. This ensures that the user has a lot of room with
+which to select a contact from the list, which is an important factor on
+devices with small touch screens, like mobile phones. However, the width of the
+view includes our \c 48 pixel margins, so we must account for that in our
+assignment to the width property.
+
+Next, we define an \l Image. This will display a picture of the user's contact.
+The image will be \c 40 pixels wide and \c 40 pixels high. We'll base the
+height of the delegate on the image's height, so that we don't have any empty
+vertical space.
+
+\borderedimage qtquickcontrols2-chattutorial-chapter2.png
+
+\section1 Chapter 3: Navigation
+
+In this chapter, you'll learn how to use \l StackView to navigate between pages
+in an application. Here's the revised \c main.qml:
+
+\quotefromfile chattutorial/chapter3-navigation/main.qml
+\skipto import
+\printuntil }
+\printuntil }
+\printuntil }
+
+\section2 StackView
+
+As its name suggests, StackView provides stack-based navigation. The last item
+to be \e "pushed" onto the stack is the first one to be removed, and the
+top-most item is always the one that is visible.
+
+In the same manner as we did with Page, we tell the StackView to fill the
+application window. The only thing left to do after that is to give it an item
+to display, via \l {StackView::}{initialItem}. StackView accepts
+\l {Item}{items}, \l {Component}{components} and \l [QML]{url}{URLs}.
+
+You'll notice that we moved the code for the contact list into
+\c ContactPage.qml. It's a good idea to do this as soon as you have a general
+idea of which screens your application will contain. Doing so not only makes
+your code easier to read, but ensures that items are only instantiated from
+a given component when completely necessary, reducing memory usage.
+
+\note Qt Creator provides several convenient \l {http://doc.qt.io/qtcreator/creator-editor-refactoring.html#refactoring-qml-code}{refactoring options for QML},
+one of which allows you to move a block of code into a separate file
+ (\c {Alt + Enter > Move Component into Separate File}).
+
+Another thing to consider when using ListView is whether to refer to it by
+\c id, or use the attached \l {ListView::view}{ListView.view}
+property. The best approach depends on a few different factors. Giving the
+view an id will result in shorter and more efficient binding expressions, as
+the attached property has a very small amount of overhead. However, if you plan
+on reusing the delegate in other views, it is better to use the attached
+properties to avoid tying the delegate to a particular view. For example, using
+the attached properties, the \c width assignment in our delegate becomes:
+
+\code
+width: ListView.view.width - ListView.view.leftMargin - ListView.view.rightMargin
+\endcode
+
+In chapter 2, we added a ListView below the header. If you run the application
+for that chapter, you'll see that the contents of the view can be scrolled over
+the top of the header:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter2-listview-header.gif
+
+This is not that nice, especially if the text in the
+delegates is long enough that it reaches the text in the header. What we
+ideally want to do is to have a solid block of color under the header text, but
+\e {above} the view. This ensures that the listview contents can't visually
+interfere with the header contents. Note that it's also possible to achieve
+this by setting the \l {Item::}{clip} property of the view to \c true, but
+doing so \l {Clipping}{can affect performance}.
+
+\l ToolBar is the right tool for this job. It is a container of both
+application-wide and context-sensitive actions and controls, such as navigation
+buttons and search fields. Best of all, it has a background color that, as
+usual, comes from the application style. Here it is in action:
+
+\quotefromfile chattutorial/chapter3-navigation/ContactPage.qml
+\skipto header
+\printuntil }
+\printuntil }
+
+\borderedimage qtquickcontrols2-chattutorial-chapter3-listview-header.gif
+
+It has no layout of its own, so we center the label within it ourselves.
+
+The rest of the code is the same as it was in chapter 2, except that we've
+taken advantage of the \l {AbstractButton::}{clicked} signal to push the next
+page onto the stackview:
+
+\skipto onClicked
+\printline onClicked
+
+When pushing a \l Component or \l [QML] url onto StackView, it's often
+necessary to initialize the (eventually) instantiated item with some variables.
+StackView's \l {StackView::push}{push()} function accounts for this, by taking a JavaScript object
+as the second argument. We use this to provide the next page with a contact's
+name, which it then uses to display the relevant conversation. Note the
+\c {root.StackView.view.push} syntax; this is necessary because of how
+\l {A Note About Accessing Attached Properties and Signal Handlers}
+{attached properties} work.
+
+Let's step through \c ConversationPage.qml, beginning with the imports:
+
+\quotefromfile chattutorial/chapter3-navigation/ConversationPage.qml
+\skipto import
+\printline import
+\printline import
+\printline import
+
+These are the same as before, except for the addition of the \c QtQuick.Layouts
+import, which we'll cover shortly.
+
+\skipto Page
+\printuntil }
+\printuntil }
+\printuntil }
+\dots 4
+
+The root item of this component is another Page, which has a custom property
+called \c inConversationWith. For now, this property will simply determine what
+the label in the header displays. Later on, we'll use it in the SQL query that
+populates the list of messages in the conversation.
+
+To allow the user to go back to the Contact page, we add a \l ToolButton that
+calls \l {StackView::pop}{pop()} when clicked. A \l ToolButton is functionally
+similar to \l Button, but provides a look that is more suitable within a
+ToolBar.
+
+There are two ways of laying out items in QML: \l {Item Positioners}
+and \l {Qt Quick Layouts}. Item positioners (\l Row, \l Column, and so on) are
+useful for situations where the size of items is known or fixed, and all that
+is required is to neatly position them in a certain formation. The layouts in
+Qt Quick Layouts can both position and resize items, making them well suited
+for resizable user interfaces. Below, we use \l ColumnLayout to vertically
+lay out a ListView and a \l Pane:
+
+\skipto ColumnLayout
+\printto Layout.margins
+\codeline
+\dots 12
+\codeline
+\skipuntil ScrollBar
+\printline }
+\codeline
+\dots 8
+\codeline
+\printuntil Layout.fillWidth: true
+\dots 12
+\skipuntil }
+\skipuntil }
+\skipuntil }
+\skipuntil }
+\printline }
+
+Pane is basically a rectangle whose color comes from the application's style.
+It is similar to \l Frame, with the only difference being that it has no stroke
+around its border.
+
+Items that are direct children of a layout have various
+\l {Layout}{attached properties} available to them. We use
+\l {Layout::fillWidth}{Layout.fillWidth} and
+\l {Layout::fillHeight}{Layout.fillHeight} on the ListView to ensure
+that it takes as much space within the ColumnLayout as it can. The
+same is done for the Pane. As ColumnLayout is a vertical layout, there
+aren't any items to the left or right of each child, so this will result in
+each item consuming the entire width of the layout.
+
+On the other hand, the \l {Layout::fillHeight}{Layout.fillHeight} statement in
+the ListView will enable it to occupy the remaining space that is left after
+accommodating the Pane.
+
+Let's look at the listview in detail:
+
+\quotefromfile chattutorial/chapter3-navigation/ConversationPage.qml
+\skipto ListView
+\printuntil ScrollBar
+\printuntil }
+
+After filling the width and height of its parent, we also set some margins on
+the view. This gives us a nice alignment with the placeholder text in the
+"compose message" field:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter3-view-margins.png
+
+Next, we set \l {ListView::}{displayMarginBeginning} and \l
+{ListView::}{displayMarginEnd}. These properties ensure that the delegates
+outside the bounds of the view do not disappear while scrolling at the edges of
+the view. It's easiest to understand this by commenting out the properties and
+seeing what happens when scrolling the view.
+
+We then flip the vertical direction of the view, so that first items are at the
+bottom. The delegates are spaced out by 12 pixels, and a \e "dummy" model is
+assigned for testing purposes, until we implement the real model in chapter 4.
+
+Within the delegate, we declare a \l Row as the root item, as we want the
+avatar to be followed by the message contents, as shown in the image above.
+
+Messages sent by the user should be distinguished from those sent by a contact.
+For now, we set a dummy property \c sentByMe, which simply uses the index
+of the delegate to alternate between different authors. Using this property,
+we distinguish between different authors in three ways:
+
+\list
+\li Messages sent by the user are aligned to the right side of the screen
+by setting \c anchors.right to \c parent.right.
+
+\li By setting the \c visible property of the avatar (which is simply a
+Rectangle for now) based on \c sentByMe, we only show it if the message was
+sent by a contact.
+
+\li We change the color of the rectangle depending on the author. Since we
+do not want to display dark text on a dark background, and vice versa, we also
+set the text color depending on who the author is. In chapter 5, we'll see how
+styling takes care of matters like this for us.
+\endlist
+
+At the bottom of the screen, we place a \l TextArea item to allow multi-line
+text input, and a button to send the message. We use Pane to cover the area
+under these two items, in the same way that we use ToolBar to prevent the
+contents of the listview from interfering with the page header:
+
+\skipto Pane
+\printuntil }
+\printuntil }
+\printuntil }
+\printuntil }
+
+The TextArea should fill the available width of the screen. We assign some
+placeholder text to provide a visual cue to the user as to where they should
+begin typing. The text within the input area is wrapped to ensure that it
+does not go outside of the screen.
+
+Finally, the button is only enabled when there is actually a message to send.
+
+\borderedimage qtquickcontrols2-chattutorial-chapter3.gif
+
+\section1 Chapter 4: Models
+
+In chapter 4, we'll take you through the process of creating both read-only and
+read-write SQL models in C++ and exposing them to QML to populate views.
+
+\section2 QSqlQueryModel
+
+In order to keep the tutorial simple, we've chosen to make the list of user
+contacts non-editable. \l QSqlQueryModel is the logical choice for this
+purpose, as it provides a read-only data model for SQL result sets.
+
+Let's take a look at our \c SqlContactModel class that derives from
+QSqlQueryModel:
+
+\quotefromfile chattutorial/chapter4-models/sqlcontactmodel.h
+\skipto #include
+\printuntil };
+
+There's not much going on here, so let's move on to the \c .cpp file:
+
+\quotefromfile chattutorial/chapter4-models/sqlcontactmodel.cpp
+\skipto #include
+\printuntil }
+\printuntil }
+\printuntil }
+
+We include the header file of our class and those that we require from Qt. We
+then define a static function named \c createTable() that we'll use to create
+the SQL table (if it doesn't already exist), and then populate it with some
+dummy contacts.
+
+The call to \l {QSqlDatabase::database}{database()} might look a little bit
+confusing because we have not set up a specific database yet. If no connection
+name is passed to this function, it will return a \e {"default connection"},
+whose creation we will cover soon.
+
+\skipto SqlContactModel
+\printuntil }
+
+In the constructor, we call \c createTable(). We then construct a query that
+will be used to populate the model. In this case, we are simply interested in
+all rows of the \c Contacts table.
+
+\section2 QSqlTableModel
+
+\c SqlConversationModel is more complex:
+
+\quotefromfile chattutorial/chapter4-models/sqlconversationmodel.h
+\skipto #include
+\printuntil };
+
+We use both the \c Q_PROPERTY and \c Q_INVOKABLE macros, and therefore we must
+let \l {Using the Meta-Object Compiler (moc)}{moc} know by using the \c
+Q_OBJECT macro.
+
+The \c recipient property will be set from QML to let the model know which
+conversation it should retrieve messages for.
+
+We override the \l {QSqlTableModel::data}{data()} and
+\l {QAbstractItemModel::}{roleNames()} functions so that we can use our
+custom roles in QML.
+
+We also define the \c sendMessage() function that we want to call from
+QML, hence the \c Q_INVOKABLE macro.
+
+Let's take a look at the \c .cpp file:
+
+\quotefromfile chattutorial/chapter4-models/sqlconversationmodel.cpp
+\skipto #include
+\printuntil }
+\printuntil }
+\printuntil }
+
+This is very similar to \c sqlcontactmodel.cpp, with the exception that we are
+now operating on the \c Conversations table. We also define
+\c conversationsTableName as a static const variable, as we use it in a couple
+of places throughout the file.
+
+\skipto SqlConversationModel
+\printuntil }
+
+As with \c SqlContactModel, the first thing that we do in the constructor is
+create the table. We tell QSqlTableModel the name of the table we'll be using
+via the \l {QSqlTableModel::setTable}{setTable()} function. To ensure that the
+latest messages in the conversation are shown first, we sort the query results
+by the \c timestamp field in descending order. This goes hand in hand with
+setting ListView's \l {ListView::}{verticalLayoutDirection} property to
+\c ListView.BottomToTop (which we covered in chapter 3).
+
+\skipto ::recipient(
+\printuntil }
+\printuntil }
+
+In \c setRecipient(), we set a filter over the results returned from
+the database.
+
+\skipto ::data(
+\printuntil }
+
+The \c data() function falls back to QSqlTableModel's implementation if the
+role is not a custom user role. If the role is a user role, we can subtract
+Qt::UserRole from it to get the index of that field and then use that to find
+the value that we need to return.
+
+\skipto ::roleNames(
+\printuntil }
+
+In \c roleNames(), we return a mapping of our custom role values to role names.
+This enables us to use these roles in QML. It can be useful to declare an enum
+to hold all of the role values, but since we don't refer to any specific value
+in code outside of this function, we don't bother.
+
+\skipto ::sendMessage(
+\printuntil }
+
+The \c sendMessage() function uses the given \c recipient and a \c message to
+insert a new record into the database. Due to our usage
+of \l QSqlTableModel::OnManualSubmit, we must manually call
+\l {QSqlTableModel::submitAll}{submitAll()}.
+
+\section2 Connecting to the Database and Registering Types With QML
+
+Now that we've established the model classes, let's take a look at \c main.cpp:
+
+\quotefromfile chattutorial/chapter4-models/main.cpp
+\skipto #include
+\printuntil return app.exec();
+\printuntil }
+
+\c connectToDatabase() creates the connection to the SQLite database, creating
+the actual file if it doesn't already exist.
+
+Within \c main(), we call \l {qmlRegisterType}{qmlRegisterType()} to
+register our models as types within QML.
+
+\section2 Using the Models in QML
+
+Now that we have the models available as QML types, there are some minor
+changes to be done to \c ContactPage.qml. To be able to use the types,
+we must first import them using the URI we set in \c main.cpp:
+
+\quotefromfile chattutorial/chapter4-models/ContactPage.qml
+\skipto import io.qt.examples.chattutorial 1.0
+\printline import io.qt.examples.chattutorial 1.0
+
+We then replace the dummy model with the proper one:
+
+\skipto model: SqlContactModel {}
+\printline model: SqlContactModel {}
+
+Within the delegate, we use a different syntax for accessing the model data:
+
+\skipto text: model.display
+\printline text: model.display
+
+In \c ConversationPage.qml, we add the same \c chattutorial import, and replace
+the dummy model:
+
+\quotefromfile chattutorial/chapter4-models/ConversationPage.qml
+\skipto model: SqlConversationModel {
+\printuntil }
+
+Within the model, we set the \c recipient property to the name of the contact
+for which the page is being displayed.
+
+The root delegate item changes from a Row to a Column, to accommodate the
+timestamp that we want to display below every message:
+
+\skipto delegate: Column {
+\printuntil Label {
+\printuntil }
+\printuntil }
+\printuntil }
+\printuntil }
+\printuntil }
+
+\borderedimage qtquickcontrols2-chattutorial-chapter4-message-timestamp.png
+
+Now that we have a proper model, we can use its \c recipient role in the
+expression for the \c sentByMe property.
+
+The Rectangle that was used for the avatar has been converted into an Image.
+The image has its own implicit size, so we don't need to specify it explicitly.
+As before, we only show the avatar when the author isn't the user, except this
+time we set the \c source of the image to an empty URL instead of using the
+\c visible property.
+
+We want each message background to be slightly wider (12 pixels each side) than
+its text. However, if it's too long, we want to limit its width to the edge
+of the listview, hence the usage of \c Math.min(). When the message wasn't sent
+by us, an avatar will always come before it, so we account for that by
+subtracting the width of the avatar and the row spacing.
+
+For example, in the image above, the implicit width of the message text is the
+smaller value. However, in the image below, the message text is quite long, so
+the smaller value (the width of the view) is chosen, ensuring that the text
+stops at the opposite edge of the screen:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter4-long-message.png
+
+In order to display the timestamp for each message that we discussed earlier,
+we use a Label. The date and time are formatted with
+\l {QtQml::Qt::formatDateTime}{Qt.formatDateTime()}, using a custom format.
+
+The \e "send" button must now react to being clicked:
+
+\skipto Button
+\printuntil }
+\printuntil }
+
+First, we call the invokable \c sendMessage() function of the model, which
+inserts a new row into the Conversations database table. Then, we clear the
+text field to make way for future input.
+
+\borderedimage qtquickcontrols2-chattutorial-chapter4.gif
+
+\section1 Chapter 5: Styling
+
+Styles in Qt Quick Controls 2 are designed to work on any platform. In this
+chapter, we'll do some minor visual tweaks to make sure our application
+looks good when run with the \l {Default Style}{Default},
+\l {Material Style}{Material}, and \l {Universal Style}{Universal} styles.
+
+So far, we've just been testing the application with the Default style. If we
+run it with the \l {Material Style}, for example, we'll immediately see some issues.
+Here is the Contacts page:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter5-contacts-material-test.png
+
+The header text is black on a dark blue background, which is very difficult to
+read. The same thing occurs with the Conversations page:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter5-conversations-material-test.png
+
+The solution is to tell the toolbar that it should use the \e "Dark" theme, so
+that this information is propagated to its children, allowing them to switch
+their text color to something lighter. The simplest way of doing so is to
+import the Material style directly and use the Material attached property:
+
+\code
+    import QtQuick.Controls.Material 2.1
+
+    // ...
+
+    header: ToolBar {
+        Material.theme: Material.Dark
+
+        // ...
+    }
+\endcode
+
+However, this brings with it a hard dependency to the Material style; the
+Material style plugin \e must be deployed with the application, even if the
+target device doesn't use it, otherwise the QML engine will fail to find the
+import.
+
+Instead, it is better to rely on Qt Quick Controls 2's built-in support for
+\l {Using File Selectors with Qt Quick Controls 2}{style-based file selectors}.
+To do this, we must move the ToolBar out into its own file. We'll call it
+\c ChatToolBar.qml. This will be the \e "default" version of the file, which
+means that it will be used when the \l {Default Style}{Default style} is in
+use. Here's the new file:
+
+\quotefromfile chattutorial/chapter5-styling/ChatToolBar.qml
+\skipto import
+\printuntil }
+
+As we only use the ToolBar type within this file, we only need the
+Qt Quick Controls 2 import. The code itself has not changed from how it was
+in \c ContactPage.qml, which is how it should be; for the default version
+of the file, nothing needs to be different.
+
+Back in \c ContactPage.qml, we update the code to use the new type:
+
+\quotefromfile chattutorial/chapter5-styling/ContactPage.qml
+\skipto ToolBar
+\printuntil }
+\printuntil }
+
+Now we need to add the Material version of the toolbar. File selectors expect
+variants of a file to be in appropriately named directories that exist
+alongside the default version of the file. This means that we need to add a
+folder named "+material" in the same directory that ChatToolBar.qml is in:
+the root folder. The "+" is required by \l QFileSelector as a way of ensuring
+that the selection feature is not accidentally triggered.
+
+Here's \c +material/ChatToolBar.qml:
+
+\quotefromfile chattutorial/chapter5-styling/+material/ChatToolBar.qml
+\skipto import
+\printuntil }
+
+We'll make the same changes to \c ConversationPage.qml:
+
+\quotefromfile chattutorial/chapter5-styling/ConversationPage.qml
+\skipto header: ChatToolBar
+\printuntil }
+\printuntil }
+\printuntil }
+
+Now both pages look correct:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter5-contacts-material.png
+\borderedimage qtquickcontrols2-chattutorial-chapter5-conversations-material.png
+
+Let's try out the Universal style:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter5-contacts-universal.png
+\borderedimage qtquickcontrols2-chattutorial-chapter5-conversations-universal.png
+
+No issues there. For a relatively simple application such as this one, there
+should be very few adjustments necessary when switching styles.
+
+Now let's try each style's dark theme. The Default style has no dark theme, as
+it would add a slight overhead to a style that is designed to be as performant
+as possible. We'll test out the Material style first, so add an entry to
+\c qtquickcontrols2.conf that tells it to use its dark theme:
+
+\code
+[material]
+Primary=Indigo
+Accent=Indigo
+Theme=Dark
+\endcode
+
+Once this is done, build and run the application. This is what you should see:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter5-contacts-material-dark.png
+\borderedimage qtquickcontrols2-chattutorial-chapter5-conversations-material-dark.png
+
+Both pages look fine. Now add an entry for the Universal style:
+
+\code
+[universal]
+Theme=Dark
+\endcode
+
+After building and running the application, you should see these results:
+
+\borderedimage qtquickcontrols2-chattutorial-chapter5-contacts-universal-dark.png
+\borderedimage qtquickcontrols2-chattutorial-chapter5-conversations-universal-dark.png
+
+\section1 Summary
+
+In this tutorial, we've taken you through the following steps of writing a
+basic application using Qt Quick Controls 2:
+
+\list
+\li Creating a new project using Qt Creator.
+\li Setting up a basic ApplicationWindow.
+\li Defining headers and footers with Page.
+\li Displaying content in a ListView.
+\li Refactoring components into their own files.
+\li Navigating between screens with StackView.
+\li Using layouts to allow an application to resize gracefully.
+\li Implementing both custom read-only and writable models that integrate an
+SQL database into the application.
+\li Integrating C++ with QML via \l Q_PROPERTY, \l Q_INVOKABLE, and
+\l qmlRegisterType().
+\li Testing and configuring multiple styles.
+\endlist
+
+*/

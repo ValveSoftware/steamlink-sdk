@@ -1,0 +1,89 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//chrome/version.gni")
+import("//testing/test.gni")
+
+component("common") {
+  output_name = "blimp_common"
+  sources = [
+    "blimp_common_export.h",
+    "blob_cache/blob_cache.h",
+    "blob_cache/id_util.cc",
+    "blob_cache/id_util.h",
+    "blob_cache/in_memory_blob_cache.cc",
+    "blob_cache/in_memory_blob_cache.h",
+    "compositor/blimp_task_graph_runner.cc",
+    "compositor/blimp_task_graph_runner.h",
+    "compositor/reference_tracker.cc",
+    "compositor/reference_tracker.h",
+    "create_blimp_message.cc",
+    "create_blimp_message.h",
+    "get_client_token.cc",
+    "get_client_token.h",
+    "logging.cc",
+    "logging.h",
+    "switches.cc",
+    "switches.h",
+  ]
+
+  defines = [ "BLIMP_COMMON_IMPLEMENTATION=1" ]
+
+  deps = [
+    "//base",
+    "//blimp/common/proto",
+    "//cc",
+    "//crypto",
+  ]
+
+  public_deps = [
+    ":protocol_version",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+
+  sources = [
+    "blob_cache/mock_blob_cache.cc",
+    "blob_cache/mock_blob_cache.h",
+    "blob_cache/test_util.cc",
+    "blob_cache/test_util.h",
+  ]
+
+  deps = [
+    ":common",
+    "//blimp/common/proto",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "blob_cache/id_util_unittest.cc",
+    "blob_cache/in_memory_blob_cache_unittest.cc",
+    "compositor/reference_tracker_unittest.cc",
+    "create_blimp_message_unittest.cc",
+    "logging_unittest.cc",
+  ]
+
+  deps = [
+    ":common",
+    ":test_support",
+    "//base",
+    "//blimp/common/proto",
+    "//blimp/net:test_support",
+    "//crypto",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+process_version("protocol_version") {
+  template_file = "protocol_version.h.version"
+  output = "$target_gen_dir/protocol_version.h"
+}

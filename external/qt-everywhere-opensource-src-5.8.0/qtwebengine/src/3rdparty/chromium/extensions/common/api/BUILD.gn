@@ -1,0 +1,46 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/json_schema_api.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("schemas.gni")
+
+assert(enable_extensions)
+
+json_schema_api("generated_api") {
+  schemas = true
+  bundle = true
+  bundle_name = ""
+}
+
+# GYP version: extensions/common/api/api.gyp:extensions_api_mojom
+mojom("mojom") {
+  sources = []
+  sources = [
+    "mime_handler.mojom",
+  ]
+}
+
+# GYP version: extensions/common/api/api.gyp:extensions_api
+group("api") {
+  public_deps = [
+    ":generated_api",
+    ":mojom",
+  ]
+}
+
+# GYP version: extensions/browser/api/api_registration.gyp:extensions_api_registration
+json_schema_api("api_registration") {
+  impl_dir = "//extensions/browser/api"
+  bundle_registration = true
+  bundle_name = ""
+
+  deps = [
+    ":api",
+    "//device/serial",
+    "//extensions/common/api/cast_channel:cast_channel_proto",
+    "//skia",
+  ]
+}

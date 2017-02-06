@@ -1,0 +1,212 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+import("//third_party/protobuf/proto_library.gni")
+
+assert(is_chromeos, "Non-ChromeOS builds must not depend on //chromeos")
+
+declare_args() {
+  # Use binder. Binder related code is compiled only when true.
+  use_binder = false
+}
+
+gypi_values = exec_script("//build/gypi_to_gn.py",
+                          [ rebase_path("chromeos.gyp") ],
+                          "scope",
+                          [ "chromeos.gyp" ])
+
+component("chromeos") {
+  configs += [ "//third_party/nss:system_nss_no_ssl_config" ]
+  public_deps = [
+    "//dbus",
+  ]
+  deps = [
+    ":cryptohome_proto",
+    ":power_manager_proto",
+    "//base",
+    "//base:i18n",
+    "//base/third_party/dynamic_annotations",
+    "//components/device_event_log",
+    "//components/onc",
+    "//components/policy/proto",
+    "//components/prefs",
+    "//components/proxy_config",
+    "//components/signin/core/account_id",
+    "//components/user_manager",
+    "//crypto",
+    "//crypto:platform",
+    "//google_apis",
+    "//net",
+    "//third_party/icu",
+    "//third_party/libxml",
+    "//third_party/protobuf:protobuf_lite",
+    "//url",
+  ]
+  sources = gypi_values.chromeos_sources
+  defines = [ "CHROMEOS_IMPLEMENTATION" ]
+  if (current_cpu == "arm" || current_cpu == "x86") {
+    defines += [ "BINDER_IPC_32BIT" ]
+  }
+}
+
+# TYhis must be a static library instead of a source set because some of the
+# files pull in things with dependencies that aren't linked in all cases.
+#
+# TODO this should probably be changed such that it links in all cases and
+# can be converted to a source set.
+static_library("test_support") {
+  testonly = true
+  configs += [ "//build/config/linux/dbus" ]
+  public_deps = [
+    ":chromeos",
+    ":cryptohome_proto",
+    ":power_manager_proto",
+  ]
+  deps = [
+    ":test_support_without_gmock",
+    "//components/signin/core/account_id",
+    "//dbus:test_support",
+    "//google_apis",
+    "//net:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+  sources = [
+    "attestation/mock_attestation_flow.cc",
+    "attestation/mock_attestation_flow.h",
+    "chromeos_test_utils.cc",
+    "chromeos_test_utils.h",
+    "cryptohome/mock_async_method_caller.cc",
+    "cryptohome/mock_async_method_caller.h",
+    "cryptohome/mock_homedir_methods.cc",
+    "cryptohome/mock_homedir_methods.h",
+    "dbus/mock_cryptohome_client.cc",
+    "dbus/mock_cryptohome_client.h",
+    "dbus/mock_lorgnette_manager_client.cc",
+    "dbus/mock_lorgnette_manager_client.h",
+    "dbus/mock_permission_broker_client.cc",
+    "dbus/mock_permission_broker_client.h",
+    "dbus/mock_session_manager_client.cc",
+    "dbus/mock_session_manager_client.h",
+    "dbus/mock_shill_manager_client.cc",
+    "dbus/mock_shill_manager_client.h",
+    "dbus/mock_shill_profile_client.cc",
+    "dbus/mock_shill_profile_client.h",
+    "dbus/mock_shill_service_client.cc",
+    "dbus/mock_shill_service_client.h",
+    "dbus/services/service_provider_test_helper.cc",
+    "dbus/services/service_provider_test_helper.h",
+    "disks/mock_disk_mount_manager.cc",
+    "disks/mock_disk_mount_manager.h",
+    "login/auth/fake_extended_authenticator.cc",
+    "login/auth/fake_extended_authenticator.h",
+    "login/auth/mock_auth_attempt_state_resolver.cc",
+    "login/auth/mock_auth_attempt_state_resolver.h",
+    "login/auth/mock_auth_status_consumer.cc",
+    "login/auth/mock_auth_status_consumer.h",
+    "login/auth/mock_url_fetchers.cc",
+    "login/auth/mock_url_fetchers.h",
+    "network/fake_network_device_handler.cc",
+    "network/fake_network_device_handler.h",
+    "network/mock_managed_network_configuration_handler.cc",
+    "network/mock_managed_network_configuration_handler.h",
+    "network/mock_network_device_handler.cc",
+    "network/mock_network_device_handler.h",
+    "network/onc/onc_test_utils.cc",
+    "network/onc/onc_test_utils.h",
+    "system/fake_statistics_provider.cc",
+    "system/fake_statistics_provider.h",
+  ]
+}
+
+static_library("test_support_without_gmock") {
+  testonly = true
+  configs += [ "//build/config/linux/dbus" ]
+  deps = [
+    ":chromeos",
+    ":cryptohome_proto",
+    ":power_manager_proto",
+    "//crypto",
+  ]
+  sources = [
+    "dbus/fake_cros_disks_client.cc",
+    "dbus/fake_cros_disks_client.h",
+    "dbus/fake_session_manager_client.cc",
+    "dbus/fake_session_manager_client.h",
+    "dbus/fake_shill_manager_client.cc",
+    "dbus/fake_shill_manager_client.h",
+    "dbus/fake_update_engine_client.cc",
+    "dbus/fake_update_engine_client.h",
+  ]
+}
+
+test("chromeos_unittests") {
+  configs += [
+    "//build/config/linux/dbus",
+    "//third_party/nss:system_nss_no_ssl_config",
+  ]
+  deps = [
+    ":cryptohome_proto",
+    ":power_manager_proto",
+    ":test_support",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//components/onc",
+    "//components/prefs:test_support",
+    "//components/proxy_config",
+    "//components/signin/core/account_id",
+    "//crypto",
+    "//crypto:test_support",
+    "//dbus:test_support",
+    "//google_apis",
+    "//net",
+    "//net:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/icu",
+    "//url",
+  ]
+  sources = gypi_values.chromeos_test_sources
+  if (use_binder) {
+    if (current_cpu == "arm" || current_cpu == "x86") {
+      defines += [ "BINDER_IPC_32BIT" ]
+    }
+    sources += gypi_values.chromeos_binder_test_sources
+  }
+
+  data = [
+    "test/data/",
+  ]
+}
+
+proto_library("power_manager_proto") {
+  sources = [
+    "//third_party/cros_system_api/dbus/power_manager/input_event.proto",
+    "//third_party/cros_system_api/dbus/power_manager/peripheral_battery_status.proto",
+    "//third_party/cros_system_api/dbus/power_manager/policy.proto",
+    "//third_party/cros_system_api/dbus/power_manager/power_supply_properties.proto",
+    "//third_party/cros_system_api/dbus/power_manager/suspend.proto",
+  ]
+
+  proto_out_dir = "chromeos/dbus/power_manager"
+}
+
+proto_library("cryptohome_proto") {
+  sources = [
+    "//third_party/cros_system_api/dbus/cryptohome/key.proto",
+    "//third_party/cros_system_api/dbus/cryptohome/rpc.proto",
+  ]
+
+  proto_out_dir = "chromeos/dbus/cryptohome"
+}
+
+proto_library("cryptohome_signkey_proto") {
+  sources = [
+    "//third_party/cros_system_api/dbus/cryptohome/signed_secret.proto",
+  ]
+
+  proto_out_dir = "chromeos/cryptohome"
+}

@@ -1,0 +1,95 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//remoting/remoting_srcs.gni")
+
+source_set("client") {
+  # Disabled the source filters because there are _mac files that need to
+  # be compiled on all platforms.
+  set_sources_assignment_filter([])
+  sources = rebase_path(remoting_srcs_gypi_values.remoting_client_sources,
+                        ".",
+                        "//remoting")
+  set_sources_assignment_filter(sources_assignment_filter)
+
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//remoting:version",
+    "//remoting:enable_webrtc_remoting_client",
+  ]
+
+  deps = [
+    "//remoting/base",
+    "//remoting/codec",
+    "//remoting/protocol",
+    "//third_party/libyuv",
+    "//third_party/webrtc/modules/desktop_capture:primitives",
+  ]
+
+  if (is_nacl) {
+    sources -= [
+      "client_status_logger.cc",
+      "client_telemetry_logger.cc",
+      "server_log_entry_client.cc",
+    ]
+  } else {
+    sources += rebase_path(
+            remoting_srcs_gypi_values.remoting_client_standalone_sources,
+            ".",
+            "//remoting")
+  }
+}
+
+source_set("test_support") {
+  testonly = true
+
+  sources = [
+    "fake_audio_consumer.cc",
+    "fake_audio_consumer.h",
+  ]
+
+  public_deps = [
+    "//remoting/protocol:test_support",
+    "//testing/gmock",
+    "//third_party/protobuf:protobuf_lite",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  # Disabled the source filters because there are _mac files that need to
+  # be compiled on all platforms.
+  set_sources_assignment_filter([])
+  sources = [
+    "audio_decode_scheduler_unittest.cc",
+    "audio_player_unittest.cc",
+    "chromoting_client_runtime_unittest.cc",
+    "client_status_logger_unittest.cc",
+    "client_telemetry_logger_unittest.cc",
+    "empty_cursor_filter_unittest.cc",
+    "key_event_mapper_unittest.cc",
+    "normalizing_input_filter_cros_unittest.cc",
+    "normalizing_input_filter_mac_unittest.cc",
+    "normalizing_input_filter_win_unittest.cc",
+    "server_log_entry_client_unittest.cc",
+    "software_video_renderer_unittest.cc",
+    "touch_input_scaler_unittest.cc",
+  ]
+  set_sources_assignment_filter(sources_assignment_filter)
+
+  configs += [
+    "//remoting:version",
+    "//remoting:enable_webrtc_remoting_client",
+  ]
+
+  deps = [
+    ":client",
+    ":test_support",
+    "//remoting/proto",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/webrtc",
+  ]
+}

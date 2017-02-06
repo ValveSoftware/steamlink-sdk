@@ -1,0 +1,109 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//content/child/child.gni")
+
+source_set("child") {
+  # Targets external to content should always link to the public API.
+  # Internal targets can link to this but only if they're child processes
+  # (i.e. not content/browser or content/common) and only if they're inside the
+  # content component (i.e. not content/test or content/shell).
+  visibility = [
+    ":*",
+    "//content/gpu/*",
+    "//content/ppapi_plugin/*",
+    "//content/public/child:child_sources",
+    "//content/renderer/*",
+    "//content/utility/*",
+    "//tools/ipc_fuzzer/*",
+  ]
+
+  sources = rebase_path(content_child_gypi_values.private_child_sources,
+                        ".",
+                        "//content")
+
+  configs += [
+    "//build/config:precompiled_headers",
+    "//content/public/common:mojo_shell_client",
+  ]
+
+  public_deps = [
+    "//gpu/ipc/client:client",
+  ]
+
+  deps = [
+    "//base",
+    "//components/mime_util",
+    "//components/scheduler:scheduler",
+    "//components/tracing",
+    "//components/tracing:startup_tracing",
+    "//components/webcrypto",
+    "//content/app/resources",
+    "//content/app/strings",
+    "//content/common",
+    "//content/public/common:common_sources",
+    "//crypto:platform",
+    "//gpu/command_buffer/client",
+    "//media",
+    "//mojo/common",
+    "//mojo/edk/system",
+    "//net",
+    "//services/shell/public/cpp",
+    "//services/shell/public/interfaces",
+    "//services/shell/runner/common",
+    "//skia",
+    "//storage/common",
+    "//third_party/WebKit/public:blink_headers",
+    "//third_party/WebKit/public:image_resources",
+    "//third_party/WebKit/public:resources",
+    "//third_party/icu",
+    "//ui/base",
+    "//ui/events/gestures/blink",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gl",
+    "//ui/native_theme",
+    "//url",
+  ]
+
+  if (!use_default_render_theme) {
+    sources -= [
+      "webthemeengine_impl_default.cc",
+      "webthemeengine_impl_default.h",
+    ]
+  }
+
+  if (is_android) {
+    deps += [ "//third_party/android_tools:cpu_features" ]
+  }
+
+  if (enable_plugins) {
+    deps += [
+      "//ppapi/proxy",
+      "//ppapi/shared_impl",
+    ]
+  } else {
+    sources -= [
+      "browser_font_resource_trusted.cc",
+      "browser_font_resource_trusted.h",
+    ]
+  }
+
+  configs += [
+    "//content:content_implementation",
+    "//build/config/compiler:no_size_t_to_int_warning",
+  ]
+}
+
+# See comment at the top of //content/BUILD.gn for how this works.
+group("for_content_tests") {
+  visibility = [ "//content/test/*" ]
+  if (!is_component_build) {
+    public_deps = [
+      ":child",
+    ]
+  }
+}

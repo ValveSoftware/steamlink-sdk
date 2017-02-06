@@ -1,0 +1,56 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+config("snappy_config") {
+  include_dirs = [ "src" ]
+
+  # These OS-specific generated headers were made by running the configure
+  # script offline.
+  if (is_win) {
+    include_dirs += [ "win32" ]
+  } else if (is_mac) {
+    include_dirs += [ "mac" ]
+  } else {
+    include_dirs += [ "linux" ]
+  }
+}
+
+config("snappy_warnings") {
+  if (is_clang) {
+    # ComputeTable is unused,
+    # https://code.google.com/p/snappy/issues/detail?id=96
+    cflags = [ "-Wno-unused-function" ]
+  }
+}
+
+static_library("snappy") {
+  sources = [
+    "src/snappy-internal.h",
+    "src/snappy-sinksource.cc",
+    "src/snappy-sinksource.h",
+    "src/snappy-stubs-internal.cc",
+    "src/snappy-stubs-internal.h",
+    "src/snappy.cc",
+    "src/snappy.h",
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    "//build/config/compiler:no_chromium_code",
+
+    # Must be after no_chromium_code for warning flags to be ordered correctly.
+    ":snappy_warnings",
+  ]
+  public_configs = [ ":snappy_config" ]
+
+  if (is_win) {
+    cflags = [ "/wd4018" ]  # Signed/unsigned mismatch in comparison.
+  }
+
+  if (is_clang) {
+    # snappy-stubs-internal.h unapologetically has: using namespace std
+    # https://code.google.com/p/snappy/issues/detail?id=70
+    configs -= [ "//build/config/clang:extra_warnings" ]
+  }
+}

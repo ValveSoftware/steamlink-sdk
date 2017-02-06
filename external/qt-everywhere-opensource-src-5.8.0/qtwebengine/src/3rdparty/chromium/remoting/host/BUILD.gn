@@ -1,0 +1,1561 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//build/config/win/manifest.gni")
+import("//build/util/version.gni")
+import("//chrome/version.gni")
+import("//remoting/remoting_enable.gni")
+import("//remoting/remoting_locales.gni")
+import("//remoting/remoting_options.gni")
+import("//remoting/remoting_srcs.gni")
+import("//remoting/remoting_version.gni")
+import("//remoting/tools/build/remoting_localize.gni")
+
+process_version("remoting_version") {
+  template_file = "//remoting/host/version.h.in"
+  sources = [
+    branding_path,
+  ]
+  output = "$target_gen_dir/version.h"
+}
+
+if (is_win) {
+  import("//remoting/host/predefines_win.gni")
+} else if (is_mac) {
+  import("//build/config/mac/rules.gni")
+}
+
+# Reference this manifest to indicate that a process is per-monitor DPI aware.
+dpi_aware_manifest = "//remoting/host/win/dpi_aware.manifest"
+
+# Depending on this target gives a default executable manifest with the addition
+# of the DPI aware tag.
+windows_manifest("dpi_aware_exe_manifest") {
+  sources = [
+    as_invoker_manifest,
+    common_controls_manifest,
+    default_compatibility_manifest,
+    dpi_aware_manifest,
+  ]
+  type = "exe"
+}
+
+# Depending on this target gives a default executable manifest with the addition
+# of the DPI aware tag and a requestedExecutionLevel of requireAdministrator.
+windows_manifest("dpi_aware_elevated_exe_manifest") {
+  sources = [
+    common_controls_manifest,
+    default_compatibility_manifest,
+    dpi_aware_manifest,
+    require_administrator_manifest,
+  ]
+  type = "exe"
+}
+
+# GYP version: remoting/remoting_host:remoting_host_credits
+action("credits") {
+  # We put this in $root_build_dir/gen/remoting instead of
+  # $root_build_dir/gen/remoting/host (target_gen_dir) for
+  # compatibility w/ GYP, since the installer needs the file to
+  # be at the same location.
+  about_credits_file = "$root_build_dir/gen/remoting/CREDITS.txt"
+  script = "//tools/licenses.py"
+
+  inputs = [
+    "installer/credits.tmpl",
+    "installer/credits_entry.tmpl",
+  ]
+
+  outputs = [
+    about_credits_file,
+  ]
+
+  args = [
+    "credits",
+    rebase_path(about_credits_file, root_build_dir),
+    "--file-template",
+    rebase_path("installer/credits.tmpl", root_build_dir),
+    "--entry-template",
+    rebase_path("installer/credits_entry.tmpl", root_build_dir),
+  ]
+}
+
+# This must be a static library instead of a source set because
+# remoting_unittests requires that remoting_me2me_host.cc not be pulled in,
+# which in turn depends on remoting_me2me_host_static which isn't part of that
+# build.
+#
+# TODO fix this, successful builds should not depend on static libraries
+# stripping code.
+static_library("host") {
+  sources = rebase_path(remoting_host_srcs_gypi_values.remoting_host_sources,
+                        ".",
+                        "//remoting")
+
+  libs = []
+
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//remoting:version",
+  ]
+
+  defines = [ "WEBRTC_CHROMIUM_BUILD" ]
+
+  deps = [
+    "//base:i18n",
+    "//components/policy:policy_component_common",
+    "//crypto",
+    "//google_apis",
+    "//ipc",
+    "//remoting/base",
+    "//remoting/protocol",
+    "//remoting/resources",
+    "//ui/base",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events/platform",
+  ]
+
+  if (enable_configuration_policy) {
+    deps += [ "//components/policy:policy" ]
+  }
+
+  if (is_linux && !is_chromeos) {
+    libs += [ "pam" ]
+  }
+
+  if (use_x11) {
+    configs += [
+      "//build/config/linux:x11",
+      "//build/config/linux:xrandr",
+    ]
+    if (is_desktop_linux) {
+      deps += [ "//build/config/linux/gtk2" ]
+    }
+  } else {
+    sources -= [
+      "clipboard_x11.cc",
+      "desktop_resizer_x11.cc",
+      "input_injector_x11.cc",
+      "local_input_monitor_x11.cc",
+    ]
+    if (is_linux) {
+      # These will already be filtered out on non-Linux.
+      sources -= [
+        "linux/unicode_to_keysym.cc",
+        "linux/x11_util.cc",
+        "linux/x_server_clipboard.cc",
+        "linux/x_server_clipboard.h",
+      ]
+    }
+  }
+
+  if (!use_ozone) {
+    sources -= [ "desktop_resizer_ozone.cc" ]
+  }
+
+  if (is_chromeos) {
+    # TODO(GYP): crbug.com/481627. These should only be included
+    # when enable_me2me_host is true.
+    sources -= [
+      "me2me_desktop_environment.cc",
+      "me2me_desktop_environment.h",
+    ]
+    deps += [
+      "//cc",
+      "//gpu/command_buffer/common",
+      "//ppapi/host",
+      "//skia",
+      "//ui/aura",
+      "//ui/compositor",
+      "//ui/events",
+      "//ui/views",
+    ]
+
+    if (use_ash) {
+      deps += [ "//ash" ]
+    }
+
+    if (use_ozone) {
+      deps += [ "//ui/ozone" ]
+      sources -= [ "desktop_resizer_ozone.cc" ]
+    } else {
+      sources -= [
+        "clipboard_x11.cc",
+        "desktop_resizer_x11.cc",
+        "input_injector_chromeos.cc",
+        "input_injector_chromeos.h",
+        "linux/x_server_clipboard.cc",
+        "linux/x_server_clipboard.h",
+        "local_input_monitor_x11.cc",
+      ]
+    }
+
+    sources -= [
+      "continue_window_linux.cc",
+      "curtain_mode_linux.cc",
+      "disconnect_window_linux.cc",
+    ]
+  }
+
+  if (is_mac) {
+    libs += [
+      "Accelerate.framework",
+      "Carbon.framework",
+    ]
+
+    # TODO(nicholss): When we can delete GYP builds,
+    # this flag and usage can be removed.
+    defines += [ "GN_BUILD=1" ]
+    deps += [
+      ":remoting_version",
+      "//third_party/google_toolbox_for_mac",
+    ]
+  }
+
+  if (is_win) {
+    deps += [
+      ":messages",
+      ":remoting_lib_idl",
+    ]
+  }
+
+  if (enable_webrtc) {
+    deps += [ "//third_party/webrtc/modules/desktop_capture" ]
+  }
+
+  if (is_android) {
+    sources -= [
+      "single_window_desktop_environment.cc",
+      "single_window_desktop_environment.h",
+    ]
+  }
+}
+
+source_set("test_support") {
+  testonly = true
+
+  sources = [
+    "fake_desktop_environment.cc",
+    "fake_desktop_environment.h",
+    "fake_host_extension.cc",
+    "fake_host_extension.h",
+    "fake_host_status_monitor.h",
+    "fake_host_status_monitor.h",
+    "fake_mouse_cursor_monitor.cc",
+    "fake_mouse_cursor_monitor.h",
+    "fake_oauth_token_getter.cc",
+    "fake_oauth_token_getter.h",
+    "host_mock_objects.cc",
+    "host_mock_objects.h",
+    "security_key/fake_ipc_gnubby_auth_handler.cc",
+    "security_key/fake_ipc_gnubby_auth_handler.h",
+    "security_key/fake_remote_security_key_ipc_client.cc",
+    "security_key/fake_remote_security_key_ipc_client.h",
+    "security_key/fake_remote_security_key_ipc_server.cc",
+    "security_key/fake_remote_security_key_ipc_server.h",
+    "security_key/fake_remote_security_key_message_reader.cc",
+    "security_key/fake_remote_security_key_message_reader.h",
+    "security_key/fake_remote_security_key_message_writer.cc",
+    "security_key/fake_remote_security_key_message_writer.h",
+    "setup/mock_oauth_client.cc",
+    "setup/mock_oauth_client.h",
+  ]
+
+  configs += [ "//remoting:version" ]
+
+  deps = [
+    "//remoting/proto",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+  public_deps = [
+    ":host",
+    "//third_party/protobuf:protobuf_lite",
+  ]
+
+  if (enable_webrtc) {
+    public_deps += [
+      "//third_party/libjingle:libjingle_webrtc",
+      "//third_party/webrtc/modules/desktop_capture",
+    ]
+  }
+}
+
+# The host portions of the remoting unit tests.
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "audio_pump_unittest.cc",
+    "audio_silence_detector_unittest.cc",
+    "backoff_timer_unittest.cc",
+    "chromeos/aura_desktop_capturer_unittest.cc",
+    "chromeos/clipboard_aura_unittest.cc",
+    "chromoting_host_context_unittest.cc",
+    "chromoting_host_unittest.cc",
+    "client_session_unittest.cc",
+    "config_file_watcher_unittest.cc",
+    "daemon_process_unittest.cc",
+    "desktop_process_unittest.cc",
+    "gcd_rest_client_unittest.cc",
+    "gcd_state_updater_unittest.cc",
+    "heartbeat_sender_unittest.cc",
+    "host_change_notification_listener_unittest.cc",
+    "host_config_unittest.cc",
+    "host_extension_session_manager_unittest.cc",
+    "host_status_logger_unittest.cc",
+    "ipc_desktop_environment_unittest.cc",
+    "it2me/it2me_confirmation_dialog_proxy_unittest.cc",
+    "it2me/it2me_native_messaging_host_unittest.cc",
+    "linux/audio_pipe_reader_unittest.cc",
+    "linux/certificate_watcher_unittest.cc",
+    "linux/unicode_to_keysym_unittest.cc",
+    "linux/x_server_clipboard_unittest.cc",
+    "local_input_monitor_unittest.cc",
+    "mouse_cursor_monitor_proxy_unittest.cc",
+    "mouse_shape_pump_unittest.cc",
+    "native_messaging/native_messaging_reader_unittest.cc",
+    "native_messaging/native_messaging_writer_unittest.cc",
+    "pairing_registry_delegate_linux_unittest.cc",
+    "pairing_registry_delegate_win_unittest.cc",
+    "pin_hash_unittest.cc",
+    "policy_watcher_unittest.cc",
+    "register_support_host_request_unittest.cc",
+    "remote_input_filter_unittest.cc",
+    "resizing_host_observer_unittest.cc",
+    "resources_unittest.cc",
+    "screen_resolution_unittest.cc",
+    "security_key/gnubby_auth_handler_linux_unittest.cc",
+    "security_key/gnubby_auth_handler_win_unittest.cc",
+    "security_key/gnubby_extension_session_unittest.cc",
+    "security_key/remote_security_key_ipc_client_unittest.cc",
+    "security_key/remote_security_key_ipc_server_unittest.cc",
+    "security_key/remote_security_key_message_handler_unittest.cc",
+    "security_key/remote_security_key_message_reader_impl_unittest.cc",
+    "security_key/remote_security_key_message_writer_impl_unittest.cc",
+    "server_log_entry_host_unittest.cc",
+    "setup/me2me_native_messaging_host_unittest.cc",
+    "setup/oauth_helper_unittest.cc",
+    "setup/pin_validator_unittest.cc",
+    "third_party_auth_config_unittest.cc",
+    "token_validator_factory_impl_unittest.cc",
+    "touch_injector_win_unittest.cc",
+    "win/rdp_client_unittest.cc",
+    "win/worker_process_launcher_unittest.cc",
+  ]
+
+  if (!use_x11 && is_linux) {
+    sources -= [ "linux/unicode_to_keysym_unittest.cc" ]
+  }
+  if (use_ozone || is_chromeos) {
+    sources -= [ "local_input_monitor_unittest.cc" ]
+  }
+  if (is_chromeos) {
+    sources -= [ "linux/x_server_clipboard_unittest.cc" ]
+  }
+  if (is_android) {
+    sources -= [ "it2me/it2me_native_messaging_host_unittest.cc" ]
+  }
+
+  configs += [ "//remoting:version" ]
+
+  deps = [
+    ":host",
+    ":test_support",
+    "//remoting/host/it2me:common",
+    "//remoting/host/native_messaging",
+    "//remoting/host/setup",
+    "//remoting/proto",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+
+  if (enable_configuration_policy) {
+    deps += [ "//components/policy:policy_component_test_support" ]
+  }
+}
+
+if (is_win) {
+  import("//build/toolchain/win/midl.gni")
+  import("//build/win/message_compiler.gni")
+
+  # TODO(brettw) these should not be generated via exec_script. This should be
+  # part of the build process rather than the metabuild. Instead, a script
+  # should generate a header containing the #defines for this as well as the
+  # IDL file with the values.
+  clsids = exec_script("win/get_clsids.py",
+                       [
+                         remoting_srcs_gypi_values.daemon_controller_guid,
+                         remoting_srcs_gypi_values.rdp_desktop_session_guid,
+                         chrome_version_full,
+                       ],
+                       "value")
+  daemon_controller_clsid = clsids[0]
+  rdp_desktop_session_clsid = clsids[1]
+
+  action("generate_idl") {
+    script = "//build/util/version.py"
+
+    inputs = [
+      "win/chromoting_lib_idl.templ",
+    ]
+    outputs = [
+      "$target_gen_dir/chromoting_lib.idl",
+    ]
+
+    args = [
+      "-e",
+      "DAEMON_CONTROLLER_CLSID='$daemon_controller_clsid'",
+      "-e",
+      "RDP_DESKTOP_SESSION_CLSID='$rdp_desktop_session_clsid'",
+      rebase_path(inputs[0], root_build_dir),
+      rebase_path(outputs[0], root_build_dir),
+    ]
+  }
+
+  midl("remoting_lib_idl") {
+    sources = get_target_outputs(":generate_idl")
+    deps = [
+      ":generate_idl",
+    ]
+  }
+
+  config("MIDL_config") {
+    if (is_clang) {
+      cflags = [
+        # MIDL generated code has a habit of omitting optional braces.
+        "-Wno-missing-braces",
+
+        # Source files generated by the MIDL compiler trigger warnings with
+        # -Wincompatible-pointer-types enabled.
+        "-Wno-incompatible-pointer-types",
+
+        # Generated code contains unused variables.
+        "-Wno-unused-variable",
+
+        # PROXYFILE_LIST_START is an extern with initializer.
+        "-Wno-extern-initializer",
+      ]
+    }
+  }
+
+  # GYP version: remoting/remoting_host_win.gypi:remoting_lib_ps
+  static_library("remoting_lib_ps") {
+    configs += [ ":MIDL_config" ]
+
+    defines = [
+      "ENTRY_PREFIX=Ps",
+      "REGISTER_PROXY_DLL",
+    ]
+
+    deps = [
+      ":remoting_lib_idl",
+    ]
+
+    sources = [
+      "$root_gen_dir/remoting/host/chromoting_lib.dlldata.c",
+      "$root_gen_dir/remoting/host/chromoting_lib_p.c",
+    ]
+  }
+
+  # Makes the .mc file from the .mc.jinja file.
+  remoting_localize("messages_localizing") {
+    sources = [
+      "win/host_messages.mc.jinja2",
+    ]
+    locales = remoting_locales
+    locale_dir = webapp_locale_dir
+    encoding = "utf-16"
+
+    # This target is funny. It only produces one file and the output doesn't
+    # match the input. We want to generate remoting_host_messages.mc from
+    # host_messages.mg.jinja2. GN complains if it doesn't see a pattern in the
+    # output, so the following pattern produces the name we want with a template
+    # based on the input.
+    #
+    # TODO: This is for GYP compat. We should just make the names match instead.
+    output = "$target_gen_dir/remoting_{{source_name_part}}"
+  }
+
+  # Makes the .h/.rc files from the .mc file.
+  message_compiler("messages") {
+    compile_generated_code = false
+    sources = get_target_outputs(":messages_localizing")
+    deps = [
+      ":messages_localizing",
+    ]
+  }
+
+  # GYP version: remoting/remoting_host_win.gypi:remoting_console
+  executable("remoting_console") {
+    configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+    defines = host_predefines + [ "BINARY=BINARY_HOST_ME2ME" ]
+
+    deps = [
+      ":dpi_aware_exe_manifest",
+      ":remoting_core",
+      ":remoting_windows_resources",
+    ]
+
+    sources = [
+      "$root_gen_dir/remoting/version.rc",
+      "win/entry_point.cc",
+    ]
+
+    ldflags = [
+      "/ENTRY:HostEntryPoint",
+      # "/NODEFAULTLIB",
+    ]
+  }
+
+  # GYP version: //remoting/remoting_host_win.gypi:remoting_core
+  shared_library("remoting_core") {
+    configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+    defines = host_predefines + [
+                "_ATL_APARTMENT_THREADED",
+                "_ATL_CSTRING_EXPLICIT_CONSTRUCTORS",
+                "_ATL_NO_AUTOMATIC_NAMESPACE",
+                "_ATL_NO_EXCEPTIONS",
+                "BINARY=BINARY_CORE",
+                "DAEMON_CONTROLLER_CLSID=\"$daemon_controller_clsid\"",
+                "RDP_DESKTOP_SESSION_CLSID=\"$rdp_desktop_session_clsid\"",
+                "HOST_IMPLEMENTATION",
+                "ISOLATION_AWARE_ENABLED=1",
+                "STRICT",
+                "VERSION=$chrome_version_full",
+              ]
+
+    if (remoting_multi_process != 0 && remoting_rdp_session != 0) {
+      defines += [ "REMOTING_RDP_SESSION" ]
+    }
+
+    if (remoting_multi_process != 0) {
+      defines += [ "REMOTING_MULTI_PROCESS" ]
+    }
+
+    deps = [
+      ":host",
+      ":messages",
+      ":remoting_lib_idl",
+      ":remoting_lib_ps",
+      ":remoting_me2me_host_static",
+      ":remoting_windows_resources",
+      "//base",
+      "//base:base_static",
+      "//base/allocator",
+      "//base/third_party/dynamic_annotations",
+      "//build/win:default_exe_manifest",
+      "//ipc",
+      "//net",
+      "//remoting/base",
+      "//remoting/base:breakpad",
+      "//remoting/codec",
+      "//remoting/host/it2me:common",
+      "//remoting/host/native_messaging",
+      "//remoting/host/setup",
+      "//remoting/protocol",
+      "//sandbox/win:sandbox",  # Should always use Windows version
+      "//third_party/webrtc/modules/desktop_capture",
+    ]
+
+    sources = [
+      "$root_gen_dir/remoting/core.rc",
+      "$root_gen_dir/remoting/host/remoting_host_messages.rc",
+      "$root_gen_dir/remoting/version.rc",
+      "desktop_process_main.cc",
+      "host_main.cc",
+      "host_main.h",
+      "it2me/it2me_native_messaging_host_main.cc",
+      "it2me/it2me_native_messaging_host_main.h",
+      "security_key/remote_security_key_main.cc",
+      "security_key/remote_security_key_main.h",
+      "setup/host_starter.cc",
+      "setup/host_starter.h",
+      "setup/me2me_native_messaging_host_main.cc",
+      "setup/me2me_native_messaging_host_main.h",
+      "setup/start_host_main.cc",
+      "setup/start_host_main.h",
+      "win/chromoting_lib.rc",
+      "win/chromoting_module.cc",
+      "win/chromoting_module.h",
+      "win/core.cc",
+      "win/core_resource.h",
+      "win/host_service.cc",
+      "win/host_service.h",
+      "win/omaha.cc",
+      "win/omaha.h",
+      "win/rdp_desktop_session.cc",
+      "win/rdp_desktop_session.h",
+      "win/unprivileged_process_delegate.cc",
+      "win/unprivileged_process_delegate.h",
+      "win/wts_session_process_delegate.cc",
+      "win/wts_session_process_delegate.h",
+      "worker_process_ipc_delegate.h",
+    ]
+
+    ldflags = [
+      "/EXPORT:DllGetClassObject=PsDllGetClassObject,PRIVATE",
+      "/EXPORT:DllCanUnloadNow=PsDllCanUnloadNow,PRIVATE",
+      "/EXPORT:DllRegisterServer=PsDllRegisterServer,PRIVATE",
+      "/EXPORT:DllUnregisterServer=PsDllUnregisterServer,PRIVATE",
+    ]
+
+    libs = [
+      "comctl32.lib",
+      "rpcns4.lib",
+      "rpcrt4.lib",
+      "sas.lib",
+      "uuid.lib",
+      "wtsapi32.lib",
+    ]
+
+    if (is_clang) {
+      cflags = [ "-Wno-header-hygiene" ]
+    }
+  }
+
+  # GYP version: //remoting/remoting_host_win.gypi:remoting_desktop
+  executable("remoting_desktop") {
+    configs += [
+      "//build/config/compiler:wexit_time_destructors",
+      "//build/config/win:windowed",
+    ]
+
+    defines = host_predefines + [ "BINARY=BINARY_DESKTOP" ]
+
+    deps = [
+      ":remoting_core",
+      ":remoting_windows_resources",
+    ]
+
+    if (is_official_build) {
+      deps += [ ":dpi_aware_elevated_exe_manifest" ]
+    } else {
+      deps += [ ":dpi_aware_exe_manifest" ]
+    }
+
+    sources = [
+      "$root_gen_dir/remoting/version.rc",
+      "win/entry_point.cc",
+    ]
+
+    ldflags = [
+      "/ENTRY:HostEntryPoint",
+      # "/NODEFAULTLIB",
+    ]
+  }
+
+  # GYP version: //remoting/remoting_host_win.gypi:remote_security_key
+  executable("remote_security_key") {
+    configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+    defines = host_predefines + [ "BINARY=BINARY_REMOTE_SECURITY_KEY" ]
+
+    deps = [
+      ":remoting_core",
+      ":remoting_windows_resources",
+      "//build/win:default_exe_manifest",
+    ]
+
+    sources = [
+      "$root_gen_dir/remoting/version.rc",
+      "security_key/remote_security_key_entry_point.cc",
+    ]
+  }
+
+  # GYP version:
+  # //remoting/remoting_host_win.gypi:remoting_me2me_native_messaging_host
+  executable("remoting_native_messaging_host") {
+    configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+    defines = host_predefines + [ "BINARY=BINARY_NATIVE_MESSAGING_HOST" ]
+
+    deps = [
+      ":remoting_core",
+      ":remoting_windows_resources",
+      "//build/win:default_exe_manifest",
+    ]
+
+    if (is_mac) {
+      foreach(locale, remoting_locales_with_underscores) {
+        deps += [
+          ":native_messaging_host_strings_${locale}_bundle_data",
+          ":remoting_host_locale_${locale}_bundle_data",
+        ]
+      }
+      deps += [
+        ":remoting_infoplist_strings",
+        "//remoting/resources:copy_locales",
+      ]
+    }
+
+    sources = [
+      "$root_gen_dir/remoting/version.rc",
+      "setup/me2me_native_messaging_host_entry_point.cc",
+    ]
+  }
+
+  # GYP version: //remoting/remoting_host_win.gypi:remoting_windows_resources
+  remoting_localize("remoting_windows_resources") {
+    deps = [
+      "//remoting/resources",
+    ]
+
+    sources = [
+      "win/core.rc.jinja2",
+      "win/version.rc.jinja2",
+    ]
+
+    # TODO(zijiehe): Export lastchange_path from
+    # //chrome/version.gni:process_version
+    variables = [
+      rebase_path(chrome_version_file),
+      rebase_path(remoting_version_file),
+      rebase_path("//build/util/LASTCHANGE"),
+    ]
+
+    output = "$root_gen_dir/remoting/{{source_name_part}}"
+
+    locale_dir = webapp_locale_dir
+
+    encoding = "utf-16"
+
+    locales = remoting_locales
+  }
+
+  # TODO(GYP) More Windows remoting targets from remoting_host_win.gypi
+}
+
+if (enable_remoting_host && !is_android) {
+  executable("remoting_start_host") {
+    sources = [
+      "setup/start_host_entry_point.cc",
+    ]
+
+    deps = [
+      "//build/config/sanitizers:deps",
+    ]
+
+    configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+    if (is_win) {
+      defines = host_predefines + [ "BINARY=BINARY_REMOTING_START_HOST" ]
+
+      deps += [
+        ":remoting_core",
+        ":remoting_windows_resources",
+        "//build/win:default_exe_manifest",
+      ]
+    } else {
+      sources += [
+        "setup/host_starter.cc",
+        "setup/host_starter.h",
+        "setup/start_host_main.cc",
+        "setup/start_host_main.h",
+      ]
+
+      deps += [ "//remoting/host/setup" ]
+    }
+
+    if (enable_webrtc) {
+      deps += [ "//third_party/libjingle:libjingle_webrtc" ]
+    }
+  }
+
+  action_foreach("remoting_native_messaging_manifests") {
+    if (is_mac) {
+      me2me_host_path = "/Library/PrivilegedHelperTools/$me2me_host_bundle_name/Contents/MacOS/$native_messaging_host_bundle_name/Contents/MacOS/native_messaging_host"
+      it2me_host_path = "/Library/PrivilegedHelperTools/$me2me_host_bundle_name/Contents/MacOS/$remote_assistance_host_bundle_name/Contents/MacOS/remote_assistance_host"
+    } else if (is_win) {
+      me2me_host_path = "remoting_native_messaging_host.exe"
+      it2me_host_path = "remote_assistance_host.exe"
+    } else {
+      me2me_host_path =
+          "/opt/google/chrome-remote-desktop/native-messaging-host"
+      it2me_host_path =
+          "/opt/google/chrome-remote-desktop/remote-assistance-host"
+    }
+
+    script = "../tools/build/remoting_localize.py"
+
+    sources = [
+      "it2me/com.google.chrome.remote_assistance.json.jinja2",
+      "setup/com.google.chrome.remote_desktop.json.jinja2",
+    ]
+
+    inputs = [
+      branding_path,
+    ]
+
+    outputs = [
+      "$root_build_dir/remoting/{{source_name_part}}",
+    ]
+
+    args = [
+      "--define",
+      "ME2ME_HOST_PATH=$me2me_host_path",
+      "--define",
+      "IT2ME_HOST_PATH=$it2me_host_path",
+      "--variables",
+      rebase_path(branding_path),
+      "--template",
+      "{{source}}",
+      "--output",
+      "remoting/{{source_name_part}}",
+      "en",
+    ]
+  }
+
+  if (is_mac) {
+    foreach(locale, remoting_locales_with_underscores) {
+      bundle_data("remoting_host_locale_${locale}_bundle_data") {
+        sources = [
+          "$root_build_dir/remoting/resources/$locale.lproj/locale.pak",
+        ]
+        outputs = [
+          "{{bundle_resources_dir}}/$locale.lproj/{{source_file_part}}",
+        ]
+        deps = [
+          "//remoting/resources:copy_locales",
+        ]
+      }
+    }
+  }
+
+  action_foreach("remoting_infoplist_strings") {
+    sources = [
+      "installer/mac/uninstaller/remoting_uninstaller-InfoPlist.strings.jinja2",
+      "it2me/remote_assistance_host-InfoPlist.strings.jinja2",
+      "mac/me2me_preference_pane-InfoPlist.strings.jinja2",
+      "remoting_me2me_host-InfoPlist.strings.jinja2",
+      "setup/native_messaging_host-InfoPlist.strings.jinja2",
+    ]
+
+    script = "//remoting/tools/build/remoting_localize.py"
+    args = [
+             "--locale_dir",
+             rebase_path(webapp_locale_dir, root_build_dir),
+             "--variables",
+             rebase_path(branding_path),
+             "--template",
+             "{{source}}",
+             "--locale_output",
+             rebase_path(
+                 "$root_gen_dir/remoting/host/{{source_name_part}}/@{json_suffix}.lproj/InfoPlist.strings",
+                 root_build_dir),
+           ] + remoting_locales_with_underscores
+
+    outputs = []
+    foreach(locale, remoting_locales_with_underscores) {
+      outputs += [ "$root_gen_dir/remoting/host/{{source_name_part}}/$locale.lproj/InfoPlist.strings" ]
+    }
+
+    deps = [
+      "//remoting/resources",
+      "//remoting/resources:strings",
+    ]
+  }
+}
+
+if (enable_me2me_host) {
+  source_set("remoting_me2me_host_static") {
+    sources = [
+      "pam_authorization_factory_posix.cc",
+      "pam_authorization_factory_posix.h",
+      "remoting_me2me_host.cc",
+    ]
+    defines = []
+
+    configs += [ "//remoting:version" ]
+
+    deps = [
+      "//base",
+      "//base:i18n",
+      "//components/policy:policy_component_common",
+      "//net",
+      "//remoting/base",
+      "//remoting/host",
+      "//remoting/proto",
+      "//third_party/webrtc/modules/desktop_capture",
+    ]
+
+    if (enable_configuration_policy) {
+      deps += [ "//components/policy" ]
+    }
+
+    if (enable_webrtc) {
+      deps += [ "//third_party/libjingle:libjingle_webrtc" ]
+    }
+
+    if (is_desktop_linux) {
+      deps += [ "//build/config/linux/gtk2" ]
+    }
+    if ((is_linux && !is_chromeos) || is_mac) {
+      libs = [ "pam" ]
+    }
+
+    if (is_mac && is_official_build) {
+      sources += [ "internal/internal_mac-inl.h" ]
+      defines += [ "USE_REMOTING_MACOSX_INTERNAL" ]
+    }
+
+    if (is_win && remoting_multi_process != 0 && remoting_rdp_session != 0) {
+      defines += [ "REMOTING_RDP_SESSION" ]
+    }
+
+    if (remoting_multi_process != 0) {
+      defines += [ "REMOTING_MULTI_PROCESS" ]
+    }
+  }
+
+  if (is_win) {
+    # GYP version: //remoting/remoting_host_win.gypi:remoting_me2me_host
+    executable("remoting_me2me_host") {
+      configs += [
+        "//build/config/compiler:wexit_time_destructors",
+        "//build/config/win:windowed",
+      ]
+
+      defines = host_predefines + [ "BINARY=BINARY_HOST_ME2ME" ]
+
+      deps = [
+        ":dpi_aware_exe_manifest",
+        ":remoting_core",
+        ":remoting_windows_resources",
+      ]
+
+      sources = [
+        "$root_gen_dir/remoting/version.rc",
+        "win/entry_point.cc",
+      ]
+
+      output_name = "remoting_host"
+
+      ldflags = [
+        "/ENTRY:HostEntryPoint",
+        # "/NODEFAULTLIB",
+      ]
+    }
+  } else {
+    if (is_mac) {
+      app_target_type = "mac_app_bundle"
+    } else {
+      app_target_type = "executable"
+    }
+
+    if (is_mac) {
+      # remoting_me2me_host-InfoPlist.strings
+      foreach(locale, remoting_locales_with_underscores) {
+        bundle_data("remoting_me2me_host_strings_${locale}_bundle_data") {
+          sources = [
+            "$root_gen_dir/remoting/host/remoting_me2me_host-InfoPlist.strings/$locale.lproj/InfoPlist.strings",
+          ]
+          outputs = [
+            "{{bundle_resources_dir}}/$locale.lproj/{{source_file_part}}",
+          ]
+          deps = [
+            ":remoting_infoplist_strings",
+          ]
+        }
+      }
+    }
+
+    target(app_target_type, "remoting_me2me_host") {
+      if (is_mac) {
+        extra_configs = [ "//remoting:version" ]
+        info_plist = "remoting_me2me_host-Info.plist"
+      } else {
+        configs += [ "//remoting:version" ]
+      }
+
+      sources = [
+        "host_main.cc",
+        "host_main.h",
+      ]
+
+      if (is_mac && is_chrome_branded && is_official_build) {
+        defines = [ "REMOTING_ENABLE_BREAKPAD" ]
+      }
+
+      deps = [
+        ":credits",
+        ":remoting_me2me_host_static",
+        "//build/config/sanitizers:deps",
+        "//remoting/resources",
+      ]
+      if (is_mac) {
+        foreach(locale, remoting_locales_with_underscores) {
+          deps += [
+            ":remoting_host_locale_${locale}_bundle_data",
+            ":remoting_me2me_host_strings_${locale}_bundle_data",
+          ]
+        }
+        deps += [
+          ":remoting_infoplist_strings",
+          "//remoting/resources:copy_locales",
+        ]
+      }
+    }
+
+    if (is_linux) {
+      copy("remoting_me2me_host_copy_script") {
+        sources = [
+          "linux/linux_me2me_host.py",
+        ]
+        outputs = [
+          "$root_build_dir/remoting/chrome-remote-desktop",
+        ]
+      }
+      copy("remoting_me2me_host_copy_host") {
+        sources = [
+          "linux/remoting_me2me_host_wrapper.sh",
+        ]
+        outputs = [
+          "$root_build_dir/remoting/chrome-remote-desktop-host",
+        ]
+        deps = [
+          ":remoting_me2me_host",
+        ]
+      }
+      group("remoting_dev_me2me_host") {
+        deps = [
+          ":remoting_me2me_host",
+          ":remoting_me2me_host_copy_host",
+          ":remoting_me2me_host_copy_script",
+        ]
+      }
+    }
+
+    if (is_mac) {
+      # native_messaging_host-InfoPlist.strings
+      foreach(locale, remoting_locales_with_underscores) {
+        bundle_data("native_messaging_host_strings_${locale}_bundle_data") {
+          sources = [
+            "$root_gen_dir/remoting/host/native_messaging_host-InfoPlist.strings/$locale.lproj/InfoPlist.strings",
+          ]
+          outputs = [
+            "{{bundle_resources_dir}}/$locale.lproj/{{source_file_part}}",
+          ]
+          deps = [
+            ":remoting_infoplist_strings",
+          ]
+        }
+      }
+    }
+
+    target(app_target_type, "native_messaging_host") {
+      if (is_mac) {
+        info_plist = "setup/native_messaging_host-Info.plist"
+        extra_configs = [ "//build/config/compiler:wexit_time_destructors" ]
+      } else {
+        configs += [ "//build/config/compiler:wexit_time_destructors" ]
+      }
+
+      sources = [
+        "setup/me2me_native_messaging_host_entry_point.cc",
+        "setup/me2me_native_messaging_host_main.cc",
+        "setup/me2me_native_messaging_host_main.h",
+      ]
+
+      deps = [
+        ":remoting_infoplist_strings",
+        "//base",
+        "//remoting/base:breakpad",
+        "//remoting/host",
+        "//remoting/host/native_messaging",
+        "//remoting/host/setup",
+      ]
+
+      if (is_mac) {
+        foreach(locale, remoting_locales_with_underscores) {
+          deps += [
+            ":native_messaging_host_strings_${locale}_bundle_data",
+            ":remoting_host_locale_${locale}_bundle_data",
+          ]
+        }
+        deps += [ "//remoting/resources:copy_locales" ]
+      }
+
+      # The |major|, |build| and |patch| versions are inherited from Chrome.
+      # Since Chrome's |minor| version is always '0', we replace it with a
+      # Chromoting-specific patch version.
+      defines = [ "VERSION=" + "$chrome_version_major" + "." +
+                  "$remoting_version_patch" + "." + "$chrome_version_build" +
+                  "." + "$chrome_version_patch" ]
+    }
+  }
+
+  if (is_chrome_branded && enable_me2me_host && is_linux && !is_chromeos) {
+    # TODO(GYP): add support for archive_chromoting_tests variable?
+
+    import("//build/config/zip.gni")
+
+    build_deb_script = "installer/linux/build_deb.py"
+    deb_filename =
+        "$root_build_dir/" + exec_script(build_deb_script,
+                                         [
+                                           "-p",
+                                           "-s",
+                                           rebase_path("//"),
+                                         ],
+                                         "string",
+                                         [ "installer/linux/build-deb.sh" ])
+    changes_filename =
+        "$root_build_dir/" + get_path_info(deb_filename, "name") + ".changes"
+
+    packaging_outputs = [
+      deb_filename,
+      changes_filename,
+
+      # TODO(GYP): Check that these are generated by build_deb.py.
+      #"$root_build_dir/remoting_me2me_host.debug",
+      #"$root_build_dir/remoting_start_host.debug",
+      #"$root_build_dir/native_messaging_host.debug",
+      #"$root_build_dir/remote_assistance_host.debug",
+    ]
+
+    zip("remoting_me2me_host_archive") {
+      # Store the installer package(s) into a zip file so there is a
+      # consistent filename to reference for build archiving (i.e. in
+      # FILES.cfg). This also avoids possible conflicts with "wildcard"
+      # package handling in other build/signing scripts.
+      inputs = packaging_outputs
+      output = "$root_build_dir/remoting-me2me-host-linux.zip"
+      deps = [
+        ":remoting_me2me_host_copy",
+      ]
+    }
+
+    copy("remoting_me2me_host_copy") {
+      # Copy the debian package file, which has version info in it,
+      # to a consistewnt filename for use on Chromoting swarming bots.
+      sources = [
+        deb_filename,
+      ]
+      outputs = [
+        "$root_build_dir/remoting-me2me-host.deb",
+      ]
+      public_deps = [
+        ":remoting_me2me_host_deb_installer",
+      ]
+    }
+
+    action("remoting_me2me_host_deb_installer") {
+      script = build_deb_script
+      inputs = [
+        build_deb_script,
+        "installer/linux/Makefile",
+        "installer/linux/debian/chrome-remote-desktop.init",
+        "installer/linux/debian/chrome-remote-desktop.pam",
+        "installer/linux/debian/compat",
+        "installer/linux/debian/control",
+        "installer/linux/debian/copyright",
+        "installer/linux/debian/postinst",
+        "installer/linux/debian/preinst",
+        "installer/linux/debian/rules",
+      ]
+      outputs = packaging_outputs
+      sources = [
+        "installer/linux/build-deb.sh",
+      ]
+      args = [
+        "-s",
+        rebase_path("//"),
+        "-o",
+        rebase_path("$root_build_dir"),
+      ]
+
+      deps = [
+        ":native_messaging_host",
+        ":remoting_me2me_host",
+        ":remoting_native_messaging_manifests",
+        ":remoting_start_host",
+        "//remoting/host/it2me:remote_assistance_host",
+        "//remoting/resources",
+        "//third_party/icu:icudata",
+      ]
+    }
+  } else if (is_win) {
+    # GYP version: //remoting/remoting_host_win.gypi:remoting_me2me_host_archive
+    action("remoting_me2me_host_archive") {
+      script = "//remoting/host/installer/build-installer-archive.py"
+
+      deps = [
+        ":credits",
+        ":remote_security_key",
+        ":remoting_core",
+        ":remoting_desktop",
+        ":remoting_me2me_host",
+        ":remoting_native_messaging_host",
+        ":remoting_native_messaging_manifests",
+        ":remoting_start_host",
+        "it2me:remote_assistance_host",
+        "//third_party/icu:icudata",
+      ]
+
+      _output = "$root_out_dir/remoting-me2me-host-$target_os.zip"
+
+      outputs = [
+        _output,
+      ]
+      if (is_chrome_branded) {
+        _branding = "Chrome"
+      } else {
+        _branding = "Chromium"
+      }
+
+      if (is_official_build) {
+        _official_build = "1"
+      } else {
+        _official_build = "0"
+      }
+
+      _generated_files = rebase_path(
+              [
+                "$root_out_dir/remote_assistance_host.exe",
+                "$root_out_dir/remote_security_key.exe",
+                "$root_out_dir/remoting_core.dll",
+                "$root_out_dir/remoting_desktop.exe",
+                "$root_out_dir/remoting_host.exe",
+                "$root_out_dir/remoting_native_messaging_host.exe",
+                "$root_out_dir/remoting_start_host.exe",
+                "$root_gen_dir/remoting/CREDITS.txt",
+                "$root_out_dir/remoting/com.google.chrome.remote_assistance.json",
+                "$root_out_dir/remoting/com.google.chrome.remote_desktop.json",
+                "$root_out_dir/icudtl.dat",
+              ],
+              root_build_dir)
+      _extra_files = []
+
+      args = [
+               rebase_path("$root_gen_dir/installation", root_build_dir),
+               rebase_path(_output, root_build_dir),
+               "--source-file-roots",
+               rebase_path("//remoting/host/installer/win"),
+               "--source-files",
+               rebase_path("//remoting/host/installer/win/chromoting.wxs"),
+               rebase_path("//remoting/host/installer/win/parameters.json"),
+
+               # Input files
+               "--generated-files",
+             ] + _generated_files +
+             [
+               rebase_path("//remoting/resources/chromoting.ico"),
+
+               # Position of files in zip file
+               "--generated-files-dst",
+               "files/remote_assistance_host.exe",
+               "files/remote_security_key.exe",
+               "files/remoting_core.dll",
+               "files/remoting_desktop.exe",
+               "files/remoting_host.exe",
+               "files/remoting_native_messaging_host.exe",
+               "files/remoting_start_host.exe",
+               "files/CREDITS.txt",
+               "files/com.google.chrome.remote_assistance.json",
+               "files/com.google.chrome.remote_desktop.json",
+               "files/chromoting.ico",
+               "files/icudtl.dat",
+             ] + _extra_files +  # Defs
+             [
+               "--defs",
+               "BRANDING=$_branding",
+               "DAEMON_CONTROLLER_CLSID={$daemon_controller_clsid}",
+               "RDP_DESKTOP_SESSION_CLSID={$rdp_desktop_session_clsid}",
+               "VERSION=$chrome_version_full",
+               "OFFICIAL_BUILD=$_official_build",
+             ]
+    }
+  } else if (is_mac) {
+    import("//build/config/zip.gni")
+
+    action("remoting_me2me_host_archive") {
+      # TODO(GYP) TODO(crbug.com/622415) This needs work and testing.
+
+      # TODO(GYP) At the very least, we need to add in the localized strings.
+
+      _installer_mac_files = [
+        "installer/mac/do_signing.sh",
+        "installer/mac/do_signing.props",
+        "installer/mac/ChromotingHost.pkgproj",
+        "installer/mac/ChromotingHostService.pkgproj",
+        "installer/mac/ChromotingHostUninstaller.pkgproj",
+        "installer/mac/LaunchAgents/org.chromium.chromoting.plist",
+        "installer/mac/PrivilegedHelperTools/org.chromium.chromoting.me2me.sh",
+        "installer/mac/Scripts/keystone_install.sh",
+        "installer/mac/Scripts/remoting_postflight.sh",
+        "installer/mac/Scripts/remoting_preflight.sh",
+        "installer/mac/Keystone/GoogleSoftwareUpdate.pkg",
+        "//chrome/installer/mac/pkg-dmg",
+      ]
+
+      inputs = _installer_mac_files
+
+      zip_path = "$root_build_dir/remoting-me2me-host-mac.zip"
+
+      outputs = [
+        "$root_build_dir/remoting-me2me-host-mac.zip",
+      ]
+
+      script = "installer/build-installer-archive.py"
+
+      # TODO(GYP) TODO(crbug.com/622415): Fill these in.
+      host_name_nospace = host_name
+      host_service_name_nospace = host_service_name
+      host_uninstaller_name_nospace = host_uninstaller_name
+
+      args = [
+               rebase_path(target_gen_dir, root_build_dir),
+               rebase_path(zip_path, root_build_dir),
+               "--source-file-roots",
+               rebase_path("installer/mac/", root_build_dir),
+               rebase_path("//chrome/installer/mac", root_build_dir),
+               "--source-files",
+             ] + rebase_path(_installer_mac_files, root_build_dir) + [
+               "--generated-files",
+               "remoting_host_prefpane.prefPane",
+               "remoting_me2me_host.app",
+               "native_messaging_host.app",
+               "remote_assistance_host.app",
+               "remoting_host_uninstaller.app",
+               "remoting/com.google.chrome.remote_desktop.json",
+               "remoting/com.google.chrome.remote_assistance.json",
+               "--generated-files-dst",
+               "PreferencePanes/$prefpane_bundle_name",
+               "PrivilegedHelperTools/$host_bundle_name",
+               "PrivilegedHelperTools/$host_bundle_name/Contents/MacOS/$native_messaging_host_bundle_name",
+               "PrivilegedHelperTools/$host_bundle_name/Contents/MacOS/$remote_assistance_host_bundle_name",
+               "Applications/$host_uninstaller_name.app",
+               "Config/com.google.chrome.remote_desktop.json",
+               "Config/com.google.chrome.remote_assistance.json",
+               "--defs",
+               "VERSION=$chrome_version_full",
+               "VERSION_SHORT=$chrome_version_major.$chrome_version_minor.$chrome_version_build",
+               "VERSION_MAJOR=$chrome_version_major",
+               "VERSION_MINOR=$chrome_version_minor",
+               "HOST_NAME=$host_name",
+               "HOST_BUNDLE_NAME=$me2me_host_bundle_name",
+               "HOST_SERVICE_NAME=$host_service_name",
+               "HOST_UNINSTALLER_NAME=$host_uninstaller_name",
+               "HOST_PKG=$host_name",
+               "HOST_SERVICE_PKG=$host_service_name_nospace",
+               "HOST_UNINSTALLER_PKG=$host_uninstaller_name_nospace",
+               "BUNDLE_ID_HOST=$bundle_prefix.$host_name_nospace",
+               "BUNDLE_ID_HOST_SERVICE=$bundle_prefix.$host_service_name_nospace",
+               "BUNDLE_ID_HOST_UNINSTALLER=$bundle_prefix.$host_uninstaller_name_nospace",
+               "DMG_VOLUME_NAME=$host_name $chrome_version_full",
+               "DMG_FILE_NAME=$host_name_nospace-$chrome_version_full",
+               "NATIVE_MESSAGING_HOST_BUNDLE_NAME=$native_messaging_host_bundle_name",
+               "REMOTE_ASSISTANCE_HOST_BUNDLE_NAME=$remote_assistance_host_bundle_name",
+               "PREFPANE_BUNDLE_NAME=$prefpane_bundle_name",
+             ]
+
+      deps = [
+        ":native_messaging_host",
+        ":remoting_host_prefpane.prefPane",
+        ":remoting_host_uninstaller",
+        ":remoting_me2me_host",
+        ":remoting_native_messaging_manifests",
+        "//remoting/host/it2me:remote_assistance_host",
+      ]
+    }
+
+    _uninstaller_plist =
+        "installer/mac/uninstaller/remoting_uninstaller-Info.plist"
+
+    # remoting_uninstaller-InfoPlist.strings
+    foreach(locale, remoting_locales_with_underscores) {
+      bundle_data("remoting_uninstaller_strings_${locale}_bundle_data") {
+        sources = [
+          "$root_gen_dir/remoting/host/remoting_uninstaller-InfoPlist.strings/$locale.lproj/InfoPlist.strings",
+        ]
+        outputs = [
+          "{{bundle_resources_dir}}/$locale.lproj/{{source_file_part}}",
+        ]
+        deps = [
+          ":remoting_infoplist_strings",
+        ]
+      }
+    }
+
+    mac_app_bundle("remoting_host_uninstaller") {
+      info_plist = _uninstaller_plist
+
+      defines = [
+        "HOST_BUNDLE_NAME=\"" + host_bundle_name + "\"",
+        "PREFPANE_BUNDLE_NAME=\"" + prefpane_bundle_name + "\"",
+      ]
+
+      sources = [
+        "constants_mac.cc",
+        "constants_mac.h",
+        "installer/mac/uninstaller/remoting_uninstaller.h",
+        "installer/mac/uninstaller/remoting_uninstaller.mm",
+        "installer/mac/uninstaller/remoting_uninstaller_app.h",
+        "installer/mac/uninstaller/remoting_uninstaller_app.mm",
+      ]
+
+      libs = [
+        "Cocoa.framework",
+        "CoreFoundation.framework",
+        "Security.framework",
+      ]
+
+      deps = [
+        ":remoting_host_uninstaller_xibs",
+        ":remoting_infoplist_strings",
+        "//base",
+      ]
+      foreach(locale, remoting_locales_with_underscores) {
+        deps += [ ":remoting_uninstaller_strings_${locale}_bundle_data" ]
+      }
+    }
+
+    mac_xib_bundle_data("remoting_host_uninstaller_xibs") {
+      sources = [
+        #"installer/mac/uninstaller/remoting_uninstaller.icns",
+        "installer/mac/uninstaller/remoting_uninstaller.xib",
+        #_uninstaller_plist
+      ]
+    }
+
+    create_bundle("remoting_host_prefpane.prefPane") {
+      bundle_root_dir = "$root_build_dir/$target_name/Contents"
+      bundle_resources_dir = bundle_root_dir + "/Resources"
+      bundle_executable_dir = bundle_root_dir + "/MacOS"
+
+      deps = [
+        ":remoting_host_prefpane",
+        ":remoting_host_prefpane_bundle_data",
+        ":remoting_host_prefpane_plist",
+        ":remoting_host_prefpane_xibs",
+        ":remoting_infoplist_strings",
+      ]
+
+      foreach(locale, remoting_locales_with_underscores) {
+        deps += [ ":remoting_host_prefpane_strings_${locale}_bundle_data" ]
+      }
+    }
+
+    bundle_data("remoting_host_prefpane_bundle_data") {
+      deps = [
+        ":remoting_host_prefpane",
+      ]
+      sources = [
+        "$root_build_dir/gen/remoting/host/remoting_host_prefpane",
+      ]
+      outputs = [
+        "{{bundle_executable_dir}}/remoting_host_prefname",
+      ]
+    }
+
+    loadable_module("remoting_host_prefpane") {
+      output_dir = "$root_out_dir/gen/remoting/host"
+      output_extension = ""
+
+      sources = [
+        "mac/me2me_preference_pane.h",
+        "mac/me2me_preference_pane.mm",
+        "mac/me2me_preference_pane_confirm_pin.h",
+        "mac/me2me_preference_pane_confirm_pin.mm",
+        "mac/me2me_preference_pane_disable.h",
+        "mac/me2me_preference_pane_disable.mm",
+      ]
+
+      libs = [
+        "Cocoa.framework",
+        "CoreFoundation.framework",
+        "PreferencePanes.framework",
+        "Security.framework",
+      ]
+
+      deps = [
+        ":host",
+        ":remoting_host_prefpane_xibs",
+        ":remoting_infoplist_strings",
+        "//remoting/base",
+        "//remoting/resources:copy_locales",
+        "//third_party/jsoncpp",
+      ]
+      foreach(locale, remoting_locales_with_underscores) {
+        deps += [ ":remoting_host_prefpane_strings_${locale}_bundle_data" ]
+      }
+    }
+
+    bundle_data("remoting_host_prefpane_plist") {
+      sources = [
+        "mac/me2me_preference_pane-Info.plist",
+      ]
+      outputs = [
+        "{{bundle_root_dir}}/Info.plist",
+      ]
+    }
+
+    foreach(locale, remoting_locales_with_underscores) {
+      bundle_data("remoting_host_prefpane_strings_${locale}_bundle_data") {
+        sources = [
+          "$root_gen_dir/remoting/host/me2me_preference_pane-InfoPlist.strings/$locale.lproj/InfoPlist.strings",
+        ]
+        outputs = [
+          "{{bundle_resources_dir}}/$locale.lproj/{{source_file_part}}",
+        ]
+        deps = [
+          ":remoting_infoplist_strings",
+        ]
+      }
+    }
+
+    mac_xib_bundle_data("remoting_host_prefpane_xibs") {
+      sources = [
+        "mac/me2me_preference_pane.xib",
+        #"mac/me2me_preference_pane_confirm_pin.xib",
+        #"mac/me2me_preference_pane_disable.xib",
+        #"mac/me2me_preference_pane-Info.plist",
+        #"//remoting/resources/chromoting128.png",
+      ]
+    }
+  } else {
+    group("remoting_me2me_host_archive") {
+    }
+  }
+
+  if (is_win && is_chrome_branded) {
+    # We do not release a 64 bits binary. So to avoid any potential
+    # misunderstanding, we only build 32 bits MSI file.
+    if (target_cpu == "x86") {
+      # The script uses "ia32" instead of "x86".
+      msi_script_arch = "ia32"
+
+      # GYP version: remoting/remoting_host_win.gyp:remoting_host_installation
+      action("remoting_host_installation") {
+        deps = [
+          "//remoting/host:remoting_me2me_host_archive",
+        ]
+        script = "../tools/zip2msi.py"
+        outputs = [
+          "$root_out_dir/chromoting.msi",
+        ]
+        args = [
+          "--wix_path",
+          rebase_path("//third_party/wix"),
+          "--intermediate_dir",
+          rebase_path("$root_gen_dir/installation", root_build_dir),
+          "--target_arch",
+          msi_script_arch,
+          rebase_path("$root_out_dir/remoting-me2me-host-$current_os.zip",
+                      root_build_dir),
+          rebase_path(outputs[0], root_build_dir),
+        ]
+      }
+    } else {
+      group("remoting_host_installation") {
+      }
+    }
+  }
+}

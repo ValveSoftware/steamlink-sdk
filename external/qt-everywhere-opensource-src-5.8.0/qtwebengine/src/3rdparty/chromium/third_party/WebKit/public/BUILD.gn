@@ -1,0 +1,193 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//third_party/WebKit/Source/config.gni")
+import("//tools/grit/grit_rule.gni")
+
+blink_headers_values = exec_script("//build/gypi_to_gn.py",
+                                   [ rebase_path("blink_headers.gypi") ],
+                                   "scope",
+                                   [ "blink_headers.gypi" ])
+
+if (is_android) {
+  import("//build/config/android/rules.gni")
+}
+
+# GYP version: WebKit/public/blink.gyp:blink
+group("blink") {
+  public_deps = [
+    ":blink_headers",
+    ":blink_minimal",
+    "//third_party/WebKit/Source/platform",
+    "//third_party/WebKit/Source/web",
+  ]
+}
+
+# This target provides a minimal set of Blink APIs such as WebString to use in
+# places that cannot link against the full Blink library.  FIXME: We really
+# shouldn't have this at all and should instead remove all uses of Blink's API
+# types from places that can't link against Blink. crbug.com/248653
+#
+# GYP version: WebKit/public/blink.gyp:blink_minimal
+group("blink_minimal") {
+  public_deps = [
+    ":blink_headers",
+    "//third_party/WebKit/Source/platform:blink_common",
+  ]
+}
+
+# GYP version: WebKit/public/blink.gyp:blink_test_support
+group("test_support") {
+  testonly = true
+  public_deps = [
+    "//third_party/WebKit/Source/platform:test_support",
+    "//third_party/WebKit/Source/web:test_support",
+  ]
+}
+
+# GYP version: WebKit/public/all.gyp:all_blink
+group("all_blink") {
+  # This includes some test targets. Don't link into production!
+  testonly = true
+
+  public_deps = [
+    "//third_party/WebKit/Source/core",
+    "//third_party/WebKit/Source/modules",
+    "//third_party/WebKit/Source/platform:blink_heap_unittests",
+    "//third_party/WebKit/Source/platform:blink_platform_unittests",
+    "//third_party/WebKit/Source/web",
+    "//third_party/WebKit/Source/web:webkit_unit_tests",
+    "//third_party/WebKit/Source/wtf:wtf_unittests",
+  ]
+}
+
+config("blink_headers_config") {
+  include_dirs = [
+    "..",
+    "$root_gen_dir/third_party/WebKit",
+  ]
+
+  # Allow :blink_headers to include v8.h without linking to it.
+  configs = [ "//v8:external_config" ]
+}
+
+config("debug_devtools") {
+  if (debug_devtools) {
+    defines = [ "DEBUG_DEVTOOLS=1" ]
+  }
+}
+
+if (is_android) {
+  # GYP version: WebKit/public/blink_headers.gyp:web_input_event_java
+  # GYP version: WebKit/public/blink_headers.gyp:web_text_input_type
+  java_cpp_enum("blink_headers_java_enums_srcjar") {
+    sources = [
+      "./platform/WebDisplayMode.h",
+      "./web/WebInputEvent.h",
+      "./web/WebTextInputType.h",
+    ]
+  }
+
+  # GYP version: WebKit/public/blink_headers.gyp:blink_headers_java
+  android_library("blink_headers_java") {
+    srcjar_deps = [ ":blink_headers_java_enums_srcjar" ]
+  }
+}
+
+# Depend on this target to use public blink API headers for things like enums
+# and public structures without actually linking against any Blink libraries.
+source_set("blink_headers") {
+  public_configs = [
+    ":blink_headers_config",
+
+    # Blink exposes icu headers in the public API.
+    "//third_party/icu:icu_config",
+  ]
+  sources = blink_headers_values.blink_public_sources
+  deps = [
+    ":generate_mojo_bindings",
+  ]
+}
+
+# GYP version: WebKit/public/blink_devtools.gyp:blink_devtools_frontend_resources
+group("blink_devtools_frontend_resources") {
+  public_deps = [
+    "//third_party/WebKit/Source/devtools:devtools_frontend_resources",
+  ]
+}
+
+# GYP version: WebKit/public/blink_devtools.gyp:blink_generate_devtools_grd
+group("blink_generate_devtools_grd") {
+  public_deps = [
+    "//third_party/WebKit/Source/devtools:generate_devtools_grd",
+  ]
+}
+
+# GYP version: WebKit/public/blink_resources.gyp:blink_resources
+grit("resources") {
+  output_dir = "$root_gen_dir/blink/public/resources"
+  use_qualified_include = true
+  source = "blink_resources.grd"
+  outputs = [
+    "grit/blink_resources.h",
+    "blink_resources.pak",
+  ]
+  if (use_concatenated_impulse_responses) {
+    grit_flags = [
+      "-D",
+      "use_concatenated_impulse_responses",
+    ]
+  }
+}
+
+# GYP version: WebKit/public/blink_resources.gyp:blink_image_resources
+grit("image_resources") {
+  output_dir = "$root_gen_dir/blink/public/resources"
+  use_qualified_include = true
+  source = "blink_image_resources.grd"
+  outputs = [
+    "grit/blink_image_resources.h",
+    "blink_image_resources_100_percent.pak",
+    "blink_image_resources_200_percent.pak",
+  ]
+}
+
+# GYP versions: WebKit/public/blink.gyp:mojo_bindings_mojom,
+# WebKit/public/blink.gyp:mojo_bindings_blink_mojom
+mojom("mojo_bindings") {
+  sources = [
+    "platform/mime_registry.mojom",
+    "platform/modules/background_sync/background_sync.mojom",
+    "platform/modules/bluetooth/web_bluetooth.mojom",
+    "platform/modules/geolocation/geolocation.mojom",
+    "platform/modules/notifications/notification.mojom",
+    "platform/modules/notifications/notification_service.mojom",
+    "platform/modules/offscreencanvas/offscreen_canvas_surface.mojom",
+    "platform/modules/permissions/permission.mojom",
+    "platform/modules/permissions/permission_status.mojom",
+    "platform/modules/presentation/presentation.mojom",
+    "platform/modules/serviceworker/service_worker_event_status.mojom",
+    "platform/modules/wake_lock/wake_lock_service.mojom",
+  ]
+  public_deps = [
+    ":android_mojo_bindings",
+    "//cc/ipc:interfaces_surfaceid_only",
+    "//device/bluetooth/public/interfaces:bluetooth_mojom_bluetooth_uuid",
+  ]
+}
+
+# GYP version: WebKit/public/blink.gyp:android_mojo_bindings_java
+mojom("android_mojo_bindings") {
+  sources = [
+    "platform/modules/payments/payment_request.mojom",
+  ]
+}
+
+group("generate_mojo_bindings") {
+  deps = [
+    ":mojo_bindings__generator",
+    ":mojo_bindings_blink__generator",
+  ]
+}

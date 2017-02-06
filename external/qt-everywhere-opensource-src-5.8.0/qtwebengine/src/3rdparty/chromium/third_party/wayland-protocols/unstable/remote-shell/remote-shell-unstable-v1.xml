@@ -1,0 +1,524 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<protocol name="remote_shell_unstable_v1">
+
+  <copyright>
+    Copyright 2016 The Chromium Authors.
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the "Software"),
+    to deal in the Software without restriction, including without limitation
+    the rights to use, copy, modify, merge, publish, distribute, sublicense,
+    and/or sell copies of the Software, and to permit persons to whom the
+    Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice (including the next
+    paragraph) shall be included in all copies or substantial portions of the
+    Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+    DEALINGS IN THE SOFTWARE.
+  </copyright>
+
+  <description summary="Create remote desktop-style surfaces">
+    remote_shell allows clients to turn a wl_surface into a "real window"
+    which can be stacked and activated by the user.
+
+    Warning! The protocol described in this file is experimental and backward
+    incompatible changes may be made. Backward compatible changes may be added
+    together with the corresponding interface version bump. Backward
+    incompatible changes are done by bumping the version number in the protocol
+    and interface names and resetting the interface version. Once the protocol
+    is to be declared stable, the 'z' prefix and the version number in the
+    protocol and interface names are removed and the interface version number is
+    reset.
+  </description>
+
+  <interface name="zwp_remote_shell_v1" version="10">
+    <description summary="remote_shell">
+      The global interface that allows clients to turn a wl_surface into a
+      "real window" which is remotely managed but can be stacked, activated
+      and made fullscreen by the user.
+    </description>
+
+    <enum name="container">
+      <description summary="containers for remote surfaces">
+	Determine how a remote surface should be stacked relative to other
+	shell surfaces.
+      </description>
+      <entry name="default" value="1" summary="default container"/>
+      <entry name="overlay" value="2" summary="system modal container"/>
+    </enum>
+
+    <enum name="state_type">
+      <description summary="state types for remote surfaces">
+	Defines common show states for shell surfaces.
+      </description>
+      <entry name="normal" value="1" summary="normal window state"/>
+      <entry name="minimized" value="2" summary="minimized window state"/>
+      <entry name="maximized" value="3" summary="maximized window state"/>
+      <entry name="fullscreen" value="4" summary="fullscreen window state"/>
+      <entry name="pinned" value="5" summary="pinned window state"/>
+    </enum>
+
+    <enum name="error">
+      <entry name="role" value="0" summary="given wl_surface has another role"/>
+      <entry name="invalid_notification_id" value="1"
+       summary="invalid notification id"/>
+    </enum>
+
+    <enum name="layout_mode">
+      <description summary="the layout mode">
+	Determine how a client should layout surfaces.
+      </description>
+      <entry name="windowed" value="1" summary="multiple windows"/>
+      <entry name="tablet" value="2" summary="restricted mode for tablet"/>
+    </enum>
+
+    <request name="destroy" type="destructor">
+      <description summary="destroy remote_shell">
+	Destroy this remote_shell object.
+
+	Destroying a bound remote_shell object while there are surfaces
+	still alive created by this remote_shell object instance is illegal
+	and will result in a protocol error.
+      </description>
+    </request>
+
+    <request name="get_remote_surface">
+      <description summary="create a remote shell surface from a surface">
+	This creates an remote_surface for the given surface and gives it the
+	remote_surface role. A wl_surface can only be given a remote_surface
+	role once. If get_remote_surface is called with a wl_surface that
+	already has an active remote_surface associated with it, or if it had
+	any other role, an error is raised.
+
+	See the documentation of remote_surface for more details about what an
+	remote_surface is and how it is used.
+      </description>
+      <arg name="id" type="new_id" interface="zwp_remote_surface_v1"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+      <arg name="container" type="uint"/>
+    </request>
+
+    <event name="configure">
+      <description summary="suggests a re-layout of remote shell">
+	Obsolete: Suggests a re-layout of remote surface geometry.
+      </description>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+      <arg name="work_area_inset_left" type="int"/>
+      <arg name="work_area_inset_top" type="int"/>
+      <arg name="work_area_inset_right" type="int"/>
+      <arg name="work_area_inset_bottom" type="int"/>
+    </event>
+
+    <event name="activated">
+      <description summary="activated surface changed">
+	Notifies client that the activated surface changed.
+      </description>
+      <arg name="gained_active" type="object" interface="wl_surface" allow-null="true"/>
+      <arg name="lost_active" type="object" interface="wl_surface" allow-null="true"/>
+    </event>
+
+    <!-- Version 6 additions -->
+
+    <request name="get_notification_surface" since="6">
+      <description summary="create a notification surface from a surface">
+	Creates a notification_surface for the given surface, gives it the
+	notification_surface role and associated it with a notification id.
+      </description>
+      <arg name="id" type="new_id" interface="zwp_notification_surface_v1"/>
+      <arg name="surface" type="object" interface="wl_surface"/>
+      <arg name="notification_id" type="string" />
+    </request>
+
+    <!-- Version 8 additions -->
+
+    <event name="layout_mode_changed" since="8">
+      <description summary="layout mode changed">
+	The shell_mode_changed event is sent by the compositor when
+	the shell mode was changed.
+
+	This is an event to notify that the shell mode has switched.
+      </description>
+      <arg name="layout_mode" type="uint"/>
+    </event>
+
+    <!-- Version 9 additions -->
+
+    <event name="configuration_changed" since="9">
+      <description summary="suggests a re-configuration of remote shell">
+	Suggests a re-configuration of remote shell.
+      </description>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+      <arg name="transform" type="int"/>
+      <arg name="scale_factor" type="fixed"/>
+      <arg name="work_area_inset_left" type="int"/>
+      <arg name="work_area_inset_top" type="int"/>
+      <arg name="work_area_inset_right" type="int"/>
+      <arg name="work_area_inset_bottom" type="int"/>
+      <arg name="layout_mode" type="uint"/>
+    </event>
+  </interface>
+
+  <interface name="zwp_remote_surface_v1" version="10">
+    <description summary="A desktop window">
+      An interface that may be implemented by a wl_surface, for
+      implementations that provide a desktop-style user interface
+      and allows for remotely managed windows.
+
+      It provides requests to treat surfaces like windows, allowing to set
+      properties like app id and geometry.
+
+      The client must call wl_surface.commit on the corresponding wl_surface
+      for the remote_surface state to take effect.
+
+      For a surface to be mapped by the compositor the client must have
+      committed both an remote_surface state and a buffer.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="Destroy the remote_surface">
+	Unmap and destroy the window. The window will be effectively
+	hidden from the user's point of view, and all state will be lost.
+      </description>
+    </request>
+
+    <request name="set_app_id">
+      <description summary="set application ID">
+	Set an application identifier for the surface.
+      </description>
+      <arg name="app_id" type="string"/>
+    </request>
+
+    <request name="set_window_geometry">
+      <description summary="set the new window geometry">
+	The window geometry of a window is its "visible bounds" from the
+	user's perspective. Client-side decorations often have invisible
+	portions like drop-shadows which should be ignored for the
+	purposes of aligning, placing and constraining windows.
+
+	The window geometry is double buffered, and will be applied at the
+	time wl_surface.commit of the corresponding wl_surface is called.
+
+	Once the window geometry of the surface is set once, it is not
+	possible to unset it, and it will remain the same until
+	set_window_geometry is called again, even if a new subsurface or
+	buffer is attached.
+
+	If never set, the value is the full bounds of the output. This
+	updates dynamically on every commit.
+
+	The arguments are given in the output coordinate space.
+
+	The width and height must be greater than zero.
+      </description>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+    </request>
+
+    <request name="set_scale">
+      <description summary="set scale">
+	Set a scale factor that will be applied to surface and all descendants.
+      </description>
+      <arg name="scale" type="fixed"/>
+    </request>
+
+    <event name="set_fullscreen">
+      <description summary="surface wants to be fullscreen">
+	The set_fullscreen event is sent by the compositor when the user
+	wants the surface to be made fullscreen.
+
+	This is only a request that the user intends to make your
+	window fullscreen. The client may choose to ignore this request.
+      </description>
+    </event>
+
+    <event name="unset_fullscreen">
+      <description summary="surface wants to be non-fullscreen">
+	The unset_fullscreen event is sent by the compositor when the user
+	wants the surface to be made non-fullscreen.
+
+	This is only a request that the user intends to make your
+	window non-fullscreen. The client may choose to ignore this request.
+      </description>
+    </event>
+
+    <event name="close">
+      <description summary="surface wants to be closed">
+	The close event is sent by the compositor when the user
+	wants the surface to be closed. This should be equivalent to
+	the user clicking the close button in client-side decorations,
+	if your application has any...
+
+	This is only a request that the user intends to close your
+	window. The client may choose to ignore this request, or show
+	a dialog to ask the user to save their data...
+      </description>
+    </event>
+
+    <!-- Version 2 additions -->
+
+    <request name="fullscreen" since="2">
+      <description summary="fullscreen">
+	Request that surface is made fullscreen.
+
+	This is only a request that the window should be made fullscreen.
+	The compositor may choose to ignore this request. The client should
+	listen to set_fullscreen events to determine if the window was
+	made fullscreen or not.
+      </description>
+    </request>
+
+    <request name="maximize" since="2">
+      <description summary="maximize">
+	Request that surface is maximized. The window geometry will be updated
+	to whatever the compositor finds appropriate for a maximized window.
+
+	This is only a request that the window should be maximized. The
+	compositor may choose to ignore this request. The client should
+	listen to set_maximized events to determine if the window was
+	maximized or not.
+      </description>
+    </request>
+
+    <request name="minimize" since="2">
+      <description summary="minimize">
+	Request that surface is minimized.
+
+	This is only a request that the window should be minimized. The
+	compositor may choose to ignore this request. The client should
+	listen to set_minimized events to determine if the window was
+	minimized or not.
+      </description>
+    </request>
+
+    <request name="restore" since="2">
+      <description summary="restore">
+	Request that surface is restored. This restores the window geometry
+	to what it was before the window was minimized, maximized or made
+	fullscreen.
+
+	This is only a request that the window should be restored. The
+	compositor may choose to ignore this request. The client should
+	listen to unset_maximized, unset_minimize and unset_fullscreen
+	events to determine if the window was restored or not.
+      </description>
+    </request>
+
+    <event name="set_maximized" since="2">
+      <description summary="surface wants to be maximized">
+	The set_maximized event is sent by the compositor when the user
+	wants the surface to be maximized.
+
+	This is only a request that the user intends to maximized the window.
+	The client may choose to ignore this request.
+      </description>
+    </event>
+
+    <event name="unset_maximized" since="2">
+      <description summary="surface wants to be restored">
+	The unset_maximized event is sent by the compositor when the user
+	wants the surface to be made visible.
+
+	This is only a request that the user intends to make your
+	window visible. The client may choose to ignore this request.
+      </description>
+    </event>
+
+    <event name="set_minimized" since="2">
+      <description summary="surface wants to be minimized">
+	The set_minimized event is sent by the compositor when the user
+	wants the surface to be minimized.
+
+	This is only a request that the user intends to minimize the window.
+	The client may choose to ignore this request.
+      </description>
+    </event>
+
+    <event name="unset_minimized" since="2">
+      <description summary="surface wants to be restored">
+	The unset_minimized event is sent by the compositor when the user
+	wants the surface to be made visible.
+
+	This is only a request that the user intends to make your
+	window visible. The client may choose to ignore this request.
+      </description>
+    </event>
+
+    <!-- Version 3 additions -->
+
+    <request name="pin" since="3">
+      <description summary="pin">
+	Request that surface is pinned.
+
+	This is only a request that the window should be pinned.
+	The compositor may choose to ignore this request. The client should
+	listen to set_pinned events to determine if the window was
+	pinned or not.
+      </description>
+    </request>
+
+    <request name="unpin" since="3">
+      <description summary="unpin">
+	Request that surface is unpinned.
+
+	This is only a request that the window should be unpinned.
+	The compositor may choose to ignore this request. The client should
+	listen to unset_pinned events to determine if the window was
+	unpinned or not.
+      </description>
+    </request>
+
+    <request name="unfullscreen" since="3">
+      <description summary="unfullscreen">
+	Request that surface is made unfullscreen.
+
+	This is only a request that the window should be made unfullscreen.
+	The compositor may choose to ignore this request. The client should
+	listen to unset_fullscreen events to determine if the window was
+	made unfullscreen or not.
+      </description>
+    </request>
+
+    <event name="set_pinned" since="3">
+      <description summary="surface was pinned">
+	The set_pinned event is sent by the compositor when the surface
+	was pinned.
+
+	This is an event to notify that the window is pinned in compositor.
+	The pin may be triggered by a client's request, or some user action
+	directly handled by the compositor.
+	The client may choose to ignore this event.
+      </description>
+    </event>
+
+    <event name="unset_pinned" since="3">
+      <description summary="surface was unpinned">
+	The unset_pinned event is sent by the compositor when the surface
+	was unpinned.
+
+	This is an event to notify that the window is unpinned in compositor.
+	The unpin may be triggered by a client's request, or some user action
+	directly handled by the compositor.
+	The client may choose to ignore this event.
+      </description>
+    </event>
+
+    <!-- Version 4 additions -->
+
+    <request name="set_rectangular_shadow" since="4">
+      <description summary="set a rectangular shadow">
+	Request that surface needs a rectangular shadow.
+
+	This is only a request that the surface should have a rectangular
+	shadow. The compositor may choose to ignore this request.
+
+	The arguments are given in the output coordinate space and specifies
+	the inner bounds of the shadow.
+
+	The arguments are given in the output coordinate space.
+	Specifying zero width and height will disable the shadow.
+      </description>
+      <arg name="x" type="int"/>
+      <arg name="y" type="int"/>
+      <arg name="width" type="int"/>
+      <arg name="height" type="int"/>
+     </request>
+
+    <!-- Version 5 additions -->
+
+    <request name="set_title" since="5">
+      <description summary="set surface title">
+	Set a short title for the surface.
+
+	This string may be used to identify the surface in a task bar,
+	window list, or other user interface elements provided by the
+	compositor.
+
+	The string must be encoded in UTF-8.
+      </description>
+      <arg name="title" type="string"/>
+    </request>
+
+    <request name="set_top_inset" since="5">
+      <description summary="set top inset for surface">
+	Set distance from the top of the surface to the contents.
+
+	This distance typically represents the size of the window caption.
+      </description>
+      <arg name="height" type="int"/>
+    </request>
+
+    <!-- Version 7 additions -->
+
+    <event name="state_type_changed" since="7">
+      <description summary="surface state type changed">
+	The state_type_changed event is sent by the compositor when the surface
+	state changed.
+
+	This is an event to notify that the window state changed in compositor.
+	The state change may be triggered by a client's request, or some user
+	action directly handled by the compositor. The client may choose to
+	ignore this event.
+      </description>
+      <arg name="state_type" type="uint"/>
+    </event>
+
+    <!-- Version 8 additions -->
+
+    <request name="set_system_modal" since="8">
+      <description summary="suggests a re-layout of remote shell input area">
+	Suggests a surface should become system modal.
+      </description>
+    </request>
+
+    <request name="unset_system_modal" since="8">
+      <description summary="suggests a re-layout of remote shell input area">
+	Suggests a surface should become non system modal.
+      </description>
+    </request>
+
+    <!-- Version 9 additions -->
+
+    <request name="set_rectangular_shadow_background_opacity" since="9">
+      <description summary="suggests the window's background opacity">
+	Suggests the window's background opacity when the shadow is requested.
+      </description>
+      <arg name="opacity" type="fixed"/>
+    </request>
+
+    <!-- Version 10 additions -->
+
+    <request name="activate" since="10">
+      <description summary="make the surface active">
+	Make the surface active and bring it to the front.
+      </description>
+      <arg name="serial" type="uint" summary="the serial of the user event"/>
+    </request>
+  </interface>
+
+  <!-- Version 6 additions -->
+
+  <interface name="zwp_notification_surface_v1" version="6">
+    <description summary="A notification window">
+      An interface that may be implemented by a wl_surface to host
+      notification contents.
+    </description>
+
+    <request name="destroy" type="destructor">
+      <description summary="Destroy the notification_surface">
+	Unmap and destroy the notification surface.
+      </description>
+    </request>
+  </interface>
+
+</protocol>

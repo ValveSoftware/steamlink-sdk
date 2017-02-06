@@ -1,0 +1,166 @@
+{%- set mojom_type = union|get_qualified_name_for_kind %}
+{%- set data_type = union|get_qualified_name_for_kind(internal=True) %}
+
+namespace internal {
+
+// static
+size_t UnionSerializerImpl<{{mojom_type}}Ptr>::PrepareToSerialize(
+    {{mojom_type}}Ptr& input,
+    bool inlined,
+    SerializationContext* context) {
+  size_t size = inlined ? 0 : sizeof({{data_type}});
+
+  if (!input)
+    return size;
+
+  UnionAccessor<{{mojom_type}}> input_acc(input.get());
+  switch (input->which()) {
+{%  for field in union.fields %}
+{%    if field.kind|is_object_kind %}
+{%-     set serializer_type = field.kind|unmapped_type_for_serializer %}
+    case {{mojom_type}}::Tag::{{field.name|upper}}:
+{%      if field.kind|is_union_kind %}
+      size += mojo::internal::PrepareToSerialize<{{serializer_type}}>(
+          *(input_acc.data()->{{field.name}}), false, context);
+{%      else %}
+      size += mojo::internal::PrepareToSerialize<{{serializer_type}}>(
+          *(input_acc.data()->{{field.name}}), context);
+{%      endif %}
+      break;
+{%-   endif %}
+{%- endfor %}
+    default:
+      break;
+  }
+  return size;
+}
+
+// static
+void UnionSerializerImpl<{{mojom_type}}Ptr>::Serialize(
+    {{mojom_type}}Ptr& input,
+    Buffer* buf,
+    {{data_type}}** output,
+    bool inlined,
+    SerializationContext* context) {
+  {{data_type}}* result = *output;
+  if (input) {
+    if (!inlined)
+      result = {{data_type}}::New(buf);
+    UnionAccessor<{{mojom_type}}> input_acc(input.get());
+    // TODO(azani): Handle unknown and objects.
+    // Set the not-null flag.
+    result->size = 16;
+    result->tag = input->which();
+    switch (input->which()) {
+{%- for field in union.fields %}
+      case {{mojom_type}}::Tag::{{field.name|upper}}: {
+{%-   set serializer_type = field.kind|unmapped_type_for_serializer %}
+{%-   if field.kind|is_object_kind %}
+{%-     if field.kind|is_union_kind %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            *(input_acc.data()->{{field.name}}), buf,
+            &result->data.f_{{field.name}}.ptr, false, context);
+{%-     elif field.kind|is_array_kind or field.kind|is_map_kind %}
+        const ContainerValidateParams {{field.name}}_validate_params(
+            {{field.kind|get_container_validate_params_ctor_args|indent(16)}});
+        mojo::internal::Serialize<{{serializer_type}}>(
+            *(input_acc.data()->{{field.name}}), buf,
+            &result->data.f_{{field.name}}.ptr, &{{field.name}}_validate_params,
+            context);
+{%-     else %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            *(input_acc.data()->{{field.name}}), buf,
+            &result->data.f_{{field.name}}.ptr, context);
+{%-     endif %}
+{%-     if not field.kind|is_nullable_kind %}
+        MOJO_INTERNAL_DLOG_SERIALIZATION_WARNING(
+            !result->data.f_{{field.name}}.ptr,
+            mojo::internal::VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
+            "null {{field.name}} in {{union.name}} union");
+{%-     endif %}
+
+{%-   elif field.kind|is_any_handle_or_interface_kind %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            *input_acc.data()->{{field.name}}, &result->data.f_{{field.name}},
+            context);
+{%-     if not field.kind|is_nullable_kind %}
+        MOJO_INTERNAL_DLOG_SERIALIZATION_WARNING(
+            !mojo::internal::IsHandleOrInterfaceValid(result->data.f_{{field.name}}),
+{%-       if field.kind|is_associated_kind %}
+            mojo::internal::VALIDATION_ERROR_UNEXPECTED_INVALID_INTERFACE_ID,
+{%-       else %}
+            mojo::internal::VALIDATION_ERROR_UNEXPECTED_INVALID_HANDLE,
+{%-       endif %}
+            "invalid {{field.name}} in {{union.name}} union");
+{%-     endif %}
+
+{%-   elif field.kind|is_enum_kind %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            input_acc.data()->{{field.name}}, &result->data.f_{{field.name}});
+
+{%-   else %}
+        result->data.f_{{field.name}} = input_acc.data()->{{field.name}};
+{%-   endif %}
+        break;
+      }
+{%- endfor %}
+    }
+  } else if (inlined) {
+    result->set_null();
+  } else {
+    result = nullptr;
+  }
+  *output = result;
+}
+
+// static
+bool UnionSerializerImpl<{{mojom_type}}Ptr>::Deserialize(
+    {{data_type}}* input,
+    {{mojom_type}}Ptr* output,
+    SerializationContext* context) {
+  bool success = true;
+  if (input && !input->is_null()) {
+    {{mojom_type}}Ptr result({{mojom_type}}::New());
+    UnionAccessor<{{mojom_type}}> result_acc(result.get());
+    switch (input->tag) {
+{%- for field in union.fields %}
+      case {{mojom_type}}::Tag::{{field.name|upper}}: {
+{%-   set serializer_type = field.kind|unmapped_type_for_serializer %}
+{%-   if field.kind|is_object_kind %}
+        result_acc.SwitchActive({{mojom_type}}::Tag::{{field.name|upper}});
+        if (!mojo::internal::Deserialize<{{serializer_type}}>(
+                input->data.f_{{field.name}}.ptr,
+                result_acc.data()->{{field.name}}, context))
+          success = false;
+
+{%-   elif field.kind|is_any_handle_or_interface_kind %}
+        typename std::remove_reference<
+            decltype(result->get_{{field.name}}())>::type result_{{field.name}};
+        bool ret = mojo::internal::Deserialize<{{serializer_type}}>(
+            &input->data.f_{{field.name}}, &result_{{field.name}}, context);
+        DCHECK(ret);
+        result->set_{{field.name}}(std::move(result_{{field.name}}));
+
+{%-   elif field.kind|is_enum_kind %}
+        decltype(result->get_{{field.name}}()) result_{{field.name}};
+        if (!mojo::internal::Deserialize<{{serializer_type}}>(
+                input->data.f_{{field.name}}, &result_{{field.name}}))
+           success = false;
+        else
+           result->set_{{field.name}}(result_{{field.name}});
+
+{%-   else %}
+        result->set_{{field.name}}(input->data.f_{{field.name}});
+{%-   endif %}
+        break;
+      }
+{%- endfor %}
+    }
+    *output = std::move(result);
+  } else {
+    output->reset();
+  }
+  return success;
+}
+
+}  // namespace internal

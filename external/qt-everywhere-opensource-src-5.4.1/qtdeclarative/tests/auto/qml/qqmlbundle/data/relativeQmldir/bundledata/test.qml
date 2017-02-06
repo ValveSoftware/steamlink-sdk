@@ -1,4 +1,0 @@
-import "subdir"
-
-MySubdirType {
-}

@@ -1,0 +1,154 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 Klaralvdalens Datakonsult AB (KDAB).
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt3D module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qt3drender-geometry.html
+    \title Qt 3D Render Geometry
+
+    \brief Presents the classes provided by the Qt 3D Render aspect to specify
+    data to the renderer, typically containing geometry.
+
+    Qt 3D Render provides a generic way of storing geometry data and specifying
+    how it should be read by the renderer.
+
+    \list
+        \li \l {Buffer}
+        \li \l {Attribute}
+        \li \l {Geometry}
+        \li \l {GeometryRenderer}
+    \endlist
+
+    \section2 Buffer
+
+    The Qt3DRender::QBuffer class stores the raw data. This acts purely as an
+    array of memory. In most cases a Qt3DRender::QBuffer will be used
+    indirectly by being referenced by one or more Qt3DRender::QAttributes.
+    However there are times when a QBuffer may be used directly as the value
+    property of a QParameter when dealing with Uniform Buffer Objects (UBO) or
+    Shader Storage Buffer Objects (SSBO).
+
+    \code
+    Buffer {
+        id: vertexBuffer
+        type: Buffer.VertexBuffer
+        data: buildVertexBufferData()
+    }
+    \endcode
+
+    \section2 Attribute
+
+    Qt3DRender::QAttribute specifies how data contained in the referenced
+    buffer should be extracted and passed to an input of a vertex shader. It
+    references a Qt3DRender::QBuffer and can specify the layout of the
+    attributes by definining the vertex size, the data type, the stride between
+    two vertices and a starting offset. The type of the attribute will also
+    define whether it is to be used as a vertex buffer or as an index buffer.
+    This allows you complete flexibility of how you structure your data in
+    buffers. It is possible to use separate buffers for each vertex attribute,
+    an interleaved buffer containing data for all attributes or a combination
+    of separate and interleaved buffers.
+
+    \code
+    Attribute {
+        attributeType: Attribute.VertexAttribute
+        vertexBaseType: Attribute.Float
+        vertexSize: 3
+        byteOffset: 0
+        byteStride: 9 * 4
+        count: 4
+        name: defaultPositionAttributeName()
+        buffer: vertexBuffer
+    }
+    \endcode
+
+    \section2 Geometry
+
+    A Qt3DRender::QGeometry aggregates various attributes to form a piece of
+    geometry. Usually a proper geometry will provide an attribute for vertex
+    positions, an attribute for vertex normals and an attribute for texture
+    coordinates. If you want your geometry to also work with normal mapped
+    materials it will need to provide a consistent set of vertex tangent
+    vectors too.
+
+    \code
+    Geometry {
+        Attribute {
+            attributeType: Attribute.VertexAttribute
+            vertexBaseType: Attribute.Float
+            vertexSize: 3
+            byteOffset: 0
+            byteStride: 9 * 4
+            count: 4
+            name: defaultPositionAttributeName()
+            buffer: vertexBuffer
+        }
+
+        Attribute {
+            attributeType: Attribute.VertexAttribute
+            vertexBaseType: Attribute.Float
+            vertexSize: 3
+            byteOffset: 3 * 4
+            byteStride: 9 * 4
+            count: 4
+            name: defaultNormalAttributeName()
+            buffer: vertexBuffer
+    }
+    \endcode
+
+    \section2 GeometryRenderer
+
+    Qt3DRender::QGeometryRenderer is a QComponent which when aggregated by a
+    QEntity allows to draw the Qt3DRender::QGeometry it references. It provides
+    properties to control the draw call such as the number of instances to be
+    drawn, the starting instance, the type of
+    Qt3DRender::QGeometryRenderer::PrimitiveType to be used, etc. A
+    Qt3DRender::QGeometryRenderer is translated into a draw call to the
+    underlying graphics API.
+
+    \code
+    GeometryRenderer {
+        instanceCount: 1
+        indexOffset: 0
+        firstInstance: 0
+        primitiveType: GeometryRenderer.Triangles
+        geometry: Geometry { ... }
+    }
+    \endcode
+
+ */

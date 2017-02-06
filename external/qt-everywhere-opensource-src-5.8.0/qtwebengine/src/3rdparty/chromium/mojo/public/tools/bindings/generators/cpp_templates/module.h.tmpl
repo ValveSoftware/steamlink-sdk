@@ -1,0 +1,258 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+{%- if variant -%}
+{%-   set variant_path = "%s-%s"|format(module.path, variant) -%}
+{%- else -%}
+{%-   set variant_path = module.path -%}
+{%- endif -%}
+
+{%- set header_guard = "%s_H_"|format(
+        variant_path|upper|replace("/","_")|replace(".","_")|
+            replace("-", "_")) %}
+
+#ifndef {{header_guard}}
+#define {{header_guard}}
+
+#include <stdint.h>
+#include <ostream>
+#include <type_traits>
+#include <utility>
+
+#include "base/callback.h"
+#include "base/strings/string_piece.h"
+#include "mojo/public/cpp/bindings/associated_interface_ptr.h"
+#include "mojo/public/cpp/bindings/associated_interface_ptr_info.h"
+#include "mojo/public/cpp/bindings/associated_interface_request.h"
+#include "mojo/public/cpp/bindings/interface_ptr.h"
+#include "mojo/public/cpp/bindings/interface_request.h"
+#include "mojo/public/cpp/bindings/lib/control_message_handler.h"
+#include "mojo/public/cpp/bindings/lib/control_message_proxy.h"
+#include "mojo/public/cpp/bindings/lib/serialization.h"
+#include "mojo/public/cpp/bindings/map.h"
+#include "mojo/public/cpp/bindings/message_filter.h"
+#include "mojo/public/cpp/bindings/native_enum.h"
+#include "mojo/public/cpp/bindings/native_struct.h"
+#include "mojo/public/cpp/bindings/no_interface.h"
+#include "mojo/public/cpp/bindings/struct_ptr.h"
+#include "mojo/public/cpp/bindings/struct_traits.h"
+#include "{{variant_path}}-internal.h"
+{%- for import in imports %}
+{%-   if variant %}
+#include "{{"%s-%s.h"|format(import.module.path, variant)}}"
+{%-   else %}
+#include "{{import.module.path}}.h"
+{%-   endif %}
+{%- endfor %}
+{%- if not for_blink %}
+#include "mojo/public/cpp/bindings/array.h"
+#include "mojo/public/cpp/bindings/string.h"
+{%- else %}
+#include "mojo/public/cpp/bindings/wtf_array.h"
+#include "mojo/public/cpp/bindings/wtf_map.h"
+#include "third_party/WebKit/Source/wtf/text/WTFString.h"
+{%- endif %}
+
+{%- for header in extra_public_headers %}
+#include "{{header}}"
+{%- endfor %}
+
+{%- for namespace in namespaces_as_array %}
+namespace {{namespace}} {
+{%- endfor %}
+{%- if variant %}
+namespace {{variant}} {
+{%- endif %}
+
+{#--- Enums #}
+{% from "enum_macros.tmpl" import enum_decl -%}
+{% from "enum_macros.tmpl" import enum_stream_operator -%}
+{% from "enum_macros.tmpl" import is_known_enum_value -%}
+{%- for enum in enums %}
+{%-   if enum|is_native_only_kind %}
+using {{enum.name}} = mojo::NativeEnum;
+{%-   else %}
+{{enum_decl(enum)}}
+{{enum_stream_operator(enum)}}
+{{is_known_enum_value(enum)}}
+{%-   endif %}
+{%- endfor %}
+
+{#--- Constants #}
+{%- for constant in module.constants %}
+{#-   To be consistent with constants defined inside interfaces, only make
+      integral types compile-time constants. #}
+{%-   if constant.kind|is_integral_kind %}
+const {{constant.kind|cpp_pod_type}} {{constant.name}} = {{constant|constant_value}};
+{%-   else %}
+extern const {{constant.kind|cpp_pod_type}} {{constant.name}};
+{%-   endif %}
+{%- endfor %}
+
+{#--- Interface Forward Declarations -#}
+{%  for interface in interfaces %}
+class {{interface.name}};
+using {{interface.name}}Ptr = mojo::InterfacePtr<{{interface.name}}>;
+using {{interface.name}}PtrInfo = mojo::InterfacePtrInfo<{{interface.name}}>;
+using {{interface.name}}Request = mojo::InterfaceRequest<{{interface.name}}>;
+using {{interface.name}}AssociatedPtr =
+    mojo::AssociatedInterfacePtr<{{interface.name}}>;
+using {{interface.name}}AssociatedPtrInfo =
+    mojo::AssociatedInterfacePtrInfo<{{interface.name}}>;
+using {{interface.name}}AssociatedRequest =
+    mojo::AssociatedInterfaceRequest<{{interface.name}}>;
+{%  endfor %}
+
+{#--- Struct Forward Declarations -#}
+{%  for struct in structs %}
+{%-   if struct|is_native_only_kind %}
+using {{struct.name}} = mojo::NativeStruct;
+using {{struct.name}}Ptr = mojo::NativeStructPtr;
+{%-   else %}
+class {{struct.name}};
+class {{struct.name}}DataView;
+{%-     if struct|should_inline %}
+using {{struct.name}}Ptr = mojo::InlinedStructPtr<{{struct.name}}>;
+{%-     else %}
+using {{struct.name}}Ptr = mojo::StructPtr<{{struct.name}}>;
+{%-     endif %}
+{%-   endif %}
+{%  endfor %}
+
+{#--- Union Forward Declarations -#}
+{%  for union in unions %}
+class {{union.name}};
+{%    if union|should_inline_union %}
+typedef mojo::InlinedStructPtr<{{union.name}}> {{union.name}}Ptr;
+{%    else %}
+typedef mojo::StructPtr<{{union.name}}> {{union.name}}Ptr;
+{%    endif %}
+{%- endfor %}
+
+{#--- Interfaces -#}
+{%  for interface in interfaces %}
+{%    include "interface_declaration.tmpl" %}
+{%- endfor %}
+
+{#--- Interface Proxies -#}
+{%  for interface in interfaces %}
+{%    include "interface_proxy_declaration.tmpl" %}
+{%- endfor %}
+
+{#--- Interface Stubs -#}
+{%  for interface in interfaces %}
+{%    include "interface_stub_declaration.tmpl" %}
+{%- endfor %}
+
+{#--- Interface Request Validators -#}
+{%  for interface in interfaces %}
+{%    include "interface_request_validator_declaration.tmpl" %}
+{%- endfor %}
+
+{#--- Interface Response Validators -#}
+{%  for interface in interfaces if interface|has_callbacks %}
+{%    include "interface_response_validator_declaration.tmpl" %}
+{%- endfor %}
+
+{#--- NOTE: Unions and non-inlined structs may have pointers to inlined structs,
+      so we need to fully define inlined structs ahead of the others. #}
+
+{#--- Inlined structs #}
+{%  for struct in structs %}
+{%    if struct|should_inline and not struct|is_native_only_kind %}
+{%      include "wrapper_class_declaration.tmpl" %}
+{%      include "struct_data_view_declaration.tmpl" %}
+{%    endif %}
+{%- endfor %}
+
+{#--- Unions must be declared before non-inlined structs because they can be
+      members of structs. #}
+{#--- Unions #}
+{%  for union in unions %}
+{%    include "wrapper_union_class_declaration.tmpl" %}
+{%- endfor %}
+
+{#--- Non-inlined structs #}
+{%  for struct in structs %}
+{%    if not struct|should_inline and not struct|is_native_only_kind %}
+{%      include "wrapper_class_declaration.tmpl" %}
+{%      include "struct_data_view_declaration.tmpl" %}
+{%    endif %}
+{%- endfor %}
+
+{%- for union in unions %}
+{%    include "wrapper_union_class_template_definition.tmpl" %}
+{%- endfor %}
+
+{%- for struct in structs %}
+{%-   if not struct|is_native_only_kind %}
+{%      include "wrapper_class_template_definition.tmpl" %}
+{%-   endif %}
+
+{%-   for enum in struct.enums %}
+{%-     if not enum|is_native_only_kind %}
+{{enum_stream_operator(enum)}}
+{{is_known_enum_value(enum)}}
+{%-     endif %}
+{%-   endfor %}
+{%- endfor %}
+
+{%- for interface in interfaces %}
+{%-   for enum in interface.enums %}
+{%-     if not enum|is_native_only_kind %}
+{{enum_stream_operator(enum)}}
+{{is_known_enum_value(enum)}}
+{%-     endif %}
+{%-   endfor %}
+{%- endfor %}
+
+{%- if variant %}
+}  // namespace {{variant}}
+{%- endif %}
+{%- for namespace in namespaces_as_array|reverse %}
+}  // namespace {{namespace}}
+{%- endfor %}
+
+namespace mojo {
+
+{#--- Enum Serialization Helpers -#}
+{%- for enum in enums %}
+{%-   if not enum|is_native_only_kind %}
+{%      include "enum_serialization_declaration.tmpl" %}
+{%-   endif %}
+{%- endfor %}
+
+{%- for struct in structs %}
+{%-   for enum in struct.enums %}
+{%-     if not enum|is_native_only_kind %}
+{%        include "enum_serialization_declaration.tmpl" %}
+{%-     endif %}
+{%-   endfor %}
+{%- endfor %}
+
+{%- for interface in interfaces %}
+{%-   for enum in interface.enums %}
+{%-     if not enum|is_native_only_kind %}
+{%        include "enum_serialization_declaration.tmpl" %}
+{%-     endif %}
+{%-   endfor %}
+{%- endfor %}
+
+{#--- Struct Serialization Helpers -#}
+{%  for struct in structs %}
+{%-   if not struct|is_native_only_kind %}
+{%      include "struct_serialization_declaration.tmpl" %}
+{%-   endif %}
+{%- endfor %}
+
+{#--- Union Serialization Helpers -#}
+{%  if unions %}
+{%-   for union in unions %}
+{%      include "union_serialization_declaration.tmpl" %}
+{%-   endfor %}
+{%- endif %}
+
+}  // namespace mojo
+
+#endif  // {{header_guard}}

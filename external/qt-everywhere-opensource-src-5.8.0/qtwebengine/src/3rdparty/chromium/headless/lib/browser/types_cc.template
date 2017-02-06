@@ -1,0 +1,130 @@
+// This file is generated
+
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "headless/public/domains/types.h"
+
+#include "base/memory/ptr_util.h"
+#include "headless/public/domains/type_conversions.h"
+
+namespace headless {
+
+// ------------- Enum values from types.
+{% for domain in api.domains %}
+  {% continue %}
+
+namespace internal {
+
+  {% for type in domain.types %}
+// {{type}}
+    {% if type.type == "array" %}
+template <>
+struct FromValue<{{resolve_type(type).raw_type}}> {
+  static {{resolve_type(type).raw_type}} Parse(const base::Value& value, ErrorReporter* errors) {
+    {{resolve_type(type).raw_type}} result;
+    const base::ListValue* list;
+    if (!value.GetAsList(&list)) {
+      errors->AddError("list value expected");
+      return result;
+    }
+    errors->Push();
+    for (const auto& item : *list)
+      result.push_back(FromValue<{{resolve_type(type).raw_type}}::value_type>::Parse(*item, errors));
+    errors->Pop();
+    return result;
+  }
+};
+
+      {% continue %}
+    {% endif %}
+#}
+    {% if not (type.type == "object") or not ("properties" in type) %}{% continue %}{% endif %}
+    {% set namespace = domain.domain | camelcase_to_hacker_style %}
+template <>
+struct FromValue<{{namespace}}::{{type.id}}> {
+  static std::unique_ptr<{{namespace}}::{{type.id}}> Parse(const base::Value& value, ErrorReporter* errors) {
+    return {{namespace}}::{{type.id}}::Parse(value, errors);
+  }
+};
+
+template <typename T>
+std::unique_ptr<base::Value> ToValueImpl(const {{namespace}}::{{type.id}}& value, T*) {
+  return value.Serialize();
+}
+
+  {% endfor %}
+}  // namespace internal
+{% endfor %}
+
+{% for domain in api.domains %}
+
+namespace {{domain.domain | camelcase_to_hacker_style}} {
+  {% for type in domain.types %}
+    {% if not (type.type == "object") or not ("properties" in type) %}{% continue %}{% endif %}
+
+std::unique_ptr<{{type.id}}> {{type.id}}::Parse(const base::Value& value, ErrorReporter* errors) {
+  errors->Push();
+  errors->SetName("{{type.id}}");
+  const base::DictionaryValue* object;
+  if (!value.GetAsDictionary(&object)) {
+    errors->AddError("object expected");
+    errors->Pop();
+    return nullptr;
+  }
+
+  std::unique_ptr<{{type.id}}> result(new {{type.id}}());
+  errors->Push();
+  errors->SetName("{{type.id}}");
+    {% for property in type.properties %}
+      {% set value_name = property.name | camelcase_to_hacker_style + "_value" %}
+  const base::Value* {{value_name}};
+  if (object->Get("{{property.name}}", &{{value_name}})) {
+    errors->SetName("{{property.name}}");
+      {% if property.optional %}
+    result->{{property.name | camelcase_to_hacker_style}}_ = internal::FromValue<{{resolve_type(property).raw_type}}>::Parse(*{{value_name}}, errors);
+      {% else %}
+    result->{{property.name | camelcase_to_hacker_style}}_ = internal::FromValue<{{resolve_type(property).raw_type}}>::Parse(*{{value_name}}, errors);
+      {% endif %}
+      {% if property.optional %}
+  }
+      {% else %}
+  } else {
+    errors->AddError("required property missing: {{property.name}}");
+  }
+      {% endif %}
+    {% endfor %}
+  errors->Pop();
+  errors->Pop();
+  if (errors->HasErrors())
+    return nullptr;
+  return result;
+}
+
+std::unique_ptr<base::Value> {{type.id}}::Serialize() const {
+  std::unique_ptr<base::DictionaryValue> result(new base::DictionaryValue());
+    {% for property in type.properties %}
+      {% set type = resolve_type(property) %}
+      {% if property.optional %}
+  if ({{property.name | camelcase_to_hacker_style}}_)
+    result->Set("{{property.name}}", internal::ToValue({{type.to_raw_type % ("%s_.value()" % property.name | camelcase_to_hacker_style)}}));
+      {% else %}
+  result->Set("{{property.name}}", internal::ToValue({{type.to_raw_type % ("%s_" % property.name | camelcase_to_hacker_style)}}));
+      {% endif %}
+    {% endfor %}
+  return std::move(result);
+}
+
+std::unique_ptr<{{type.id}}> {{type.id}}::Clone() const {
+  ErrorReporter errors;
+  std::unique_ptr<{{type.id}}> result = Parse(*Serialize(), &errors);
+  DCHECK(!errors.HasErrors());
+  return result;
+}
+
+  {% endfor %}
+}  // namespace {{domain.domain | camelcase_to_hacker_style}}
+{% endfor %}
+
+} // namespace headless

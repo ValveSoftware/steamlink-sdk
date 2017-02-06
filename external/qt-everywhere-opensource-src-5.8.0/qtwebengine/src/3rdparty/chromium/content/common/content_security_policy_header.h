@@ -1,0 +1,24 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef CONTENT_COMMON_CONTENT_SECURITY_POLICY_HEADER_
+#define CONTENT_COMMON_CONTENT_SECURITY_POLICY_HEADER_
+
+#include <string>
+#include "third_party/WebKit/public/web/WebContentSecurityPolicy.h"
+
+namespace content {
+
+// Represents a single Content Security Policy header (i.e. coming from
+// a single Content-Security-Policy header in an HTTP response, or from
+// a single <meta http-equiv="Content-Security-Policy"...> element).
+struct ContentSecurityPolicyHeader {
+  std::string header_value;
+  blink::WebContentSecurityPolicyType type;
+  blink::WebContentSecurityPolicySource source;
+};
+
+}  // namespace content
+
+#endif  // CONTENT_COMMON_CONTENT_SECURITY_POLICY_HEADER_

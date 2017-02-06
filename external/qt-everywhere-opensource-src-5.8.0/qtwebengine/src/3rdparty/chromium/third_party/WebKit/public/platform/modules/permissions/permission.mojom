@@ -1,0 +1,44 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module blink.mojom;
+
+import "third_party/WebKit/public/platform/modules/permissions/permission_status.mojom";
+
+enum PermissionName {
+  GEOLOCATION,
+  NOTIFICATIONS,
+  PUSH_NOTIFICATIONS,
+  MIDI,
+  MIDI_SYSEX,
+  PROTECTED_MEDIA_IDENTIFIER,
+  DURABLE_STORAGE,
+  AUDIO_CAPTURE,
+  VIDEO_CAPTURE,
+  BACKGROUND_SYNC,
+};
+
+// The Permission service provides permission handling capabilities by exposing
+// methods to check, request, and revoke permissions. It also allows a client to
+// start listening to permission changes.
+interface PermissionService {
+  HasPermission(PermissionName permission, string origin)
+    => (PermissionStatus status);
+  RequestPermission(PermissionName permission, string origin, bool user_gesture)
+    => (PermissionStatus status);
+  RequestPermissions(array<PermissionName> permission, string origin,
+      bool user_gesture)
+    => (array<PermissionStatus> statuses);
+  RevokePermission(PermissionName permission, string origin)
+    => (PermissionStatus status);
+
+  // Runs the callback next time there is a permission status change for the
+  // given { permission, origin }. Callers of this method will have to call it
+  // again if they want to keep listening to the changes. To prevent race
+  // conditions, the caller must pass the last known value.
+  GetNextPermissionChange(PermissionName permission,
+                          string origin,
+                          PermissionStatus last_known_status)
+    => (PermissionStatus status);
+};

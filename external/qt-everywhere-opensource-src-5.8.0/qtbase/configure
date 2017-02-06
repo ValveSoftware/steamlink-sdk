@@ -1,0 +1,1888 @@
+#!/bin/sh
+#############################################################################
+##
+## Copyright (C) 2016 The Qt Company Ltd.
+## Copyright (C) 2016 Intel Corporation.
+## Contact: https://www.qt.io/licensing/
+##
+## This file is the build configuration utility of the Qt Toolkit.
+##
+## $QT_BEGIN_LICENSE:GPL-EXCEPT$
+## Commercial License Usage
+## Licensees holding valid commercial Qt licenses may use this file in
+## accordance with the commercial license agreement provided with the
+## Software or, alternatively, in accordance with the terms contained in
+## a written agreement between you and The Qt Company. For licensing terms
+## and conditions see https://www.qt.io/terms-conditions. For further
+## information use the contact form at https://www.qt.io/contact-us.
+##
+## GNU General Public License Usage
+## Alternatively, this file may be used under the terms of the GNU
+## General Public License version 3 as published by the Free Software
+## Foundation with exceptions as appearing in the file LICENSE.GPL3-EXCEPT
+## included in the packaging of this file. Please review the following
+## information to ensure the GNU General Public License requirements will
+## be met: https://www.gnu.org/licenses/gpl-3.0.html.
+##
+## $QT_END_LICENSE$
+##
+#############################################################################
+
+#-------------------------------------------------------------------------------
+# script initialization
+#-------------------------------------------------------------------------------
+
+# the name of this script
+relconf=`basename $0`
+# the directory of this script is the "source tree"
+relpath=`dirname $0`
+relpath=`(cd "$relpath"; /bin/pwd)`
+# the current directory is the "build tree" or "object tree"
+outpath=`/bin/pwd`
+
+# where to find which..
+unixtests="$relpath/config.tests/unix"
+WHICH="$unixtests/which.test"
+
+PERL=`$WHICH perl 2>/dev/null`
+
+# find out which awk we want to use, prefer gawk, then nawk, then regular awk
+AWK=
+for e in gawk nawk awk; do
+    if "$WHICH" $e >/dev/null 2>&1 && ( $e -f /dev/null /dev/null ) >/dev/null 2>&1; then
+        AWK=$e
+        break
+    fi
+done
+
+# find a make command
+if [ -z "$MAKE" ]; then
+    MAKE=
+    for mk in gmake make; do
+        if "$WHICH" $mk >/dev/null 2>&1; then
+            MAKE=`"$WHICH" $mk`
+            break
+        fi
+    done
+    if [ -z "$MAKE" ]; then
+        echo >&2 "You don't seem to have 'make' or 'gmake' in your PATH."
+        echo >&2 "Cannot proceed."
+        exit 1
+    fi
+    # export MAKE, we need it later in the config.tests
+    export MAKE
+fi
+
+# do this early so we don't store it in config.status
+CFG_TOPLEVEL=
+relpathMangled=$relpath
+outpathPrefix=
+if [ x"$1" = x"-top-level" ]; then
+    CFG_TOPLEVEL=yes
+    relpathMangled=`dirname "$relpath"`
+    outpathPrefix=../
+    shift
+fi
+
+CFG_REDO=no
+OPT_CMDLINE=  # excluding -verbose (for config.opt)
+QMAKE_CMDLINE=  # including -verbose (for actual parsing)
+set -f  # suppress globbing in for loop
+SAVED_IFS=$IFS
+IFS='
+'
+for i in "$@"; do
+    case $i in
+        -redo|--redo)
+            optfile=${outpathPrefix}config.opt
+            if test -n "$CFG_TOPLEVEL" && ! test -f $optfile; then
+                optfile=config.opt
+            fi
+            if ! test -f $optfile; then
+                echo >&2 "No config.opt present - cannot redo configuration."
+                exit 1
+            fi
+            for a in `cat $optfile`; do
+                OPT_CMDLINE="$OPT_CMDLINE
+$a"
+                QMAKE_CMDLINE="$QMAKE_CMDLINE
+$a"
+            done
+            CFG_REDO=yes  # suppress repeated config.opt writeout
+            continue
+            ;;
+        -v|-verbose|--verbose|-no-v|-no-verbose|--no-verbose)
+            ;;
+        *)
+            OPT_CMDLINE="$OPT_CMDLINE
+$i"
+            ;;
+    esac
+    QMAKE_CMDLINE="$QMAKE_CMDLINE
+$i"
+done
+set --
+for i in $QMAKE_CMDLINE; do
+    set -- "$@" "$i"
+done
+set +f
+IFS=$SAVED_IFS
+
+# initialize global variables
+DEVICE_VARS_FILE=.device.vars
+HOST_VARS_FILE=.host.vars
+
+:> "$DEVICE_VARS_FILE"
+:> "$HOST_VARS_FILE"
+
+#-------------------------------------------------------------------------------
+# utility functions
+#-------------------------------------------------------------------------------
+
+makeabs()
+{
+    local FILE="$1"
+    local RES="$FILE"
+    if [ -z "${FILE##/*}" ]; then
+        true
+    elif [ "$OSTYPE" = "msys" -a -z "${FILE##[a-zA-Z]:[/\\]*}" ]; then
+        true
+    else
+        RES=$PWD/$FILE
+    fi
+    RES=$RES/
+    while true; do
+        nres=`echo "$RES" | sed 's,/[^/][^/]*/\.\./,/,g; s,/\./,/,g'`
+        test x"$nres" = x"$RES" && break
+        RES=$nres
+    done
+    echo "$RES" | sed 's,//,/,g; s,/$,,'
+}
+
+# Helper function for getQMakeConf. It parses include statements in
+# qmake.conf and prints out the expanded file
+expandQMakeConf()
+{
+    while read line; do case "$line" in
+        include*)
+            inc_file=`echo "$line" | sed -n -e '/^include.*(.*)/s/include.*(\(.*\)).*$/\1/p'`
+	    current_dir=`dirname "$1"`
+	    conf_file="$current_dir/$inc_file"
+	    if [ ! -f  "$conf_file" ]; then
+                echo "WARNING: Unable to find file $conf_file" >&2
+                continue
+            fi
+            expandQMakeConf "$conf_file" "$2"
+        ;;
+        *load\(device_config\)*)
+            conf_file="$2"
+            if [ ! -f  "$conf_file" ]; then
+                echo "WARNING: Unable to find file $conf_file" >&2
+                continue
+            fi
+            expandQMakeConf "$conf_file" "$2"
+        ;;
+        *)
+            echo "$line"
+        ;;
+    esac; done < "$1"
+}
+
+extractQMakeVariables()
+{
+    LC_ALL=C $AWK '
+BEGIN {
+    values["LITERAL_WHITESPACE"] = " "
+    values["LITERAL_DOLLAR"] = "$"
+}
+/^!?host_build:/ {
+    scopeStart = index($0, ":") + 1
+    condition = substr($0, 0, scopeStart - 2)
+    if (condition != "'"$1"'") { next }
+    $0 = substr($0, scopeStart)
+}
+/^[_A-Z0-9.]+[ \t]*\+?=/ {
+    valStart = index($0, "=") + 1
+
+    append = 0
+    if (substr($0, valStart - 2, 1) == "+") {
+        append = 1
+    }
+
+    variable = substr($0, 0, valStart - 2 - append)
+    value = substr($0, valStart)
+    gsub("[ \t]+", "", variable)
+    gsub("^[ \t]+", "", value)
+    gsub("[ \t]+$", "", value)
+
+    ovalue = ""
+    while (match(value, /\$\$(\{[_A-Z0-9.]+\}|[_A-Z0-9.]+)/)) {
+        ovalue = ovalue substr(value, 1, RSTART - 1)
+        var = substr(value, RSTART + 2, RLENGTH - 2)
+        value = substr(value, RSTART + RLENGTH)
+        if (var ~ /^\{/) {
+            var = substr(var, 2, length(var) - 2)
+        }
+        ovalue = ovalue values[var]
+    }
+    value = ovalue value
+
+    ovalue = ""
+    while (match(value, /\$\$system\(("[^"]*"|[^)]*)\)/)) {
+        ovalue = ovalue substr(value, 1, RSTART - 1)
+        cmd = substr(value, RSTART + 9, RLENGTH - 10)
+        gsub(/^"|"$/, "", cmd)
+        value = substr(value, RSTART + RLENGTH)
+        while ((cmd | getline line) > 0) {
+            ovalue = ovalue line
+        }
+        close(cmd)
+    }
+    value = ovalue value
+
+    combinedValue = values[variable]
+    if (append == 1 && length(combinedValue) > 0) {
+        combinedValue = combinedValue " " value
+    } else {
+        combinedValue = value
+    }
+    values[variable] = combinedValue
+}
+END {
+    for (var in values) {
+        print var "=" values[var]
+    }
+}
+'
+}
+
+getSingleQMakeVariable()
+{
+    echo "$2" | $AWK "/^($1)=/ { print substr(\$0, index(\$0, \"=\") + 1) }"
+}
+
+macSDKify()
+{
+    # Normally we take care of sysrootifying in sdk.prf, but configure extracts some
+    # values before qmake is even built, so we have to duplicate the logic here.
+
+    sdk=$(getSingleQMakeVariable "QMAKE_MAC_SDK" "$1")
+    if [ -z "$sdk" ]; then echo "QMAKE_MAC_SDK must be set when building on Mac" >&2; exit 1; fi
+    sysroot=$(/usr/bin/xcodebuild -sdk $sdk -version Path 2>/dev/null)
+    if [ -z "$sysroot" ]; then echo "Failed to resolve SDK path for '$sdk'" >&2; exit 1; fi
+
+    case "$sdk" in
+        macosx*)
+            version_min_flag="-mmacosx-version-min=$(getSingleQMakeVariable QMAKE_MACOSX_DEPLOYMENT_TARGET "$1")"
+        ;;
+        iphoneos*)
+            version_min_flag="-miphoneos-version-min=$(getSingleQMakeVariable QMAKE_IOS_DEPLOYMENT_TARGET "$1")"
+        ;;
+        iphonesimulator*)
+            version_min_flag="-mios-simulator-version-min=$(getSingleQMakeVariable QMAKE_IOS_DEPLOYMENT_TARGET "$1")"
+        ;;
+        appletvos*)
+            version_min_flag="-mappletvos-version-min=$(getSingleQMakeVariable QMAKE_TVOS_DEPLOYMENT_TARGET "$1")"
+        ;;
+        appletvsimulator*)
+            version_min_flag="-mtvos-simulator-version-min=$(getSingleQMakeVariable QMAKE_TVOS_DEPLOYMENT_TARGET "$1")"
+        ;;
+        watchos*)
+            version_min_flag="-mwatchos-version-min=$(getSingleQMakeVariable QMAKE_WATCHOS_DEPLOYMENT_TARGET "$1")"
+        ;;
+        watchsimulator*)
+            version_min_flag="-mwatchos-simulator-version-min=$(getSingleQMakeVariable QMAKE_WATCHOS_DEPLOYMENT_TARGET "$1")"
+        ;;
+        *)
+        ;;
+    esac
+
+    echo "$1" | while read line; do
+        case "$line" in
+            QMAKE_CC=*|QMAKE_CXX=*|QMAKE_FIX_RPATH=*|QMAKE_AR=*|QMAKE_RANLIB=*|QMAKE_LINK=*|QMAKE_LINK_SHLIB=*)
+                # Prefix tool with toolchain path
+                var=$(echo "$line" | cut -d '=' -f 1)
+                val=$(echo "$line" | cut -d '=' -f 2-)
+                sdk_val=$(/usr/bin/xcrun -sdk $sdk -find $(echo $val | cut -d ' ' -f 1))
+                val=$(echo $sdk_val $(echo $val | cut -s -d ' ' -f 2-))
+                echo "$var=$val"
+            ;;
+            QMAKE_CFLAGS=*|QMAKE_CXXFLAGS=*)
+                echo "$line -isysroot $sysroot $version_min_flag"
+            ;;
+            QMAKE_LFLAGS=*)
+                echo "$line -Wl,-syslibroot,$sysroot $version_min_flag"
+            ;;
+            *)
+                echo "$line"
+            ;;
+        esac
+    done
+}
+
+# relies on $QMAKESPEC being set correctly. parses include statements in
+# qmake.conf and prints out the expanded file
+getQMakeConf()
+{
+    if [ -z "$specvals" ]; then
+        specvals=`expandQMakeConf "$QMAKESPEC/qmake.conf" "$HOST_VARS_FILE" | extractQMakeVariables "host_build"`
+        if [ "$BUILD_ON_MAC" = "yes" ]; then specvals=$(macSDKify "$specvals"); fi
+    fi
+    getSingleQMakeVariable "$1" "$specvals"
+}
+
+getXQMakeConf()
+{
+    if [ -z "$xspecvals" ]; then
+        xspecvals=`expandQMakeConf "$XQMAKESPEC/qmake.conf" "$DEVICE_VARS_FILE" | extractQMakeVariables "!host_build"`
+        if [ "$XPLATFORM_MAC" = "yes" ]; then xspecvals=$(macSDKify "$xspecvals"); fi
+    fi
+    getSingleQMakeVariable "$1" "$xspecvals"
+}
+
+#-------------------------------------------------------------------------------
+# device options
+#-------------------------------------------------------------------------------
+DeviceVar()
+{
+    case "$1" in
+        set)
+            eq="="
+            ;;
+        *)
+            echo >&2 "BUG: wrong command to DeviceVar: $1"
+            ;;
+    esac
+
+    echo "$2" "$eq" "$3" >> "$DEVICE_VARS_FILE"
+}
+
+resolveDeviceMkspec()
+{
+    result=$(find "$relpath/mkspecs/devices/" -type d -name "*$1*" | sed "s,^$relpath/mkspecs/,,")
+    match_count=$(echo "$result" | wc -w)
+    if [ "$match_count" -gt 1 ]; then
+        echo >&2 "Error: Multiple matches for device '$1'. Candidates are:"
+        tabbed_result=$(echo "$result" | sed 's,^,    ,')
+        echo >&2 "$tabbed_result"
+        echo "undefined"
+    elif [ "$match_count" -eq 0 ]; then
+        echo >&2 "Error: No device matching '$1'"
+        echo "undefined"
+    else
+        echo "$result"
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Host options
+#-------------------------------------------------------------------------------
+HostVar()
+{
+    case "$1" in
+        set)
+            eq="="
+            ;;
+        *)
+            echo >&2 "BUG: wrong command to HostVar: $1"
+            ;;
+    esac
+
+    echo "$2" "$eq" "$3" >> "$HOST_VARS_FILE"
+}
+
+#-------------------------------------------------------------------------------
+# operating system detection
+#-------------------------------------------------------------------------------
+
+# need that throughout the script
+UNAME_MACHINE=`(uname -m) 2>/dev/null` || UNAME_MACHINE=unknown
+UNAME_RELEASE=`(uname -r) 2>/dev/null` || UNAME_RELEASE=unknown
+UNAME_SYSTEM=`(uname -s) 2>/dev/null`  || UNAME_SYSTEM=unknown
+
+# detect the "echo without newline" style. usage: echo $ECHO_N "<string>$ECHO_C"
+if echo '\c' | grep '\c' >/dev/null; then
+    ECHO_N=-n
+else
+    ECHO_C='\c'
+fi
+
+BUILD_ON_MAC=no
+if [ -d /System/Library/Frameworks/Carbon.framework ]; then
+    BUILD_ON_MAC=yes
+fi
+if [ "$OSTYPE" = "msys" ]; then
+    relpath=`(cd "$relpath"; pwd -W)`
+    outpath=`pwd -W`
+fi
+
+#-------------------------------------------------------------------------------
+# Verify Xcode installation on Mac OS
+#-------------------------------------------------------------------------------
+
+if [ "$BUILD_ON_MAC" = "yes" ]; then
+    if ! /usr/bin/xcode-select --print-path >/dev/null 2>&1; then
+        echo >&2
+        echo "   No Xcode is selected. Use xcode-select -switch to choose an Xcode" >&2
+        echo "   version. See the xcode-select man page for more information." >&2
+        echo >&2
+        exit 2
+    fi
+
+    if ! /usr/bin/xcrun -find xcodebuild >/dev/null 2>&1; then
+        echo >&2
+        echo "   Xcode not set up properly. You may need to confirm the license" >&2
+        echo "   agreement by running /usr/bin/xcodebuild without arguments." >&2
+        echo >&2
+        exit 2
+    fi
+fi
+
+#-----------------------------------------------------------------------------
+# Qt version detection
+#-----------------------------------------------------------------------------
+QT_VERSION=
+QT_MAJOR_VERSION=
+QT_MINOR_VERSION=0
+QT_PATCH_VERSION=0
+eval `sed -n -e 's/^MODULE_VERSION = \(\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\).*\)$/QT_VERSION=\1\
+    QT_MAJOR_VERSION=\2\
+    QT_MINOR_VERSION=\3\
+    QT_PATCH_VERSION=\4/p' < "$relpath"/.qmake.conf`
+if [ -z "$QT_MAJOR_VERSION" ]; then
+   echo "Cannot process version from .qmake.conf"
+   echo "Cannot proceed."
+   exit 1
+fi
+
+#-------------------------------------------------------------------------------
+# initalize variables
+#-------------------------------------------------------------------------------
+
+# Use CC/CXX to run config.tests
+mkdir -p "$outpath/config.tests"
+rm -f "$outpath/config.tests/.qmake.cache"
+: > "$outpath/config.tests/.qmake.cache"
+
+# QTDIR may be set and point to an old or system-wide Qt installation
+unset QTDIR
+
+# initalize internal variables
+CFG_RELEASE_TOOLS=no
+CFG_ANDROID_STYLE_ASSETS=yes
+
+XPLATFORM=              # This seems to be the QMAKESPEC, like "linux-g++"
+XPLATFORM_MAC=no        # Whether target platform is macOS, iOS, tvOS, or watchOS
+XPLATFORM_IOS=no        # Whether target platform is iOS
+XPLATFORM_TVOS=no       # Whether target platform is tvOS
+XPLATFORM_WATCHOS=no    # Whether target platform is watchOS
+XPLATFORM_ANDROID=no
+XPLATFORM_MINGW=no      # Whether target platform is MinGW (win32-g++*)
+PLATFORM=
+OPT_CONFIRM_LICENSE=no
+OPT_SHADOW=maybe
+OPT_VERBOSE=no
+OPT_HELP=
+CFG_SILENT=no
+OPT_MAC_SDK=
+COMMERCIAL_USER=ask
+CFG_DEV=no
+
+# initalize variables used for installation
+QT_INSTALL_PREFIX=
+QT_INSTALL_DOCS=
+QT_INSTALL_HEADERS=
+QT_INSTALL_LIBS=
+QT_INSTALL_BINS=
+QT_INSTALL_LIBEXECS=
+QT_INSTALL_PLUGINS=
+QT_INSTALL_IMPORTS=
+QT_INSTALL_QML=
+QT_INSTALL_ARCHDATA=
+QT_INSTALL_DATA=
+QT_INSTALL_TRANSLATIONS=
+QT_INSTALL_SETTINGS=
+QT_INSTALL_EXAMPLES=
+QT_INSTALL_TESTS=
+CFG_SYSROOT=
+QT_HOST_PREFIX=
+QT_HOST_BINS=
+QT_HOST_LIBS=
+QT_HOST_DATA=
+QT_EXT_PREFIX=
+
+# Android vars
+CFG_DEFAULT_ANDROID_NDK_ROOT=$ANDROID_NDK_ROOT
+CFG_DEFAULT_ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT
+CFG_DEFAULT_ANDROID_PLATFORM=android-16
+CFG_DEFAULT_ANDROID_TARGET_ARCH=armeabi-v7a
+CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION=4.9
+CFG_DEFAULT_ANDROID_NDK_HOST=$ANDROID_NDK_HOST
+
+#-------------------------------------------------------------------------------
+# parse command line arguments
+#-------------------------------------------------------------------------------
+
+# parse the arguments, setting things to "yes" or "no"
+while [ "$#" -gt 0 ]; do
+    CURRENT_OPT="$1"
+    case "$1" in
+    #Autoconf style options
+    --enable-*)
+        VAR=`echo $1 | sed 's,^--enable-\(.*\),\1,'`
+        VAL=yes
+        ;;
+    --disable-*)
+        VAR=`echo $1 | sed 's,^--disable-\(.*\),\1,'`
+        VAL=no
+        ;;
+    --*=*)
+        VAR=`echo $1 | sed 's,^--\(.*\)=.*,\1,'`
+        VAL=`echo $1 | sed 's,^--.*=\(.*\),\1,'`
+        ;;
+    --no-*)
+        VAR=`echo $1 | sed 's,^--no-\(.*\),\1,'`
+        VAL=no
+        ;;
+    --*)
+        VAR=`echo $1 | sed 's,^--\(.*\),\1,'`
+        VAL=yes
+        ;;
+    #Qt plugin options
+    -no-*-*|-plugin-*-*|-qt-*-*)
+        VAR=`echo $1 | sed 's,^-[^-]*-\(.*\),\1,'`
+        VAL=`echo $1 | sed 's,^-\([^-]*\).*,\1,'`
+        ;;
+    #Qt style no options
+    -no-*)
+        VAR=`echo $1 | sed 's,^-no-\(.*\),\1,'`
+        VAL=no
+        ;;
+    #Qt style options that pass an argument
+    -prefix| \
+    -docdir| \
+    -headerdir| \
+    -plugindir| \
+    -importdir| \
+    -qmldir| \
+    -archdatadir| \
+    -datadir| \
+    -libdir| \
+    -bindir| \
+    -libexecdir| \
+    -translationdir| \
+    -sysconfdir| \
+    -examplesdir| \
+    -testsdir| \
+    -hostdatadir| \
+    -hostbindir| \
+    -hostlibdir| \
+    -extprefix| \
+    -sysroot| \
+    -external-hostbindir| \
+    -make| \
+    -nomake| \
+    -skip| \
+    -platform| \
+    -xplatform| \
+    -device| \
+    -device-option| \
+    -host-option| \
+    -sdk| \
+    -android-sdk| \
+    -android-ndk| \
+    -android-ndk-platform| \
+    -android-ndk-host| \
+    -android-arch| \
+    -android-toolchain-version)
+        VAR=`echo $1 | sed 's,^-\(.*\),\1,'`
+        shift
+        VAL="$1"
+        ;;
+    #Qt style complex options in one command
+    -enable-*|-disable-*)
+        VAR=`echo $1 | sed 's,^-\([^-]*\)-.*,\1,'`
+        VAL=`echo $1 | sed 's,^-[^-]*-\(.*\),\1,'`
+        ;;
+    #Qt Builtin/System style options
+    -no-*|-system-*|-qt-*)
+        VAR=`echo $1 | sed 's,^-[^-]*-\(.*\),\1,'`
+        VAL=`echo $1 | sed 's,^-\([^-]*\)-.*,\1,'`
+        ;;
+    #Options that cannot be generalized
+    -hostprefix)
+        VAR=`echo $1 | sed 's,^-\(.*\),\1,'`
+        # this option may or may not be followed by an argument
+        if [ -z "$2" ] || echo "$2" | grep '^-' >/dev/null 2>&1; then
+            VAL=$outpath
+        else
+            shift;
+            VAL=$1
+        fi
+	;;
+    #General options, including Qt style yes options
+    -*)
+        VAR=`echo $1 | sed 's,^-\(.*\),\1,'`
+        VAL="yes"
+        ;;
+    # most options don't need processing in the configure script, skip them. qmake will do the real validation
+    *)
+        shift
+        continue
+        ;;
+    esac
+
+    shift
+
+    UNKNOWN_OPT=no
+    case "$VAR" in
+    prefix)
+        QT_INSTALL_PREFIX="$VAL"
+        ;;
+    hostprefix)
+	QT_HOST_PREFIX="$VAL"
+	;;
+    hostdatadir)
+        QT_HOST_DATA="$VAL"
+        ;;
+    hostbindir)
+        QT_HOST_BINS="$VAL"
+        ;;
+    hostlibdir)
+        QT_HOST_LIBS="$VAL"
+        ;;
+    extprefix)
+        QT_EXT_PREFIX="$VAL"
+        ;;
+    docdir)
+        QT_INSTALL_DOCS="$VAL"
+        ;;
+    headerdir)
+        QT_INSTALL_HEADERS="$VAL"
+        ;;
+    plugindir)
+        QT_INSTALL_PLUGINS="$VAL"
+        ;;
+    importdir)
+        QT_INSTALL_IMPORTS="$VAL"
+        ;;
+    qmldir)
+        QT_INSTALL_QML="$VAL"
+        ;;
+    archdatadir)
+        QT_INSTALL_ARCHDATA="$VAL"
+        ;;
+    datadir)
+        QT_INSTALL_DATA="$VAL"
+        ;;
+    libdir)
+        QT_INSTALL_LIBS="$VAL"
+        ;;
+    translationdir)
+        QT_INSTALL_TRANSLATIONS="$VAL"
+        ;;
+    sysconfdir|settingsdir)
+        QT_INSTALL_SETTINGS="$VAL"
+        ;;
+    examplesdir)
+        QT_INSTALL_EXAMPLES="$VAL"
+        ;;
+    testsdir)
+        QT_INSTALL_TESTS="$VAL"
+        ;;
+    sysroot)
+        CFG_SYSROOT="$VAL"
+        ;;
+    external-hostbindir)
+        CFG_HOST_QT_TOOLS_PATH="$VAL"
+        HostVar set HOST_QT_TOOLS "$VAL"
+        ;;
+    bindir)
+        QT_INSTALL_BINS="$VAL"
+        ;;
+    libexecdir)
+        QT_INSTALL_LIBEXECS="$VAL"
+        ;;
+    sdk)
+        if [ "$BUILD_ON_MAC" = "yes" ]; then
+            DeviceVar set !host_build:QMAKE_MAC_SDK "$VAL"
+            OPT_MAC_SDK="$VAL"
+        else
+            UNKNOWN_OPT=yes
+        fi
+	;;
+    platform)
+        PLATFORM="$VAL"
+        ;;
+    xplatform)
+        XPLATFORM="$VAL"
+        ;;
+    device)
+        XPLATFORM=`resolveDeviceMkspec $VAL`
+        [ "$XPLATFORM" = "undefined" ] && exit 101
+        ;;
+    device-option)
+        DEV_VAR=`echo $VAL | cut -d '=' -f 1`
+        DEV_VAL=`echo $VAL | cut -d '=' -f 2-`
+        DeviceVar set $DEV_VAR "$DEV_VAL"
+        ;;
+    host-option)
+        HOST_VAR=`echo $VAL | cut -d '=' -f 1`
+        HOST_VAL=`echo $VAL | cut -d '=' -f 2-`
+        HostVar set $HOST_VAR "$HOST_VAL"
+        ;;
+    optimized-qmake|optimized-tools)
+        if [ "$VAL" = "yes" ] || [ "$VAL" = "no" ]; then
+            CFG_RELEASE_TOOLS="$VAL"
+        fi
+        ;;
+    developer-build)
+        CFG_DEV="yes"
+        ;;
+    commercial)
+        COMMERCIAL_USER="yes"
+        ;;
+    opensource)
+        COMMERCIAL_USER="no"
+        ;;
+    confirm-license)
+        if [ "$VAL" = "yes" ]; then
+            OPT_CONFIRM_LICENSE="$VAL"
+        else
+            UNKNOWN_OPT=yes
+        fi
+        ;;
+    h|help)
+        if [ "$VAL" = "yes" ]; then
+            OPT_HELP="$VAL"
+        else
+            UNKNOWN_OPT=yes
+        fi
+        ;;
+    v|verbose)
+        if [ "$VAL" = "yes" ]; then
+            OPT_VERBOSE=yes
+        elif [ "$VAL" = "no" ]; then
+            OPT_VERBOSE=no
+        else
+            UNKNOWN_OPT=yes
+        fi
+        ;;
+    silent)
+        # need to keep this here, to ensure qmake is built silently
+        CFG_SILENT="$VAL"
+        ;;
+    android-sdk)
+        CFG_DEFAULT_ANDROID_SDK_ROOT="$VAL"
+        ;;
+    android-ndk)
+        CFG_DEFAULT_ANDROID_NDK_ROOT="$VAL"
+        ;;
+    android-ndk-platform)
+        CFG_DEFAULT_ANDROID_PLATFORM="$VAL"
+        ;;
+    android-ndk-host)
+        CFG_DEFAULT_ANDROID_NDK_HOST="$VAL"
+        ;;
+    android-arch)
+        CFG_DEFAULT_ANDROID_TARGET_ARCH="$VAL"
+        ;;
+    android-toolchain-version)
+        CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION="$VAL"
+        ;;
+    android-style-assets)
+        # Required to be able to show the correct license text
+        if [ "$VAL" = "yes" ] || [ "$VAL" = "no" ]; then
+            CFG_ANDROID_STYLE_ASSETS="$VAL"
+        fi
+        ;;
+    *)
+        ;;
+    esac
+    if [ "$UNKNOWN_OPT" = "yes" ]; then
+        echo "${CURRENT_OPT}: invalid command-line switch"
+        ERROR=yes
+    fi
+done
+[ "x$ERROR" = "xyes" ] && exit 1
+
+#-------------------------------------------------------------------------------
+# help - interactive parts of the script _after_ this section please
+#-------------------------------------------------------------------------------
+
+if [ "$OPT_HELP" = "yes" ]; then
+    cat $relpath/config_help.txt
+    exit 0
+fi
+
+#-------------------------------------------------------------------------------
+# platform detection
+#-------------------------------------------------------------------------------
+
+if [ -z "$PLATFORM" ]; then
+    PLATFORM_NOTES=
+    case "$UNAME_SYSTEM:$UNAME_RELEASE" in
+     Darwin:*)
+        PLATFORM=macx-clang
+        ;;
+     AIX:*)
+        #PLATFORM=aix-g++
+        #PLATFORM=aix-g++-64
+        PLATFORM=aix-xlc
+        #PLATFORM=aix-xlc-64
+        PLATFORM_NOTES="
+            - Also available for AIX: aix-g++ aix-g++-64 aix-xlc-64
+        "
+        ;;
+     GNU:*)
+        PLATFORM=hurd-g++
+        ;;
+     dgux:*)
+        PLATFORM=dgux-g++
+        ;;
+#     DYNIX/ptx:4*)
+#       PLATFORM=dynix-g++
+#       ;;
+     ULTRIX:*)
+        PLATFORM=ultrix-g++
+        ;;
+     FreeBSD:*)
+        if [ "$(uname -r | cut -d. -f1)" -ge 10 ]; then
+            PLATFORM=freebsd-clang
+            PLATFORM_NOTES="
+                - Also available for FreeBSD: freebsd-g++
+            "
+        else
+            PLATFORM=freebsd-g++
+            PLATFORM_NOTES="
+                - Also available for FreeBSD: freebsd-clang
+            "
+        fi
+        ;;
+     OpenBSD:*)
+        PLATFORM=openbsd-g++
+        ;;
+     NetBSD:*)
+        PLATFORM=netbsd-g++
+        ;;
+     BSD/OS:*|BSD/386:*)
+        PLATFORM=bsdi-g++
+        ;;
+     IRIX*:*)
+        #PLATFORM=irix-g++
+        PLATFORM=irix-cc
+        #PLATFORM=irix-cc-64
+        PLATFORM_NOTES="
+            - Also available for IRIX: irix-g++ irix-cc-64
+        "
+        ;;
+     HP-UX:*)
+        case "$UNAME_MACHINE" in
+            ia64)
+                #PLATFORM=hpuxi-acc-32
+                PLATFORM=hpuxi-acc-64
+                PLATFORM_NOTES="
+                    - Also available for HP-UXi: hpuxi-acc-32
+                "
+            ;;
+            *)
+                #PLATFORM=hpux-g++
+                PLATFORM=hpux-acc
+                #PLATFORM=hpux-acc-64
+                #PLATFORM=hpux-cc
+                #PLATFORM=hpux-acc-o64
+                PLATFORM_NOTES="
+                    - Also available for HP-UX: hpux-g++ hpux-acc-64 hpux-acc-o64
+                "
+            ;;
+        esac
+        ;;
+     OSF1:*)
+        #PLATFORM=tru64-g++
+        PLATFORM=tru64-cxx
+        PLATFORM_NOTES="
+            - Also available for Tru64: tru64-g++
+        "
+        ;;
+     Linux:*)
+        PLATFORM=linux-g++
+        PLATFORM_NOTES="
+            - Also available for Linux: linux-clang linux-kcc linux-icc linux-cxx
+        "
+        ;;
+     SunOS:5*)
+        #PLATFORM=solaris-g++
+        PLATFORM=solaris-cc
+        #PLATFORM=solaris-cc64
+        PLATFORM_NOTES="
+            - Also available for Solaris: solaris-g++ solaris-cc-64
+        "
+        ;;
+     ReliantUNIX-*:*|SINIX-*:*)
+        PLATFORM=reliant-cds
+        #PLATFORM=reliant-cds-64
+        PLATFORM_NOTES="
+            - Also available for Reliant UNIX: reliant-cds-64
+        "
+        ;;
+     CYGWIN*:*)
+        PLATFORM=cygwin-g++
+        ;;
+     LynxOS*:*)
+        PLATFORM=lynxos-g++
+        ;;
+     OpenUNIX:*)
+        #PLATFORM=unixware-g++
+        PLATFORM=unixware-cc
+        PLATFORM_NOTES="
+            - Also available for OpenUNIX: unixware-g++
+        "
+        ;;
+     UnixWare:*)
+        #PLATFORM=unixware-g++
+        PLATFORM=unixware-cc
+        PLATFORM_NOTES="
+            - Also available for UnixWare: unixware-g++
+        "
+        ;;
+     SCO_SV:*)
+        #PLATFORM=sco-g++
+        PLATFORM=sco-cc
+        PLATFORM_NOTES="
+            - Also available for SCO OpenServer: sco-g++
+        "
+        ;;
+     UNIX_SV:*)
+        PLATFORM=unixware-g++
+        ;;
+     QNX:*)
+        PLATFORM=unsupported/qnx-g++
+        ;;
+     *)
+            echo >&2
+            echo "   The build script does not currently recognize all" >&2
+            echo "   platforms supported by Qt." >&2
+            echo "   Rerun this script with a -platform option listed to" >&2
+            echo "   set the system/compiler combination you use." >&2
+            echo >&2
+            exit 2
+    esac
+fi
+
+[ -z "$XPLATFORM" ] && XPLATFORM="$PLATFORM"
+
+case "$XPLATFORM" in
+    *win32-g++*)
+        XPLATFORM_MINGW=yes
+        ;;
+    *qnx-*)
+        ;;
+    *haiku-*)
+        ;;
+    *ios*)
+        XPLATFORM_MAC=yes
+        XPLATFORM_IOS=yes
+        ;;
+    *tvos*)
+        XPLATFORM_MAC=yes
+        XPLATFORM_TVOS=yes
+        ;;
+    *watchos*)
+        XPLATFORM_MAC=yes
+        XPLATFORM_WATCHOS=yes
+        ;;
+    *macx*)
+        XPLATFORM_MAC=yes
+        ;;
+    *integrity*)
+        ;;
+    # XPLATFORM_ANDROID should not be set for unsupported/android-g++
+    *unsupported*)
+        ;;
+    *android-g++*)
+        XPLATFORM_ANDROID=g++
+        ;;
+    *android-clang*)
+        XPLATFORM_ANDROID=clang
+        ;;
+esac
+
+#-------------------------------------------------------------------------------
+# check the license
+#-------------------------------------------------------------------------------
+
+if [ "$COMMERCIAL_USER" = "ask" ]; then
+    while true; do
+        echo "Which edition of Qt do you want to use ?"
+        echo
+        echo "Type 'c' if you want to use the Commercial Edition."
+        echo "Type 'o' if you want to use the Open Source Edition."
+        echo
+        read commercial
+        echo
+        if [ "$commercial" = "c" ]; then
+            COMMERCIAL_USER="yes"
+            OPT_CMDLINE="$OPT_CMDLINE
+-commercial"
+            break
+        elif [ "$commercial" = "o" ]; then
+            COMMERCIAL_USER="no"
+            OPT_CMDLINE="$OPT_CMDLINE
+-opensource"
+            break
+        fi
+    done
+fi
+
+if [ -f "$relpath"/LICENSE.PREVIEW.COMMERCIAL ] && [ $COMMERCIAL_USER = "yes" ]; then
+    # Commercial preview release
+    Licensee="Preview"
+    Edition="Preview"
+    EditionString="Technology Preview"
+elif [ $COMMERCIAL_USER = "yes" ]; then
+    if [ $UNAME_SYSTEM = "Linux" ]; then
+        case "$PLATFORM" in
+        *-32)
+            Licheck=licheck32
+            ;;
+        *-64)
+            Licheck=licheck64
+            ;;
+        *)
+            if file -L /bin/sh | grep -q "64-bit" ; then
+                Licheck=licheck64
+            else
+                Licheck=licheck32
+            fi
+            ;;
+        esac
+    elif [ $UNAME_SYSTEM = "Darwin" ]; then
+        Licheck=licheck_mac
+    else
+        echo >&2 "Host operating system not supported by this edition of Qt."
+        exit 1
+    fi
+    if [ -x "$relpath/bin/$Licheck" ]; then
+        LicheckOutput=`$relpath/bin/$Licheck $OPT_CONFIRM_LICENSE $relpath $outpath\
+                       $PLATFORM $XPLATFORM`
+        if [ $? -ne 0 ]; then
+            exit 1
+        else
+            eval "$LicheckOutput"
+        fi
+    else
+        echo
+        echo "Error: This is the Open Source version of Qt."
+        echo "If you want to use Enterprise features of Qt,"
+        echo "use the contact form at http://www.qt.io/contact-us"
+        echo "to purchase a license."
+        echo
+        exit 1
+    fi
+elif [ $COMMERCIAL_USER = "no" ]; then
+    # Open Source edition - may only be used under the terms of the LGPLv3 or GPLv2.
+    Licensee="Open Source"
+    Edition="OpenSource"
+    EditionString="Open Source"
+fi
+
+if [ "$Edition" = "OpenSource" ] || [ "$Edition" = "Preview" ]; then
+    echo
+    echo "This is the Qt ${EditionString} Edition."
+    echo
+fi
+
+if [ "$Edition" = "OpenSource" ]; then
+    while true; do
+        if [ "$CFG_ANDROID_STYLE_ASSETS" = "no" ] || [ "$XPLATFORM_ANDROID" = "no" ]; then
+            echo "You are licensed to use this software under the terms of"
+            echo "the GNU Lesser General Public License (LGPL) version 3."
+            echo "You are also licensed to use this software under the terms of"
+            echo "the GNU General Public License (GPL) version 2."
+            affix="either"
+            showGPL2="yes"
+        else
+            echo "You are licensed to use this software under the terms of"
+            echo "the GNU Lesser General Public License (LGPL) version 3."
+            showGPL2="no"
+            affix="the"
+        fi
+
+        echo
+        if [ "$OPT_CONFIRM_LICENSE" = "yes" ]; then
+            echo "You have already accepted the terms of the $EditionString license."
+            acceptance=yes
+        else
+            if [ -f "$relpath/LICENSE.LGPL3" ]; then
+                echo "Type 'L' to view the GNU Lesser General Public License version 3."
+            fi
+            if [ "$showGPL2" = "yes" ]; then
+                echo "Type 'G' to view the GNU General Public License version 2."
+            fi
+            echo "Type 'yes' to accept this license offer."
+            echo "Type 'no' to decline this license offer."
+            echo
+            echo $ECHO_N "Do you accept the terms of $affix license? $ECHO_C"
+            read acceptance
+        fi
+        echo
+        if [ "$acceptance" = "yes" ] || [ "$acceptance" = "y" ]; then
+            break
+        elif [ "$acceptance" = "no" ]; then
+            echo "You are not licensed to use this software."
+            echo
+            exit 1
+        elif [ "$acceptance" = "L" ]; then
+            more "$relpath/LICENSE.LGPL3"
+        elif [ "$acceptance" = "G" ] && [ "$showGPL2" = "yes" ]; then
+            more "$relpath/LICENSE.GPL2"
+        fi
+    done
+elif [ "$Edition" = "Preview" ]; then
+    TheLicense=`head -n 1 "$relpath/LICENSE.PREVIEW.COMMERCIAL"`
+    while true; do
+
+        if [ "$OPT_CONFIRM_LICENSE" = "yes" ]; then
+            echo "You have already accepted the terms of the $EditionString license."
+            acceptance=yes
+        else
+            echo "You are licensed to use this software under the terms of"
+            echo "the $TheLicense"
+            echo
+            echo "Type '?' to read the Preview License."
+            echo "Type 'yes' to accept this license offer."
+            echo "Type 'no' to decline this license offer."
+            echo
+            echo $ECHO_N "Do you accept the terms of the license? $ECHO_C"
+            read acceptance
+        fi
+        echo
+        if [ "$acceptance" = "yes" ]; then
+            break
+        elif [ "$acceptance" = "no" ] ;then
+            echo "You are not licensed to use this software."
+            echo
+            exit 0
+        elif [ "$acceptance" = "?" ]; then
+            more "$relpath/LICENSE.PREVIEW.COMMERCIAL"
+        fi
+    done
+fi
+
+#-------------------------------------------------------------------------------
+# command line and environment validation
+#-------------------------------------------------------------------------------
+
+if [ "$XPLATFORM_ANDROID" != "no" ]; then
+    if [ -z "$CFG_DEFAULT_ANDROID_NDK_HOST" ]; then
+        case $PLATFORM in
+        linux-*)
+            if [ -d "$CFG_DEFAULT_ANDROID_NDK_ROOT/toolchains/arm-linux-androideabi-$CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION/prebuilt/linux-x86" ]; then
+                CFG_DEFAULT_ANDROID_NDK_HOST=linux-x86
+            elif [ -d "$CFG_DEFAULT_ANDROID_NDK_ROOT/toolchains/arm-linux-androideabi-$CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION/prebuilt/linux-x86_64" ]; then
+                CFG_DEFAULT_ANDROID_NDK_HOST=linux-x86_64
+            fi
+            ;;
+        macx-*)
+            CFG_DEFAULT_ANDROID_NDK_HOST=darwin-x86
+            if [ -d "$CFG_DEFAULT_ANDROID_NDK_ROOT/toolchains/arm-linux-androideabi-$CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION/prebuilt/darwin-x86_64" ]; then
+                CFG_DEFAULT_ANDROID_NDK_HOST=darwin-x86_64
+            fi
+            ;;
+        win32-*)
+            CFG_DEFAULT_ANDROID_NDK_HOST=windows
+            if [ -d "$CFG_DEFAULT_ANDROID_NDK_ROOT/toolchains/arm-linux-androideabi-$CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION/prebuilt/windows-x86_64" ]; then
+                CFG_DEFAULT_ANDROID_NDK_HOST=windows-x86_64
+            fi
+            ;;
+        esac
+    fi
+
+        if [ -z "$CFG_DEFAULT_ANDROID_NDK_ROOT" ]; then
+            echo
+            echo "Can not find Android NDK. Please use -android-ndk option to specify one"
+            exit 1
+        fi
+        if [ -z "$CFG_DEFAULT_ANDROID_SDK_ROOT" ]; then
+            echo
+            echo "Can not find Android SDK. Please use -android-sdk option to specify one"
+            exit 1
+        fi
+        if [ -z "CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION" ] || [ ! -d "$CFG_DEFAULT_ANDROID_NDK_ROOT/toolchains/arm-linux-androideabi-$CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION/prebuilt" ]; then
+            echo
+            echo "Can not detect Android NDK toolchain. Please use -android-toolchain-version to specify"
+            exit 1
+        fi
+        if [ -z "$CFG_DEFAULT_ANDROID_NDK_HOST" ] || [ ! -d "$CFG_DEFAULT_ANDROID_NDK_ROOT/toolchains/arm-linux-androideabi-$CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION/prebuilt/$CFG_DEFAULT_ANDROID_NDK_HOST" ]; then
+            echo
+            echo "Can not detect the android host. Please use -android-ndk-host option to specify one"
+            exit 1
+        fi
+
+        DeviceVar set DEFAULT_ANDROID_SDK_ROOT "$CFG_DEFAULT_ANDROID_SDK_ROOT"
+        DeviceVar set DEFAULT_ANDROID_NDK_ROOT "$CFG_DEFAULT_ANDROID_NDK_ROOT"
+        DeviceVar set DEFAULT_ANDROID_PLATFORM "$CFG_DEFAULT_ANDROID_PLATFORM"
+        DeviceVar set DEFAULT_ANDROID_NDK_HOST "$CFG_DEFAULT_ANDROID_NDK_HOST"
+        DeviceVar set DEFAULT_ANDROID_TARGET_ARCH "$CFG_DEFAULT_ANDROID_TARGET_ARCH"
+        DeviceVar set DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION "$CFG_DEFAULT_ANDROID_NDK_TOOLCHAIN_VERSION"
+fi
+
+if [ -d "$PLATFORM" ]; then
+  QMAKESPEC="$PLATFORM"
+else
+  QMAKESPEC="$relpath/mkspecs/${PLATFORM}"
+fi
+if [ -d "$XPLATFORM" ]; then
+  XQMAKESPEC="$XPLATFORM"
+else
+  XQMAKESPEC="$relpath/mkspecs/${XPLATFORM}"
+fi
+
+if [ "$BUILD_ON_MAC" = "yes" ]; then
+   if [ `basename $QMAKESPEC` = "macx-xcode" ] || [ `basename $XQMAKESPEC` = "macx-xcode" ]; then
+      echo >&2
+      echo "   Platform 'macx-xcode' should not be used when building Qt/Mac." >&2
+      echo "   Please build Qt/Mac with 'macx-clang' or 'macx-g++', then use" >&2
+      echo "   the 'macx-xcode' spec for your application, and it will link to" >&2
+      echo "   the Qt/Mac build using the settings of the original mkspec." >&2
+      echo >&2
+      exit 2
+    fi
+fi
+
+# check specified platforms are supported
+if [ '!' -d "$QMAKESPEC" ]; then
+    echo
+    echo "   The specified system/compiler is not supported:"
+    echo
+    echo "      $QMAKESPEC"
+    echo
+    echo "   Please see the README file for a complete list."
+    echo
+    exit 2
+fi
+if [ '!' -d "$XQMAKESPEC" ]; then
+    echo
+    echo "   The specified system/compiler is not supported:"
+    echo
+    echo "      $XQMAKESPEC"
+    echo
+    echo "   Please see the README file for a complete list."
+    echo
+    exit 2
+fi
+if [ '!' -f "${XQMAKESPEC}/qplatformdefs.h" ]; then
+    echo
+    echo "   The specified system/compiler port is not complete:"
+    echo
+    echo "      $XQMAKESPEC/qplatformdefs.h"
+    echo
+    echo "   Please information use the contact form at http://www.qt.io/contact-us"
+    echo
+    exit 2
+fi
+
+#-------------------------------------------------------------------------------
+# build tree initialization
+#-------------------------------------------------------------------------------
+
+# is this a shadow build?
+if [ "$OPT_SHADOW" = "maybe" ]; then
+    OPT_SHADOW=no
+    if [ "$relpath" != "$outpath" ] && [ '!' -f "$outpath/configure" ]; then
+        if [ -h "$outpath" ]; then
+            [ "$relpath" -ef "$outpath" ] || OPT_SHADOW=yes
+        else
+            OPT_SHADOW=yes
+        fi
+    fi
+fi
+if [ "$OPT_SHADOW" = "yes" ]; then
+    if [ -f "$relpath/.qmake.cache" -o -f "$relpath/src/corelib/global/qconfig.h" -o -f "$relpath/src/corelib/global/qconfig.cpp" ]; then
+        echo >&2 "You cannot make a shadow build from a source tree containing a previous build."
+        echo >&2 "Cannot proceed."
+        exit 1
+    fi
+    [ "$OPT_VERBOSE" = "yes" ] && echo "Performing shadow build..."
+fi
+
+if [ "$OPT_SHADOW" = "yes" ]; then
+    echo "Preparing build tree..."
+
+    [ -d "$outpath/bin" ] || mkdir -p "$outpath/bin"
+
+    mkdir -p "$outpath/mkspecs"
+fi
+
+if [ "$XPLATFORM_ANDROID" = "no" ]; then
+    TEST_COMPILER=`getXQMakeConf QMAKE_CXX`
+    GCC_MACHINE_DUMP=
+    case "$TEST_COMPILER" in *g++) GCC_MACHINE_DUMP=$($TEST_COMPILER -dumpmachine);; esac
+    if [ -n "$GCC_MACHINE_DUMP" ]; then
+        DeviceVar set GCC_MACHINE_DUMP $($TEST_COMPILER -dumpmachine)
+    fi
+fi
+
+#-------------------------------------------------------------------------------
+# postprocess installation and deployment paths
+#-------------------------------------------------------------------------------
+
+if [ -z "$QT_INSTALL_PREFIX" ]; then
+    if [ "$CFG_DEV" = "yes" ]; then
+        QT_INSTALL_PREFIX="$outpath" # In Development, we use sandboxed builds by default
+    else
+        QT_INSTALL_PREFIX="/usr/local/Qt-${QT_VERSION}" # the default install prefix is /usr/local/Qt-$QT_VERSION
+    fi
+fi
+QT_INSTALL_PREFIX=`makeabs "$QT_INSTALL_PREFIX"`
+
+if [ -z "$QT_EXT_PREFIX" ]; then
+    QT_EXT_PREFIX=$QT_INSTALL_PREFIX
+    if [ -n "$CFG_SYSROOT" ]; then
+        QMAKE_SYSROOTIFY=true
+    else
+        QMAKE_SYSROOTIFY=false
+    fi
+else
+    QT_EXT_PREFIX=`makeabs "$QT_EXT_PREFIX"`
+    QMAKE_SYSROOTIFY=false
+fi
+
+if [ -z "$QT_HOST_PREFIX" ]; then
+    if $QMAKE_SYSROOTIFY; then
+        QT_HOST_PREFIX=$CFG_SYSROOT$QT_EXT_PREFIX
+    else
+        QT_HOST_PREFIX=$QT_EXT_PREFIX
+    fi
+    HAVE_HOST_PATH=false
+else
+    QT_HOST_PREFIX=`makeabs "$QT_HOST_PREFIX"`
+    HAVE_HOST_PATH=true
+fi
+
+#------- make the paths relative to the prefixes --------
+
+PREFIX_COMPLAINTS=
+PREFIX_REMINDER=false
+while read basevar baseoption var option; do
+    eval path=\$QT_${basevar}_$var
+    [ -z "$path" ] && continue
+    path=`makeabs "$path"`
+    eval base=\$QT_${basevar}_PREFIX
+    rel=${path##$base}
+    if [ x"$rel" = x"$path" ]; then
+        if [ x"$option" != x"sysconf" ]; then
+            PREFIX_COMPLAINTS="$PREFIX_COMPLAINTS
+        NOTICE: -${option}dir is not a subdirectory of ${baseoption}prefix."
+            eval \$HAVE_${basevar}_PATH || PREFIX_REMINDER=true
+        fi
+        eval QT_REL_${basevar}_$var=\$rel
+    elif [ -z "$rel" ]; then
+        eval QT_REL_${basevar}_$var=.
+    else
+        eval QT_REL_${basevar}_$var=\${rel#/}
+    fi
+done <<EOF
+INSTALL - DOCS doc
+INSTALL - HEADERS header
+INSTALL - LIBS lib
+INSTALL - LIBEXECS libexec
+INSTALL - BINS bin
+INSTALL - PLUGINS plugin
+INSTALL - IMPORTS import
+INSTALL - QML qml
+INSTALL - ARCHDATA archdata
+INSTALL - DATA data
+INSTALL - TRANSLATIONS translation
+INSTALL - EXAMPLES examples
+INSTALL - TESTS tests
+INSTALL - SETTINGS sysconf
+HOST -host BINS hostbin
+HOST -host LIBS hostlib
+HOST -host DATA hostdata
+EOF
+$PREFIX_REMINDER && PREFIX_COMPLAINTS="$PREFIX_COMPLAINTS
+        Maybe you forgot to specify -prefix/-hostprefix?"
+
+if [ -z "$QT_REL_INSTALL_HEADERS" ]; then
+    QT_REL_INSTALL_HEADERS=include
+fi
+
+if [ -z "$QT_REL_INSTALL_LIBS" ]; then
+    QT_REL_INSTALL_LIBS=lib
+fi
+
+if [ -z "$QT_REL_INSTALL_BINS" ]; then
+    QT_REL_INSTALL_BINS=bin
+fi
+
+if [ -z "$QT_REL_INSTALL_ARCHDATA" ]; then
+    QT_REL_INSTALL_ARCHDATA=.
+fi
+if [ x"$QT_REL_INSTALL_ARCHDATA" != x. ]; then
+    QT_REL_INSTALL_ARCHDATA_PREFIX=$QT_REL_INSTALL_ARCHDATA/
+fi
+
+if [ -z "$QT_REL_INSTALL_LIBEXECS" ]; then
+    if [ "$XPLATFORM_MINGW" = "yes" ]; then
+        QT_REL_INSTALL_LIBEXECS=${QT_REL_INSTALL_ARCHDATA_PREFIX}bin
+    else
+        QT_REL_INSTALL_LIBEXECS=${QT_REL_INSTALL_ARCHDATA_PREFIX}libexec
+    fi
+fi
+
+if [ -z "$QT_REL_INSTALL_PLUGINS" ]; then
+    QT_REL_INSTALL_PLUGINS=${QT_REL_INSTALL_ARCHDATA_PREFIX}plugins
+fi
+
+if [ -z "$QT_REL_INSTALL_IMPORTS" ]; then
+    QT_REL_INSTALL_IMPORTS=${QT_REL_INSTALL_ARCHDATA_PREFIX}imports
+fi
+
+if [ -z "$QT_REL_INSTALL_QML" ]; then
+    QT_REL_INSTALL_QML=${QT_REL_INSTALL_ARCHDATA_PREFIX}qml
+fi
+
+if [ -z "$QT_REL_INSTALL_DATA" ]; then
+    QT_REL_INSTALL_DATA=.
+fi
+if [ x"$QT_REL_INSTALL_DATA" != x. ]; then
+    QT_REL_INSTALL_DATA_PREFIX=$QT_REL_INSTALL_DATA/
+fi
+
+if [ -z "$QT_REL_INSTALL_DOCS" ]; then
+    QT_REL_INSTALL_DOCS=${QT_REL_INSTALL_DATA_PREFIX}doc
+fi
+
+if [ -z "$QT_REL_INSTALL_TRANSLATIONS" ]; then
+    QT_REL_INSTALL_TRANSLATIONS=${QT_REL_INSTALL_DATA_PREFIX}translations
+fi
+
+if [ -z "$QT_REL_INSTALL_EXAMPLES" ]; then
+    QT_REL_INSTALL_EXAMPLES=examples
+fi
+
+if [ -z "$QT_REL_INSTALL_TESTS" ]; then
+    QT_REL_INSTALL_TESTS=tests
+fi
+
+if [ -z "$QT_REL_INSTALL_SETTINGS" ]; then
+    if [ "$XPLATFORM_MAC" = "yes" ]; then
+        QT_REL_INSTALL_SETTINGS=/Library/Preferences/Qt
+    else
+        QT_REL_INSTALL_SETTINGS=etc/xdg
+    fi
+fi
+
+#------- host paths --------
+
+if [ -z "$QT_REL_HOST_BINS" ]; then
+    if $HAVE_HOST_PATH; then
+        QT_REL_HOST_BINS=bin
+    else
+        QT_REL_HOST_BINS=$QT_REL_INSTALL_BINS
+    fi
+fi
+
+if [ -z "$QT_REL_HOST_LIBS" ]; then
+    if $HAVE_HOST_PATH; then
+        QT_REL_HOST_LIBS=lib
+    else
+        QT_REL_HOST_LIBS=$QT_REL_INSTALL_LIBS
+    fi
+fi
+
+if [ -z "$QT_REL_HOST_DATA" ]; then
+    if $HAVE_HOST_PATH; then
+        QT_REL_HOST_DATA=.
+    else
+        QT_REL_HOST_DATA=$QT_REL_INSTALL_ARCHDATA
+    fi
+fi
+
+shortxspec=`echo $XQMAKESPEC | sed "s,^${relpath}/mkspecs/,,"`
+shortspec=`echo $QMAKESPEC | sed "s,^${relpath}/mkspecs/,,"`
+
+QT_CONFIGURE_STR_OFF=0
+
+addConfStr()
+{
+    QT_CONFIGURE_STR_OFFSETS="$QT_CONFIGURE_STR_OFFSETS $QT_CONFIGURE_STR_OFF,"
+    QT_CONFIGURE_STRS="$QT_CONFIGURE_STRS    \"$1\\0\"
+"
+    count=`echo "$1" | wc -c`
+    QT_CONFIGURE_STR_OFF=`expr $QT_CONFIGURE_STR_OFF + $count`
+}
+
+QT_CONFIGURE_STR_OFFSETS=
+QT_CONFIGURE_STRS=
+addConfStr "$QT_REL_INSTALL_DOCS"
+addConfStr "$QT_REL_INSTALL_HEADERS"
+addConfStr "$QT_REL_INSTALL_LIBS"
+addConfStr "$QT_REL_INSTALL_LIBEXECS"
+addConfStr "$QT_REL_INSTALL_BINS"
+addConfStr "$QT_REL_INSTALL_PLUGINS"
+addConfStr "$QT_REL_INSTALL_IMPORTS"
+addConfStr "$QT_REL_INSTALL_QML"
+addConfStr "$QT_REL_INSTALL_ARCHDATA"
+addConfStr "$QT_REL_INSTALL_DATA"
+addConfStr "$QT_REL_INSTALL_TRANSLATIONS"
+addConfStr "$QT_REL_INSTALL_EXAMPLES"
+addConfStr "$QT_REL_INSTALL_TESTS"
+QT_CONFIGURE_STR_OFFSETS_ALL=$QT_CONFIGURE_STR_OFFSETS
+QT_CONFIGURE_STRS_ALL=$QT_CONFIGURE_STRS
+
+QT_CONFIGURE_STR_OFFSETS=
+QT_CONFIGURE_STRS=
+addConfStr "$CFG_SYSROOT"
+addConfStr "$QT_REL_HOST_BINS"
+addConfStr "$QT_REL_HOST_LIBS"
+addConfStr "$QT_REL_HOST_DATA"
+addConfStr "$shortxspec"
+addConfStr "$shortspec"
+
+#-------------------------------------------------------------------------------
+# generate qconfig.cpp
+#-------------------------------------------------------------------------------
+[ -d "$outpath/src/corelib/global" ] || mkdir -p "$outpath/src/corelib/global"
+
+cat > "$outpath/src/corelib/global/qconfig.cpp.new" <<EOF
+/* Installation date */
+static const char qt_configure_installation          [12+11]    = "qt_instdate=2012-12-20";
+
+/* Installation Info */
+static const char qt_configure_prefix_path_str       [256 + 12] = "qt_prfxpath=$QT_INSTALL_PREFIX";
+#ifdef QT_BUILD_QMAKE
+static const char qt_configure_ext_prefix_path_str   [256 + 12] = "qt_epfxpath=$QT_EXT_PREFIX";
+static const char qt_configure_host_prefix_path_str  [256 + 12] = "qt_hpfxpath=$QT_HOST_PREFIX";
+#endif
+
+static const short qt_configure_str_offsets[] = {
+    $QT_CONFIGURE_STR_OFFSETS_ALL
+#ifdef QT_BUILD_QMAKE
+    $QT_CONFIGURE_STR_OFFSETS
+#endif
+};
+static const char qt_configure_strs[] =
+$QT_CONFIGURE_STRS_ALL#ifdef QT_BUILD_QMAKE
+$QT_CONFIGURE_STRS#endif
+;
+
+#define QT_CONFIGURE_SETTINGS_PATH "$QT_REL_INSTALL_SETTINGS"
+
+#ifdef QT_BUILD_QMAKE
+# define QT_CONFIGURE_SYSROOTIFY_PREFIX $QMAKE_SYSROOTIFY
+#endif
+
+#define QT_CONFIGURE_PREFIX_PATH qt_configure_prefix_path_str + 12
+#ifdef QT_BUILD_QMAKE
+# define QT_CONFIGURE_EXT_PREFIX_PATH qt_configure_ext_prefix_path_str + 12
+# define QT_CONFIGURE_HOST_PREFIX_PATH qt_configure_host_prefix_path_str + 12
+#endif
+EOF
+
+# avoid unecessary rebuilds by copying only if qconfig.cpp has changed
+if cmp -s "$outpath/src/corelib/global/qconfig.cpp" "$outpath/src/corelib/global/qconfig.cpp.new"; then
+    rm -f "$outpath/src/corelib/global/qconfig.cpp.new"
+else
+    [ -f "$outpath/src/corelib/global/qconfig.cpp" ] && chmod +w "$outpath/src/corelib/global/qconfig.cpp"
+    mv "$outpath/src/corelib/global/qconfig.cpp.new" "$outpath/src/corelib/global/qconfig.cpp"
+    chmod -w "$outpath/src/corelib/global/qconfig.cpp"
+fi
+
+
+# -----------------------------------------------------------------------------
+# build qmake
+# -----------------------------------------------------------------------------
+
+# symlink includes
+if [ -e "$relpath/.git" ]; then
+    if [ -z "$PERL" ]; then
+        echo
+        echo "You need perl in your PATH to make a build from GIT."
+        echo "Cannot proceed."
+        exit 1
+    fi
+
+    "$relpath/bin/syncqt.pl" -version $QT_VERSION -minimal -module QtCore "$relpath" || exit 1
+fi
+
+# $1: input variable name (awk regexp)
+# $2: optional output variable name
+# $3: optional value transformation (sed command)
+# relies on $QMAKESPEC, $COMPILER_CONF and $mkfile being set correctly, as the latter
+# is where the resulting variable is written to
+setBootstrapVariable()
+{
+    getQMakeConf "$1" | echo ${2-$1} = `if [ -n "$3" ]; then sed "$3"; else cat; fi` >> "$mkfile"
+}
+
+# build qmake
+    echo "Creating qmake..."
+    mkdir -p "$outpath/qmake" || exit
+
+        in_mkfile=$relpath/qmake/Makefile.unix
+        mkfile=$outpath/qmake/Makefile
+        if [ -f "$mkfile" ]; then
+            [ "$CFG_DEV" = "yes" ] && "$WHICH" chflags >/dev/null 2>&1 && chflags nouchg "$mkfile"
+            rm -f "$mkfile"
+        fi
+
+        echo "########################################################################" > "$mkfile"
+        echo "## This file was autogenerated by configure, all changes will be lost ##" >> "$mkfile"
+        echo "########################################################################" >> "$mkfile"
+        EXTRA_CXXFLAGS="\$(QMAKE_CXXFLAGS) \$(QMAKE_CXXFLAGS_CXX11) \$(QMAKE_CXXFLAGS_SPLIT_SECTIONS)"
+        EXTRA_LFLAGS="\$(QMAKE_LFLAGS) \$(QMAKE_LFLAGS_GCSECTIONS)"
+
+        if [ "$PLATFORM" = "irix-cc" ] || [ "$PLATFORM" = "irix-cc-64" ]; then
+	    EXTRA_LFLAGS="$EXTRA_LFLAGS -lm"
+        fi
+
+        [ "$CFG_SILENT" = "yes" ] && CC_TRANSFORM='s,^,\@,' || CC_TRANSFORM=
+        setBootstrapVariable QMAKE_CC CC "$CC_TRANSFORM"
+        setBootstrapVariable QMAKE_CXX CXX "$CC_TRANSFORM"
+        setBootstrapVariable QMAKE_CXXFLAGS
+        setBootstrapVariable QMAKE_CXXFLAGS_CXX11
+        setBootstrapVariable QMAKE_CXXFLAGS_SPLIT_SECTIONS
+        setBootstrapVariable QMAKE_LFLAGS
+        setBootstrapVariable QMAKE_LFLAGS_GCSECTIONS
+
+        if [ "$CFG_DEBUG" = "no" ] || [ "$CFG_RELEASE_TOOLS" = "yes" ]; then
+            setBootstrapVariable QMAKE_CXXFLAGS_RELEASE
+            EXTRA_CXXFLAGS="$EXTRA_CXXFLAGS \$(QMAKE_CXXFLAGS_RELEASE)"
+        else
+            setBootstrapVariable QMAKE_CXXFLAGS_DEBUG
+            EXTRA_CXXFLAGS="$EXTRA_CXXFLAGS \$(QMAKE_CXXFLAGS_DEBUG)"
+        fi
+
+	adjrelpath=`echo "$relpath" | sed 's/ /\\\\\\\\ /g'`
+	adjoutpath=`echo "$outpath" | sed 's/ /\\\\\\\\ /g'`
+	adjqmakespec=`echo "$QMAKESPEC" | sed 's/ /\\\\\\\\ /g'`
+
+        echo "BUILD_PATH = .." >> "$mkfile"
+        echo "SOURCE_PATH = $adjrelpath" >> "$mkfile"
+        if [ -e "$relpath/.git" ]; then
+            echo 'INC_PATH = $(BUILD_PATH)/include' >> "$mkfile"
+        else
+            echo 'INC_PATH = $(SOURCE_PATH)/include' >> "$mkfile"
+        fi
+        echo "QMAKESPEC = $adjqmakespec" >> "$mkfile"
+        echo "QT_VERSION = $QT_VERSION" >> "$mkfile"
+        echo "QT_MAJOR_VERSION = $QT_MAJOR_VERSION" >> "$mkfile"
+        echo "QT_MINOR_VERSION = $QT_MINOR_VERSION" >> "$mkfile"
+        echo "QT_PATCH_VERSION = $QT_PATCH_VERSION" >> "$mkfile"
+        echo "CONFIG_CXXFLAGS = $EXTRA_CXXFLAGS" >> "$mkfile"
+        echo "CONFIG_LFLAGS = $EXTRA_LFLAGS" >> "$mkfile"
+        echo "RM_F = rm -f" >> "$mkfile"
+        echo "RM_RF = rm -rf" >> "$mkfile"
+
+        case `basename "$PLATFORM"` in
+        win32-g++*)
+            cat "$in_mkfile.win32" >> "$mkfile"
+            ;;
+        *)
+            cat "$in_mkfile.unix" >> "$mkfile"
+            if [ "$BUILD_ON_MAC" = "yes" ]; then
+                cat "$in_mkfile.macos" >> "$mkfile"
+            fi
+            ;;
+        esac
+        echo >>"$mkfile"
+
+        if [ "$BUILD_ON_MAC" = "yes" ]; then
+            echo "EXTRA_CXXFLAGS += -MMD" >> "$mkfile"
+            cat "$in_mkfile" >> "$mkfile"
+            echo "-include \$(notdir \$(DEPEND_SRC:%.cpp=%.d))" >> "$mkfile"
+        else
+            cat "$in_mkfile" >> "$mkfile"
+            if "$WHICH" makedepend >/dev/null 2>&1 && grep 'depend:' "$mkfile" >/dev/null 2>&1; then
+                (cd "$outpath/qmake" && "$MAKE" -f "$mkfile" depend) >/dev/null 2>&1
+                sed 's,^.*/\([^/]*.o\):,\1:,g' "$mkfile" >"$mkfile.tmp"
+                sed "s,$outpath,$adjoutpath,g" "$mkfile.tmp" >"$mkfile"
+                rm "$mkfile.tmp"
+            fi
+        fi
+
+    if [ "$OPT_VERBOSE" = yes ]; then
+        # Show the output of make
+        (cd "$outpath/qmake"; "$MAKE") || exit 2
+    else
+        # Hide the output of make
+        # Use bash to print dots, if we have it, and stdout is a tty.
+        if test -t 1 && $WHICH bash > /dev/null 2>/dev/null; then
+            bash -c 'set -o pipefail
+                cd "$0/qmake"; "$1" | while read line; do
+                    builtin echo -n .
+                done' "$outpath" "$MAKE" || exit 2
+        else
+            (cd "$outpath/qmake"; "$MAKE" -s) || exit 2
+        fi
+        echo "Done."
+    fi
+
+#-------------------------------------------------------------------------------
+# create a qt.conf for the Qt build tree itself
+#-------------------------------------------------------------------------------
+
+printInstallPaths()
+{
+    cat <<EOF
+Documentation=$QT_REL_INSTALL_DOCS
+Headers=$QT_REL_INSTALL_HEADERS
+Libraries=$QT_REL_INSTALL_LIBS
+LibraryExecutables=$QT_REL_INSTALL_LIBEXECS
+Binaries=$QT_REL_INSTALL_BINS
+Plugins=$QT_REL_INSTALL_PLUGINS
+Imports=$QT_REL_INSTALL_IMPORTS
+Qml2Imports=$QT_REL_INSTALL_QML
+ArchData=$QT_REL_INSTALL_ARCHDATA
+Data=$QT_REL_INSTALL_DATA
+Translations=$QT_REL_INSTALL_TRANSLATIONS
+Examples=$QT_REL_INSTALL_EXAMPLES
+Tests=$QT_REL_INSTALL_TESTS
+EOF
+}
+
+QTCONFFILE="$outpath/bin/qt.conf"
+cat > "$QTCONFFILE" <<EOF
+[EffectivePaths]
+Prefix=..
+EOF
+if [ -n "$CFG_HOST_QT_TOOLS_PATH" ]; then
+    cat >> "$QTCONFFILE" <<EOF
+[DevicePaths]
+Prefix=$QT_INSTALL_PREFIX
+`printInstallPaths`
+[Paths]
+Prefix=$QT_EXT_PREFIX
+`printInstallPaths`
+HostPrefix=$QT_HOST_PREFIX
+HostBinaries=$QT_REL_HOST_BINS
+HostLibraries=$QT_REL_HOST_LIBS
+HostData=$QT_REL_HOST_DATA
+TargetSpec=$XPLATFORM
+HostSpec=$PLATFORM
+EOF
+    if [ -n "$CFG_SYSROOT" ]; then
+        cat >> "$QTCONFFILE" <<EOF
+Sysroot=$CFG_SYSROOT
+EOF
+    fi
+fi
+if [ x"$relpath" != x"$outpath" ]; then
+    cat >> "$QTCONFFILE" <<EOF
+[EffectiveSourcePaths]
+Prefix=$relpath
+EOF
+fi
+
+[ -z "$CFG_HOST_QT_TOOLS_PATH" ] && CFG_HOST_QT_TOOLS_PATH="$outpath/bin"
+CFG_QMAKE_PATH="$CFG_HOST_QT_TOOLS_PATH/qmake"
+
+#-------------------------------------------------------------------------------
+# write out device config before we run the test.
+#-------------------------------------------------------------------------------
+DEVICE_VARS_OUTFILE="$outpath/mkspecs/qdevice.pri"
+if cmp -s "$DEVICE_VARS_FILE" "$DEVICE_VARS_OUTFILE"; then
+    rm -f "$DEVICE_VARS_FILE"
+else
+    mv -f $DEVICE_VARS_FILE "$DEVICE_VARS_OUTFILE"
+    DEVICE_VARS_FILE="$DEVICE_VARS_OUTFILE"
+fi
+
+#-------------------------------------------------------------------------------
+# write out host config.
+#-------------------------------------------------------------------------------
+HOST_VARS_OUTFILE="$outpath/mkspecs/qhost.pri"
+if cmp -s "$HOST_VARS_FILE" "$HOST_VARS_OUTFILE"; then
+    rm -f "$HOST_VARS_FILE"
+else
+    mv -f $HOST_VARS_FILE "$HOST_VARS_OUTFILE"
+    HOST_VARS_FILE="$HOST_VARS_OUTFILE"
+fi
+
+#-------------------------------------------------------------------------------
+# run configure tests
+#-------------------------------------------------------------------------------
+
+# copy some variables that are still being computed in the shell script into an input file for configure
+# This should go away in the future
+
+cat > "$outpath/config.tests/configure.cfg" <<EOF
+# Feature defaults set by configure command line
+config.input.qt_edition = $Edition
+config.input.qt_licheck = $Licheck
+config.input.qt_release_date = $ReleaseDate
+EOF
+
+# recreate command line for qmake
+set -f
+SAVED_IFS=$IFS
+IFS='
+'
+for i in $QMAKE_CMDLINE; do
+    set -- "$@" "$i"
+done
+set +f
+IFS=$SAVED_IFS
+
+#-------------------------------------------------------------------------------
+# configure and build top-level makefile
+#-------------------------------------------------------------------------------
+
+if [ -n "$CFG_TOPLEVEL" ]; then
+    cd ..
+fi
+
+"$CFG_QMAKE_PATH" -qtconf "$QTCONFFILE" "$relpathMangled" -- "$@" || exit
+
+#-------------------------------------------------------------------------------
+# finally save the executed command to another script
+#-------------------------------------------------------------------------------
+if [ $CFG_REDO = no ]; then
+    if [ "$OPT_CONFIRM_LICENSE" = "no" ]; then
+        OPT_CMDLINE="$OPT_CMDLINE
+-confirm-license"
+    fi
+
+    # skip first line, as it's always empty due to unconditional field separation
+    echo "$OPT_CMDLINE" | tail -n +2 > config.opt
+
+    [ -f "config.status" ] && rm -f config.status
+    echo "#!/bin/sh" > config.status
+    echo "$relpathMangled/$relconf -redo \"\$@\"" >> config.status
+    chmod +x config.status
+fi
+
+#-------------------------------------------------------------------------------
+# final notes for the user
+#-------------------------------------------------------------------------------
+
+if [ -n "$PLATFORM_NOTES" ]; then
+    echo
+    echo "Platform notes:"
+    echo "$PLATFORM_NOTES"
+else
+    echo
+fi
+
+if [ -n "$PREFIX_COMPLAINTS" ]; then
+    echo
+    echo "$PREFIX_COMPLAINTS"
+    echo
+fi
+
+MAKE=`basename "$MAKE"`
+echo
+echo Qt is now configured for building. Just run \'$MAKE\'.
+if [ "$outpath" = "$QT_INSTALL_PREFIX" ]; then
+    echo Once everything is built, Qt is installed.
+    echo You should not run \'$MAKE install\'.
+else
+    echo Once everything is built, you must run \'$MAKE install\'.
+    echo Qt will be installed into $QT_INSTALL_PREFIX
+fi
+echo
+echo Prior to reconfiguration, make sure you remove any leftovers from
+echo the previous build.
+echo

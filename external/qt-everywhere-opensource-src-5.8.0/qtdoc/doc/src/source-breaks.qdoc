@@ -1,0 +1,806 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page sourcebreaks.html
+\title C++ API changes
+\brief Lists the source incompatible API changes in Qt 5.
+
+Qt 5 introduces some source incompatible changes. Here we list some important
+ones, but you can find more complete lists in
+\c {<Qt 5 Install Dir>/qtbase/dist/changes-5.x.x}.
+
+The following sections list the API changes in each module and provide
+recommendations for handling those changes.
+
+\section1 Changes to Qt Core
+    \list
+     \li \l{QLibrary::resolve()} now returns a function pointer instead of \c{void} pointer.
+     \li \c{QLibraryInfo::buildKey()} and the corresponding \c{QT_BUILD_KEY} macro are removed.
+         You must remove all references to this function and macro, as build key is not necessary now.
+     \li The \l{QTranslator::translate()} function signature is changed to set the default value of \c{n} to -1.
+          We recommend you to update the implementation of this virtual function in your sources.
+     \li \c{QBool} is removed. In Qt 4, \l{QString::contains()}, \l{QByteArray::contains()}, and \l{QList::contains()}
+         returned an internal \c{QBool} type so that the Qt3 code
+        \c{if (a.contains() == 2)} would not compile anymore.
+         If your code uses \c{QBool}, replace it with \c{bool}.
+     \li The \c{QUuid::operator QString()} implicit conversion operator is
+         removed. Use the \l{QUuid::toString()} function instead.
+    \li \l{QProcess::ForwardedChannels} no longer forwards the output to the
+        GUI applications on the Windows platform, unless those applications
+        create a console.
+    \li \c{QSystemLocale} is not public anymore. Use \l{QLocale} instead.
+    \li Default value of the \l{QSortFilterProxyModel::dynamicSortFilter}
+        property is changed to \c{true}.
+    \li \c{QTextCodecPlugin} is removed as all the text codecs are part of
+        Qt Core now.
+    \li \c{QFSFileEngine}, \c{QAbstractFileEngine}, \c{QAbstractFileEngineIterator},
+        and \c{QAbstractFileEngineHandler} are no longer public.
+        We recommend you to avoid using these classes as there is no
+        compatibility promise.
+    \li \l{qDebug()}, \l{qWarning()}, \l{qCritical()}, and \l{qFatal()} are
+        changed to macros now to track the origin of the message in source code.
+        The information to be printed can be configured (for the default message
+        handler) by setting the new \c{QT_MESSAGE_PATTERN} environment variable.
+        \l{qInstallMsgHandler()} is deprecated, so we recommend using
+        \l{qInstallMessageHandler()} instead.
+    \li \l{QPointer} is changed to use \l{QWeakPointer}. The old guard mechanism
+        has been removed, which causes a slight change in behavior when using
+        \l{QPointer}. In earlier Qt versions, if a \l{QPointer} is used on a
+        \l{QWidget} (or a subclass of QWidget), the \l{QPointer} was cleared by
+        the \l{QWidget} destructor. In Qt 5, the \l{QPointer} is cleared by the
+        \l{QObject} destructor along with the \l{QWeakPointer}s. Any
+        \l{QPointer} tracking a widget is not cleared before the \l{QWidget}
+        destructor destroys the children for the widget being tracked.
+    \li \l{Qt::WFlags} is deprecated, use \l{Qt::WindowFlags} instead.
+        This typedef dates from the Qt 1 days, and such abbreviations are not
+        current Qt style.
+    \li \l{Qt::HANDLE} typedef is now defined as \c{void *} on all platforms.
+    \li The non-atomic convenience methods of \l QAtomicInt and
+        \l QAtomicPointer (that is, \c operator=, \c {operator int},
+        \c {operator T*}, \c operator!, \c operator==, \c operator!=, and
+        \c operator->) have been removed as they performed implicit loads and
+        stores of unspecified memory ordering. Code dealing with loading and
+        storing is expected to use \c load(), \c loadAquire(), \c store(), and
+        \c storeRelease(), instead.
+    \li The return type of \c {QFlags<Enum>::operator int()} matches the enum's
+        underlying type (signed or unsigned) instead of always being \c int.
+        This allows QFlags over enums of the unsigned type (for example,
+        Qt::MouseButton).
+    \li Because of major changes in the behavior of
+        \l QTextBoundaryFinder::boundaryReasons(), the \c StartWord and
+        \c EndWord enum values were replaced with the \c StartOfItem and
+        \c EndOfItem values to enforce revision of the affected code.
+    \li A number of functions in <QtAlgorithms> are deprecated. Use the
+        implementations available in the STL, as described in
+        \l{Porting Guidelines}.
+    \li \c {setSharable()} and \c {isSharable()} in Qt containers are
+        deprecated and will be removed in Qt 6. You should not use them in new
+        applications. If you used them in existing applications, even though
+        they are not documented, you should port away from them.
+    \endlist
+
+    \section2 Changes to QAction
+
+    The Softkeys API is removed, so the following functions and enums are
+    removed:
+
+    \list
+        \li \c QAction::setSoftKeyRole()
+        \li \c QAction::softKeyRole()
+        \li \c QAction::SoftKeyRole
+        \li \c Qt::WA_MergeSoftkeys
+        \li \c Qt::WA_MergeSoftkeysRecursively
+        \li \c Qt::WindowSoftkeysVisibleHint
+        \li \c Qt::WindowSoftkeysRespondHint
+    \endlist
+
+    \section2 Changes to QChar
+
+    \list
+        \li \c{QChar::NoCategory} is removed. The \l{QChar::Other_NotAssigned}
+            enum value is returned for unassigned codepoints now.
+        \li \l{QChar::Joining} and \l{QChar::joining()} are deprecated. Use the
+            \l{QChar::JoiningType} enum and \l{QChar::joiningType()} function
+            instead.
+    \endlist
+
+    \section2 Changes to QCoreApplication
+
+    \list
+        \li \l{QCoreApplication::translate()} no longer returns the source text
+            if the translation is empty. Use the Qt Linguist Release tool
+            (\c{lrelease -removeidentical}) instead for optimization.
+        \li \c{QCoreApplication::setEventFilter()} and
+            \c{QApplication::x11EventFilter/macEventFilter/qwsEventFilter/winEventFilter}
+            are replaced with \l{QCoreApplication::installNativeEventFilter()}
+            and \l{QCoreApplication::removeNativeEventFilter()} for an API much
+            closer to QEvent filtering.
+            \note The native events that can be filtered this way depend on the
+            \l{Qt Platform Abstraction}{QPA} backend chosen at runtime. On X11,
+            XEvents are replaced with
+            \c{xcb_generic_event_t} due to the switch to XCB, which requires
+            porting the application code to XCB as well.
+        \li \c QCoreApplication::Type and \c QApplication::type() are removed.
+            These Qt 3 legacy application types did not match the application
+            types available in Qt 5. Use \c qobject_cast instead to dynamically
+            find out the exact application type.
+        \li \l{QCoreApplication::hasPendingEvents} and
+            \l{QAbstractEventDispatcher::hasPendingEvents} are deprecated.
+    \endlist
+
+    \section2 Changes to QEvent
+
+    \list
+        \li \c{QEvent::AccessibilityPrepare}, \c{QEvent::AccessibilityHelp}, and
+            \c{QEvent::AccessibilityDescription} are removed.
+        \li \l{QEvent::TouchCancel} is introduced to use it on systems where it
+            makes sense to differentiate between a regular \l{QEvent::TouchEnd}
+            and abrupt touch sequence cancellations caused by the compositor.
+            For example, when a swype gesture is recognized.
+    \endlist
+
+    \section2 Changes to QFile
+
+    \list
+        \li \l{QFile::setEncodingFunction()} and \l{QFile::setDecodingFunction()}
+            are deprecated.
+        \li \l{QFile::encodeName()} and \l{QFile::decodeName()} are now
+            hard-coded to operate\ on \l{QString::fromLocal8Bit()} and
+            \l{QString::toLocal8Bit()} only. The old behavior is still possible
+            using \l{QTextCodec::setCodecForLocale()}, but the new code should
+            not make assumptions about the file system encoding and older code
+            should remove such assumptions.
+    \endlist
+
+    \section2 Changes to QFont
+
+    \list
+        \li \c QFont::handle() is removed.
+        \li \l{QFont::rawName()} and \l{QFont::setRawName()} are deprecated.
+    \endlist
+
+    \section2 Changes to QMetaType
+
+      \list
+       \li \c{QMetaType::construct()} is renamed as \l{QMetaType::create()}.
+       \li \c{QMetaType::unregisterType()} is removed.
+       \li \l{QMetaType} now records whether the type argument inherits QObject.
+            Such information can be useful for scripting APIs, so that custom QObject subclasses
+            are treated as QObject pointers. For example, in \l{Qt Script} this
+            means \l{QScriptValue::isQObject()} can be \c true, where it was
+            \c false before.
+       \li \c{QMetaType::QWidgetStar} is removed. Use \l{qMetaTypeId()}{qMetaTypeId<QWidget*>()}
+           or \l{QVariant::canConvert()}{QVariant::canConvert<QWidget*>()} instead.
+       \li \c{Q_DECLARE_METATYPE(type)} now requires \c{type} to be fully defined.
+           This means, \c{Q_DECLARE_METATYPE(QSharedPointer<t>)} and \c{Q_DECLARE_METATYPE(QWeakPointer<t>)}
+           also need \c{type} to be fully defined.
+           In cases where a forward declared type is needed as a meta-type, use \c{Q_DECLARE_OPAQUE_POINTER(type)}.
+      \endlist
+
+    \section2 Changes to QMetaMethod
+
+      \list
+       \li \c{QMetaMethod::signature()} is renamed as \l{QMetaMethod::methodSignature()},
+            and the return type is changed to \l{QByteArray}. This change is to enable
+            generating the signature string on demand, rather than storing it in
+            the meta-data.
+        \li \l{QMetaMethod::typeName()} no longer returns an empty string if the return
+            type is \c{void}, instead it returns \c{"void"}. The recommended way of checking whether a
+            method returns \c{void} is to compare the return value of \l{QMetaMethod::returnType()}
+            with \l{QMetaType::Void}.
+       \endlist
+
+    \section2 Changes to QObject
+
+    \list
+        \li \l{QObject::connectNotify()} and \l {QObject::disconnectNotify()}
+            now need a \l{QMetaMethod} argument that identifies the signal,
+            rather than a \c{const char} pointer.
+        \li \l{QObject::trUtf8()} and \c{QCoreApplication::Encoding} are
+            deprecated. Qt assumes that the source code is encoded in UTF-8.
+    \endlist
+
+    \section2 Changes to QVariant
+
+     \list
+     \li The \l{QVariant} constructor which takes \l{Qt::GlobalColor} argument is removed.
+          Code constructing such variants must explicitly call \l{QColor} constructor now.
+          For example, instead of \c{QVariant(Qt::red)}, use
+          \c{QVariant(QColor(Qt::red))} to create a \l{QVariant} instance.
+     \li Implicit creation of QVariant objects from the enum values Qt::BrushStyle,
+         Qt::PenStyle, and Qt::CursorShape has been removed. Create objects
+         explicitly or use \c static_cast<int>(Qt::SolidLine) to create a
+         QVariant of type \c int with the same value as the enum.
+     \endlist
+
+    \section2 Changes to QAbstractEventDispatcher
+
+      \list
+       \li The signature for the pure-virtual \c{registerTimer()} function is changed.
+           All subclasses of \l{QAbstractEventDispatcher} must re-implement the function
+           with this new signature:
+
+           \code
+              virtual void registerTimer(int timerId, int interval,Qt::TimerType timerType, QObject *object) = 0;
+           \endcode
+       \li QAbstractEventDispatcher::TimerInfo is no longer a \c{typedef} of \c{QPair<int, int>}.
+           It is now a \c{struct} with 3 members: \c{int timerId}, \c{int interval}, and \c{Qt::TimerType timerType}.
+           Update the \l{QAbstractEventDispatcher::registeredTimers()} function
+           with this change.
+      \endlist
+
+    \section2 Changes to QDir
+
+      \list
+       \li The \c{convertSeparators()} function is removed. Use \l{QDir::toNativeSeparators()} instead.
+       \li The \c{QDir::NoDotAndDotDot} enum value is removed. Use \l{QDir::NoDot} or \l{QDir::NoDotDot} instead.
+      \endlist
+
+    \section2 Changes to QLocale
+
+     \list
+     \li The QLocale data has been updated to CLDR 22.1. The historical language
+         and country names were updated to their modern values and some
+         deprecated names were dropped or mapped to their modern alternatives.
+     \li The \l{QLocale::toShort()}, \l{QLocale::toUShort()}, \l{QLocale::toInt()},
+         \l{QLocale::toUInt()}, \l{QLocale::toLongLong()}, and \l{QLocale::toULongLong()} functions
+         no longer take the argument for base. They localize base 10 conversions. To convert other bases, use the \l{QString} functions instead.
+     \endlist
+
+    \section2 Changes to QAbstractItemModel
+
+      \list
+       \li \l{QAbstractItemModel::beginMoveRows()} no longer emits the
+            \c{layoutAboutToBeChanged} signal, and \l{QAbstractItemModel::endMoveRows()}
+            no longer emits the \c{layoutChanged} signal.
+            All proxy models must connect to (and disconnect from) the
+            \l{QAbstractItemModel::rowsAboutToBeMoved} and
+            \l{QAbstractItemModel::rowsMoved} signals.
+       \li \l{QAbstractItemModel::sibling()} is virtual now to allow implementations to optimize based on internal data.
+       \li \l{QAbstractItemModel::createIndex()} method now only provides the
+            \c void* and \c quintptr overloads, making calls with a literal \c 0
+            (\c{createIndex(row, col, 0)}) ambiguous. Either cast
+            \c{quintptr(0)} or omit the third argument to get the \c void*
+            overload.
+       \li \l{QAbstractItemModel::setRoleNames()} is deprecated. Use \l{QAbstractItemModel::roleNames()} instead.
+           \l{QAbstractItemModel::roleNames()} is virtual now to allow a consistent API with the rest of QAbstractItemModel. Reimplementing the virtual methods to provide the elements is preferred to setting those directly.
+      \endlist
+
+    \section2 Changes to QString
+
+    \list
+     \li \l{QString} and \l{QByteArray} constructors now use a negative size to
+         indicate that the string passed is null-terminated (a null-terminated
+         array of \l{QChar}, in the case of QString). In Qt 4, negative sizes
+         were ignored, which resulted in empty \l{QString} and \l{QByteArray}.
+         The size argument now has a default value of \c -1, replacing the
+         separate constructors that did the same.
+     \li \l{QString::mid()}, \l{QString::midRef()}, and \l{QByteArray::mid()} now return an empty \c{QString}, \c{QStringRef}, and \c{QByteArray} respectively,
+         if the position passed is equal to the length (that is, right after the
+         last character or byte).
+         In Qt 4, they returned a null \c{QString} or a null \c{QStringRef}.
+     \li The following \l{QString} functions use the C locale instead of the default or system locale:
+      \list
+       \li \l{QString::toLongLong()}{toLongLong()}
+       \li \l{QString::toULongLong()}{toULongLong()}
+       \li \l{QString::toLong()}{toLong()}
+       \li \l{QString::toULong()}{toULong()}
+       \li \l{QString::toInt()}{toInt()}
+       \li \l{QString::toUInt()}{toUInt()}
+       \li \l{QString::toShort()}{toShort()}
+       \li \l{QString::toUShort()}{toUShort()}
+       \li \l{QString::toDouble()}{toDouble()}
+       \li \l{QString::toFloat()}{toFloat()}
+      \endlist
+      This is to guarantee consistent default conversion of strings. For locale-aware conversions
+      use the equivalent \l{QLocale} functions.
+    \endlist
+
+    \section2 Changes to QDate, QTime, and QDateTime
+
+      \list
+       \li QDate only implements the Gregorian calendar, and the switch to the Julian
+           calendar before 1582 has been removed. This means all QDate functions return
+           different results for dates prior to 15 October 1582, and there is
+           no longer a gap between 4 October 1582 and 15 October 1582.
+       \li \l{QDate::setYMD()} is deprecated, use \l{QDate::setDate()} instead.
+       \li Adding days to a null QDate or seconds to a null QTime will no longer return a valid QDate/QTime.
+       \li The \l{QDate::addDays()} and QDateTime::addDays() functions now take
+           a \c{qint64} argument, and the \l{QDate::daysTo()} and
+           \l{QDateTime::daysTo()} functions now return a \c{qint64} value.
+       \li \l QDate and \l QTime are the \c userProperty for the \l QTimeEdit
+           and \l QDateEdit classes, insted of QDateTime as it was for the 4.7
+           and 4.8 releases. The USER property for these classes was removed
+           before Qt 4.7.0 and added again in Qt 5.0.
+       \li The serialization behavior for \l QDateTime is reverted to pre-Qt 5,
+           because \l Qt::LocalTime is the local time (that is, \c {ymd hms})
+           regardless of the underlying system time, time zone, or changes in
+           the system zone. Therefore, the consistent behavior when serialising
+           is to save and restore as the local time and not its UTC equivalent.
+           This means that the \l QDataStream version is 14 since Qt 5.1.
+       \li The supported date range in \l QDateTime has been reduced to about
+           +/- 292 million years, the range supported by the number of msecs
+            since the Unix epoch of 1 Jan 1970 as stored in a \c qint64, and as
+            able to be used in \l{QDateTime::setMSecsSinceEpoch()} and
+            \l{QDateTime::toMSecsSinceEpoch()}.
+        \li \l{QDate::fromString()} and \l{QDateTime::fromString()} require
+            non-numeric date component separators when parsing \l{Qt::ISODate}.
+            A string like \e 2000901901 will no longer be recognized as a valid
+            ISO date, whereas \e 2000/01/01 will, even though it differs from
+            the ISO format \e 2000-01-01.
+      \endlist
+
+    \section2 Changes to QTextCodec
+
+        \list
+         \li \c{QTextCodec::codecForCStrings()} and \c{QTextCodec::setCodecForCStrings()} are removed as they were
+             creating uncertainty/bugs in using QString easily and (to a lesser extent) performance issues.
+         \li \c{QTextCodec::codecForTr()} and \c{QTextCodec::setCodecForTr()} are removed.
+        \endlist
+
+    \section2 Changes to QUrl
+
+    \l{QUrl} changed considerably in Qt 5 to comply better with the URL
+    specifications and with brokenness out there. The following list summarizes
+    the most important functional changes:
+
+    \list
+     \li \l{QUrl::setPath()} no longer handles relative paths. They are by
+         definition invalid. Use the \l{QUrl::NormalizePathSegments} flag to
+         remove /./ or /../ sequences as much as possible. It will not
+         remove /../ from the beginning of the path.
+     \li \l{QUrl} has been changed to operate only on percent-encoded forms. Fully-decoded forms where the percent character stands for itself,
+         can no longer be encoded, as the getters and setters with \e encoded
+         in the name are deprecated (except \l{QUrl::toEncoded()} and
+         \l{QUrl::fromEncoded()}).
+
+         The most notable difference with this change is when dealing with
+         \l{QUrl::toString()}. In earlier Qt versions, this function would
+         return percent characters in the URL, but now it returns \e %25 like
+         \l{QUrl::toEncoded()} does.
+    \li \l{QUrl} no longer decodes %7B and %7D to "{" and "}" in the
+        output of \l{QUrl::toString()}.
+    \li \l{QUrl} now defaults to decoded mode in the getters and setters for
+        \c userName, \c password, \c host, \c topLevelDomain, \c path and
+        \c fileName. This means a % in one of those fields is now returned (or
+        set) as \c % rather than \c %25. If the former behavior was expected,
+        pass \c PrettyDecoded to the getter and \c TolerantMode to the
+        setter.
+    \li \l{QUrl} no longer has functions that handle individual query items and query delimiters, such as \c addQueryItem() and \c queryPairDelimiter().
+        These have been moved to the new \l{QUrlQuery} class.
+    \li \l{QUrl} no longer considers all delimiter characters equivalent to
+        their percent-encoded forms. \l{QUrl} and \l{QUrlQuery} always keep
+        all delimiters exactly as they were in the original URL text.
+    \li \l{QUrl} no longer supports \l{QUrl::FullyDecoded} mode in
+        \l{QUrl::authority()} and \l{QUrl::userInfo()}, nor \l{QUrl::DecodedMode}
+        in \l{QUrl::setAuthority()} and \l{QUrl::setUserInfo()}.
+    \li \l{QUrl} no longer decodes %23 found in the fragment to "#"
+        in the output of \l{QUrl::toString} (\c FullyEncoded) or
+        \l{QUrl::toEncoded()}.
+    \endlist
+
+    \section1 Changes to Qt Concurrent
+
+    \l{Qt Concurrent} has been moved from \l {Qt Core} to its own module. To
+    link against the Qt Core module, add this line to the project file:
+
+    \code
+    QT += concurrent
+    \endcode
+
+    \note The \c {QtConcurrent::Exception} class is renamed \l{QException} and
+    \c {QtConcurrent::UnhandledException} class is renamed
+    \l{QUnhandledException}. They remain in Qt Core.
+
+\section1 Changes to Qt GUI
+    \list
+     \li \l{QPen} now has a default width of 1 instead of 0. Thus, it is no longer \l{QPen::isCosmetic()}{cosmetic} by default.
+     \li \l{QAccessibleActionInterface} is now based on providing a list of
+         action names. All functions have been changed to take arguments of type
+         \c string insted of \c{int}.
+     \li The constructor of \l{QAccessibleEvent} does not need the \c{child} parameter anymore,
+         and the corresponding \c{QAccessibleEvent::child()} function is removed.
+     \li The constructor of \l{QTabletEvent} does not need the \c{hiResGlobalPos} argument anymore,
+          as all coordinates are floating point-based now.
+     \li \c{QIconEngineV2} is now merged into \l{QIconEngine}. Update your sources to use \c{QIconEngine} instead of \c{QIconEngineV2}.
+     \li \l{QSound} is moved to Qt Multimedia from Qt GUI.
+    \li \c QDesktopServices::storageLocation() and \c QDesktopServices::displayName() are replaced by \l{QStandardPaths::writableLocation()}
+        and \l{QStandardPaths::displayName()} respectively. They are now in the \l{Qt Core} module.
+        Make sure to read the \l{QDesktopServices::storageLocation()} documentation when porting from \l{QDesktopServices::DataLocation}.
+    \li \c QPixmap::grabWindow() and \c QPixmap::grabWidget() are removed. Use \l{QScreen::grabWindow()} instead.
+    \li The session management API has been simplified. The \c commitData()
+        function is removed and replaced by the signal
+        \l{QGuiApplication::commitDataRequest()}. \l QApplication and
+        \l QGuiApplication will emit this signal from 5.2 onward on supported
+        platforms (Linux and Windows).
+    \li \c{QWidget *widget()} is replaced with \c {QObject *target()} to avoid
+        \l{QWidget} dependencies.
+    \endlist
+
+    \section2 Changes to QAccessibleInterface
+
+    \list
+        \li The \e child integer parameters are removed to bring
+            \l{QAccessibleInterface} closer to IAccessible2. This means that
+            the following functions lose the integer parameter:
+            \list
+                \li \c{text(Text t, int child)} is now
+                    \l{QAccessibleInterface::text()}{text(Text t)}
+                \li \c{rect(int child)} is now
+                    \l{QAccessibleInterface::rect()}{rect()}
+                \li \c{setText(Text t, int child, const QString &text)} is now
+                    \l{QAccessibleInterface::setText()}{setText(Text t, const QString &text)}
+                \li \c{role(int child)} is now \l{QAccessibleInterface::role()}
+                    {role()}
+                \li \c{state(int child)} is now
+                    \l{QAccessibleInterface::state()}{state()}
+            \endlist
+        \li \c{navigate()} is replaced with \l{QAccessibleInterface::parent()}
+            {parent()} and \l{QAccessibleInterface::child()}{child()} to
+            navigate the hierarchy.
+        \li \c{relationTo()} is replaced with
+            \l{QAccessibleInterface::relations()}{relations()}.
+        \li \c{QAccessibleInterface::userActionCount()},
+            \c{QAccessibleInterface::actionText()}, and
+            \c{QAccessibleInterface::doAction()} are removed.
+            We recommend using the \l{QAccessibleInterface} subclasses to
+            implement the \l{QAccessibleActionInterface} instead.
+      \endlist
+
+    \section2 Changes to QImage
+
+    \list
+        \li \l{QImage::fill()} on an image with format \c{Format_RGB888} now
+            expects image data in RGB layout as opposed to BGR layout.
+            This is to ensure consistency with RGB32 and other 32-bit formats.
+        \li The behavior of \l{QImage::load()}, \l{QImage::loadFromData()},
+            \l{QPixmap::load()}, and \l{QPixmap::loadFromData()} on a non-null
+            image changed so that if the functions fail to load the image
+            (return \c false), the the existent image data is invalidated, so
+            that \c isNull() is guaranteed to return \c true in this case.
+    \endlist
+
+    \section2 Changes to QPainter
+
+    \list
+        \li \l{QPainter} does not support uniting clipped regions anymore. Use
+            \l{QRegion::united()} instead to unite clips and pass the result to
+            \l{QPainter}.
+        \li \l{QPainter} fill rules when not using antialiased painting
+            have changed so that the aliased and antialiased coordinate systems
+            match. There used to be an offset of slightly less than half a pixel
+            when doing sub-pixel rendering, in order to be consistent with the
+            old X11 paint engine. The new behavior should be more predictable
+            and give the same consistent rounding for images and pixmaps as for
+            paths and rectangle filling. To get the old behavior, set the
+            \l{QPainter::Qt4CompatiblePainting} render hint.
+    \endlist
+
+    \section2 Changes to QTouchEvent
+
+      \list
+       \li \l{QTouchEvent::DeviceType} and \l{QTouchEvent::deviceType()} are deprecated
+           as \l{QTouchDevice} provides a better way to identify and access the
+           device from which the events originate.
+       \li The constructor now takes a \l{QTouchDevice} pointer instead of \c{DeviceType} value.
+       \li \c TouchPointStateMask and \c TouchPointPrimary are removed from the
+           \l{Qt::TouchPointStates} enum.
+       \li \c{QTouchEvent::TouchPoint::isPrimary()} is removed.
+
+      \endlist
+
+\section1 Changes to Qt Widgets
+    \list
+     \li \l{QItemEditorFactory::createEditor()} and
+         \l{QItemEditorFactory::valuePropertyName()} signatures
+         are changed to take arguments of type \c{int} instead of \l{QVariant::Type}.
+     \li \c{QInputContext} is removed as related getter and setter functions in \l{QWidget} and \l{QApplication} are removed.
+         Input contexts are now platform-specific.
+     \li \l{QInputDialog::getInteger()} is deprecated. Use \l{QInputDialog::getInt()} instead.
+    \li The \c{QStyleOption*V{2,3,4}} classes are removed, and their members
+        are merged with the respective base classes. The removed classes are
+        left as typedefs for binary compatibility.
+    \li \l{QGraphicsItem} and its derived classes can no longer pass a
+        \l{QGraphicsScene} to the item's constructor.
+        Construct the item without a scene and call \l{QGraphicsScene::addItem()}
+        to add the item to the scene.
+    \li \c{QProxyModel} is removed. Use \l{QAbstractProxyModel} and the related
+        classes instead. A copy of \c{QProxyModel} is available in the
+        \l{http://wiki.qt.io/Qt_5_UI_Helpers}{Ui Helpers} repository.
+     \endlist
+
+    \section2 Changes to QApplication
+
+    \list
+        \li \c QApplication::setGraphicsSystem() is removed, because the
+            introduction  of \l{Qt Platform Abstraction}{QPA} made it redundant.
+        \li \c{QApplication::commitData} and \c{QApplication::saveState} virtual
+            methods that were used for session management are removed. Connect
+            to the \l{QApplication::commitDataRequest} and
+            \l{QApplication::saveStateRequest} signals instead. Use
+            \l{QApplication::isSavingSession()} if the \l{QWidget::closeEvent}
+            if your window needs to know whether it is being called during
+            shutdown.
+    \endlist
+
+    \section2 Changes to QStyle
+
+    \list
+     \li \c{QStyle::standardIconImplementation()} and \c{QStyle::layoutSpacingImplementation()} are removed,
+         and the \l{QStyle::standardIcon()} and \l{QStyle::layoutSpacing()} functions are made pure virtual now.
+         The removed functions were introduced in Qt 4 for binary compatibility reasons.
+    \li \c QMotifStyle, \c QPlastiqueStyle, \c QCleanlooksStyle, and \c QCDEStyle are
+        replaced with a new \e fusion style. If your application depends
+        on any of these removed styles, you can either use the
+        \l{http://code.qt.io/cgit/qt/qtstyleplugins.git/}{qtstyleplugins} project
+        to get these styles or update your application to use the new fusion style.
+        For more details about this change, see
+        \l{https://blog.qt.io/blog/2012/10/30/cleaning-up-styles-in-qt5-and-adding-fusion/}.
+    \li The following QStyle implementations have been made internal:
+        \list
+            \li QFusionStyle
+            \li QGtkStyle
+            \li QMacStyle
+            \li QWindowsCEStyle
+            \li QWindowsMobileStyle
+            \li QWindowsStyle
+            \li QWindowsVistaStyle
+            \li QWindowsXPStyle
+        \endlist
+
+    Instead of creating instances or inheriting these classes directly, use:
+        \list
+            \li QStyleFactory for creating instances of specific styles.
+            \li QProxyStyle for customizing existing style implementations.
+            \li QCommonStyle as a base for implementing full custom styles.
+        \endlist
+    \endlist
+
+    \section2 Changes to QHeaderView
+
+    The following functions are deprecated:
+      \list
+       \li \c{void setMovable(bool movable)} - Use \l{QHeaderView::setSectionsMovable()} instead.
+       \li \c{bool isMovable() const} - Use \l{QHeaderView::sectionsMovable()} instead.
+       \li \c{void setClickable(bool clickable)} - Use \l{QHeaderView::setSectionsClickable()} instead.
+       \li \c{bool isClickable() const} - Use \l{QHeaderView::sectionsClickable()} instead.
+       \li \c{void setResizeMode(int logicalindex, ResizeMode mode)} - Use \l{QHeaderView::setSectionResizeMode()} instead.
+       \li \c{ResizeMode resizeMode(int logicalindex) const} - Use \l{QHeaderView::sectionResizeMode()} instead.
+      \endlist
+
+    \section2 Changes to QAbstractItemView
+
+     \list
+      \li The derived classes now emit the \c{clicked()} signal on the left mouse click only, instead of all mouse clicks.
+      \li The virtual \l{QAbstractItemView::dataChanged()} function signature
+          now includes the roles that have changed.
+          The signature is consistent with the \c{dataChanged()} signal in the model.
+      \endlist
+
+    \section2 Changes to QColorDialog
+
+    \list
+     \li \l{QColorDialog::customColor()} now returns a \l{QColor} value instead of \c{QRgb}.
+     \li \l{QColorDialog::setCustomColor()} and \l{QColorDialog::setStandardColor()}
+         now need a \l{QColor} value as
+         their second parameter instead of \c{QRgb}.
+    \endlist
+
+\section1 Changes to Qt WebKit
+    \list
+     \li The WebKit module in Qt is now split in two modules, \c{webkit} and \c{webkitwidgets}, in order to allow the dependency of
+         the \c{widgets} module to be optional. The benefits will only be
+         available once the QQuickWebView API is made public
+         through C++ in a future version. The \c{webkitwidgets} module adds the \c{webkit} module automatically to the project,
+         so in your application's project file, \c{QT += webkit} should now be modified to:
+         \code
+             QT += webkitwidgets
+         \endcode
+     \li The same applies to the module include, \c{#include <QtWebKit/QtWebKit>} should be modified to:
+         \code
+             #include <QtWebKitWidgets/QtWebKitWidgets>
+         \endcode
+     \li A consequence of the module split is that classes of the \l{Qt WebKit} API aren't all in the new module, so for a better
+         compatibility of your application with both Qt4 and Qt5, #include <QtWebKit/QWebPage>, for example, should be included
+         directly as:
+         \code
+             #include <QWebPage>
+         \endcode
+         The include path will take care of selecting the right module.
+     \li The qwebkitversion.h header has been renamed to q\b{t}webkitversion.h to match other Qt modules, and part of its
+         contents has been moved to qwebkitglobal.h. \c{#include <qwebkitversion.h>} should be replaced with
+         two includes:
+         \code
+             #include <qtwebkitversion.h>
+             #include <qwebkitglobal.h>
+         \endcode
+    \endlist
+
+\section1 Changes to Qt Print Support
+    \list
+     \li The \c{QPageSetupDialog::PageSetupDialogOption} enum and the corresponding set and get functions, \c{QPageSetupDialog::options()}
+         and \c{QPageSetupDialog::setOptions()} are removed.
+     \li Support for printing PostScript files has been removed.
+     \li The \c QAbstractPageSetupDialog class is removed. Use \l QPrintDialog
+         instead.
+     \li The \l{QPrintEngine::PrintEnginePropertyKey} enum value
+         \c PPK_SuppressSystemPrintStatus is removed.
+    \li \l{QPrinter} no longer allows you to set an invalid printer name.
+    \endlist
+
+\section1 Changes to Qt Network
+    \list
+     \li The \c{QSsl::TlsV1} enum value is renamed as \l{QSsl::TlsV1_0}.
+     \li The \c QHttp, \c QHttpHeader, \c QHttpResponseHeader, and
+         \c QHttpRequestHeader classes are removed. Use \l QNetworkAccessManager
+         instead.
+     \li The \c QFtp and \c QUrlInfo classes are no longer exported. Use
+         \l QNetworkAccessManager instead.
+         Programs that require raw FTP or HTTP streams can use the
+         \l{Qt FTP} and \l{Qt HTTP} compatibility add-on modules that provide
+         the \c{QFtp} and \c{QHttp} classes as they existed in Qt 4.
+     \li \l{QAbstractSocket::connectToHost()} and \l{QAbstractSocket::disconnectFromHost()}
+         are virtual now,
+         and \c{QAbstractSocket::connectToHostImplementation()} and \c{QAbstractSocket::disconnectFromHostImplementation()} are removed.
+     \li \l{QTcpServer::incomingConnection()} now takes arguments of type
+         \c{qintptr} instead of an \c{int}.
+     \li \c{QNetworkConfiguration::bearerName()} is removed. Use the \l{QNetworkConfiguration::bearerTypeName()}{bearerTypeName()} instead.
+    \endlist
+
+    \section2 Changes to QSslCertificate
+
+    \list
+        \li \l{QSslCertificate::subjectInfo()} and \l{QSslCertificate::issuerInfo()}
+            now return QStringList instead of a QString. This change makes
+            searching the required information a lot easier than scanning a long
+            string.
+        \li \l{QSslCertificate::isValid()} is deprecated. Use
+            \l{QSslCertificate::isBlacklisted()} instead to avoid binary breaks
+            in the future.
+        \li \l{QSslCertificate::alternateSubjectNames()} is deprecated. Use
+            \l{QSslCertificate::subjectAlternativeNames()} instead.
+    \endlist
+
+\section1 Changes to Qt SQL
+    \list
+     \li \l{QSqlQueryModel::indexInQuery()} is virtual now.
+     \li \l{QSqlQueryModel::setQuery()} emits fewer signals. The \c{modelAboutToBeReset()}
+         and \c{modelReset()} signals are sufficient to inform views that they must re-interrogate
+         the model.
+     \li \l{QSqlDriver::subscribeToNotification()}, \l{QSqlDriver::unsubscribeFromNotification()},
+         \l{QSqlDriver::subscribedToNotifications()}, \l{QSqlDriver::isIdentifierEscaped()}, and
+         \l{QSqlDriver::stripDelimiters()} are virtual now. The corresponding \c xxxImplementation
+         functions are also removed as the subclasses of \l{QSqlDriver} can re-implement those directly.
+    \li \l{QSqlError} now handles alphanumeric error codes that are used by
+        QPSQL. The numeric codes are deprecated.
+    \endlist
+
+\section1 Changes to Qt Test
+     \list
+      \li The plain-text, XML and lightxml test output formats are updated to
+          include test result for every row of test data in data-driven tests. In
+          Qt4, only fails and skips were included for individual data rows without
+          the passes information. This limitation prevented accurate test run and
+            pass rates calculation.
+      \li The \c{QTRY_VERIFY} and \c{QTRY_COMPARE} macros are now part of \c{QTestLib}.
+          These macros were part of \c{tests/shared/util.h} earlier, but now they are part
+          of the <QtTest/QtTest> header.
+          In addition, \c{QTRY_VERIFY_WITH_TIMEOUT} and \c{QTRY_COMPARE_WITH_TIMEOUT} are provided
+          to specify custom timeout values.
+      \li The \c{QTEST_NOOP_MAIN} macro is removed.  If a test
+          appears to be inapplicable for a particular build at compile-time, it should
+          be omitted either using the .pro file logic or call \c{QSKIP} in the
+          \c{initTestCase()} method to skip the entire test. If you're using the later approach,
+          report a meaningful explanation in the test log.
+      \li The \c{DEPENDS_ON} macro is removed as it misled some users to believe that they could
+          make test functions depend on each other or impose an execution order on test functions.
+      \li \c{QTest::qt_snprintf()} is removed. This was an
+          internal test library function that was exposed in the public API due to its use
+          in a public macro. Any calls to this function must be replaced with
+          \l{bytearray-qsnprintf}{QByteArray::qsnprintf()}.
+      \li c{QTest::pixmapsAreEqual()} is removed. Comparison of \l{QPixmap} objects must
+          be done using the \c{QCOMPARE} macro, which provides more informative output in the event of a failure.
+      \li The \c{"mode"} parameter in \c{QSKIP} macro is removed. This parameter caused problems
+          in test metrics calculation because of the \c{SkipAll} mode, which hid information about
+          the skipped test data.  Calling \c{QSKIP} in a test function now behaves
+          like \c{SkipSingle}, which is skipping a non-data-driven test function or skipping
+          only the current data row of a data-driven test function.  Every skipped
+          data row is now reported in the test log.
+      \li \c{qCompare()} has been replaced by overloading. Code such as
+          \c {qCompare<QString>(l, r)} no longer uses the QString-specific
+          implementation and may fail to compile. We recommend that you
+          replace specialization with overloading. Also, rather than pass
+          explicit template arguments to \c qCompare, let the overload
+          resolution pick the correct one, and cast arguments in case of
+          ambiguous overloads (for example, \c {qCompare(QString(l), r)}).
+          The resulting code will continue to work against older QtTestlib
+          versions.
+      \li \c QTest::qWaitForWindowShown() is replaced with \l{QTest::qWaitForWindowExposed()}.
+     \endlist
+
+    \section1 Changes to Qt OpenGL
+
+    Apart from the \l QGLWidget class, the \l{Qt OpenGL} module should not be
+    used for new code. Instead, use the corresponding \e OpenGL classes in
+    \l{Qt GUI}.
+
+    \list
+        \li \l QGLPixelBuffer is deprecated and implemented by using a hidden
+            \l QGLWidget and a \l QOpenGLFramebufferObject. For offscreen
+            rendering to a texture, switch to using \l QOpenGLFramebufferObject
+            directly to improve performance.
+        \li The default major version of \l QGLFormat is changed to 2 to align
+            it with \l QSurfaceFormat. Applications that want to use a different
+            version, should explicitly request it using
+            \l{QGLFormat::setVersion()}.
+        \li \c{QGLContext::generateFontDisplayLists()} and
+            \c{QGLWidget::fontDisplayListBase()} are removed.
+        \li The \c listBase parameter is removed from \l{QGLWidget::renderText()}
+            functions.
+        \li To ensure support on more platforms, stricter requirements have been
+            introduced for doing threaded \c OpenGL. First, you must call
+            \l{QGLWidget::makeCurrent()} at least once per each
+            \l{QGLWidget::swapBuffers()} call, so that the platform has a chance
+            to synchronize resizing the \c OpenGL surface. Second, before
+            calling \l{QGLWidget::makeCurrent()} or \l{QGLWidget::swapBuffers()}
+            in a separate thread, you must call \l{QGLContext::moveToThread()}
+            to explicitly let Qt know in which thread a \l QGLContext is
+            currently being used. You also need to make sure that the context is
+            not current in the current thread before moving it to a different
+            thread.
+    \endlist
+
+\section1 Changes to Qt Global
+    \list
+     \li \c{qMacVersion()} is removed. Use \l{QSysInfo::macVersion()} or
+        \l{QSysInfo::MacintoshVersion} instead.
+     \li \c{Qt::escape()} is deprecated. Use \l{QString::toHtmlEscaped()} instead.
+     \li \c{qIsDetached<>} is removed, becauses it is irrelevant for
+         multi-threaded applications. There is no replacement for this function.
+    \endlist
+
+\section1 Changes to Tools
+    \list
+     \li The \c {qttest_p4.prf} file is removed. Use \c{CONFIG+=testcase} and
+         other flags instead.
+     \li The \c{-dwarf2} configure argument is removed. DWARF2 is always used on \macos now.
+     \li Configure no longer calls \c{qmake -recursive} by default, because the
+         subsequent build invokes qmake as needed. Use \c{-fully-process} to
+         restore the old behavior.
+     \li The \l {Using lupdate}{lupdate} \c CODECFORTR variable is deprecated, because source
+         code written with Qt 5 is expected to use UTF-8 encoding.
+    \endlist
+
+\section1 Related Topics
+\list
+\li \l{New Classes and Functions in Qt 5.5}
+\li \l{New Classes and Functions in Qt 5.4}
+\li \l{New Classes and Functions in Qt 5.3}
+\li \l{New Classes and Functions in Qt 5.2}
+\li \l{New Classes and Functions in Qt 5.1}
+\endlist
+*/

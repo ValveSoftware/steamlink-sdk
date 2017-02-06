@@ -1,0 +1,63 @@
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-dropdown/iron-dropdown.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/classes/iron-flex-layout.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-item/paper-item.html">
+
+<dom-module id="bluetooth-device-list-item">
+  <style>
+    iron-icon {
+      -webkit-padding-start: 10px;
+    }
+
+    span.name {
+      padding: 10px 0;
+    }
+
+    span.name[connected] {
+      font-weight: 500;
+    }
+
+    /* TODO(dbeam): combine with other similar styles. */
+    .dropdown-content {
+      background: white;
+      box-shadow: 0 2px 6px grey;
+    }
+  </style>
+  <template>
+    <div class="flex layout horizontal center" dropdown$="[[dropdownOpened]]"
+        on-tap="itemTapped_" actionable>
+      <span class="name" connected$="[[device.connected]]">
+        [[getDeviceName_(device)]]
+      </span>
+      <iron-icon icon="cr:check" hidden$="[[!device.connected]]">
+      </iron-icon>
+      <span class="flex"></span>
+      <span hidden$="[[!device.connecting]]">$i18n{bluetoothConnecting}</span>
+      <!-- This <div on-tap> is not [actionable] because its effect is not user
+           visible. -->
+      <div hidden$="[[!device.paired]]" on-tap="doNothing_">
+        <paper-icon-button icon="cr:more-vert" toggles
+            active="{{dropdownOpened}}">
+        </paper-icon-button>
+        <!-- TODO(dbeam): does this need [actionable] if all the controls are
+             paper-items. Conversely, should the on-tap be at this level? -->
+        <iron-dropdown opened="{{dropdownOpened}}" on-tap="menuSelected_"
+            actionable>
+          <div class="dropdown-content">
+            <paper-item id="connect" hidden$="[[device.connected]]">
+              $i18n{bluetoothConnect}
+            </paper-item>
+            <paper-item id="disconnect" hidden$="[[!device.connected]]">
+              $i18n{bluetoothDisconnect}
+            </paper-item>
+            <paper-item id="remove">$i18n{bluetoothRemove}</paper-item>
+          </div>
+        </iron-dropdown>
+      </div>
+    </div>
+  </template>
+  <script src="bluetooth_device_list_item.js"></script>
+</dom-module>

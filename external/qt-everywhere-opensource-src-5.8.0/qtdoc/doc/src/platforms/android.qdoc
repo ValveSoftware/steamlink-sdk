@@ -1,0 +1,460 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page android_support.html
+\title Qt for Android
+\brief Provides information about Android support in Qt.
+\ingroup supportedplatform
+
+Qt for Android enables you to run Qt 5 applications on devices with Android
+v4.1 (API level 16) or later. All Qt modules (essential and add-on) are
+supported except Qt WebEngine, Qt Serial Port, and the
+platform-specific ones (Qt Mac Extras, Qt Windows Extras, and Qt X11 Extras).
+
+The following list summarizes what you can do with Qt for Android:
+
+\list
+ \li Run \l{Qt Widgets}{Widget} and
+     \l{QML Applications}{QML} applications on the device
+     or emulator.
+ \li Support for native \l{Android Style}{Android style} with
+     Qt Quick Controls.
+ \li Handle \l{Qt Multimedia}{Multimedia} content in your Qt Quick 2
+     applications.
+ \li Get \l{Qt Sensors}{sensor} readings and react to the changes.
+ \li Retrieve current position data using satellite and network
+     information.
+ \li Connect and exchange data with \l{Qt Bluetooth}{Bluetooth}
+     and \l{Qt NFC}{NFC}-enabled devices.
+ \li Integrate Java code into your application using
+     \l{Qt Android Extras}.
+ \li Develop secure applications using OpenSSL library.
+ \li Create \l{Android Services}
+ \li Create and deploy Application Package (APK) using Qt Creator.
+\endlist
+
+The following topics provide more details about how to use Qt for Android:
+\list
+ \li \l{Getting Started with Qt for Android}{Getting Started}
+ \li \l{Porting to Android}{Porting a Qt Application}
+ \li \l{Adding OpenSSL Support}
+ \li \l{Android Services}{Creating Android Services}
+ \li \l{Third-party Android Libraries}{Including third-party Android libraries in an application}
+ \li \l{Qt Creator: Deploying Applications to Android Devices}{Deploying to the Device}
+ \li \l{Publishing to Google Play}
+ \li \l{Qt for Android Examples}{Examples}
+ \li \l{Platform and Compiler Notes - Android}{Platform Notes}
+ \li \l{Building Qt 5 for Android}{Building from Sources}
+ \li \l{Android GNU C++ run-time licensing}
+\endlist
+*/
+
+/*!
+  \page android3rdpartylibs.html
+  \title Third-party Android Libraries
+  \brief Provides instructions to include third-party Android libraries in an application.
+
+  This guide describes how to include a Java-based third-party library in your application package.
+  There are many Java libraries which provide APIs that may be useful to your application.
+  One example is the \c{Google Play Services} add-on provided in the Android SDK. We will use this library
+  as an example in this guide, but the same approach may be taken to include other libraries, provided
+  that they have been made to be included as library projects in an Android application.
+
+  \section1 Prerequisites
+
+  This guide assumes that the \l{androiddeployqt} tool is used for constructing the deployment package.
+  When using Qt Creator for building and deploying, androiddeployqt is used behind the scenes, so this also
+  applies to development with Qt Creator. Explaining how to access the Java APIs after they have been
+  included in the application is not in the scope of this guide.
+
+  \section1 Including the Library in the Source
+
+  The very first thing we need to do is to copy the actual library project into the source of our
+  project. We want the contents of the library project to be copied without modifications into the
+  packaging directory, so we need to place it into the \c{Android Package Source Directory}. This
+  can be any directory which is pointed to by the \l{qmake} variable \c{ANDROID_PACKAGE_SOURCE_DIR}.
+
+  If you are using Qt Creator, you can quickly set up the directory structure by clicking on the
+  \gui{Create AndroidManifest.xml} button in the \gui{Deployment} settings of your project. This
+  will create an \c{Android Package Source Directory} and place the \c{AndroidManifest.xml} file
+  inside it. Copy the library project directory into this directory.
+
+  For example, once it has been installed via the \c{Android SDK Maintenance} application,
+  the \c{Google Play Services} library project is located under the path
+  \c{$ANDROID_SDK_ROOT/extras/google/google_play_services/libproject/google-play-services_lib}. If
+  the \c{Android Package Source Directory} of our project is \c{$PROJECT_ROOT/android}, then we
+  can copy the \c{google-play-services_lib} directory in there, creating
+  \c{$PROJECT_ROOT/android/google-play-services_lib}.
+
+  \section1 Adding the Library to the Project Dependencies
+
+  Once the library code has been copied into the project, we need to tell the Android build system
+  about it. This is done in the \c{project.properties} file. Create a file called \c{project.properties}
+  inside the \c{Android Package Source Directory} and add a line to it which assigns the relative
+  path of the library project to the property \c{android.library.reference.1}. If you want to include
+  multiple library projects, increment the counter at the end of the property name for each.
+
+  In our example, we would create \c{$PROJECT_ROOT/android/project.properties} and add the
+  following contents:
+
+  \badcode
+  android.library.reference.1=google-play-services_lib/
+  \endcode
+
+  \section1 Deployment
+
+  And that's it: Provided that the path referenced in the \c{project.properties} file is located
+  under the \c{Android Package Source Directory}, the deployment tool will copy it into the
+  packaging directory and perform the necessary steps to include it in your \c{APK}. You can
+  now add Java code to your application which accesses the APIs provided by the library project.
+
+*/
+
+/*!
+\page androidgs.html
+\title Getting Started with Qt for Android
+\brief Provides instructions to install and configure your development environment.
+
+\section1 Requirements
+In order to use \l{Qt for Android}, you need the following:
+
+\list
+\li \l{http://developer.android.com/sdk/index.html}{The Android SDK Tools}
+\li \l{http://developer.android.com/tools/sdk/ndk/index.html}{The Android NDK}
+\li \l{http://www.oracle.com/technetwork/java/javase/downloads/jdk7-downloads-1880260.html}{Java SE Development Kit} (JDK) v6 or later. You can also use \l{http://openjdk.java.net}{OpenJDK} on Linux.
+\li On Windows, you need the following additional installations:
+  \list
+    \li \l{http://ant.apache.org/bindownload.cgi}{Apache Ant} v1.8 or later
+    \li Android Debug Bridge (ADB) driver on the Windows platform to enable USB
+        debugging. The default USB driver on Windows does not allow debugging.
+        For details about how to get the USB driver, see
+        \l{http://developer.android.com/sdk/win-usb.html}.
+
+        After installing the driver, try running a few basic
+        \l{http://developer.android.com/tools/help/adb.html}{adb} commands and
+        check whether your device responds to it.
+  \endlist
+\endlist
+
+After installing these tools, update the Android SDK to get the API
+and tools packages required for development. You can update the SDK using the
+\l{http://developer.android.com/tools/help/android.html}{android} tool that
+comes with the SDK Tools package. For example, on Ubuntu the following command
+starts the \l{http://developer.android.com/sdk/installing/adding-packages.html}
+{Android SDK Manager}, which enables you to select the packages you want
+to install:
+
+\badcode
+./android update sdk
+\endcode
+
+\note If you're developing on a 64-bit Linux machine, you must install the
+following dependencies in order to run 32-bit executables like \c adb, which
+allows Qt Creator to find devices to deploy to:
+
+\badcode
+sudo apt-get install libstdc++6:i386 libgcc1:i386 zlib1g:i386 libncurses5:i386
+\endcode
+
+To run the emulator, the following dependencies are also necessary:
+
+\code
+sudo apt-get install libsdl1.2debian:i386
+\endcode
+
+\section1 Installing Qt for Android
+
+The Qt 5 installers for different platforms are available from the \l Downloads
+page. Choose the one that is appropriate.
+
+Once you have the installer, follow these steps:
+
+\list 1
+ \li Run the installer to begin installing Qt 5 on your development platform.
+ \li Select the components you need in the \uicontrol{Select Components}
+     screen and click \uicontrol Next.
+ \li After the installation is complete, the installer lets you open Qt Creator
+     and the README. Select to open Qt Creator and click \uicontrol Finish.
+ \li Select \uicontrol{Tools > Options > Android} in Qt Creator to add
+     the Android NDK and SDK paths. For more details, see
+     \l{Qt Creator: Connecting Android Devices}{Qt Creator Manual}.
+\endlist
+
+Now you can test your development setup by running the examples that came
+with the Qt 5 package installed earlier. You can browse the examples in
+Qt Creator \uicontrol Welcome mode. Use the \c android filter in the search
+field to list all the examples tested on Android.
+
+To develop a simple application from scratch, see \l{Creating a Mobile Application}.
+*/
+/*!
+\page portingtoandroid.html
+\title Porting to Android
+\brief Provides instructions to port your existing Qt application to Android.
+
+In this section, we are going to port an existing Qt Application to
+\l{Qt for Android}{Android} and deploy it to the device.
+
+Most Qt applications should be portable to Android with ease, unless they
+depend on a specific hardware or software feature not supported by Android.
+If your application is not using any such feature, deployment is probably the
+only step that demands some changes to your application.
+
+\include porting-notes.qdocinc using resources
+
+The other approach is to deploy the resources into the package's \c{assets}
+directory. It is the best option if you want to achieve better
+interoperability with the Android APIs. You can access all resources in the
+directory using the "assets:" prefix. Unlike qrc, this approach is not a
+cross-platform solution.
+
+The following step-by-step instructions guide you to port an existing Qt Quick
+application to Android using the qrc approach:
+
+\list 1
+ \li Open the existing project in Qt Creator and configure it
+     with "Android for ARM" kit. For more information, see
+     \l{Qt Creator: Configuring Projects}
+ \li Identify all the resources used by your application and add them to one
+     or more qrc files.
+     Qt Creator updates your qmake project file with the "RESOURCES"
+     variable listing the qrc files you added.
+ \li To load or refer to the resources in the qrc file from your C++ code,
+     use the "qrc:" scheme followed by the absolute URL. For example, to
+     load the \c{main.qml} file from \c{resources.qrc}, you can use the
+     following C++ code:
+
+     \code
+     QQuickView viewer;
+     viewer.setSource(QUrl("qrc:/qml/main.qml"));
+     viewer.show();
+     \endcode
+
+     \note QML documents can refer to the contents in qrc files using the
+     relative path to the document. Such references do not require the
+     "\c{qrc:}" or "\c{:/}" prefix.
+ \li Save the changes to your project and run the application.
+\endlist
+
+\note Qt Quick Controls in the application will use native
+\l{Android Style}{Android style} if the target device is running
+Android 3.0 (API 11) or later. The application should function normally on
+devices with Android versions earlier than v3.0, but without native style for
+controls.
+
+Qt Creator deploys your application on the Android device, if the
+device is detected by the PC. Otherwise, it tries to run the application on an
+AVD (Android Virtual Device). You will be prompted to create one if there are no
+AVDs found.
+*/
+
+/*!
+\page opensslsupport.html
+\title Adding OpenSSL Support
+\brief Provides instructions to package OpenSSL libraries with your Qt application for Android.
+
+The Qt installation package comes with OpenSSL support but the OpenSSL libraries
+are not part of the package due to legal restrictions in some countries. If your
+application depends on OpenSSL, consider packaging the SSL libraries with your
+Application Package (APK) as the target device may or may not have them. You
+can use the \l{QSslSocket::supportsSsl()} static function to check for SSL
+support on the target.
+
+The following instructions guide you to build and add the OpenSSL libraries to
+the APK:
+\list 1
+ \li Download the latest OpenSSL sources from
+     \l{http://www.openssl.org/source}.
+
+ \li Extract the sources to a folder and navigate to that folder using
+     the CLI.
+     \note If your development platform is Windows, you need \c msys with
+     \c perl v5.14 or later to build OpenSSL.
+
+ \li Set the following environment variables to point to the ARM compiler
+     toolchain and sysroot you want to use:
+     \badcode
+     CC=<ANDROID_NDK_PATH>/toolchains/arm-linux-androideabi-<VER>/prebuilt/<NDK_HOST>/bin/arm-linux-androideabi-gcc
+     AR=<ANDROID_NDK_PATH>/toolchains/arm-linux-androideabi-<VER>/prebuilt/<NDK_HOST>/bin/arm-linux-androideabi-ar
+     ANDROID_DEV=<ANDROID_NDK_PATH>/platforms/<ANDROID-PLATFORM>/arch-arm/usr
+     \endcode
+
+ \li Configure the OpenSSL sources to build for Android (ARMv5 or ARMv7) using
+     the following command:
+
+     \badcode
+     ./Configure shared android or android-armv7
+     \endcode
+
+     \note You must consider enabling/disabling the SSL features based on the
+     legal restrictions in the region where your application is available.
+     See the \l{OpenSSL Configure Options}{SSL configure options} for details about
+     the configurable features.
+
+ \li Edit the \e Makefile created by \e Configure to avoid having shared
+     library names with the version number. Android does not load a library
+     with version number in the \c .so file name.
+
+     \list a
+       \li Open the \e Makefile using an editor.
+       \li Replace the following two lines that appear under "\e{link-shared}"
+           and "\e{do_$(SHLIB_TARGET)}" make targets:
+           \badcode
+LIBNAME=$$i LIBVERSION=$(SHLIB_MAJOR).$(SHLIB_MINOR) \
+LIBCOMPATVERSIONS=";$(SHLIB_VERSION_HISTORY)" \
+           \endcode
+
+           with
+
+          \badcode
+LIBNAME=$$i \
+          \endcode
+       \li Save changes to the \e Makefile and close it.
+     \endlist
+
+ \li Run \c{make build_libs} to build the \c libcrypto and \c libssl shared
+     libraries.
+
+ \li Open your Qt project using Qt Creator and update the "Build Android APK"
+     settings to add \e libcrypto and \e libssl as additional libraries for
+     your project.
+
+ \li Run your application to see it running on the device.
+\endlist
+
+Qt Creator builds your application and creates an application package (APK)
+with the OpenSSL libraries bundled in it. Once the APK is ready, it uses adb to
+deploy the APK on the target you chose and launch the application.
+
+*/
+
+/*!
+\page publishtogoogleplay.html
+\title Publishing to Google Play
+\brief Provides instructions to prepare your application for publishing.
+
+\l{Qt for Android} provides a complete solution to develop, build, and package
+your applications for Android. Most of these tasks, especially packaging and
+deployment are handled by Qt Creator providing rich developer experience.
+
+Every time you run the application using Qt Creator, an Android Application
+Package (APK) is created and deployed onto the target (device or emulator) you
+choose. With some minor changes to how the \e .apk is created, you can publish
+your application on Google Play and monetize. The following
+step-by-step instructions guide you to create an \e{.apk} that can go live
+on Google Play:
+\list 1
+ \li Open your application project using Qt Creator v3.0 or later and change
+ its \uicontrol Build settings to build release version.
+
+ \li Select \uicontrol {Create Templates} under \uicontrol Build settings to
+ create the template files such as \e AndroidManifest.xml and other
+ resources.
+
+ \note You can edit the \e AndroidManifest.xml in \uicontrol General or
+ \uicontrol {XML Source} mode.
+
+ \li Check for the following in \e AndroidManifest.xml:
+ \list
+  \li \uicontrol{Minimum required SDK} is set to API 9 or later.
+
+  \note Qt Quick Controls with native \l{Android Style}{Android style}
+  require API 11 (Android v3.0) or later.
+
+  \li Add \uicontrol{Application name} and \uicontrol{Application icon}.
+
+  \li \uicontrol Permissions list has all the required permissions.
+
+  \li \uicontrol Features list has the software or hardware features that your
+      application depends on. For example, NFC.
+ \endlist
+
+ \note Qt adds the default permissions and features based on the module
+ dependencies of your application. If you do not want these default permissions
+ and features, remove the \c{<!-- %%INSERT_PERMISSIONS -->} and
+ \c{<!-- %%INSERT_FEATURES -->} comments from \e AndroidManifest.xml. For
+ information on the manifest XML format, see \l{Android: App Manifest}.
+
+ \li Set up a \uicontrol keystore to sign the \e .apk. You can create a new
+ keystore if you do not have one. For more details, see
+ \l{Android APK}{QtCreator: Specifying Settings for Packages}.
+
+ \li Select \uicontrol{Open package location after build} and run your
+ application to build the \e .apk. Qt Creator builds the \e .apk and opens the
+ folder containing the \e .apk.
+
+ \li Log in to the \l{Google Play Developer Console} and upload the \e .apk
+ file, few screen captures of the application, and a description.
+\endlist
+
+Now your application is available to other Android device users via
+Google Play. You can also choose to publish the application to a smaller
+group, so that you can test and improve the application before publishing it to
+a larger audience.
+
+See \l{Deploying an Application on Android} for more information about how the
+packaging is done and how you can influence it.
+*/
+
+
+/*!
+\page androidservices.html
+\title Android Services
+\brief Provides information about Android Services support in Qt.
+
+Starting with Qt 5.7, you can create Android services using Qt. A service
+is a component that runs in background, so, it has no user interface. It is
+useful to perform long-term operations such as logging GPS, waiting for social
+media notifications, and so on. A service will continue to run even if the
+application that started it exits.
+
+To create a service, do the following steps:
+\list 1
+ \li Uncomment the service part of your \c AndroidManifest.xml.
+
+ \li Make sure the \c service tag contains an \c android:process=":some_name"
+     attribute. It is needed to force the \c service to run in a separate
+     process than the \c activity.
+
+ \li If you're using the same application (.so file) for activity and also
+     for service, you need to use \c android.app.arguments \c meta-data to
+     pass some arguments to your \c main function in order to know which one
+     is which.
+
+ \li To enable background running, uncomment \c android.app.background_running
+     \c meta-data and set it to true (\c android:value="true" ).
+
+\endlist
+
+Qt loads the \c .so file defined in \c android.app.lib_name \c meta-data,
+and calls the \c main function with all the arguments set in
+\c android.app.arguments \c meta-data.
+
+See \l{http://developer.android.com/guide/components/services.html}{Android Services}
+documentation for more information.
+*/

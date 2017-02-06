@@ -1,0 +1,87 @@
+# This file is generated. Do not edit.
+# Copyright (c) 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+{
+  'targets': [
+    {
+      'target_name': 'libvpx_intrinsics_neon',
+      'type': 'static_library',
+      'include_dirs': [
+        'source/config/<(OS_CATEGORY)/<(target_arch_full)',
+        '<(libvpx_source)',
+      ],
+      'sources': [
+        '<(libvpx_source)/vp8/common/arm/neon/bilinearpredict_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/copymem_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/dc_only_idct_add_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/dequant_idct_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/dequantizeb_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/idct_blk_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/idct_dequant_0_2x_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/idct_dequant_full_2x_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/iwalsh_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/loopfiltersimplehorizontaledge_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/loopfiltersimpleverticaledge_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/mbloopfilter_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/shortidct4x4llm_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/sixtappredict_neon.c',
+        '<(libvpx_source)/vp8/common/arm/neon/vp8_loopfilter_neon.c',
+        '<(libvpx_source)/vp8/encoder/arm/neon/denoising_neon.c',
+        '<(libvpx_source)/vp8/encoder/arm/neon/fastquantizeb_neon.c',
+        '<(libvpx_source)/vp8/encoder/arm/neon/shortfdct_neon.c',
+        '<(libvpx_source)/vp8/encoder/arm/neon/vp8_shortwalsh4x4_neon.c',
+        '<(libvpx_source)/vp9/common/arm/neon/vp9_iht4x4_add_neon.c',
+        '<(libvpx_source)/vp9/common/arm/neon/vp9_iht8x8_add_neon.c',
+        '<(libvpx_source)/vp9/encoder/arm/neon/vp9_dct_neon.c',
+        '<(libvpx_source)/vp9/encoder/arm/neon/vp9_error_neon.c',
+        '<(libvpx_source)/vp9/encoder/arm/neon/vp9_quantize_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/avg_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/fwd_txfm_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/hadamard_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/idct16x16_1_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/idct16x16_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/idct16x16_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/idct32x32_1_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/idct32x32_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/idct4x4_1_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/idct4x4_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/idct8x8_1_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/idct8x8_add_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/intrapred_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/intrapred_neon_asm.asm',
+        '<(libvpx_source)/vpx_dsp/arm/loopfilter_16_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/loopfilter_4_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/loopfilter_8_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/loopfilter_mb_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/loopfilter_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/sad4d_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/sad_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/save_reg_neon.asm',
+        '<(libvpx_source)/vpx_dsp/arm/subpel_variance_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/subtract_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/variance_neon.c',
+        '<(libvpx_source)/vpx_dsp/arm/vpx_convolve8_avg_neon_asm.asm',
+        '<(libvpx_source)/vpx_dsp/arm/vpx_convolve8_neon_asm.asm',
+        '<(libvpx_source)/vpx_dsp/arm/vpx_convolve_avg_neon_asm.asm',
+        '<(libvpx_source)/vpx_dsp/arm/vpx_convolve_copy_neon_asm.asm',
+        '<(libvpx_source)/vpx_dsp/arm/vpx_convolve_neon.c',
+      ],
+      'includes': [ 'ads2gas.gypi' ],
+      'cflags!': [ '-mfpu=vfpv3-d16' ],
+      'conditions': [
+        # Disable GCC LTO in neon targets due to compiler bug
+        # crbug.com/408997
+        ['clang==0 and use_lto==1', {
+          'cflags!': [
+            '-flto',
+            '-ffat-lto-objects',
+          ],
+        }],
+      ],
+      'cflags': [ '-mfpu=neon', ],
+      'asmflags': [ '-mfpu=neon', ],
+    },
+  ],
+}

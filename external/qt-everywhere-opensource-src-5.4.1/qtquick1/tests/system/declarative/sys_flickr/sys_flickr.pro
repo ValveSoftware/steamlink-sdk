@@ -1,3 +1,0 @@
-SOURCES=sys_flickr.qtt
-CONFIG+=systemtest
-DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0

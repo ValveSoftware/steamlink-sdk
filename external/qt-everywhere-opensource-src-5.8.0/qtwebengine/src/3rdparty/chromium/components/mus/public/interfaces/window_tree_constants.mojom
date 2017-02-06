@@ -1,0 +1,57 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module mus.mojom;
+
+import "ui/gfx/geometry/mojo/geometry.mojom";
+
+// Contains state of a single window.
+struct WindowData {
+  // Unique identifier of the parent. If the client can not see the parent an
+  // id of 0 is supplied.
+  uint32 parent_id;
+
+  // Unique identifier of the window.
+  uint32 window_id;
+
+  gfx.mojom.Rect bounds;
+
+  // Arbitrary key/value pairs. The interpretation of these is left to the
+  // client. See SetWindowProperty() for more information.
+  map<string, array<uint8>> properties;
+
+  // True if this window is visible. The window may not be drawn on screen (see
+  // OnWindowParentDrawnStateChanged() for details).
+  bool visible;
+};
+
+// Each Window has support for two surfaces. Generally the |DEFAULT| surface
+// is used. The |UNDERLAY| surface is useful if the owner of a window wants to
+// to Embed() another client and at the same time draw something under the
+// embedded apps representation.
+enum SurfaceType {
+  // Only the owner of a window may obtain this surface.
+  // The window manager can change the offset of this by way of
+  // SetUnderlaySurfaceOffsetAndExtendedHitArea().
+  UNDERLAY,
+
+  // Only the embedded app may obtain this surface. If an app is not embedded
+  // in the Window than the owner may also render to this surface as well.
+  DEFAULT,
+};
+
+// The result of an input event sent to a client app.
+enum EventResult {
+  HANDLED,
+  UNHANDLED,
+};
+
+// When this flag is set in a call to Embed(), the embedder (i.e. the client
+// that is making the call to Embed()) will receive events that are targeted to
+// the embedded client. The embedded client will not receive any input events
+// from the window server. However, the embedder can choose to dispatch events
+// to the embedded client through other mechanism.
+// TODO(sad): Provide an API in mus for the embedder to dispatch events to the
+// embedded client. https://crbug.com/621085
+const uint32 kEmbedFlagEmbedderInterceptsEvents = 0x01;

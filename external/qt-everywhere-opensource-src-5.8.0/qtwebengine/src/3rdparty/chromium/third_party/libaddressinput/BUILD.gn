@@ -1,0 +1,165 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/test.gni")
+import("//build/config/locales.gni")
+import("//tools/grit/grit_rule.gni")
+
+libaddressinput_util_files = [
+  "src/cpp/src/address_data.cc",
+  "src/cpp/src/address_field.cc",
+  "src/cpp/src/address_field_util.cc",
+  "src/cpp/src/address_formatter.cc",
+  "src/cpp/src/address_metadata.cc",
+  "src/cpp/src/address_ui.cc",
+  "src/cpp/src/format_element.cc",
+  "src/cpp/src/language.cc",
+  "src/cpp/src/localization.cc",
+  "src/cpp/src/lookup_key.cc",
+  "src/cpp/src/region_data_constants.cc",
+  "src/cpp/src/rule.cc",
+  "src/cpp/src/util/cctype_tolower_equal.cc",
+  "src/cpp/src/util/json.cc",
+  "src/cpp/src/util/string_split.cc",
+  "src/cpp/src/util/string_util.cc",
+]
+
+config("no-newline-eof-warning") {
+  if (is_clang) {
+    cflags = [ "-Wno-newline-eof" ]
+  }
+}
+
+# GYP version: third_party/libaddressinput/libaddressinput.gyp:libaddressinput_strings
+grit("strings") {
+  source = "//chrome/app/address_input_strings.grd"
+  outputs = [
+    "messages.h",
+    "en_messages.cc",
+  ]
+  foreach(locale, locales_with_fake_bidi) {
+    outputs += [ "address_input_strings_$locale.pak" ]
+  }
+
+  configs = [ ":no-newline-eof-warning" ]
+}
+
+config("libaddressinput_config") {
+  defines = [
+    "I18N_ADDRESSINPUT_USE_BASICTYPES_OVERRIDE=1",
+    "I18N_ADDRESS_VALIDATION_DATA_URL=\"https://chromium-i18n.appspot.com/ssl-aggregate-address/\"",
+  ]
+  include_dirs = [
+    "src/cpp/include",
+    "chromium/override",
+  ]
+}
+
+# This target provides basic functionality which is cooked into the build.
+# GYP version: third_party/libaddressinput/libaddressinput.gyp:libaddressinput_util
+static_library("util") {
+  sources = libaddressinput_util_files
+  sources += [
+    "chromium/addressinput_util.cc",
+    "chromium/json.cc",
+  ]
+  sources -= [ "src/cpp/src/util/json.cc" ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    ":no-newline-eof-warning",
+    "//build/config/compiler:no_chromium_code",
+  ]
+
+  public_configs = [ ":libaddressinput_config" ]
+
+  include_dirs = [ "$root_gen_dir/third_party/libaddressinput" ]
+
+  deps = [
+    ":strings",
+    "//base",
+    "//base:i18n",
+    "//third_party/icu",
+    "//third_party/re2",
+  ]
+}
+
+if (!is_android || use_aura) {
+  # The list of files in libaddressinput.gypi.
+  gypi_values = exec_script("//build/gypi_to_gn.py",
+                            [ rebase_path("src/cpp/libaddressinput.gypi") ],
+                            "scope",
+                            [ "src/cpp/libaddressinput.gypi" ])
+
+  # This target provides more complicated functionality like pinging servers
+  # for validation rules.
+  # GYP version: third_party/libaddressinput/libaddressinput.gyp:libaddressinput
+  static_library("libaddressinput") {
+    sources = rebase_path(gypi_values.libaddressinput_files, ".", "src/cpp")
+    sources += [
+      "chromium/chrome_address_validator.cc",
+      "chromium/chrome_metadata_source.cc",
+      "chromium/chrome_storage_impl.cc",
+      "chromium/fallback_data_store.cc",
+      "chromium/input_suggester.cc",
+      "chromium/string_compare.cc",
+      "chromium/trie.cc",
+    ]
+    sources -= libaddressinput_util_files
+    sources -= [ "src/cpp/src/util/string_compare.cc" ]
+
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+
+    public_configs = [ ":libaddressinput_config" ]
+
+    deps = [
+      ":strings",
+      ":util",
+      "//base",
+      "//base:i18n",
+      "//components/prefs",
+      "//net",
+      "//third_party/icu",
+      "//third_party/re2",
+    ]
+  }
+
+  test("libaddressinput_unittests") {
+    sources =
+        rebase_path(gypi_values.libaddressinput_test_files, ".", "src/cpp")
+    sources += [
+      "chromium/addressinput_util_unittest.cc",
+      "chromium/chrome_address_validator_unittest.cc",
+      "chromium/chrome_metadata_source_unittest.cc",
+      "chromium/chrome_storage_impl_unittest.cc",
+      "chromium/fallback_data_store_unittest.cc",
+      "chromium/storage_test_runner.cc",
+      "chromium/string_compare_unittest.cc",
+      "chromium/trie_unittest.cc",
+    ]
+
+    if (is_ios) {
+      # TODO(rouslan): This tests uses ASSERT_DEATH which is not supported on
+      # iOS. Re-enable once http://crbug.com/595645 is fixed.
+      sources -= [ "src/cpp/test/address_data_test.cc" ]
+    }
+
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [ "//build/config/compiler:no_chromium_code" ]
+
+    defines = [ "TEST_DATA_DIR=\"third_party/libaddressinput/src/testdata\"" ]
+
+    include_dirs = [ "src/cpp/src" ]
+
+    deps = [
+      ":libaddressinput",
+      ":strings",
+      "//base/test:run_all_unittests",
+      "//components/prefs",
+      "//net:test_support",
+      "//testing/gtest",
+    ]
+  }
+}

@@ -1,0 +1,75 @@
+# Copyright (c) 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# TODO(crbug.com/596999): Move non-Android code to mojo/
+{
+  'variables': {
+    # File lists shared with GN build.
+    'media_router_sources': [
+      'create_presentation_connection_request.cc',
+      'create_presentation_connection_request.h',
+      'issue.cc',
+      'issue.h',
+      'issue_manager.cc',
+      'issue_manager.h',
+      'issues_observer.h',
+      'issues_observer.cc',
+      'media_route.cc',
+      'media_route.h',
+      'media_router.h',
+      'media_router_base.cc',
+      'media_router_base.h',
+      'media_router_dialog_controller.cc',
+      'media_router_dialog_controller.h',
+      'media_router_factory.cc',
+      'media_router_factory.h',
+      'media_router_metrics.cc',
+      'media_router_metrics.h',
+      'media_routes_observer.cc',
+      'media_routes_observer.h',
+      'media_sink.cc',
+      'media_sink.h',
+      'media_sinks_observer.cc',
+      'media_sinks_observer.h',
+      'media_source.cc',
+      'media_source.h',
+      'media_source_helper.cc',
+      'media_source_helper.h',
+      'presentation_media_sinks_observer.cc',
+      'presentation_media_sinks_observer.h',
+      'presentation_request.cc',
+      'presentation_request.h',
+      'presentation_service_delegate_impl.cc',
+      'presentation_service_delegate_impl.h',
+      'presentation_session_messages_observer.cc',
+      'presentation_session_messages_observer.h',
+      'render_frame_host_id.h',
+      'route_request_result.cc',
+      'route_request_result.h',
+    ],
+    # Files that are only needed on desktop builds
+    'media_router_non_android_sources': [
+      'mojo/media_route_provider_util_win.cc',
+      'mojo/media_route_provider_util_win.h',
+      'mojo/media_router_mojo_metrics.cc',
+      'mojo/media_router_mojo_metrics.h',
+      'mojo/media_router_mojo_impl.cc',
+      'mojo/media_router_mojo_impl.h',
+      'mojo/media_router_type_converters.cc',
+      'mojo/media_router_type_converters.h',
+    ],
+    'media_router_test_support_sources': [
+      'mock_media_router.cc',
+      'mock_media_router.h',
+      'mock_screen_availability_listener.cc',
+      'mock_screen_availability_listener.h',
+      'test_helper.cc',
+      'test_helper.h',
+    ],
+    'media_router_non_android_test_support_sources': [
+      'mojo/media_router_mojo_test.cc',
+      'mojo/media_router_mojo_test.h',
+    ],
+  },
+}

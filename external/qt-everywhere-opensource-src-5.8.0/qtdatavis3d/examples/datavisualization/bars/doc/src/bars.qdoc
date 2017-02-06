@@ -1,0 +1,230 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the Qt Data Visualization module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:GPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 or (at your option) any later version
+** approved by the KDE Free Qt Foundation. The licenses are as published by
+** the Free Software Foundation and appearing in the file LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example bars
+    \title Bars Example
+    \ingroup qtdatavisualization_examples
+    \brief Using Q3DBars in a widget application.
+
+    The bars example shows how to make a 3D bar graph using Q3DBars and combining the use of
+    widgets for adjusting several adjustable qualities. The example shows how to:
+
+    \list
+        \li Create an application with Q3DBars and some widgets
+        \li Use QBar3DSeries and QBarDataProxy to set data to the graph
+        \li Adjust some graph and series properties using widget controls
+        \li Select a row or a column by clicking an axis label
+    \endlist
+
+    It also demonstrates how having negative bar values affects the graph.
+
+    For instructions about how to interact with the graph, see \l{Qt Data Visualization Interacting with Data}{this page}.
+
+    \image bars-example.png
+
+    \include examples-run.qdocinc
+
+    \section1 Creating the Application
+
+    First, in main.cpp, we create a QApplication, instantiate Q3DBars and a window container
+    for it:
+
+    \snippet bars/main.cpp 0
+
+    The call to QWidget::createWindowContainer is required, as all data visualization graph classes
+    (Q3DBars, Q3DScatter, Q3DSurface) inherit QWindow. Any class inheriting QWindow cannot be used
+    as a widget any other way.
+
+    Then we'll create horizontal and vertical layouts. We'll add the graph and the vertical
+    layout into the horizontal one:
+
+    \snippet bars/main.cpp 1
+
+    We're not using the vertical layout for anything yet, but we'll get back to it in
+    \l {Using widgets to control the graph}
+
+    Next, let's create another class to handle the data addition and other interaction with the
+    graph. Let's call it \c GraphModifier (See \l {Setting up the graph} and
+    \l {Adding data to the graph} for details):
+
+    \snippet bars/main.cpp 2
+
+    The application main is done and we can show the graph and start the event loop:
+
+    \snippet bars/main.cpp 3
+
+    \section1 Setting up the Graph
+
+    Let's set up the graph in the constructor of the \c GraphModifier class we instantiated in the
+    application main:
+
+    \snippet bars/graphmodifier.cpp 0
+
+    Let's take a closer look at parts of the code.
+
+    First we're creating the axes and the series into member variables to support changing them
+    easily later on, if we want to:
+
+    \snippet bars/graphmodifier.cpp 1
+
+    Then we're setting some of the visual qualities for the graph:
+
+    \snippet bars/graphmodifier.cpp 2
+
+    We're also setting up the axes and setting them to the graph as active axes:
+
+    \snippet bars/graphmodifier.cpp 3
+
+    We give axis labels a small autorotation angle to make them orient somewhat toward the
+    camera. This is done to improve axis label readability at extreme camera angles.
+
+    Next we initialize the visual properties of the series.
+    Note that the second series is initially not visible:
+
+    \snippet bars/graphmodifier.cpp 8
+
+    The series need to be added to the graph to show them:
+
+    \snippet bars/graphmodifier.cpp 4
+
+    Finally, we set the camera angle by calling the same method the camera angle change button
+    in the UI uses to cycle through various camera angles:
+
+    \snippet bars/graphmodifier.cpp 6
+
+    There you can see that the camera is controlled via the scene object of the graph:
+
+    \snippet bars/graphmodifier.cpp 10
+
+    For more information about using scene and cameras, see Q3DScene and Q3DCamera.
+
+    That concludes setting up the graph.
+
+    \section1 Adding Data to the Graph
+
+    At the end of the constructor there's a call:
+
+    \snippet bars/graphmodifier.cpp 9
+
+    This method is used to add data to the proxies of the two series:
+
+    \snippet bars/graphmodifier.cpp 5
+
+    Now the series have data to show.
+
+    \section1 Using Widgets to Control the Graph
+
+    There isn't much interaction yet, so let's continue by adding some widgets back in the
+    application main. Let's just focus on two as an example:
+
+    \snippet bars/main.cpp 4
+
+    We can use these slider widgets to rotate the graph instead of just using the mouse or
+    touch.
+
+    Let's add them to the vertical layout we created earlier:
+
+    \snippet bars/main.cpp 5
+
+    Then we'll connect them to methods in \c GraphModifier:
+
+    \snippet bars/main.cpp 6
+
+    Here are the methods in \c GraphModifier the signals were connected to. The camera
+    is controlled via the scene object. This time we specify the actual camera position
+    along the orbit around the center point, instead of specifying a preset camera angle:
+
+    \snippet bars/graphmodifier.cpp 7
+
+    Now these two sliders can be used to rotate the graph.
+
+    And so we have an application in which we can control:
+
+    \list
+        \li Graph rotation
+        \li Label style
+        \li Camera preset
+        \li Background visibility
+        \li Grid visibility
+        \li Bar shading smoothness
+        \li Visibility of the second bar series
+        \li Value axis direction
+        \li Axis title visibility and rotation
+        \li Data range to be shown
+        \li Bar style
+        \li Selection mode
+        \li Theme
+        \li Shadow quality
+        \li Font
+        \li Font size
+        \li Axis label rotation
+    \endlist
+
+    \section1 Selecting a Row/column by Clicking an Axis Label
+
+    Selection by axis label is default functionality for bar graphs. As an example, you can select
+    rows by clicking an axis label in the following way:
+
+    \list
+        \li Change selection mode to \c SelectionRow
+        \li Click a year label
+        \li The row with the clicked year is selected
+    \endlist
+
+    You can use the same method with \c SelectionSlice and \c SelectionItem flags, as long as
+    you have either \c SelectionRow or \c SelectionColumn set as well.
+
+    \section1 Zooming to Selection
+
+    As an example of adjusting camera target we have implemented an animation of zooming to
+    selection via a button press. Animation initializations are done in the constructor:
+
+    \snippet bars/graphmodifier.cpp 12
+
+    The function \c{GraphModifier::zoomToSelectedBar()} contains the rest of the functionality:
+
+    \snippet bars/graphmodifier.cpp 11
+
+    The QPropertyAnimation \c m_animationCameraTarget targets Q3DCamera::target property,
+    which takes a value normalized to the range (-1, 1). We figure out where the selected bar
+    is relative to axes, and use that as the end value for \c{m_animationCameraTarget}:
+
+    \snippet bars/graphmodifier.cpp 13
+    \dots
+    \snippet bars/graphmodifier.cpp 14
+
+    Likewise, we want to angle the camera so that it always points approximately to the center of
+    the graph at the end of the animation:
+
+    \snippet bars/graphmodifier.cpp 15
+
+    \section1 Example Contents
+
+*/

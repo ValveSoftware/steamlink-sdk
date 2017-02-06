@@ -1,0 +1,141 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtquickcontrols2-fileselectors.html
+    \title Using File Selectors with Qt Quick Controls 2
+
+    \l {QFileSelector}{File selectors} provide a convenient way of selecting
+    file variants. Qt offers the platform name and the locale as built-in
+    selectors. Qt Quick Controls 2 extends the built-in selectors with the name
+    (lowercase) of the style that an application is running with.
+
+    By using file selectors, style-specific tweaks can be applied without
+    creating a hard dependency to a style. From the available file variants,
+    only the selected QML file is loaded by the QML engine. Each file variant
+    can assume the context, that is, a specific style. This typically leads
+    to some code duplication, but on the other hand, cuts the aforementioned
+    hard dependency to the style, and leads to simpler and more efficient
+    QML code. The same technique is used to implement the \l {Styling Qt
+    Quick Controls 2}{Qt Quick Controls 2 styles}.
+
+    The following example demonstrates a custom rounded button that has a
+    styled drop shadow in the \l {Material Style}{Material style}, and looks
+    flat in other styles. The files are organized so that the Material version
+    of \c CustomButton.qml is placed into a \c +material sub-directory.
+
+    \code
+    :/main.qml
+    :/CustomButton.qml
+    :/+material/CustomButton.qml
+    \endcode
+
+    By default, \c main.qml will use \c CustomButton.qml for the \c CustomButton
+    type. However, when the application is run with the Material style, the
+    \c material selector will be present and the \c +material/CustomButton.qml
+    version will be used instead.
+
+    \code
+    // main.qml
+    import QtQuick 2.6
+    import QtQuick.Controls 2.1
+
+    ApplicationWindow {
+        id: window
+        visible: true
+
+        CustomButton {
+            text: "Button"
+            anchors.centerIn: parent
+        }
+    }
+    \endcode
+
+    The base implementation of the custom button is a simple rounded
+    flat button.
+
+    \code
+    // CustomButton.qml
+    import QtQuick 2.6
+    import QtQuick.Controls 2.1
+
+    Button {
+        id: control
+
+        background: Rectangle {
+            radius: width / 2
+            implicitWidth: 36
+            implicitHeight: 36
+            color: control.pressed ? "#ccc" : "#eee"
+        }
+    }
+    \endcode
+
+    The Material style's implementation of the custom button imports the
+    Material style, requests a dark theme to get light text, and creates
+    a drop shadow for the background.
+
+    \code
+    // +material/CustomButton.qml
+    import QtQuick 2.6
+    import QtGraphicalEffects 1.0
+    import QtQuick.Controls 2.1
+    import QtQuick.Controls.Material 2.1
+
+    Button {
+        id: control
+
+        Material.theme: Material.Dark
+
+        background: Rectangle {
+            implicitWidth: 48
+            implicitHeight: 48
+            color: Material.accentColor
+            radius: width / 2
+
+            layer.enabled: control.enabled
+            layer.effect: DropShadow {
+                verticalOffset: 1
+                color: Material.dropShadowColor
+                samples: control.pressed ? 20 : 10
+                spread: 0.5
+            }
+        }
+    }
+    \endcode
+
+    \note It is recommended to use \l QQmlApplicationEngine, which internally
+    creates a \l QQmlFileSelector instance. This is all that is needed to take
+    QML file selectors into use.
+
+    \section1 Related Information
+    \list
+      \li \l {QFileSelector}
+      \li \l {QQmlFileSelector}
+      \li \l {Styling Qt Quick Controls 2}
+    \endlist
+*/

@@ -1,0 +1,463 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//media/gpu/args.gni")
+import("//media/media_options.gni")
+import("//testing/test.gni")
+
+if (is_mac) {
+  import("//build/config/mac/mac_sdk.gni")
+}
+
+if (is_chromeos && current_cpu != "arm") {
+  action("libva_generate_stubs") {
+    extra_header = "va_stub_header.fragment"
+
+    script = "../../tools/generate_stubs/generate_stubs.py"
+    sources = [
+      "va.sigs",
+    ]
+    inputs = [
+      extra_header,
+    ]
+    if (use_x11) {
+      sources += [ "va_x11.sigs" ]
+    }
+    if (use_ozone) {
+      sources += [ "va_drm.sigs" ]
+    }
+    stubs_filename_root = "va_stubs"
+
+    outputs = [
+      "$target_gen_dir/$stubs_filename_root.cc",
+      "$target_gen_dir/$stubs_filename_root.h",
+    ]
+    args = [
+      "-i",
+      rebase_path("$target_gen_dir", root_build_dir),
+      "-o",
+      rebase_path("$target_gen_dir", root_build_dir),
+      "-t",
+      "posix_stubs",
+      "-e",
+      rebase_path(extra_header, root_build_dir),
+      "-s",
+      stubs_filename_root,
+      "-p",
+      "media/gpu",
+    ]
+
+    args += rebase_path(sources, root_build_dir)
+  }
+}
+
+if (is_chromeos && use_v4lplugin) {
+  action("libv4l2_generate_stubs") {
+    extra_header = "v4l2_stub_header.fragment"
+
+    script = "../../tools/generate_stubs/generate_stubs.py"
+    sources = [
+      "v4l2.sig",
+    ]
+    inputs = [
+      extra_header,
+    ]
+    stubs_filename_root = "v4l2_stubs"
+
+    outputs = [
+      "$target_gen_dir/$stubs_filename_root.cc",
+      "$target_gen_dir/$stubs_filename_root.h",
+    ]
+    args = [
+      "-i",
+      rebase_path("$target_gen_dir", root_build_dir),
+      "-o",
+      rebase_path("$target_gen_dir", root_build_dir),
+      "-t",
+      "posix_stubs",
+      "-e",
+      rebase_path(extra_header, root_build_dir),
+      "-s",
+      stubs_filename_root,
+      "-p",
+      "media/gpu",
+    ]
+
+    args += rebase_path(sources, root_build_dir)
+  }
+}
+
+if (is_mac) {
+  action("libvt_generate_stubs") {
+    extra_header = "vt_stubs_header.fragment"
+
+    script = "../../tools/generate_stubs/generate_stubs.py"
+    sources = [
+      "vt.sig",
+    ]
+    inputs = [
+      extra_header,
+    ]
+    stubs_filename_root = "vt_stubs"
+
+    outputs = [
+      "$target_gen_dir/$stubs_filename_root.cc",
+      "$target_gen_dir/$stubs_filename_root.h",
+    ]
+    args = [
+      "-i",
+      rebase_path("$target_gen_dir", root_build_dir),
+      "-o",
+      rebase_path("$target_gen_dir", root_build_dir),
+      "-t",
+      "posix_stubs",
+      "-e",
+      rebase_path(extra_header, root_build_dir),
+      "-s",
+      stubs_filename_root,
+      "-p",
+      "media/gpu",
+    ]
+
+    args += rebase_path(sources, root_build_dir)
+  }
+}
+
+config("gpu_config") {
+  defines = []
+  if (is_chromeos && use_v4lplugin) {
+    defines += [ "USE_LIBV4L2" ]
+  }
+}
+
+component("gpu") {
+  output_name = "media_gpu"
+
+  # Only local test code, GPU-related IPC code in the media layer, and
+  # media-related content code should access //media/gpu.
+  visibility = [
+    "//content/gpu:*",
+    "//content/public/gpu:*",
+    "//content/renderer:*",
+    "//media/gpu/ipc/*",
+    ":*",
+  ]
+
+  if (is_mac) {
+    # On Mac, content/common reaches into here to do some pre-sandbox
+    # initialization.
+    visibility += [ "//content/common" ]
+  }
+
+  defines = [ "MEDIA_GPU_IMPLEMENTATION" ]
+
+  sources = [
+    "fake_video_decode_accelerator.cc",
+    "fake_video_decode_accelerator.h",
+    "gpu_video_accelerator_util.cc",
+    "gpu_video_accelerator_util.h",
+    "gpu_video_decode_accelerator_factory_impl.cc",
+    "gpu_video_decode_accelerator_factory_impl.h",
+    "gpu_video_decode_accelerator_helpers.h",
+    "shared_memory_region.cc",
+    "shared_memory_region.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//gpu",
+    "//media",
+    "//ui/gfx/geometry",
+  ]
+  deps = [
+    "//ui/display/types",
+    "//ui/gl",
+    "//ui/platform_window",
+  ]
+  libs = []
+  ldflags = []
+
+  configs += [ ":gpu_config" ]
+
+  if (is_mac) {
+    sources += [
+                 "vt_mac.h",
+                 "vt_video_decode_accelerator_mac.cc",
+                 "vt_video_decode_accelerator_mac.h",
+                 "vt_video_encode_accelerator_mac.cc",
+                 "vt_video_encode_accelerator_mac.h",
+               ] + get_target_outputs(":libvt_generate_stubs")
+    deps += [
+      ":libvt_generate_stubs",
+      "//third_party/webrtc/system_wrappers",
+    ]
+    public_deps += [ "//third_party/webrtc/common_video" ]
+    libs += [
+      "CoreFoundation.framework",
+      "Foundation.framework",
+      "QuartzCore.framework",
+    ]
+  }
+
+  if (is_android) {
+    sources += [
+      "android_copying_backing_strategy.cc",
+      "android_copying_backing_strategy.h",
+      "android_deferred_rendering_backing_strategy.cc",
+      "android_deferred_rendering_backing_strategy.h",
+      "android_video_decode_accelerator.cc",
+      "android_video_decode_accelerator.h",
+      "avda_codec_image.cc",
+      "avda_codec_image.h",
+      "avda_return_on_failure.h",
+      "avda_shared_state.cc",
+      "avda_shared_state.h",
+      "avda_state_provider.h",
+      "avda_surface_tracker.cc",
+      "avda_surface_tracker.h",
+    ]
+
+    if (enable_webrtc) {
+      deps += [ "//third_party/libyuv" ]
+      sources += [
+        "android_video_encode_accelerator.cc",
+        "android_video_encode_accelerator.h",
+      ]
+    }
+
+    # TODO(xhwang): This is needed for AVDA to access the CDM directly.
+    # Remove this dependency after VDAs are also running as part of the mojo
+    # media application. See http://crbug.com/522298
+    if (mojo_media_host == "gpu") {
+      deps += [ "//media/mojo/services" ]
+    }
+  }
+
+  if (is_chromeos) {
+    sources += [
+      "accelerated_video_decoder.h",
+      "h264_decoder.cc",
+      "h264_decoder.h",
+      "h264_dpb.cc",
+      "h264_dpb.h",
+      "vp8_decoder.cc",
+      "vp8_decoder.h",
+      "vp8_picture.cc",
+      "vp8_picture.h",
+      "vp9_decoder.cc",
+      "vp9_decoder.h",
+      "vp9_picture.cc",
+      "vp9_picture.h",
+    ]
+    if (use_v4lplugin) {
+      sources += get_target_outputs(":libv4l2_generate_stubs")
+      deps += [ ":libv4l2_generate_stubs" ]
+    }
+    if (use_v4l2_codec) {
+      defines += [ "USE_V4L2_CODEC" ]
+      deps += [ "//third_party/libyuv" ]
+      sources += [
+        "generic_v4l2_device.cc",
+        "generic_v4l2_device.h",
+        "v4l2_device.cc",
+        "v4l2_device.h",
+        "v4l2_image_processor.cc",
+        "v4l2_image_processor.h",
+        "v4l2_jpeg_decode_accelerator.cc",
+        "v4l2_jpeg_decode_accelerator.h",
+        "v4l2_slice_video_decode_accelerator.cc",
+        "v4l2_slice_video_decode_accelerator.h",
+        "v4l2_video_decode_accelerator.cc",
+        "v4l2_video_decode_accelerator.h",
+        "v4l2_video_encode_accelerator.cc",
+        "v4l2_video_encode_accelerator.h",
+      ]
+      libs = [
+        "EGL",
+        "GLESv2",
+      ]
+    }
+    if (current_cpu == "arm") {
+      sources += [
+        "tegra_v4l2_device.cc",
+        "tegra_v4l2_device.h",
+      ]
+    }
+    if (current_cpu != "arm") {
+      sources += [
+                   "va_surface.h",
+                   "vaapi_jpeg_decode_accelerator.cc",
+                   "vaapi_jpeg_decode_accelerator.h",
+                   "vaapi_jpeg_decoder.cc",
+                   "vaapi_jpeg_decoder.h",
+                   "vaapi_picture.cc",
+                   "vaapi_picture.h",
+                   "vaapi_video_decode_accelerator.cc",
+                   "vaapi_video_decode_accelerator.h",
+                   "vaapi_video_encode_accelerator.cc",
+                   "vaapi_video_encode_accelerator.h",
+                   "vaapi_wrapper.cc",
+                   "vaapi_wrapper.h",
+                 ] + get_target_outputs(":libva_generate_stubs")
+      configs += [
+        "//third_party/libva:libva_config",
+        "//third_party/libyuv:libyuv_config",
+      ]
+      deps += [
+        ":libva_generate_stubs",
+        "//media",
+        "//third_party/libyuv",
+      ]
+      if (use_x11) {
+        configs += [ "//build/config/linux:x11" ]
+        deps += [ "//ui/gfx/x" ]
+        sources += [
+          "vaapi_tfp_picture.cc",
+          "vaapi_tfp_picture.h",
+        ]
+      }
+      if (use_ozone) {
+        deps += [ "//ui/ozone" ]
+        sources += [
+          "vaapi_drm_picture.cc",
+          "vaapi_drm_picture.h",
+        ]
+      }
+    }
+  }
+
+  if (is_win) {
+    sources += [
+      "dxva_picture_buffer_win.cc",
+      "dxva_picture_buffer_win.h",
+      "dxva_video_decode_accelerator_win.cc",
+      "dxva_video_decode_accelerator_win.h",
+    ]
+    configs += [
+      # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+      "//build/config/compiler:no_size_t_to_int_warning",
+      "//third_party/khronos:khronos_headers",
+    ]
+    public_deps += [ "//media/base/win" ]
+    deps += [ "//third_party/angle:includes" ]
+    libs += [
+      "d3d9.lib",
+      "d3d11.lib",
+      "dxva2.lib",
+      "strmiids.lib",
+      "mf.lib",
+      "mfplat.lib",
+      "mfuuid.lib",
+    ]
+    ldflags += [
+      "/DELAYLOAD:d3d9.dll",
+      "/DELAYLOAD:d3d11.dll",
+      "/DELAYLOAD:dxva2.dll",
+      "/DELAYLOAD:mf.dll",
+      "/DELAYLOAD:mfplat.dll",
+    ]
+  }
+}
+
+if (is_win || is_android || is_chromeos) {
+  test("video_decode_accelerator_unittest") {
+    sources = [
+      "video_accelerator_unittest_helpers.h",
+    ]
+
+    deps = [
+      ":gpu",
+      "//base",
+      "//media",
+      "//media/gpu",
+      "//testing/gtest",
+      "//ui/base",
+      "//ui/gfx",
+      "//ui/gfx:test_support",
+      "//ui/gfx/geometry",
+      "//ui/gl",
+      "//ui/gl:test_support",
+      "//ui/gl/init",
+    ]
+
+    configs += [ "//third_party/khronos:khronos_headers" ]
+    if (is_chromeos && current_cpu != "arm") {
+      configs += [ "//third_party/libva:libva_config" ]
+    }
+
+    if (is_android) {
+      sources += [ "android_video_decode_accelerator_unittest.cc" ]
+      deps += [
+        "//gpu:test_support",
+        "//media/base/android",
+        "//media/base/android:media_java",
+        "//media/capture/video/android:capture_java",
+        "//testing/gmock",
+        "//ui/android:ui_java",
+      ]
+    } else {
+      sources += [
+        "rendering_helper.cc",
+        "rendering_helper.h",
+        "video_decode_accelerator_unittest.cc",
+      ]
+      deps += [
+        "//ui/display",
+        "//ui/display/types",
+        "//ui/platform_window",
+      ]
+      if (use_ozone) {
+        deps += [ "//ui/ozone" ]
+      }
+    }
+
+    if (is_win) {
+      # TODO(jschuh): crbug.com/167187 fix size_t to int truncations.
+      configs += [ "//build/config/compiler:no_size_t_to_int_warning" ]
+      deps += [
+        "//third_party/angle:libEGL",
+        "//third_party/angle:libGLESv2",
+      ]
+    }
+
+    if (use_x11) {
+      configs += [ "//build/config/linux:x11" ]
+      deps += [ "//ui/gfx/x" ]
+    }
+  }
+}
+
+if (is_chromeos || is_mac) {
+  test("video_encode_accelerator_unittest") {
+    deps = [
+      "//base",
+      "//media",
+      "//media/base:test_support",
+      "//media/gpu",
+      "//testing/gtest",
+      "//ui/base",
+      "//ui/gfx",
+      "//ui/gfx:test_support",
+      "//ui/gfx/geometry",
+      "//ui/gl",
+      "//ui/gl:test_support",
+    ]
+    configs += [
+      "//third_party/libva:libva_config",
+      "//third_party/libyuv:libyuv_config",
+    ]
+    sources = [
+      "video_accelerator_unittest_helpers.h",
+      "video_encode_accelerator_unittest.cc",
+    ]
+    if (use_x11) {
+      deps += [ "//ui/gfx/x" ]
+    }
+    if (use_ozone) {
+      deps += [ "//ui/ozone" ]
+    }
+  }
+}

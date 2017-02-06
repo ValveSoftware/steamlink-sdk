@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+   Copyright 2011-2012 Jacob Beard, INFICON, and other SCION contributors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<!--
+     This test demonstrates the way the memory model semantics interact with transition order and concurrency semantics. Here, transitions originating from c1 and b1 will be taken in the same small-step, however i will not be updated until the end of that small step. The transitions actions are evaluated in document order, though, so the outcome is deterministic, so the assignment action on the transition originating from c1 will win. 
+-->
+<scxml 
+    datamodel="ecmascript"
+    xmlns="http://www.w3.org/2005/07/scxml"
+    version="1.0">
+
+    <datamodel>
+        <data id="i"/>
+    </datamodel>
+
+    <state id="a">
+        <transition target="p" event="t1">
+            <assign location="i" expr="0"/>
+        </transition>
+    </state>
+
+    <parallel id="p">
+
+        <state id="b" initial="b1">
+            <state id="b1">
+                <transition event="t2" target="b2">
+                    <assign location="i" expr="i + 1"/>
+                </transition>
+            </state>
+
+            <state id="b2">
+            </state>
+        </state>
+
+        <state id="c" initial="c1">
+            <state id="c1">
+                <transition event="t2" target="c2">
+                    <assign location="i" expr="i - 1"/>
+                </transition>
+            </state>
+
+            <state id="c2">
+            </state>
+        </state>
+
+        <transition event="t3" target="d" cond="i === 0"/>
+        <transition event="t3" target="f"/>
+    </parallel>
+
+
+    <state id="d"/>
+
+    <state id="f"/>
+
+</scxml>
+
+

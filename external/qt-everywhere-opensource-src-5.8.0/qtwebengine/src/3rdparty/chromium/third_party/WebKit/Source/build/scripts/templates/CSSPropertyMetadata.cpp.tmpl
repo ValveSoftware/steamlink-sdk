@@ -1,0 +1,70 @@
+{% from 'macros.tmpl' import license %}
+{{license()}}
+
+#include "core/css/CSSPropertyMetadata.h"
+
+#include "platform/RuntimeEnabledFeatures.h"
+#include <bitset>
+
+namespace blink {
+{% for flag, function_name in switches %}
+
+bool CSSPropertyMetadata::{{function_name}}(CSSPropertyID property)
+{
+    switch(property) {
+    case CSSPropertyInvalid:
+        ASSERT_NOT_REACHED();
+        return false;
+    {% for property_id, property in properties.items() if property[flag] %}
+    case {{property_id}}:
+    {% endfor %}
+    {% if function_name == "isInheritedProperty" %}
+    case CSSPropertyVariable:
+    {% endif %}
+        return true;
+    default:
+        return false;
+    }
+}
+{% endfor %}
+
+bool CSSPropertyMetadata::isEnabledProperty(CSSPropertyID unresolvedProperty)
+{
+    CSSPropertyID property = resolveCSSPropertyID(unresolvedProperty);
+    static std::bitset<numCSSProperties>* enabledProperties = nullptr;
+    if (!enabledProperties) {
+        enabledProperties = new std::bitset<numCSSProperties>();
+        enabledProperties->set(); // All bits sets to 1.
+        {% for property_id, property in properties.items() if property.runtime_flag %}
+        if (!RuntimeEnabledFeatures::{{property.runtime_flag|lower_first}}Enabled())
+            enabledProperties->reset({{property_id}} - {{first_enum_value}});
+        {% endfor %}
+        {% for property_id, property in properties.items() if property.is_internal %}
+        enabledProperties->reset({{property_id}} - {{first_enum_value}});
+        {% endfor %}
+    }
+
+    if (unresolvedProperty >= {{first_enum_value}})
+        return enabledProperties->test(property - {{first_enum_value}});
+
+    if (unresolvedProperty == CSSPropertyVariable)
+        return RuntimeEnabledFeatures::cssVariablesEnabled();
+    ASSERT(unresolvedProperty == CSSPropertyApplyAtRule);
+    return RuntimeEnabledFeatures::cssApplyAtRulesEnabled();
+}
+
+void CSSPropertyMetadata::filterEnabledCSSPropertiesIntoVector(const CSSPropertyID* properties, size_t propertyCount, Vector<CSSPropertyID>& outVector)
+{
+    for (unsigned i = 0; i < propertyCount; i++) {
+        CSSPropertyID property = properties[i];
+        if (isEnabledProperty(property))
+            outVector.append(property);
+    }
+}
+
+bool CSSPropertyMetadata::isDescriptorOnly(CSSPropertyID property)
+{
+    return property >= {{descriptors[0].property_id}} && property <= {{descriptors[-1].property_id}};
+}
+
+} // namespace blink

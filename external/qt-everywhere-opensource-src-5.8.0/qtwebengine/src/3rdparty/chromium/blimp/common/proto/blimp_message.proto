@@ -1,0 +1,68 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Contains the BlimpMessage proto which frames all messages sent over Blimp
+// subchannels. BlimpMessage protos are serialized and transmitted over the
+// wire to the Blimplet server.
+//
+// Each BlimpMessage has a few identifying fields which provide the browser
+// session and tab ID as context. The message details are stored in a
+// feature-specific field (see field IDs 1000 and onward).
+// The |type| field tells the receiving end how the BlimpMessage should
+// be unpacked and which component it should be routed to.
+//
+// CONVENTIONS:
+// * A BlimpMessage can contain only one feature message.
+// * Feature message protos are placed in their own files.
+// * Features are applied to unidirectional channels. Client->server and
+//   server->client channels for a component should be broken out as distinct
+//   features, even if they are conceptually similar.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+import "blob_channel.proto";
+import "compositor.proto";
+import "ime.proto";
+import "input.proto";
+import "navigation.proto";
+import "render_widget.proto";
+import "protocol_control.proto";
+import "settings.proto";
+import "tab_control.proto";
+
+package blimp;
+
+message BlimpMessage {
+  // Sequence number of this message, used for message acknowledgement.
+  // The sender may omit this value if it is exactly one higher than the
+  // message that was previously sent.
+  optional int64 message_id = 1;
+
+  // Uniquely identifies the Blimp session that originated this message.
+  // Session IDs are invalidated whenever new sessions are created.
+  // If a message's |session_id| does not match the client's session ID,
+  // then the message may have originated from a discarded session and can be
+  // safely ignored.
+  optional int32 session_id = 3;
+
+  // ID of the tab that is referenced by this message.
+  // Messages that are tab-agnostic may leave this field unset.
+  optional int32 target_tab_id = 4;
+
+  // Feature-specific messages follow.
+  oneof feature {
+    TabControlMessage tab_control = 40;
+    NavigationMessage navigation = 41;
+    RenderWidgetMessage render_widget = 42;
+    InputMessage input = 43;
+    CompositorMessage compositor = 44;
+    ProtocolControlMessage protocol_control = 45;
+    ImeMessage ime = 46;
+    SettingsMessage settings = 47;
+    BlobChannelMessage blob_channel = 48;
+  }
+}
+

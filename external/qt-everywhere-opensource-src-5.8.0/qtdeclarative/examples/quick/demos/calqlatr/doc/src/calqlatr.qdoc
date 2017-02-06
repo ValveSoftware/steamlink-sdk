@@ -1,0 +1,195 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \title Qt Quick Demo - Calqlatr
+    \ingroup qtquickdemos
+    \example demos/calqlatr
+    \brief A QML app designed for portrait devices that uses custom components,
+    animated with AnimationController, and JavaScript for the application logic.
+    \image qtquick-demo-calqlatr.png
+
+    \e{Calqlatr} demonstrates various QML and \l{Qt Quick} features, such as
+    displaying custom components and using animation to move the components
+    around in the application view. The application logic is implemented in
+    JavaScript and the appearance is implemented in QML.
+
+    \include examples-run.qdocinc
+
+    \section1 Displaying Custom Components
+
+    In the Calqlatr application, we use the following custom types that are
+    each defined in a separate .qml file:
+
+    \list
+        \li Button.qml
+        \li Display.qml
+        \li NumberPad.qml
+    \endlist
+
+    To use the custom types, we add an import statement to the main QML file,
+    calqlatr.qml that imports the folder called \c content where the types are
+    located:
+
+    \code
+    import "content"
+    \endcode
+
+    We can then display custom components by adding the component types to
+    any QML file. For example, we use the NumberPad type in calqlatr.qml to
+    create the number pad of the calculator. We place the type inside an
+    \l{Item} QML type, which is the base type for all visual items in Qt Quick:
+
+    \quotefromfile demos/calqlatr/calqlatr.qml
+    \skipto Item
+    \printuntil }
+    \printuntil }
+
+    Further, we use the Button type in the \c NumberPad type to create the
+    calculator buttons. Button.qml specifies the basic properties for a
+    button that we can modify for each button instance in NumberPad.qml. For the
+    digit and separator buttons, we additionally specify the text property using
+    the property alias \c text that we define in Button.qml.
+
+    For the operator buttons, we also specify another color (green) using the
+    property alias \c color and set the operator property to \c true. We use
+    the operator property in functions that perform the calculations.
+
+    We place the buttons inside a \l{Grid} QML type to position them in a grid:
+
+    \quotefromfile demos/calqlatr/content/NumberPad.qml
+    \skipto Grid
+    \printuntil /^\}/
+
+    Some of the buttons also have a \c dimmable property set, meaning that they
+    can be visually disabled (dimmed) whenever the calculator engine does not
+    accept input from that button. As an example, the button for square root
+    operator is dimmed for negative values.
+
+    \section1 Animating Components
+
+    We use the Display type to display calculations. In Display.qml, we use
+    images to make the display component look like a slip of paper that contains
+    a grip. Users can drag the grip to move the display from left to right.
+
+    When users release the grip, the AnimationController QML type that we define
+    in the calqlatr.qml file finishes running the controlled animation in either
+    a forwards or a backwards direction. To run the animation, we call either
+    completeToEnd() or completeToBeginning(), depending on the direction. We do
+    this in the MouseArea's \c onReleased signal handler, where \c controller
+    is the id of our AnimationController:
+
+    \quotefromfile demos/calqlatr/calqlatr.qml
+    \skipto MouseArea
+    \printuntil {
+    \dots 12
+    \skipto onReleased
+    \printuntil }
+    \printuntil }
+
+    Unlike other QML animation types, AnimationController is not driven by
+    internal timers but by explicitly setting its progress property to a
+    value between \c 0.0 and \c 1.0.
+
+    Inside the AnimationController, we run two NumberAnimation instances in
+    parallel to move the number pad and the display components simultaneously to
+    the opposite sides of the view. In addition, we run a SequentialAnimation
+    instance to scale the number pad during the transition, giving the animation
+    some depth.
+
+    \quotefromfile demos/calqlatr/calqlatr.qml
+    \skipto AnimationController
+    \printuntil 1; easing.type
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    We use the easing curve of the type \c Easing.InOutQuad to accelerate the
+    motion until halfway and then decelerate it.
+
+    In Button.qml, the text colors of the number pad buttons are also animated.
+
+    \quotefromfile demos/calqlatr/content/Button.qml
+    \skipto Text
+    \printuntil id:
+    \dots 8
+    \skipto color:
+    \printuntil ]
+    \printuntil }
+
+    We use \l {QtQml::Qt::darker()}{Qt.darker()} to darken the color when the
+    button is dimmed, and \l {QtQml::Qt::lighter()}{Qt.lighter()} to \e {light up}
+    the button when pressed. The latter is done in a separate \l [QML] {State}
+    {state} called \e "pressed", which activates when the \c pressed
+    property of the button's MouseArea is set.
+
+    The color changes are animated by defining a \l Behavior on the \c color
+    property.
+
+    In order to dynamically change the \c dimmed property of all the buttons
+    of the \c NumberPad, we connect its \c buttonPressed signal to the
+    \c Button's \c updateDimmed() function in Button.qml:
+
+    \quotefromfile demos/calqlatr/content/Button.qml
+    \skipto function updateDimmed() {
+    \printuntil buttonPressed.connect
+    \printuntil }
+
+    This way, when a button is pressed, all buttons on the \c NumPad
+    receive a \c buttonPressed signal and are activated or deactivated
+    according to the state of the calculator engine.
+
+    \section1 Performing Calculations
+
+    The calculator.js file defines our calculator engine. It contains variables
+    to store the calculator state, and functions that are called when the
+    user presses the digit and operator buttons. To use the engine, we
+    import calculator.js in the calqlatr.qml file as \c CalcEngine:
+
+    \code
+    import "content/calculator.js" as CalcEngine
+    \endcode
+
+    Importing the engine creates a new instance of it. Therefore, we only do it
+    in the main QML file, \c calqlatr.qml. The root item defined in this file
+    contains helper functions that allow other types to access the calculator
+    engine:
+
+    \quotefromfile demos/calqlatr/calqlatr.qml
+    \skipto operatorPressed
+    \printuntil CalcEngine.disabled
+    \printuntil }
+
+    When users press a digit, the text from the digit appears on the
+    display. When they press an operator, the appropriate calculation is
+    performed, and the result can be displayed using the equals (=) operator.
+    The clear (C) operator resets the calculator engine.
+
+    \section1 List of Files
+
+    \sa {QML Applications}
+*/

@@ -1,0 +1,67 @@
+diff --git a/third_party/libopenjpeg20/README.pdfium b/third_party/libopenjpeg20/README.pdfium
+index b1012af..a40ed7b 100644
+--- a/third_party/libopenjpeg20/README.pdfium
++++ b/third_party/libopenjpeg20/README.pdfium
+@@ -29,4 +29,5 @@ Local Modifications:
+ 0017-tcd_init_tile.patch: Prevent integer overflows during calculation of |l_nb_precinct_size|.
+ 0018-tcd_get_decoded_tile_size.patch: Fix an integer overflow in opj_tcd_get_decoded_tile_size.
+ 0019-tcd_init_tile.patch: Prevent integer overflows during calculation of |l_nb_code_blocks_size|.
++0020-opj_aligned_malloc.patch: Prevent overflows when using opj_aligned_malloc().
+ TODO(thestig): List all the other patches.
+diff --git a/third_party/libopenjpeg20/dwt.c b/third_party/libopenjpeg20/dwt.c
+index 3b92bdf..a666d1c 100644
+--- a/third_party/libopenjpeg20/dwt.c
++++ b/third_party/libopenjpeg20/dwt.c
+@@ -576,6 +576,9 @@ static OPJ_BOOL opj_dwt_decode_tile(const opj_tcd_tilecomp_t* tilec, OPJ_UINT32
+ 	OPJ_UINT32 w = (OPJ_UINT32)(tilec->x1 - tilec->x0);
+ 
+ 	h.mem_count = opj_dwt_max_resolution(tr, numres);
++	if (((OPJ_UINT32)-1) / (OPJ_UINT32)sizeof(OPJ_INT32) < (OPJ_UINT32)h.mem_count) {
++		return OPJ_FALSE;
++	}
+ 	h.mem = (OPJ_INT32*)opj_aligned_malloc(h.mem_count * sizeof(OPJ_INT32));
+ 	if (! h.mem){
+ 		/* FIXME event manager error callback */
+@@ -850,7 +853,17 @@ OPJ_BOOL opj_dwt_decode_real(opj_tcd_tilecomp_t* restrict tilec, OPJ_UINT32 numr
+ 
+ 	OPJ_UINT32 w = (OPJ_UINT32)(tilec->x1 - tilec->x0);
+ 
+-	h.wavelet = (opj_v4_t*) opj_aligned_malloc((opj_dwt_max_resolution(res, numres)+5) * sizeof(opj_v4_t));
++	OPJ_UINT32 mr = opj_dwt_max_resolution(res, numres);
++
++	if (mr >= ((OPJ_UINT32)-5)) {
++		return OPJ_FALSE;
++	}
++	mr += 5;
++
++	if (((OPJ_UINT32)-1) / (OPJ_UINT32)sizeof(opj_v4_t) < mr) {
++		return OPJ_FALSE;
++	}
++	h.wavelet = (opj_v4_t*) opj_aligned_malloc(mr * sizeof(opj_v4_t));
+ 	if (!h.wavelet) {
+ 		/* FIXME event manager error callback */
+ 		return OPJ_FALSE;
+diff --git a/third_party/libopenjpeg20/t1.c b/third_party/libopenjpeg20/t1.c
+index 108ce78..a119db1 100644
+--- a/third_party/libopenjpeg20/t1.c
++++ b/third_party/libopenjpeg20/t1.c
+@@ -1173,6 +1173,9 @@ static OPJ_BOOL opj_t1_allocate_buffers(
+ 	if (!t1->encoder) {
+ 		if(datasize > t1->datasize){
+ 			opj_aligned_free(t1->data);
++			if (((OPJ_UINT32)-1) / (OPJ_UINT32)sizeof(OPJ_INT32) < datasize) {
++				return OPJ_FALSE;
++			}
+ 			t1->data = (OPJ_INT32*) opj_aligned_malloc(datasize * sizeof(OPJ_INT32));
+ 			if(!t1->data){
+ 				/* FIXME event manager error callback */
+@@ -1187,6 +1190,9 @@ static OPJ_BOOL opj_t1_allocate_buffers(
+ 
+ 	if(flagssize > t1->flagssize){
+ 		opj_aligned_free(t1->flags);
++		if (((OPJ_UINT32)-1) / (OPJ_UINT32)sizeof(opj_flag_t) < flagssize) {
++			return OPJ_FALSE;
++		}
+ 		t1->flags = (opj_flag_t*) opj_aligned_malloc(flagssize * sizeof(opj_flag_t));
+ 		if(!t1->flags){
+ 			/* FIXME event manager error callback */

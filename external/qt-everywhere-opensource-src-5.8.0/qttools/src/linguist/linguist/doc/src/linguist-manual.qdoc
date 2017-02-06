@@ -1,0 +1,1169 @@
+/****************************************************************************
+**
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \page qtlinguist-index.html
+    \title Qt Linguist Manual
+    \ingroup qttools
+    \ingroup internationalization
+
+    \startpage {index.html}{Qt Reference Documentation}
+    \nextpage Overview of the Translation Process
+
+    \keyword Qt Linguist
+
+    Qt provides excellent support for translating Qt C++ and Qt Quick
+    applications into local languages. Release managers, translators, and
+    developers can use Qt tools to accomplish their tasks.
+
+    \l{linguist-manager.html}{Release managers} bear the overall responsibility
+    for the release of the application. Typically, they coordinate the work of
+    developers and translators. They can use the \e lupdate tool to synchronize
+    source code and translations and the \e lrelease tool to create
+    run-time translation files for use by the released application.
+
+    \l{linguist-translators.html}{Translators} can use the \QL tool to
+    translate text in applications.
+    No computer knowledge beyond the ability to start a program and
+    use a text editor or word processor is required.
+
+    \l{linguist-programmers.html}{Developers} must create Qt applications that are
+    able to use translated text. They should also help translators identify
+    the context in which phrases appear. Developers can use tutorials to learn
+    about their tasks.
+
+    For more information about the supported languages and writing systems, see
+    \l{Internationalization with Qt}.
+
+    \section1 Table of Contents
+
+    \list
+    \li \l{Overview of the Translation Process}
+    \li \l{Qt Linguist Manual: Release Manager}{Release Manager}
+    \li \l{Qt Linguist Manual: Translators}{Translators}
+    \li \l{Qt Linguist Manual: Developers}{Developers}
+    \li \l{Qt Linguist Manual: TS File Format}{TS File Format}
+    \li \l{Qt Linguist Manual: Text ID Based Translations}{Text ID Based Translations}
+    \endlist
+
+*/
+
+/*!
+    \page linguist-overview.html
+    \title Overview of the Translation Process
+    \ingroup internationalization
+
+    \contentspage {Qt Linguist Manual}{Contents}
+    \previouspage Qt Linguist Manual
+    \nextpage Qt Linguist Manual: Release Manager
+
+    Most of the text that must be translated in an application
+    consists of either single words or short phrases. These typically
+    appear as window titles, menu items, tooltips,
+    and labels to buttons, check boxes and radio buttons.
+
+    The phrases are entered into the source code by the developer in
+    their native language using a simple but special syntax to identify
+    that the phrases require translation. The Qt tools provide context
+    information for each of the phrases to help the translator, and the
+    developer is able to add additional context information to phrases
+    when necessary.
+
+    The release manager generates a set of translation
+    files that are produced from the source files and passes these to the
+    translator. The translator opens the translation files using \QL,
+    enters their translations and saves the results back into
+    the translation files, which they pass back to the release manager.
+    The release manager then generates fast compact versions of these
+    translation files ready for use by the application.
+
+    The tools are
+    designed to be used in repeated cycles as applications change and
+    evolve, preserving existing translations and making it easy to
+    identify which new translations are required. \QL also
+    provides a phrase book facility to help ensure consistent
+    translations across multiple applications and projects.
+
+    Translators and developers must address a number of issues because
+    of the subtleties and complexities of human language:
+
+    \list
+
+    \li A single phrase may need to be translated into several
+    different forms depending on context. For example, \e open in English
+    might become \e{\ouml}\e{ffnen}, "open file", or \e aufbauen,
+    "open internet connection", in German.
+
+    \li Keyboard accelerators may need to be changed but without
+    introducing conflicts. For example, "\&Quit" in English becomes "Avslutt"
+    in Norwegian which does not contain a "Q". We cannot use a letter
+    that is already in use - unless we change several accelerators.
+
+    \li Phrases that contain variables, for example, "The 25 files
+    selected will take 63 seconds to process", where the two numbers
+    are inserted programmatically at run-time may need to be reworded
+    because in a different language the word order and therefore the
+    placement of the variables may have to change.
+
+    \endlist
+
+    The Qt translation tools provide clear and simple solutions to these
+    issues.
+
+    \QL and lupdate are able to import and export XML Localization
+    Interchange File Format (XLIFF) files, making it possible to take
+    advantage of tools and translation services that work with this
+    format. For more information on working with these files, see
+    \l{Qt Linguist Manual: Translators}{Translators}.
+*/
+
+/*!
+    \page linguist-manager.html
+    \title Qt Linguist Manual: Release Manager
+    \ingroup internationalization
+
+    \contentspage {Qt Linguist Manual}{Contents}
+    \previouspage Overview of the Translation Process
+    \nextpage Qt Linguist Manual: Translators
+
+    Two tools are provided for the release manager, lupdate and
+    lrelease. These tools can process \l {qmake Manual}{qmake} project files, or operate
+    directly on the file system.
+
+    \section1 Creating Translation Files
+
+    Translation files consist of all the user-visible text and Ctrl key
+    accelerators in an application and translations of that text.
+
+    To create translation files:
+
+    \list 1
+
+        \li Run lupdate to generate the first set of translation source (TS) files
+            with all the user-visible text but no translations.
+
+        \li Give the TS files to the translator who adds translations using \QL. \QL
+            takes care of any changed or deleted source text.
+
+        \li Run lupdate to incorporate any new text added to the application.
+            lupdate synchronizes the user-visible text from the application with the
+            translations. It does not destroy any data.
+
+        \li To release the application, run lrelease to read the TS files and
+            produce the QM files used by the application at runtime.
+
+    \endlist
+
+    For lupdate to work successfully, it must know which translation files to
+    produce. The files are listed in the application's \c .pro Qt project file.
+
+    \section1 Using lupdate
+
+    Usage: \c {lupdate myproject.pro}
+
+    The lupdate command line tool finds the translatable
+    strings in the specified source, header and \e {Qt Designer}
+    interface files, and produces or updates \c .ts translation
+    files. The files to process and the files to update can be set at
+    the command line, or provided in a \c .pro file specified as an
+    command line argument. The developer creates the .pro file, as
+    described in \l{Qt Linguist Manual: Developers}.
+
+    The produced translation files are given to
+    the translator who uses \QL to read the files and insert the
+    translations.
+
+    Companies that have their own translators in-house may find it
+    useful to run lupdate regularly, perhaps monthly, as the
+    application develops. This will lead to a fairly low volume of
+    translation work spread evenly over the life of the project and
+    will allow the translators to support a number of projects
+    simultaneously.
+
+    Companies that hire in translators as required may prefer to run
+    lupdate only a few times during the application life cycle. The
+    first time might be just before the first test phase. This will
+    provide the translator with a substantial single block of work and
+    any bugs that the translator detects may easily be included with
+    those found during the initial test phase. The second and any
+    subsequent lupdate runs would probably take place during the
+    final beta phase.
+
+    The TS file format is a simple human-readable XML format that
+    can be used with version control systems if required. \c lupdate
+    can also process Localization Interchange File Format (XLIFF)
+    format files; files in this format typically have file names that
+    end with the \c .xlf suffix.
+
+    \note The minimum supported version for XLIFF format files is
+    1.1. XLIFF 1.0 version files are not supported.
+
+    Pass the \c -help option to \c lupdate to view supported options.
+
+    \QL is also able to import and export XLIFF files. See the
+    \l{Qt Linguist Manual: Translators}{Translators} section for more
+    information.
+
+    \section1 Using lrelease
+
+    Usage: \c {lrelease myproject.pro}
+
+    The lrelease command line tool produces QM files out
+    of TS files. The QM file format is a compact binary format
+    that is used by the localized application. It provides extremely
+    fast lookups for translations. The TS files lrelease
+    processes can be specified at the command line, or given
+    indirectly by a Qt \c .pro project file.
+
+    This tool is run whenever a release of the application is to be
+    made, from initial test version through to final release
+    version. If the QM files are not created, for example because an
+    alpha release is required before any translation has been
+    undertaken, the application will run perfectly well using the text
+    the developers placed in the source files. Once the QM files
+    are available the application will detect them and use them
+    automatically.
+
+    \note The lrelease tool only incorporates translations that are
+    marked as "finished". Otherwise the original text is used
+    instead.
+
+    Pass the \c -help option to \c lrelease to view supported options.
+
+    \section1 Missing Translations
+
+    Both lupdate and lrelease may be used with TS
+    translation source files which are incomplete. Missing
+    translations will be replaced with the native language phrases at
+    runtime.
+*/
+
+/*!
+    \page linguist-translators.html
+    \title Qt Linguist Manual: Translators
+    \ingroup internationalization
+
+    \contentspage {Qt Linguist Manual}{Contents}
+    \previouspage Qt Linguist Manual: Release Manager
+    \nextpage Qt Linguist Manual: Developers
+
+    \QL is a tool for adding translations to Qt applications. Once you have
+    installed Qt, you can start \QL in the same way as any other application on
+    the development host.
+
+    The \QL main window contains a menu bar and the following views:
+
+    \list
+
+        \li \gui Context (\key F6) for selecting from a list of contexts in
+            which strings to be translated appear.
+
+        \li \gui Strings (\key F7) for viewing translatable strings found in a
+            context.
+
+        \li \gui {Sources and Forms} (\key F9) for viewing the context where the
+            current string is used if the source code for the context is
+            accessible.
+
+        \li Translation area for translating strings.
+
+        \li \gui {Phrases and Guesses} (\key F10) for viewing possible
+            translations for the current string.
+
+        \li \gui Warnings (\key F8) for viewing translated strings that fail
+            validation tests.
+
+    \endlist
+
+    \image linguist-linguist.png "Qt Linguist UI"
+
+    The translation area (1) is always visible. To show or hide the other views,
+    select \gui View > \gui Views, or use the keyboard shortcuts listed above.
+    You can drag the views by their title bars and arrange them around the
+    translation area or even outside the main window.
+
+    \section1 Translating Strings
+
+    You open translation source (TS) files in \QL for translation. TS files are
+    human-readable XML files containing source phrases and their translations.
+    TS files are usually created and updated by lupdate. If you do not have a TS
+    file, see \l {Qt Linguist Manual: Release Manager} {Release Manager} to
+    learn how to generate one.
+
+    You can use \QL also to translate files in the international XML
+    Localization Interchange File Format (XLIFF) that are generated by other
+    programs. However, for standard Qt projects, only the TS file format is
+    used. The minimum supported version for XLIFF format files is 1.1.
+
+    \QL displays the target language in the translation area, and adapts the
+    number of input fields for plural forms accordingly. When you open several
+    TS files to translate simultaneously, the \gui Translator and
+    \gui {Translator comment} fields are displayed for each language.
+    For more information about setting the location information, see
+    \l{Changing the Target Locale}.
+
+    If the developer provides a \l{QObject::tr()} {disambiguating
+    comment}, it is displayed in the \gui {Developer comments} field.
+
+    To translate strings:
+
+    \list 1
+
+        \li Select \gui File > \gui Open to load a TS file.
+
+        \li Select a context in the \gui Context view to load the translatable
+            strings found in that context into the \gui Strings view.
+
+        \li Select a string to copy it as the \gui {Source text} in the
+            translation area. The whitespace within the source text is
+            visualized so that you can see the spacing required within the text.
+
+        \li Enter the translation of the current string in the \gui Translation
+            field.
+
+            You can also select an existing translation from the
+            \gui {Phrases and Guesses} view by double-clicking it. The phrases
+            are read from phrase books and the guesses are existing translations
+            of similar phrases in the TS file.
+
+        \li Optionally, enter a comment to be read by other translators in the
+            \gui {Translator comment} field.
+
+        \li To accept the translation, press \key {Ctrl+Enter}, select
+            \inlineimage linguist-doneandnext.png
+            , or click the icon to the left of the selected source string in the
+            string list.
+
+        \li Select \gui File > \gui Save to save your work.
+
+    \endlist
+
+    Repeat this process until all strings in the string list are marked with
+    \inlineimage linguist-check-on.png
+    (\gui {Accepted/Correct}) or
+    \inlineimage linguist-check-warning.png
+    (\gui {Accepted/Warnings}). Then select the next context and continue.
+
+    To view the number of words and characters in the source text and in the
+    translated text, select \gui View > \gui Statistics.
+
+    Select \gui File > \gui Release to create a Qt message QM file with the same
+    base name as the current translation source file. The release manager's
+    command line tool lrelease performs the same function on \e all of an
+    application's translation source files.
+
+    To print the translation source and the translations, select \gui File >
+    \gui Print.
+
+     To quit \QL, select \gui File > \gui Exit.
+
+    \section2 Leaving a Translation for Later
+
+    If you wish to leave a translation, press \key{Ctrl+L} (Next
+    Unfinished) to move to the next unfinished translation. To move to
+    the next translation (whether finished or unfinished) press
+    \key{Shift+Ctrl+L}. You can also navigate using the \gui Translation
+    menu. If you want to go to a different context entirely, click the
+    context you want to work on in the \gui Context list, then click the
+    source text in the \gui Strings view.
+
+    \section2 Phrases That Require Multiple Translations Depending on Context
+
+    The same phrase may occur in two or more contexts without conflict. Once
+    a phrase has been translated in one context, \QL notes that the translation
+    has been made and when the translator reaches a later occurrence of the same
+    phrase, \QL provides
+    the previous translation as a possible translation candidate in the
+    \gui {Phrases and Guesses} view.
+
+    If a phrase occurs more than once in a particular context it is shown only
+    once in the \gui Context view and the translation is applied to every
+    occurrence within the context. If the same phrase needs to be translated
+    differently within the same context, the developer must provide a
+    distinguishing comment for each occurrence of the phrase. If such comments
+    are used, the duplicate phrases appear in the \gui Context view. The
+    developer's comments appear in the translation area on a light blue
+    background.
+
+    \section2 Changing Keyboard Accelerators
+
+    A keyboard accelerator is a key combination that, when pressed,
+    causes an application to perform an action. There are two kinds of
+    keyboard accelerators: Alt key and Ctrl key accelerators.
+
+    \section3 Alt Key Accelerators
+
+    Alt key accelerators are used in menu selection and on buttons.
+    The underlined character in a menu item or button label signifies
+    that pressing the Alt key with the underlined character will
+    perform the same action as clicking the menu item or pressing the
+    button. For example, most applications have a \e{File} menu with
+    the "F" in the word "File" underlined. In these applications the
+    \e{File} menu can be invoked either by clicking the word "File" on
+    the menu bar or by pressing \e{Alt+F}. To identify an accelerator
+    key in the translation text ("File") precede it with an ampersand:
+    \e{\&File}. If a string to be translated has an ampersand in
+    it, then the translation for that string should also have an
+    ampersand in it, preferably in front of the same character.
+
+    The meaning of an Alt key accelerator can be determined from the
+    phrase in which the ampersand is embedded. The translator can
+    change the character part of the Alt key accelerator, if the
+    translated phrase does not contain the same character or if that
+    character has already been used in the translation of some other
+    Alt key accelerator. Conflicts with other Alt key accelerators
+    must be avoided within a context. Note that some Alt key
+    accelerators, usually those on the menu bar, may apply in other
+    contexts.
+
+    \section3 Ctrl Key Accelerators
+
+    Ctrl key accelerators can exist independently of any visual
+    control. They are often used to invoke actions in menus that would
+    otherwise require multiple keystrokes or mouse clicks. They may
+    also be used to perform actions that do not appear in any menu or
+    on any button. For example, most applications that have a \e{File}
+    menu have a \e{New} submenu item in the \e{File} menu. The \e{New}
+    item might appear as "\underline{N}ew Ctrl+N" in the \e{File}
+    menu, meaning the \e{New} menu can be invoked by simply pressing
+    \key{Ctrl+N}, instead of either clicking \e{File} with the mouse
+    and then clicking \e{New} with the mouse, or by entering \e{Alt+F}
+    and \e{N}.
+
+    Each Ctrl key accelerator is shown in the \gui Strings view
+    as a separate string, for example \key{Ctrl+Enter}. Since
+    the string does not have a context to give it meaning, such as
+    the context of the phrase in which an Alt key accelerator appears,
+    the translator must rely on the UI developer to include a
+    \l{QObject::tr()} {disambiguation comment} to explain the action
+    the Ctrl key accelerator is meant to perform. This disambiguating
+    comment (if provided by the developer) will appear under
+    \gui {Developer comments} in the translation area below the
+    \gui {Source text} field.
+
+    Ideally, translations for Ctrl key accelerators are simply copied by
+    selecting \gui Translation > \gui {Copy from source text}. However, in some
+    cases the character will
+    not make sense in the target language, and it must be
+    changed. Whichever character (alpha or digit) is chosen, the
+    translation must be in the form "Ctrl+" followed by the upper case
+    character. Qt will automatically display the correct name at
+    run-time. As with Alt key accelerators, if the translator changes
+    the character, the new character must not conflict with any other
+    Ctrl key accelerator.
+
+    \warning Do not translate the "Alt", "Ctrl" or "Shift" parts of
+    the accelerators. Qt relies on these strings being there. For
+    supported languages, Qt automatically translates these strings.
+
+    \section2 Handling Numbered Arguments and Plurals
+
+    Some phrases contain numbered arguments. A numbered argument is a
+    placeholder that will be replaced with text at run-time. A numbered
+    argument appears in a source string as a percent sign followed by
+    a digit. Consider an example: \c{After processing file %1, file %2
+    is next in line}. In this string to be translated, \c{%1} and
+    \c{%2} are numbered arguments. At run-time, \c{%1} and \c{%2} will
+    be replaced with the first and second file names respectively. The
+    same numbered arguments must appear in the translation, but not
+    necessarily in the same order. A German translation of the string
+    might reverse the phrases, for example \c{Datei %2 wird bearbeitet, wenn
+    Datei %1 fertig ist}. Both numbered arguments appear in the
+    translation, but in the reverse order. \c{%i} will always be
+    replaced by the same text in the translation strings, regardless
+    of where argument \e{i} appears in the argument sequence in the
+    source string.
+
+    The use of numbered arguments is often accompanied by the use of
+    plurals in the source text. In many languages, the form of the
+    text will depend on the value shown, and more than one translation
+    is required. If the developers have marked up the source text in
+    correct way, fields for each of the possible plural forms will be
+    available in the translation area. For more information, see
+    \l{Writing Source Code for Translation#Handling Plurals}
+    {Writing Source Code for Translation}.
+
+    \section2 Changing the Target Locale
+
+    If the target language and country are not explicitly set, \QL deducts them
+    from the translation source file name. For example, \c app_de.ts sets the
+    target language to German, and \c app_de_ch.ts sets the target language to
+    German and the target country to Switzerland. This also helps loading
+    translations for the current locale automatically. For more information, see
+    \l{linguist-programmers.html}{Developers}.
+
+    If your files do not follow this convention, you can also set the
+    locale information explicitly by selecting \gui Edit >
+    \gui {Translation File Settings}.
+
+    \image linguist-translationfilesettings.png
+
+    \section1 Selecting Context to Translate
+
+    The \gui Context view lists the contexts in which strings to be translated
+    appear. The column labeled \gui Context lists the context names in
+    alphabetical order. Each context is the name of a subclass of
+    QObject. There can also be a context for QObject itself, which
+    contains strings passed to the static function QObject::tr().
+    There can also be an \e{<unnamed context>}, which contains strings
+    that are not in a subclass of QObject.
+
+    The following icons indicate the current translation state for each context:
+
+    \table
+    \header
+    \li State
+    \li Icon
+    \li Description
+
+    \row
+    \li Accepted/Correct
+    \li \inlineimage linguist-check-on.png
+    \li  All strings in the context have been translated, and all the
+        translations passed the \l{Validating Translations}{validation tests}.
+
+    \row
+    \li Accepted/Warnings
+    \li \inlineimage linguist-check-warning.png
+    \li All strings in the context have been translated or marked as translated,
+        but at least one translation failed the validation tests.
+        In the \gui Strings view, you can see which string failed the test.
+
+    \row
+    \li Not Accepted
+    \li \inlineimage linguist-check-off.png
+    \li At least one string in the context has not been translated or is not
+        marked as translated.
+
+    \row
+    \li Obsolete
+    \li \inlineimage linguist-check-obsolete.png
+    \li None of the translated strings appears in the context any more. This
+        usually means the context itself no longer exists in the application.
+    \endtable
+
+    The \gui Items column displays the total number of translatable strings in
+    the context and the number of translated strings, separated by a slash (/).
+    If the numbers are equal, all the translatable strings in the context have
+    translations.
+
+    \section1 Selecting String to Translate
+
+    The \gui Strings view lists all the translatable strings found in the
+    current context and their translation acceptance state. Selecting a string
+    makes that string the current string in the translation area.
+
+    Click the icon in front of a string to change its translation acceptance
+    state. A tick mark, green or yellow, means the string has been translated
+    and the translation has been accepted. A question mark means either that the
+    translation has not been accepted or that the string does not have a
+    translation.
+
+    The following icons indicate the current translation state for each string:
+
+    \target String Translation States
+
+    \table
+    \header
+    \li State
+    \li Icon
+    \li Description
+
+    \row
+    \li Accepted/Correct
+    \li \inlineimage linguist-check-on.png
+    \li The source string has a translation (possibly empty). The user
+        has accepted the translation, and the translation passes all the
+        \l{Validating Translations} {validation tests}. If the translation is
+        empty, the user has chosen to leave it empty. Click the icon to
+        revoke acceptance of the translation and decrement the number of
+        accepted translations in the \gui Items column of the \ gui Context view
+        by 1. The state is reset to \gui {Not Accepted} if the string has a
+        translation, or to \gui {No Translation} if the string's translation is
+        empty. If \c{lupdate} changes the contents of a string, its acceptance
+        state is automatically reset to \gui {Not Accepted}.
+
+    \row
+    \li Accepted/Warnings
+    \li \inlineimage linguist-check-warning.png
+    \li The user has accepted the translation, but the translation does
+        not pass all the validation tests. The validation test failures are
+        shown in the \gui Warnings view. Click the icon to revoke acceptance of
+        the translation. The state is reset to \gui {Validation Failures}, and
+        the number of accepted translations in the \gui Items column of the
+        \gui Context view is decremented by 1.
+
+    \row
+    \li Not Accepted
+    \li \inlineimage linguist-check-off.png
+    \li The string has a translation that passes all the validation tests, but
+        the user has not yet accepted the translation. Click the icon or press
+        \key{Ctrl+Enter} to accept the translation. The state is reset to
+        \gui {Accepted/Correct}, and the number of accepted translations in the
+        \gui Items column of the \gui Context view is incremented by 1.
+
+    \row
+    \li No Translation
+    \li \inlineimage linguist-check-empty.png
+    \li The string does not have a translation. Click the icon to
+        accept the empty translation anyway. The state is reset to
+        \gui {Accepted/Correct}, and the number of accepted translations in the
+        \gui Items column of the \gui Context view is incremented by 1.
+
+    \row
+    \li Validation Failures
+    \li \inlineimage linguist-danger.png
+    \li The string has a translation, but the translation does not pass all the
+        validation tests. Validation test failures are shown in the
+        \gui Warnings view. Click on the icon or press \key{Ctrl+Return} to
+        accept the translation even with validation failures. The state is
+        reset to \gui {Accepted/Warnings}. We recommended editing the
+        translation to fix the causes of the validation failures. The state will
+        reset automatically to \gui {Not Accepted}, when all the failures have
+        been fixed.
+
+    \row
+    \li Obsolete
+    \li \inlineimage linguist-check-obsolete.png
+    \li The string is obsolete. It is no longer used in the context.
+        See the \l{Qt Linguist Manual: Release Manager} {Release Manager}
+        for instructions on how to remove obsolete messages from the file.
+
+    \endtable
+
+    \section1 Viewing Strings in Context
+
+    If the source files containing the translatable strings are
+    available to \QL, the \gui {Sources and Forms} view shows the source context
+    of the current string in the \gui Strings view. The source
+    code line containing the current string should be shown and
+    highlighted. If the file containing the source string is not
+    found, the expected absolute file path is shown.
+
+    If the source context shows the wrong source line, it probably
+    means the translation file is out of sync with the source files.
+    For more information about how to re-sync the translation file with the
+    source files, see \l{Using lupdate}.
+
+    Forms created by \QD are stored in special UI files. \QL can make use of
+    these UI files to show the translations done so far on the form itself if
+    the UI files are available to it during the translation process.
+
+    \section1 Reusing Translations
+
+    If the translated text is similar to the source text, select
+    \gui Translation > \gui {Copy from source text} (or press \key{Ctrl+B}) to
+    copy the source text into the translation area.
+
+    In \QL, \e {phrase books} are used to provide a common set of translations
+    to help ensure consistency. A phrase book is a set of source phrases, target
+    (translated) phrases, and optional definitions. Typically, one phrase book
+    is created per language and family of applications. Phrase books can also be
+    used to avoid duplication of effort since the translations for a family of
+    applications can be produced once in the phrase book.
+
+    If the current string in the \gui Strings view appears in one or more of the
+    phrase books that have been loaded, the current string and its phrase book
+    translations are listed in the \gui {Phrases and Guesses} view. If the
+    current string is the same as, or similar to, another string that has
+    already been translated, that other string and its translation
+    are also listed in this view.
+
+    To copy a translation from the \gui {Phrases and Guesses} view to the
+    translation area, double-click it or select it and press \key Enter.
+
+    \section2 Batch Translation
+
+    \image linguist-batchtranslation.png
+
+    Use the batch translation feature of \QL to automatically translate source
+    texts that are also in a phrase book. To configure which phrase books to use
+    in what order during the batch translation process, select \gui Edit >
+    \gui {Batch Translation}. You can specify whether only entries with no
+    current translation should be considered, and whether batch translated
+    entries should be marked as \gui Accepted.
+
+    \section2 Creating and Editing Phrase Books
+
+    Phrase book files are human-readable XML files containing standard phrases
+    and their translations. These files are created and updated by \QL and may
+    be used by any number of projects and applications.
+
+    To create a new phrase book, select \gui Phrases > \gui {New Phrase Book}.
+
+    \image linguist-phrasebookdialog.png
+
+    To open a phrase book, select \gui Phrases > \gui {Open Phrase Book}, and
+    then select the Qt phrase book file (.qph) to open.
+
+    To view and change open phrase books, select \gui Phrases >
+    \gui {Edit Phrase Book}.
+
+    To add a new phrase, select \gui {New Entry} (or press \key {Alt+N}) and
+    type in a new source phrase, the translation, and an optinal definition.
+    This is useful to distinguish different translations of the same source
+    phrase.
+
+    To add the translation you are working on to the current phrase book, select
+    \gui Phrases > \gui {Add to Phrase Book} or press \key{Ctrl+T}. If multiple
+    phrase books are loaded, you have to select one.
+
+    If you detect an error in a phrase book entry that is shown in the
+    \gui {Phrases and Guesses} view, you can also edit it in place by right
+    clicking on the entry, and selecting \gui Edit. After fixing the error
+    press \key{Return} to leave the editing mode.
+
+    To delete a phrase, select it in the \gui {Source phrase} list, and then
+    select \gui {Remove Entry}.
+
+    To print an open phrase book, select \gui Phrases >
+    \gui {Print Phrase Book}.
+
+    \section1 Validating Translations
+
+    \QL provides the following validation tests for translations:
+
+    \list
+        \li \e {Accelerator validation} detects translated phrases
+            that do not have an ampersand when the source phrase does and vice
+            versa.
+        \li \e {Punctuation validation} detects differences in the
+            terminating punctuation between source and translated phrases when
+            this may be significant. For example, warns if the source phrase
+            ends with an ellipsis, exclamation mark or question mark, and the
+            translated phrase does not, and vice versa.
+        \li \e {Phrases validation} detects source phrases that are
+            also in the phrase book but whose translation differs from that
+            given in the phrase book.
+        \li \e {Place marker validation} detects whether the same variables
+            (like \c %1, \c %2) are used both in the source text and in the
+            translation.
+    \endlist
+
+    To switch validation tests on or off, select \gui Validation or use the
+    toolbar buttons.
+
+    Not accepted strings that fail validation tests are marked with the
+    \gui {Validation Failures} icon in the \gui Strings view. Accepted strings
+    are marked with \gui {Accepted/Warnings}.
+
+    If you switch validation off and then switch it on later,
+    \QL rechecks all phrases and marks any that fail validation.
+
+    If the translation you enter for the current string fails any of
+    the active validation tests, the failures
+    are listed in the \gui Warnings view. The first of these failure
+    messages is also shown in the status bar at the bottom of the main
+    window.
+
+    \note Only results of \e{active} validation tests are reported.
+
+    \target multiple languages
+    \section1 Translating Multiple Languages Simultaneously
+
+    You can load and edit multiple translation files simultaneously.
+    The following screen shot displays \e{Polish} and \e{Japanese} translation
+    files loaded.
+
+    \image linguist-linguist_2.png
+
+    The translation area has text editing areas for both Polish and Japanese,
+    and these are color-coded for easier separation. The \gui Context view and
+    the \gui Strings view both have two status columns instead of one,
+    color-coded with the same colors. The left-most column
+    is related to the top-most language area (Polish above)
+    in the translation area, and the right-most column is related to the bottom
+    language area.
+
+    The \gui Items column in the \gui Context view combines the values
+    for both languages. If the number of translatable strings does not match the
+    number of accepted strings, either or both languages have strings that need
+    to be translated or accepted. The \gui Strings view shows the translation
+    acceptance state of each string for each language.
+*/
+
+/*!
+    \page linguist-programmers.html
+    \title Qt Linguist Manual: Developers
+    \ingroup internationalization
+
+    \contentspage {Qt Linguist Manual}{Contents}
+    \previouspage Qt Linguist Manual: Translators
+    \nextpage Qt Linguist Manual: TS File Format
+
+    Support for multiple languages is extremely simple in Qt
+    applications, and adds little overhead to the developer's workload.
+
+    Qt minimizes the performance cost of using translations by
+    translating the phrases for each window as they are created. In most
+    applications the main window is created just once. Dialogs are often
+    created once and then shown and hidden as required. Once the initial
+    translation has taken place there is no further runtime overhead for
+    the translated windows. Only those windows that are created,
+    destroyed and subsequently created will have a translation
+    performance cost.
+
+    Creating applications that can switch language at runtime is possible
+    with Qt, but requires a certain amount of developer intervention and
+    will of course incur some runtime performance cost.
+
+    \section1 Specifying Translation Sources in Qt Project Files
+
+    To enable release managers to use lupdate and lrelease, specify
+    a \c .pro Qt project file. There must be an entry in the \c TRANSLATIONS
+    section of the project file for each language that is additional to
+    the native language. A typical entry looks like this:
+
+    \snippet arrowpad/arrowpad.pro 1
+
+    Using a locale within the translation file name is useful for
+    determining which language to load at runtime. For more information, see
+    QLocale.
+
+    The \c lupdate tool extracts user interface strings from your application.
+    It reads the application .pro file to identify which source files
+    contain text to be translated. This means your source files must be listed
+    in the \c SOURCES or \c HEADERS entry in the .pro file, or in resource
+    files listed in the \c RESOURCE entry. If your files are
+    not listed, the text in them will not be found.
+
+    An example of a complete \c .pro file with four translation source
+    files:
+
+    \snippet doc_src_linguist-manual.pro 0
+
+    If your compiler uses a different encoding for its runtime
+    system than for its source code and you want to use  non-ASCII
+    characters in string literals, you will need to set the \c
+    CODECFORSRC. For example:
+
+    \snippet doc_src_linguist-manual.pro 2
+
+    Microsoft Visual Studio 2005 .NET appears to be the only compiler
+    for which this is necessary. However, if you want to write
+    portable code, we recommend that you avoid non-ASCII characters
+    in your source files. You can still specify non-ASCII characters
+    portably using escape sequences, for example:
+
+    \snippet doc_src_linguist-manual.cpp 3
+
+    \section1 Internationalizing Applications
+
+    Design your application so that it can be adapted to various languages and
+    regions without engineering changes. Qt tries to make internationalization
+    as painless as possible for you. All input controls and text drawing methods
+    in Qt offer built-in support for all supported languages. But you still need
+    to keep the following things in mind when writing source code for your
+    application:
+
+    \list
+
+        \li Make your application look for and load the appropriate translation
+            file.
+
+        \li Mark user-visible text and Ctrl keyboard accelerators as targets for
+            translation.
+
+        \li Provide context for text to be translated.
+
+        \li Disambiguate identical texts.
+
+        \li Use numbered arguments (%n) as placeholders for parameters that are
+            replaced with text or numbers at run-time.
+
+        \li Internationalize numbers, dates, times, and currencies.
+
+        \li Mark data text strings outside functions translatable.
+
+    \endlist
+
+    You can develop applications that use both C++ and QML sources in the same
+    application and even have user interface strings in both sources. The tools
+    create a single combined translation file and the strings are accessible
+    from C++ and QML.
+
+    The classes that support internationalizing of Qt applications are described
+    in \l{Internationalization with Qt}. The process of making source code
+    translatable is described in \l{Writing Source Code for Translation} and in
+    \l{Internationalization and Localization with Qt Quick}.
+
+    Each piece of text that requires translating requires context to help
+    the translator identify where in the program the text appears. In the
+    case of multiple identical texts that require different translations,
+    the translator also requires some information to disambiguate the
+    source texts. Marking text for translation will automatically cause
+    the class name to be used as basic context information. In some cases
+    the developer may be required to add additional information to help
+    the translator.
+
+    \section1 Deploying Translations
+
+    The \c .qm files required for the application should be placed in a
+    location where the loader code using \l QTranslator can locate them.
+    Typically, this is done by specifying a path relative to
+    \l QCoreApplication::applicationDirPath().
+
+    Usually, there are \c .qm files for the application, and, if a version of
+    Qt is used that is not installed on the system, Qt's .qm files need to be
+    deployed as well.
+
+    In Qt 4, there is one big, monolithic \c .qm file per locale. For example,
+    the file \c qt_de.qm contains the German translation of all libraries.
+
+    In Qt 5, the \c .qm files were split up by module and there is a so-called
+    meta catalog file which includes the \c .qm files of all modules. The
+    name of the meta catalog file is identical to the name of Qt 4's monolithic
+    \c .qm file so that existing loader code works as before provided
+    all included \c .qm files are found.
+
+    However, it is not necessary to always deploy all of Qt 5's \c .qm files.
+    We recommend concatenating the \c .qm files of the modules required to
+    one file matching the meta catalog file name using the tool \c lconvert in
+    the deploy step. For example, to create a German translation file for an
+    application using the modules \l{Qt Core}, \l {Qt GUI}, and \l {Qt Quick},
+    run:
+
+    \code
+    lconvert -o installation_folder/qt_de.qm qtbase_de.qm qtdeclarative_de.qm
+    \endcode
+
+    \section1 Tutorials
+
+    The following tutorials illustrate how to prepare Qt applications for
+    translation:
+
+    \list
+    \li \l{hellotr}{Hello tr()} is a C++ application that demonstrates the
+        creation of a \l QTranslator object. It also shows the simplest use of
+        the \c tr() function to mark user-visible source text for
+        translation.
+
+    \li \l{arrowpad}{Arrow Pad} is a C++ application that demonstrates how to
+       make the application load the
+       translation file applicable to the current locale. It also shows the
+       use of the two-argument form of \c tr() which provides additional
+       information to the translator.
+
+    \li \l{trollprint}{Troll Print} is a C++ application that demonstrates how
+        identical source texts can be distinguished even when they occur in
+        the same context. This tutorial also discusses how the translation
+        tools help minimize the translator's work when an application is
+        upgraded.
+
+    \li \l{QML Examples - Internationalization}{Internationalization} is a
+        Qt Quick application that demonstrates how to internationalize Qt Quick
+        applications.
+    \endlist
+*/
+
+/*!
+    \page linguist-ts-file-format.html
+    \title Qt Linguist Manual: TS File Format
+    \ingroup internationalization
+
+    \contentspage {Qt Linguist Manual}{Contents}
+    \previouspage Qt Linguist Manual: Developers
+    \nextpage Qt Linguist Manual: Text ID Based Translations
+
+    The TS file format used by \QL is described by the
+    \l{http://www.w3.org/TR/1998/REC-xml-19980210}{DTD} presented below,
+    which we include for your convenience. Be aware that the format
+    may change in future Qt releases.
+
+    \quotefile ../../../shared/ts.dtd
+
+*/
+
+/*!
+    \page linguist-id-based-i18n.html
+    \title Qt Linguist Manual: Text ID Based Translations
+    \ingroup internationalization
+
+    \contentspage {Qt Linguist Manual}{Contents}
+    \previouspage Qt Linguist Manual: TS File Format
+
+    \brief Text ID based internationalization provides support for large scale
+    projects with many target locales and many texts to translate.
+
+    The text ID translation mechanism is an "industrial strength" system for
+    internationalization and localization. Each text in the application is assigned
+    a unique identifier (text ID) and these identifiers are used directly in the
+    source code in place of the plain texts. This requires a little more work for
+    the user interface developers but makes it much easier to manage large numbers
+    of translated texts.
+
+    \note You must use only plain-text-based or only text-ID-based functions in
+    one application. If you mix them, you will end up with an incomplete set of
+    texts to be translated.
+
+
+    \section1 Internationalizing With Text IDs
+
+    When using text IDs instead of plain text, the general method of
+    internationalizing an application is the same but the details are a bit
+    different:
+
+    \list 1
+
+        \li The functions and macros for the text-ID-based translation system are
+        different to the plain-text system. You use the \c qsTrId() function instead
+        of qsTr(), and the \c QT_TRID_NOOP() macro instead of QT_TR_NOOP().
+
+        \li Use text IDs as user interface strings rather than plain text
+        strings. For example, \c {qsTrId("id-back-not-front")}
+
+        \li You cannot specify a context parameter with a text ID. If there are
+        identically spelled words with different meanings, these need separate
+        text IDs. For example, \c {qsTrId("id-back-backstep")} will
+        differentiate the back-step "Back" from the back-of-the-object "Back".
+
+        \li The "Engineering English" text that you see in the user interface for
+        development builds is indicated with a \c {//%} comment. If you do not
+        include this, the text ID will be shown in the user interface. This is
+        especially important when you have texts with parameters. The \c {//%}
+        comment needs to include the parameters indicators in the string. For
+        example, \c {//% "Number of files: %1"}
+
+        \li The \c {//:} comments that provide extra information to the translator
+        are optional in the plain-text system. However, with the text-ID-based
+        system, this extra information becomes essential because without it you only
+        have the text ID and the translator might not be able to make a sensible
+        translation from without any other context. You can use long descriptive
+        text ID and no comments but comments are often easier to understand.
+
+    \endlist
+
+    The side-by-side code snippets below show a comparison of text-ID -based and
+    plain-text-based translations:
+
+    \table
+        \header
+            \li text-ID-based
+            \li plain-text-based
+        \row
+            \li
+            \code
+            Text {
+                id: backTxt;
+                //: The back of the object, not the front
+                //% "Back"
+                //~ Context Not related to back-stepping
+                text: qsTrId("id-back-not-front");
+            }
+            \endcode
+
+            \li
+            \code
+            Text {
+                id: backTxt;
+                //: The back of the object, not the front
+                //~ Context Not related to back-stepping
+                text: qsTr("Back","Not front")
+            }
+            \endcode
+    \endtable
+
+    \section1 Localizing With Text IDs
+
+    Localizing with text IDs follows much the same process as for plain text.
+
+    The \c lupdate tool is used the same way and translations are made into
+    the .ts files:
+
+    \code
+    lupdate <myapp>.pro
+    \endcode
+
+    Note that the source values in the translation files will be text IDs rather
+    than plain text. This means you need very descriptive text IDs, or good
+    additional comments, or both to ensure that the translator makes a correct
+    translation.
+
+    The example text-ID-based user interface text from above results in the following
+    content in the .ts file:
+
+    \code
+    <message id="id-back-not-front">
+        <source>Back</source>
+        <extracomment>The back of the object, not the front</extracomment>
+        <translation type="unfinished"></translation>
+        <extra-Context>Not related to back-stepping</extra-Context>
+    </message>
+    \endcode
+
+    When using \c lrelease, you need to specify that the keys for translated
+    texts are based on text IDs, rather than plain texts. If strings in the code
+    are specified with \c qsTr() there is no "id" attribute set so they are
+    ignored by \c lrelease.
+
+    This command produces all the compiled translation .qm files for your
+    application:
+
+    \code
+    lrelease -idbased <myapp>.pro
+    \endcode
+
+    However, if there is no translation available for a given text (which is
+    generally the case until late in development), the text ID will be shown in
+    the user interface rather than a proper text. In order to make the application
+    more usable for testing, you can make \c lrelease use the "Engineering English"
+    source text (from the \c {//%} comments) as the translated text and mark it with
+    some indicator so you can see texts that are not yet translated.
+
+    For example, this command builds the .qm files and puts a "!" in front of the
+    untranslated texts:
+
+    \code
+    lrelease -idbased -markuntranslated ! <myapp>.pro
+    \endcode
+
+
+
+    \section1 Advanced Usage
+
+    For projects that target a large number of locales, you can remove the
+    TRANSLATIONS info from the .pro file and, instead, manage the translations
+    with a separate script. The script can call lrelease and lupdate for each of
+    the desired targets.
+
+    The updates could be scripted something like this:
+
+    \code
+    lupdate -recursive <project-dir> -ts <project-dir>/i18n/myapp-text_en_GB.ts
+    lupdate -recursive <project-dir> -ts <project-dir>/i18n/myapp-text_en_US.ts
+    ...
+    \endcode
+
+    The generation of the final .qm files could be scripted something like this:
+
+    \code
+    lrelease -idbased <project-dir>/i18n/myapp-text_en_GB.ts
+    lrelease -idbased <project-dir>/i18n/myapp-text_en_US.ts
+    ...
+    \endcode
+
+*/

@@ -1,0 +1,127 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+    \page qtcanbus-backends.html
+    \title Qt CAN Bus
+
+    \brief Implemented Qt CAN Bus.
+
+    A Controller Area Network (CAN) is a vehicle bus standard designed to allow microcontrollers
+    and devices to communicate with each other in applications without a host computer.
+
+    \section1 Overview
+
+    It is a message-based protocol, designed originally for multiplex electrical wiring within
+    automobiles, but is also used in many other contexts.
+
+    The CAN Bus API provides some common API to access the CAN devices:
+
+    \list
+        \li QCanBus provides an API to create a QCanBusDevice from a chosen plugin.
+        \li QCanBusDevice provides an API for direct access to the CAN device.
+        \li QCanBusFrame defines a CAN frame that can be written and read from QCanBusDevice.
+    \endlist
+
+    \section1 CAN Bus Plugins
+
+    Multiple vendors provide CAN devices with varying APIs for access. The QtSerialBus module
+    supports the following sets of CAN bus plugins:
+
+    \table
+        \header
+            \li Vendor
+            \li Plugin (key)
+            \li Brief description
+        \row
+            \li CAN over Linux sockets
+            \li \l {Using SocketCAN Plugin}{SocketCAN} (\c socketcan)
+            \li CAN bus plugin using Linux sockets and open source drivers.
+        \row
+            \li PEAK-System
+            \li \l {Using PeakCAN Plugin}{PeakCAN} (\c peakcan)
+            \li CAN bus plugin using the PEAK CAN adapters.
+        \row
+            \li MHS Elektronik
+            \li \l {Using TinyCAN Plugin}{TinyCAN} (\c tinycan)
+            \li CAN bus plugin using the MHS CAN adapters.
+        \row
+            \li Vector Informatik
+            \li \l {Using VectorCAN Plugin}{VectorCAN} (\c vectorcan)
+            \li CAN bus plugin using the Vector CAN adapters.
+    \endtable
+
+    \section1 Implementing a Custom CAN Plugin
+
+    If the plugins provided by Qt are not suitable for the required target platform,
+    a custom CAN bus plugin can be implemented. The implementation follows the standard
+    way of implementing Qt plug-ins. The custom plugin must be deployed
+    to \c {$QTDIR/plugins/canbus}.
+
+    Each plugin must define a key, which is used to load the plugin. This is done via a small json
+    file. For example, the socketcan plugin uses the following \c {plugin.json}:
+
+    \code
+    {
+        "Key": "socketcan"
+    }
+    \endcode
+
+    This key must be passed to \l {QCanBus::createDevice()} together with the interface name of
+    the CAN bus adapter. QCanBus loads and instantiates the plugin using the QCanBusFactory
+    interface which each plugin must implement as central entry point. The interface acts as
+    a factory and its sole purpose is to return a \l QCanBusDevice instance. The above mentioned
+    interface name is passed on via the factory's \l QCanBusFactory::createDevice() method.
+    The following is the factory implementation of the \e socketcan plugin:
+
+    \snippet main.cpp SocketCanFactory
+
+    The next step is to provide an implementation of QCanBusDevice. At the very least, the
+    following pure virtual functions must be implemented:
+
+    \list
+        \li \l QCanBusDevice::open()
+        \li \l QCanBusDevice::close()
+        \li \l QCanBusDevice::writeFrame()
+        \li \l QCanBusDevice::interpretErrorFrame()
+    \endlist
+
+    The \l {QCanBusDevice::open()}{open()} and \l {QCanBusDevice::close()}{close()}
+    methods are used in conjunction with \l QCanBusDevice::connectDevice() and
+    \l QCanBusDevice::disconnectDevice() respectively. Check the
+    function documentation for implementation details.
+
+    \l QCanBusDevice::writeFrame() is responsible for sanity checks such as the validity
+    of the \l QCanBusFrame and that the device is still connected. Provided
+    that the checks passed, it writes the frame to the CAN bus. Upon success it emits
+    the \l QCanBusDevice::framesWritten() signal; otherwise \l QCanBusDevice::setError() is
+    called with an appropriate error message. This function may also be used to implement
+    an asynchronous write operation. It is the plugin implementors responsibility to emit
+    the appropriate signals at the appropriate time.
+
+    Last but not least, \l QCanBusDevice::interpretErrorFrame provides a convenient way
+    to translate the content of an CAN bus error frame to a human-readable error string.
+ */

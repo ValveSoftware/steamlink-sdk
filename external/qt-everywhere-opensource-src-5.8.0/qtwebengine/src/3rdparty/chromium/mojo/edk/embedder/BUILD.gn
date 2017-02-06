@@ -1,0 +1,155 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/nacl/config.gni")
+
+source_set("headers") {
+  sources = [
+    "configuration.h",
+    "embedder.h",
+    "embedder_internal.h",
+    "named_platform_channel_pair.h",
+    "platform_channel_pair.h",
+    "platform_handle.h",
+    "platform_handle_utils.h",
+    "process_delegate.h",
+    "scoped_platform_handle.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//mojo/public/cpp/system",
+  ]
+}
+
+source_set("embedder") {
+  # This isn't really a standalone target; it must be linked into the
+  # mojo_system_impl component.
+  visibility = [
+    "//mojo/edk/system",
+    "//components/nacl:nacl",
+  ]
+
+  sources = [
+    "configuration.h",
+    "embedder.cc",
+    "embedder.h",
+    "embedder_internal.h",
+    "entrypoints.cc",
+    "entrypoints.h",
+    "scoped_ipc_support.cc",
+    "scoped_ipc_support.h",
+
+    # Test-only code:
+    # TODO(vtl): It's a little unfortunate that these end up in the same
+    # component as non-test-only code. In the static build, this code should
+    # hopefully be dead-stripped.
+    "test_embedder.cc",
+    "test_embedder.h",
+  ]
+
+  defines = [ "MOJO_SYSTEM_IMPL_IMPLEMENTATION" ]
+
+  public_deps = [
+    ":delegates",
+    ":headers",
+    ":platform",
+    "//base",
+    "//mojo/public/cpp/system",
+  ]
+
+  if (!is_nacl) {
+    deps = [
+      "//crypto",
+    ]
+  }
+}
+
+source_set("platform") {
+  # This isn't really a standalone target; it must be linked into the
+  # mojo_system_impl component.
+  visibility = [
+    ":embedder",
+    "//mojo/edk/system",
+  ]
+
+  sources = [
+    "named_platform_channel_pair.h",
+    "named_platform_channel_pair_win.cc",
+    "platform_channel_pair.cc",
+    "platform_channel_pair.h",
+    "platform_channel_pair_posix.cc",
+    "platform_channel_pair_win.cc",
+    "platform_channel_utils_posix.cc",
+    "platform_channel_utils_posix.h",
+    "platform_handle.cc",
+    "platform_handle.h",
+    "platform_handle_utils.h",
+    "platform_handle_utils_posix.cc",
+    "platform_handle_utils_win.cc",
+    "platform_handle_vector.h",
+    "platform_shared_buffer.cc",
+    "platform_shared_buffer.h",
+    "scoped_platform_handle.h",
+  ]
+
+  defines = [ "MOJO_SYSTEM_IMPL_IMPLEMENTATION" ]
+
+  public_deps = [
+    "//mojo/public/cpp/system",
+  ]
+
+  deps = [
+    "//base",
+  ]
+
+  if (is_android) {
+    deps += [ "//third_party/ashmem" ]
+  }
+
+  if (is_nacl && !is_nacl_nonsfi) {
+    sources -= [ "platform_channel_utils_posix.cc" ]
+  }
+}
+
+source_set("delegates") {
+  # This isn't really a standalone target; it must be linked into the
+  # mojo_system_impl component.
+  visibility = [
+    ":embedder",
+    "//mojo/edk/system",
+  ]
+
+  sources = [
+    "process_delegate.h",
+  ]
+
+  defines = [ "MOJO_SYSTEM_IMPL_IMPLEMENTATION" ]
+
+  public_deps = [
+    "//mojo/public/cpp/system",
+  ]
+}
+
+source_set("embedder_unittests") {
+  testonly = true
+
+  # TODO: Figure out why this visibility check fails on Android.
+  # visibility = [ "//mojo/edk/system:mojo_system_unittests" ]
+
+  sources = [
+    "embedder_unittest.cc",
+    "platform_channel_pair_posix_unittest.cc",
+    "platform_shared_buffer_unittest.cc",
+  ]
+
+  deps = [
+    "//base",
+    "//base/test:test_support",
+    "//mojo/edk/system",
+    "//mojo/edk/system:test_utils",
+    "//mojo/edk/test:test_support",
+    "//testing/gtest",
+  ]
+}

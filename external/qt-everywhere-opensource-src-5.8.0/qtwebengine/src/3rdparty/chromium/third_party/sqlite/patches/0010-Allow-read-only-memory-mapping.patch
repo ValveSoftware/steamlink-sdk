@@ -1,0 +1,47 @@
+From 12b0ba774b11ae27c41ad20e62522c00567e2a0a Mon Sep 17 00:00:00 2001
+From: Scott Hess <shess@chromium.org>
+Date: Wed, 5 Aug 2015 16:44:32 -0700
+Subject: [PATCH 10/10] Allow read-only memory mapping.
+
+In memory-mapped I/O mode, SQLite writes pages by using memcpy() from
+the staging memory into the underlying memory-mapped file.  This allows
+anyone in the process to also write into that space.  Modify SQLite to
+map things read-only.
+
+TODO: Upstream.
+
+BUG=489784
+---
+ third_party/sqlite/src/src/os_unix.c | 2 +-
+ third_party/sqlite/src/src/os_win.c  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/third_party/sqlite/src/src/os_unix.c b/third_party/sqlite/src/src/os_unix.c
+index fa85638..523cad6 100644
+--- a/third_party/sqlite/src/src/os_unix.c
++++ b/third_party/sqlite/src/src/os_unix.c
+@@ -3141,7 +3141,7 @@ static int unixRead(
+   );
+ #endif
+ 
+-#if SQLITE_MAX_MMAP_SIZE>0
++#if defined(SQLITE_MMAP_READWRITE) && SQLITE_MAX_MMAP_SIZE>0
+   /* Deal with as much of this read request as possible by transfering
+   ** data from the memory mapping using memcpy().  */
+   if( offset<pFile->mmapSize ){
+diff --git a/third_party/sqlite/src/src/os_win.c b/third_party/sqlite/src/src/os_win.c
+index 00ad6fd..8a68828 100644
+--- a/third_party/sqlite/src/src/os_win.c
++++ b/third_party/sqlite/src/src/os_win.c
+@@ -2524,7 +2524,7 @@ static int winRead(
+            "offset=%lld, lock=%d\n", osGetCurrentProcessId(), pFile,
+            pFile->h, pBuf, amt, offset, pFile->locktype));
+ 
+-#if SQLITE_MAX_MMAP_SIZE>0
++#if defined(SQLITE_MMAP_READWRITE) && SQLITE_MAX_MMAP_SIZE>0
+   /* Deal with as much of this read request as possible by transfering
+   ** data from the memory mapping using memcpy().  */
+   if( offset<pFile->mmapSize ){
+-- 
+2.7.0
+

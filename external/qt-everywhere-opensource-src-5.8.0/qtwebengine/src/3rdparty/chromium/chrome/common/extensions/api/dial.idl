@@ -1,0 +1,64 @@
+// Copyright (c) 2012 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.dial</code> API to discover devices that support DIAL.
+// Protocol specification: http://www.dial-multiscreen.org/
+namespace dial {
+
+  // Represents a unique device that responded to a DIAL discovery request.
+  dictionary DialDevice {
+
+    // A label identifying the device within this instance of the browser.
+    // Not guaranteed to persist beyond browser instances.
+    DOMString deviceLabel;
+
+    // A URL pointing to the device description resource for the device.
+    DOMString deviceDescriptionUrl;
+
+    // The uPnP configuration ID reported by the device.  Corresponds to the
+    // CONFIGID.UPNP.ORG header in the M-SEARCH response.
+    long? configId;
+  };
+
+  enum DialErrorCode {
+    no_listeners,
+    no_valid_network_interfaces,
+    network_disconnected,
+    cellular_network,
+    socket_error,
+    unknown
+  };
+
+  dictionary DialError {
+    DialErrorCode code;
+  };
+
+  callback BooleanCallback = void (boolean result);
+
+  interface Functions {
+
+    // Requests that DIAL discovery happen immediately.  The request may not be
+    // honored as discovery may already be happening in the background.  The
+    // callback is invoked with |true| if discovery was initiated or |false|
+    // otherwise.
+    static void discoverNow(BooleanCallback callback);
+  };
+
+  interface Events {
+
+    // Event fired to inform clients of the current, complete set of responsive
+    // devices.  Clients should only need to store the list from the most recent
+    // event.  May be fired in response to multiple circumstances:
+    //
+    // (1) The DIAL service refreshed its device list through periodic polling.
+    // (2) A client invoked discoverNow().
+    // (3) An event happened that should invalidate the device list
+    //     (e.g., a network interface went offline), in which case it is fired
+    //     with an empty array.
+    static void onDeviceList(DialDevice[] result);
+
+    // Event fired to inform clients on errors during device discovery.
+    static void onError(DialError error);
+  };
+};

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<!--
+Copyright 2016 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/base/range.html">
+<link rel="import" href="/tracing/value/numeric.html">
+<link rel="import" href="/tracing/value/unit.html">
+<link rel="import" href="/tracing/value/value_set.html">
+
+<script>
+'use strict';
+
+tr.b.unittest.testSuite(function() {
+  test('computeSummaryValuesForNumericValue', function() {
+    var n = tr.v.NumericBuilder.createLinear(
+        tr.v.Unit.byName.timeDurationInMs, tr.b.Range.fromExplicitRange(0, 100),
+        100).build();
+
+    n.add(50);
+    n.add(60);
+    n.add(70);
+
+    n.customizeSummaryOptions({
+      count: true,
+      min: true,
+      max: true,
+      sum: true,
+      avg: true,
+      std: true,
+      percentile: [0.5, 1]
+    });
+
+    var results =
+        tr.v.ValueSet.computeSummaryValuesForNumericValue(
+            new tr.v.NumericValue('abc', n, { description: 'desc' }));
+    var values = {};
+    results.forEach(function(x) {
+      values[x.name] = x.numeric;
+    });
+    assert.strictEqual(values.abc_count.value, 3);
+    assert.strictEqual(values.abc_min.value, 50);
+    assert.strictEqual(values.abc_max.value, 70);
+    assert.strictEqual(values.abc_sum.value, 180);
+    assert.strictEqual(values.abc_avg.value, 60);
+    assert.strictEqual(values.abc_std.value, 10);
+    assert.closeTo(values.abc_pct_050.value, 60, 1);
+    assert.closeTo(values.abc_pct_100.value, 70, 1);
+  });
+
+  test('relatedValueSetDiagnostic', function() {
+    var unit = tr.v.Unit.byName.unitlessNumber;
+    var a = new tr.v.NumericValue('a', new tr.v.ScalarNumeric(unit, 0));
+    var b = new tr.v.NumericValue('b', new tr.v.ScalarNumeric(unit, 1));
+    var c = new tr.v.NumericValue('c', new tr.v.ScalarNumeric(unit, 2));
+    a.diagnostics.add('rvs', new tr.v.d.RelatedValueSet([b, c]));
+
+    // Don't serialize c just yet.
+    var values = new tr.v.ValueSet([a, b]);
+
+    var sourceValues = values.sourceValues;
+    assert.lengthOf(sourceValues, 1);
+    assert.strictEqual(sourceValues[0], a);
+
+    var values2 = new tr.v.ValueSet();
+    values2.addValuesFromDicts(values.valueDicts);
+
+    var a2 = values2.getValuesWithName('a');
+    assert.lengthOf(a2, 1);
+    a2 = a2[0];
+    assert.strictEqual(a2.guid, a.guid);
+    assert.instanceOf(a2, tr.v.Value);
+    assert.notStrictEqual(a2, a);
+
+    var b2 = values2.getValuesWithName('b');
+    assert.lengthOf(b2, 1);
+    b2 = b2[0];
+    assert.strictEqual(b2.guid, b.guid);
+    assert.instanceOf(b2, tr.v.Value);
+    assert.notStrictEqual(b2, b);
+
+    var rvs2 = a2.diagnostics.get('rvs');
+    assert.instanceOf(rvs2, tr.v.d.RelatedValueSet);
+    assert.lengthOf(rvs2.values, 2);
+
+    // Assert that b and c are in a2's RelatedValueSet.
+    var rvs2vs = rvs2.values;
+    var rvs2guids = rvs2vs.map(v => v.guid);
+    var b2i = rvs2guids.indexOf(b.guid);
+    assert.strictEqual(rvs2vs[b2i], b2);
+
+    var c2i = rvs2guids.indexOf(c.guid);
+    assert.strictEqual(rvs2vs[c2i].guid, c.guid);
+    assert.instanceOf(rvs2vs[c2i], tr.v.d.ValueRef);
+
+    // Now serialize c and add it to values2.
+    // Related value resolution is idempotent.
+    // Old values can refer to new values.
+    values2.addValuesFromDicts([c.asDict()]);
+
+    var c2 = values2.getValuesWithName('c');
+    assert.lengthOf(c2, 1);
+    c2 = c2[0];
+    assert.strictEqual(c2.guid, c.guid);
+    assert.notStrictEqual(c2, c);
+
+    // Now a real c2 Value should be in a2's RelatedValueSet.
+    rvs2vs = rvs2.values;
+    rvs2guids = rvs2vs.map(v => v.guid);
+    b2i = rvs2guids.indexOf(b.guid);
+    c2i = rvs2guids.indexOf(c.guid);
+    assert.strictEqual(b2, rvs2vs[b2i]);
+    assert.strictEqual(c2, rvs2vs[c2i]);
+  });
+
+  test('relatedValueMapDiagnostic', function() {
+    var unit = tr.v.Unit.byName.unitlessNumber;
+    var a = new tr.v.NumericValue('a', new tr.v.ScalarNumeric(unit, 0));
+    var b = new tr.v.NumericValue('b', new tr.v.ScalarNumeric(unit, 1));
+    var c = new tr.v.NumericValue('c', new tr.v.ScalarNumeric(unit, 2));
+    var rvm = new tr.v.d.RelatedValueMap();
+    rvm.set('y', b);
+    rvm.set('z', c);
+    a.diagnostics.add('rvm', rvm);
+
+    // Don't serialize c just yet.
+    var values = new tr.v.ValueSet([a, b]);
+
+    var sourceValues = values.sourceValues;
+    assert.lengthOf(sourceValues, 1);
+    assert.strictEqual(sourceValues[0], a);
+
+    var values2 = new tr.v.ValueSet();
+    values2.addValuesFromDicts(values.valueDicts);
+
+    var a2 = values2.getValuesWithName('a');
+    assert.lengthOf(a2, 1);
+    a2 = a2[0];
+    assert.strictEqual(a2.guid, a.guid);
+    assert.instanceOf(a2, tr.v.Value);
+    assert.notStrictEqual(a2, a);
+
+    var b2 = values2.getValuesWithName('b');
+    assert.lengthOf(b2, 1);
+    b2 = b2[0];
+    assert.strictEqual(b2.guid, b.guid);
+    assert.instanceOf(b2, tr.v.Value);
+    assert.notStrictEqual(b2, b);
+
+    var rvm2 = a2.diagnostics.get('rvm');
+    assert.instanceOf(rvm2, tr.v.d.RelatedValueMap);
+    assert.lengthOf(rvm2.values, 2);
+
+    // Assert that b and c are in a2's RelatedValueMap.
+    // |c| should still be a ValueRef since it wasn't in values2.
+    assert.strictEqual(rvm2.get('y'), b2);
+    assert.instanceOf(rvm2.get('z'), tr.v.d.ValueRef);
+
+    // Now serialize c and add it to values2.
+    // Related value resolution is idempotent.
+    // Old values can refer to new values.
+    values2.addValuesFromDicts([c.asDict()]);
+
+    var c2 = values2.getValuesWithName('c');
+    assert.lengthOf(c2, 1);
+    c2 = c2[0];
+    assert.strictEqual(c2.guid, c.guid);
+    assert.instanceOf(c2, tr.v.Value);
+    assert.notStrictEqual(c2, c);
+
+    // b2 should still be in a2's RelatedValueMap.
+    assert.strictEqual(rvm2.get('y'), b2);
+
+    // Now a real c2 Value should be in a2's RelatedValueMap.
+    assert.strictEqual(rvm2.get('z'), c2);
+  });
+});
+</script>

@@ -1,0 +1,207 @@
+/****************************************************************************
+**
+** Copyright (C) 2014 Sze Howe Koh <szehowe.koh@gmail.com>
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page signalsandslots-syntaxes.html
+\title Differences between String-Based and Functor-Based Connections
+\brief Compares the two syntaxes for making signal-slot connections in C++.
+
+From Qt 5.0 onwards, Qt offers two different ways to write \l{Signals and Slots}
+{signal-slot connections} in C++: The \e{string-based} connection syntax and the
+\e{functor-based} connection syntax. There are pros and cons to both syntaxes.
+The table below summarizes their differences.
+
+
+\table
+\header
+    \li
+    \li String-based
+    \li Functor-based
+\row
+    \li Type checking is done at...
+    \li Run-time
+    \li Compile-time
+\row
+    \li Can perform implicit type conversions
+    \li
+    \li Y
+\row
+    \li Can connect signals to lambda expressions
+    \li
+    \li Y
+\row
+    \li Can connect signals to slots which have more arguments than the signal (using default parameters)
+    \li Y
+    \li
+\row
+    \li Can connect C++ functions to QML functions
+    \li Y
+    \li
+\row
+    \li Selecting an instance of an overloaded signal or slot is...
+    \li Simple
+    \li Complex
+\endtable
+
+The following sections explain these differences in detail and demonstrate how
+to use the features unique to each connection syntax.
+
+
+\section1 Type Checking and Implicit Type Conversions
+
+String-based connections type-check by comparing strings at run-time. There are
+three limitations with this approach:
+
+\list 1
+\li Connection errors can only be detected after the program has started running.
+\li Implicit conversions cannot be done between signals and slots.
+\li Typedefs and namespaces cannot be resolved.
+\endlist
+
+Limitations 2 and 3 exist because the string comparator does not have access to
+C++ type information, so it relies on exact string matching.
+
+In contrast, functor-based connections are checked by the compiler. The compiler
+catches errors at compile-time, enables implicit conversions between compatible
+types, and recognizes different names of the same type.
+
+For example, only the functor-based syntax can be used to connect a signal that
+carries an \c int to a slot that accepts a \c double. A QSlider holds an \c int
+value while a QDoubleSpinBox holds a \c double value. The following snippet shows
+how to keep them in sync:
+
+\snippet snippets/signalsandslots/signalslotsyntaxes.cpp implicitconversion
+
+The following example illustrates the lack of name resolution. QAudioInput::stateChanged()
+is declared with an argument of type "QAudio::State". Thus, string-based
+connections must also specify "QAudio::State", even if \c "State" is already
+visible. This issue does not apply to functor-based connections because argument
+types are not part of the connection.
+
+\snippet snippets/signalsandslots/signalslotsyntaxes.cpp typeresolution
+
+
+\section1 Making Connections to Lambda Expressions
+
+The functor-based connection syntax can connect signals to C++11 lambda expressions,
+which are effectively inline slots. This feature is not available with the
+string-based syntax.
+
+In the following example, the TextSender class emits a \c textCompleted() signal
+which carries a QString parameter. Here is the class declaration:
+
+\snippet snippets/signalsandslots/signalslotsyntaxes.h lambda
+
+Here is the connection which emits \c{TextSender::textCompleted()} when the user
+clicks the button:
+\snippet snippets/signalsandslots/signalslotsyntaxes.cpp lambda
+
+In this example, the lambda function made the connection simple even though
+QPushButton::clicked() and \c TextSender::textCompleted() have incompatible
+parameters. In contrast, a string-based implementation would require extra
+boilerplate code.
+
+\note The functor-based connection syntax accepts pointers to all functions,
+including standalone functions and regular member functions. However, for the
+sake of readability, signals should only be connected to slots, lambda expressions,
+and other signals.
+
+
+\section1 Connecting C++ Objects to QML Objects
+
+The string-based syntax can connect C++ objects to QML objects, but the
+functor-based syntax cannot. This is because QML types are resolved at run-time,
+so they are not available to the C++ compiler.
+
+In the following example, clicking on the QML object makes the C++ object print
+a message, and vice-versa. Here is the QML type (in \c{QmlGui.qml}):
+\snippet snippets/signalsandslots/QmlGui.qml crosslanguage
+
+Here is the C++ class:
+\snippet snippets/signalsandslots/signalslotsyntaxes.h crosslanguage
+
+Here is the code that makes the signal-slot connections:
+\snippet snippets/signalsandslots/signalslotsyntaxes.cpp crosslanguage
+
+\note All JavaScript functions in QML take parameters of \c var type, which maps
+to the QVariant type in C++.
+
+When the QPushButton is clicked, the console prints,
+\e{'QML received: "Hello from C++!"'}. Likewise, when the Rectangle is clicked,
+the console prints, \e{'C++ received: "Hello from QML!"'}.
+
+See \l{Interacting with QML Objects from C++} for other ways to let C++ objects
+interact with QML objects.
+
+
+\section1 Using Default Parameters in Slots to Connect to Signals with Fewer Parameters
+
+Usually, a connection can only be made if the slot has the same number of arguments
+as the signal (or less), and if all the argument types are compatible.
+
+The string-based connection syntax provides a workaround for this rule: If the
+slot has default parameters, those parameters can be omitted from the signal.
+When the signal is emitted with fewer arguments than the slot, Qt runs the slot
+using default parameter values.
+
+Functor-based connections do not support this feature.
+
+Suppose there is a class called \c DemoWidget with a slot \c printNumber() that
+has a default argument:
+\snippet snippets/signalsandslots/signalslotsyntaxes.h defaultparams
+
+Using a string-based connection, \c{DemoWidget::printNumber()} can be connected
+to QApplication::aboutToQuit(), even though the latter has no arguments. The
+functor-based connection will produce a compile-time error:
+\snippet snippets/signalsandslots/signalslotsyntaxes.cpp defaultparams
+
+To work around this limitation with the functor-based syntax, connect the signal to
+a lambda function that calls the slot. See the section above, \l{Making Connections
+to Lambda Expressions}.
+
+
+\section1 Selecting Overloaded Signals and Slots
+
+With the string-based syntax, parameter types are explicitly specified. As a
+result, the desired instance of an overloaded signal or slot is unambiguous.
+
+In contrast, with the functor-based syntax, an overloaded signal or slot must
+be casted to tell the compiler which instance to use.
+
+For example, \l QSignalMapper has four versions of the \c mapped() signal:
+\list 1
+\li \c QSignalMapper::mapped(int)
+\li \c QSignalMapper::mapped(QString)
+\li \c QSignalMapper::mapped(QWidget*)
+\li \c QSignalMapper::mapped(QObject*)
+\endlist
+
+To connect the \c int version to QSpinBox::setValue(), the two syntaxes are:
+
+\snippet snippets/signalsandslots/signalslotsyntaxes.cpp overload
+
+*/

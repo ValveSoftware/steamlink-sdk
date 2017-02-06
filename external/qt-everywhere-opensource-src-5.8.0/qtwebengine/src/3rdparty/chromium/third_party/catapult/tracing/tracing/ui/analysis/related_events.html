@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<!--
+Copyright (c) 2015 The Chromium Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+
+<link rel="import" href="/tracing/base/range.html">
+<link rel="import" href="/tracing/base/task.html">
+<link rel="import" href="/tracing/model/event_set.html">
+<link rel="import" href="/tracing/ui/analysis/analysis_link.html">
+<link rel="import" href="/tracing/ui/analysis/flow_classifier.html">
+<link rel="import" href="/tracing/ui/base/dom_helpers.html">
+<link rel="import" href="/tracing/ui/base/table.html">
+
+<polymer-element name="tr-ui-a-related-events">
+  <template>
+    <style>
+    :host {
+      display: flex;
+      flex-direction: column;
+    }
+    #table {
+      flex: 1 1 auto;
+      align-self: stretch;
+    }
+    </style>
+    <tr-ui-b-table id="table"></tr-ui-b-table>
+  </template>
+
+  <script>
+  'use strict';
+
+  Polymer({
+    ready: function() {
+      this.eventGroups_ = [];
+      this.cancelFunctions_ = [];
+
+      this.$.table.tableColumns = [
+        {
+          title: 'Event(s)',
+          value: function(row) {
+            var typeEl = document.createElement('span');
+            typeEl.innerText = row.type;
+            if (row.tooltip)
+              typeEl.title = row.tooltip;
+            return typeEl;
+          },
+          width: '150px'
+        },
+        {
+          title: 'Link',
+          width: '100%',
+          value: function(row) {
+            var linkEl = document.createElement('tr-ui-a-analysis-link');
+            if (row.name)
+              linkEl.setSelectionAndContent(row.selection, row.name);
+            else
+              linkEl.selection = row.selection;
+            return linkEl;
+          }
+        }
+      ];
+    },
+
+    hasRelatedEvents: function() {
+      return (this.eventGroups_ && this.eventGroups_.length > 0);
+    },
+
+    setRelatedEvents: function(eventSet) {
+      this.cancelAllTasks_();
+      this.eventGroups_ = [];
+      this.addConnectedFlows_(eventSet);
+      this.addConnectedEvents_(eventSet);
+      this.addOverlappingSamples_(eventSet);
+      this.updateContents_();
+    },
+
+    addConnectedFlows_: function(eventSet) {
+      var classifier = new tr.ui.analysis.FlowClassifier();
+      eventSet.forEach(function(slice) {
+        if (slice.inFlowEvents) {
+          slice.inFlowEvents.forEach(function(flow) {
+            classifier.addInFlow(flow);
+          });
+        }
+        if (slice.outFlowEvents) {
+          slice.outFlowEvents.forEach(function(flow) {
+            classifier.addOutFlow(flow);
+          });
+        }
+      });
+      if (!classifier.hasEvents())
+        return;
+
+      var addToEventGroups = function(type, flowEvent) {
+        this.eventGroups_.push({
+          type: type,
+          selection: new tr.model.EventSet(flowEvent),
+          name: flowEvent.title
+        });
+      };
+
+      classifier.inFlowEvents.forEach(
+          addToEventGroups.bind(this, 'Incoming flow'));
+      classifier.outFlowEvents.forEach(
+          addToEventGroups.bind(this, 'Outgoing flow'));
+      classifier.internalFlowEvents.forEach(
+          addToEventGroups.bind(this, 'Internal flow'));
+    },
+
+    cancelAllTasks_: function() {
+      this.cancelFunctions_.forEach(function(cancelFunction) {
+        cancelFunction();
+      });
+      this.cancelFunctions_ = [];
+    },
+
+    addConnectedEvents_: function(eventSet) {
+      this.cancelFunctions_.push(this.createEventsLinkIfNeeded_(
+          'Preceding events',
+          'Add all events that have led to the selected one(s), connected by ' +
+              'flow arrows or by call stack.',
+          eventSet,
+          function(event, events) {
+            this.addInFlowEvents_(event, events);
+            this.addAncestors_(event, events);
+            if (event.startSlice)
+              events.push(event.startSlice);
+          }.bind(this)));
+      this.cancelFunctions_.push(this.createEventsLinkIfNeeded_(
+          'Following events',
+          'Add all events that have been caused by the selected one(s), ' +
+              'connected by flow arrows or by call stack.',
+          eventSet,
+          function(event, events) {
+            this.addOutFlowEvents_(event, events);
+            this.addDescendents_(event, events);
+            if (event.endSlice)
+              events.push(event.endSlice);
+          }.bind(this)));
+      this.cancelFunctions_.push(this.createEventsLinkIfNeeded_(
+          'All connected events',
+          'Add all events connected to the selected one(s) by flow arrows or ' +
+              'by call stack.',
+          eventSet,
+          function(event, events) {
+            this.addInFlowEvents_(event, events);
+            this.addOutFlowEvents_(event, events);
+            this.addAncestors_(event, events);
+            this.addDescendents_(event, events);
+            if (event.startSlice)
+              events.push(event.startSlice);
+            if (event.endSlice)
+              events.push(event.endSlice);
+          }.bind(this)));
+    },
+
+    createEventsLinkIfNeeded_: function(title, tooltip, events, addFunction) {
+      events = new tr.model.EventSet(events);
+      var lengthBefore = events.length;
+      var task;
+      var isCanceled = false;
+      function addEventsUntilTimeout(startingIndex) {
+        if (isCanceled)
+          return;
+        var startingTime = window.performance.now();
+        while (startingIndex < events.length) {
+          addFunction(events[startingIndex], events);
+          startingIndex++;
+          // Let's grant ourselves a budget of 8ms.
+          if (window.performance.now() - startingTime > 8) {
+            var newTask = new tr.b.Task(
+                addEventsUntilTimeout.bind(this, startingIndex), this);
+            task.after(newTask);
+            task = newTask;
+            return;
+          }
+        }
+        // Went through all events, add the link.
+        if (lengthBefore === events.length)
+          return;
+        this.eventGroups_.push({
+          type: title,
+          tooltip: tooltip,
+          selection: events
+        });
+        this.updateContents_();
+      };
+      function cancelTask() {
+        isCanceled = true;
+      }
+      task = new tr.b.Task(addEventsUntilTimeout.bind(this, 0), this);
+      tr.b.Task.RunWhenIdle(task);
+      return cancelTask;
+    },
+
+    addInFlowEvents_: function(event, eventSet) {
+      if (!event.inFlowEvents)
+        return;
+      event.inFlowEvents.forEach(function(e) {
+        eventSet.push(e);
+      });
+    },
+
+    addOutFlowEvents_: function(event, eventSet) {
+      if (!event.outFlowEvents)
+        return;
+      event.outFlowEvents.forEach(function(e) {
+        eventSet.push(e);
+      });
+    },
+
+    addAncestors_: function(event, eventSet) {
+      if (!event.iterateAllAncestors)
+        return;
+      event.iterateAllAncestors(function(e) {
+        eventSet.push(e);
+      });
+    },
+
+    addDescendents_: function(event, eventSet) {
+      if (!event.iterateAllDescendents)
+        return;
+      event.iterateAllDescendents(function(e) {
+        eventSet.push(e);
+      });
+    },
+
+    addOverlappingSamples_: function(eventSet) {
+      var samples = new tr.model.EventSet;
+      eventSet.forEach(function(slice) {
+        if (!slice.parentContainer || !slice.parentContainer.samples)
+          return;
+        var candidates = slice.parentContainer.samples;
+        var range = tr.b.Range.fromExplicitRange(
+            slice.start, slice.start + slice.duration);
+        var filteredSamples = range.filterArray(
+            candidates, function(value) {return value.start;});
+        filteredSamples.forEach(function(sample) {
+          samples.push(sample);
+        });
+      }.bind(this));
+      if (samples.length > 0) {
+        this.eventGroups_.push({
+          type: 'Overlapping samples',
+          tooltip: 'All samples overlapping the selected slice(s).',
+          selection: samples
+        });
+      }
+    },
+
+    updateContents_: function() {
+      var table = this.$.table;
+      if (this.eventGroups_ === undefined)
+        table.tableRows = [];
+      else
+        table.tableRows = this.eventGroups_.slice();
+      table.rebuild();
+    }
+  });
+  </script>
+</polymer-element>

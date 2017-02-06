@@ -1,0 +1,389 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\title Scene Graph Adaptations
+\page qtquick-visualcanvas-adaptations.html
+
+\section1 Scene Graph Adaptations in Qt Quick
+
+Originally Qt Quick only had one available renderer for parsing the scene graph
+and rendering the results to a render target. This renderer is now the default
+OpenGL Renderer which supports rendering either using the OpenGL ES 2.0 or
+OpenGL 2.0 (with framebuffer object extensions) APIs. The Qt Quick APIs have
+originally been designed with the assumption that OpenGL is always available.
+However, it is now possible to use other graphics API's to render Qt Quick
+scenes using the scene graph APIs.
+
+\section1 Switching between the adaptation used by the application
+
+The default of the OpenGL, or - in Qt builds with disabled OpenGL support - the
+software adaptation, can be overridden either by using an environment variable
+or a C++ API. The former consists of setting the \c{QT_QUICK_BACKEND} or the
+legacy \c{QMLSCENE_DEVICE} environment variable before launching applications.
+The latter is done by calling QQuickWindow::setSceneGraphBackend() early in the
+application's main() function.
+
+The supported backends are the following
+
+\list
+
+\li OpenGL - Requested by the string \c{""} or the enum value QSGRendererInterface::OpenGL.
+
+\li Software - Requested by the string \c{"software"} or the enum value QSGRendererInterface::Software.
+
+\li Direct3D 12 - Requested by the string \c{"d3d12"} or the enum value QSGRendererInterface::Direct3D12.
+
+\endlist
+
+When in doubt which backend is in use, enable basic scenegraph information
+logging via the \c{QSG_INFO} environment variable or the
+\c{qt.scenegraph.general} logging category. This will result in printing some
+information during application startup onto the debug output.
+
+\note Adaptations other than OpenGL will typically come with a set of
+limitations since they are unlikely to provide a feature set 100% compatible
+with OpenGL. However, they may provide their own specific advantages in certain
+areas. Refer to the sections below for more information on the various
+adaptations.
+
+\section1 OpenGL ES 2.0 and OpenGL 2.0 Adaptation
+
+The default adaptation capable of providing the full Qt Quick 2 feature
+set is the OpenGL adaptation.  All of the details of the OpenGL
+adpatation can are available here:
+\l{qtquick-visualcanvas-scenegraph-renderer.html}{OpenGL Adaptation}
+
+\section1 Software Adaptation
+
+The Software adaptation is an alternative renderer for \l {Qt Quick} 2 that
+uses the raster paint engine to render the contents of the scene graph. The
+details for this adaptation are available here:
+\l{qtquick-visualcanvas-adaptations-software.html}{Software Adaptation}
+
+\section1 Direct3D 12 (experimental)
+
+The Direct3D 12 adaptation is an alternative renderer for \l {Qt Quick} 2 when
+running on Windows 10, both for Win32 and UWP applications. The details for
+this adaptation are available here:
+\l{qtquick-visualcanvas-adaptations-d3d12.html}{Direct3D 12 Adaptation}
+
+*/
+
+
+/*!
+\title Qt Quick Software Adaptation
+\page qtquick-visualcanvas-adaptations-software.html
+
+The Software adaptation is an alternative renderer for \l {Qt Quick} 2 that
+uses the Raster paint engine to render the contents of the scene graph instead
+of OpenGL. As a result of not using OpenGL to render the scene graph, some
+features and optimizations are no longer available. Most Qt Quick 2
+applications will run without modification though any attempts to use
+unsupported features will be ignored. By using the Software adaptation it is
+possible to run Qt Quick 2 applications on hardware and platforms that do not
+have OpenGL support.
+
+The Software adaptation was previously known as the Qt Quick 2D Renderer.
+However, unlike the 2D Renderer, the new, integrated version supports partial
+updates. This means that the full update of the window or screen contents is
+now avoided, and only the changed areas get flushed. This can significantly
+improve performance for many applications.
+
+\section2 Shader Effects
+ShaderEffect components in QtQuick 2 can not be rendered by the Software adptation.
+
+\section2 Qt Graphical Effects Module
+\l {Qt Graphical Effects} uses ShaderEffect items to render effects. If you use
+graphical effects from this module, then you should not hide the source
+item so that the original item can still be rendered.
+
+\section2 Particle Effects
+It is not possible to render particle effects with the Software adaptation. Whenever
+possible, remove particles completely from the scene. Otherwise they will still
+require some processing, even though they are not visible.
+
+\section2 Rendering Text
+The text rendering with the Software adaptation is based on software
+rasterization and does not respond as well to transformations such as scaling
+as when using OpenGL. The quality is similar to choosing \l [QML] {Text::renderType}
+{Text.NativeRendering} with \l [QML] {Text} items.
+
+*/
+
+
+/*!
+\title Qt Quick Direct3D 12 Adaptation
+\page qtquick-visualcanvas-adaptations-d3d12.html
+
+The Direct3D 12 adaptation for Windows 10 (both Win32 (\c windows platform
+plugin) and UWP (\c winrt platform plugin)) is shipped as a dynamically loaded
+plugin. It will not be functional on earlier Windows versions. The building of
+the plugin is enabled automatically whenever the necessary D3D and DXGI
+develpoment files are present. In practice this currently means Visual Studio
+2015 and newer.
+
+The adaptation is available both in normal, OpenGL-enabled Qt builds and also
+when Qt was configured with \c{-no-opengl}. However, it is never the default,
+meaning the user or the application has to explicitly request it by setting the
+\c{QT_QUICK_BACKEND} environment variable to \c{d3d12} or by calling
+QQuickWindow::setSceneGraphBackend().
+
+\section2 Motivation
+
+This experimental adaptation is the first Qt Quick backend focusing on a
+modern, lower-level graphics API in combination with a windowing system
+interface different from the traditional approaches used in combination with
+OpenGL.
+
+It also allows better integration with Windows, Direct3D being the primary
+vendor-supported solution. This means that there are fewer problems anticipated
+with drivers, operations like window resizes, and special events like graphics
+device loss caused by device resets or graphics driver updates.
+
+Performance-wise the general expectation is a somewhat lower CPU usage compared
+to OpenGL due to lower driver overhead, and a higher GPU utilization with less
+wasted idle time. The backend does not heavily utilize threads yet, which means
+there are opportunities for further improvements in the future, for example to
+further optimize image loading.
+
+The D3D12 backend also introduces support for pre-compiled shaders. All the
+backend's own shaders (used by the built-in materials on which the Rectangle,
+Image, Text, etc. QML types are built) are compiled to D3D shader bytecode when
+compiling Qt. Applications using ShaderEffect items can chose to ship bytecode
+either in regular files or via the Qt resource system, or use HLSL source
+strings. Unlike OpenGL, the compilation for the latter is properly threaded,
+meaning shader compilation will not block the application and its user
+interface.
+
+\section2 Graphics Adapters
+
+The plugin does not necessarily require hardware acceleration. Using WARP, the
+Direct3D software rasterizer, is also an option. By default the first adapter
+providing hardware acceleration is chosen. To override this, in order to use
+another graphics adapter or to force the usage of the software rasterizer, set
+the environment variable \c{QT_D3D_ADAPTER_INDEX} to the index of the adapter.
+The discovered adapters are printed at startup when \c{QSG_INFO} or the logging
+category \c{qt.scenegraph.general} is enabled.
+
+\section2 Troubleshooting
+
+When encountering issues, always set the \c{QSG_INFO} and \c{QT_D3D_DEBUG}
+environment variables to 1 in order to get debug and warning messages printed
+on the debug output. The latter enables the Direct3D debug layer. Note that the
+debug layer should not be enabled in production use since it can significantly
+impact performance (CPU load) due to increased API overhead.
+
+\section2 Render Loops
+
+By default the D3D12 adaptation uses a single-threaded render loop similar to
+OpenGL's \c windows render loop. There is also a threaded variant available, that
+can be requested by setting the \c{QSG_RENDER_LOOP} environment variable to \c
+threaded. However, due to conceptual limitations in DXGI, the windowing system
+interface, the threaded loop is prone to deadlocks when multiple QQuickWindow
+or QQuickView instances are shown. Therefore the default is the single-threaded
+loop for the time being. This means that with the D3D12 backend applications
+are expected to move their work from the main (GUI) thread out to worker
+threads, instead of expecting Qt to keep the GUI thread responsive and suitable
+for heavy, blocking operations.
+
+See the \l{qtquick-visualcanvas-scenegraph.html}{Scene Graph page} for more
+information on render loops and
+\l{https://msdn.microsoft.com/en-us/library/windows/desktop/ee417025(v=vs.85).aspx#multithreading_and_dxgi}{the
+MSDN page for DXGI} regarding the issues with multithreading.
+
+\section2 Renderer
+
+The scenegraph renderer in the D3D12 adaptation does not currently perform any
+batching. This is less of an issue, unlike OpenGL, because state changes are
+not presenting any problems in the first place. The simpler renderer logic can
+also lead to lower CPU overhead in some cases. The trade-offs between the
+various approaches are currently under research.
+
+\section2 Shader Effects
+
+The ShaderEffect QML type is fully functional with the D3D12 adaptation as well.
+However, the interpretation of the fragmentShader and vertexShader properties is
+different than with OpenGL.
+
+With D3D12, these strings can either be an URL for a local file or a file in
+the resource system, or a HLSL source string. The former indicates that the
+file in question contains pre-compiled D3D shader bytecode generated by the
+\c fxc tool, or, alternatively, HLSL source code. The type of the file is detected
+automatically. This means that the D3D12 backend supports all options from
+GraphicsInfo.shaderCompilationType and GraphicsInfo.shaderSourceType.
+
+Unlike OpenGL, there is a QFileSelector with the extra selector \c hlsl used
+whenever opening a file. This allows easy creation of ShaderEffect items that
+are functional across both backends, for example by placing the GLSL source
+code into \c{shaders/effect.frag}, the HLSL source code or - preferably -
+pre-compiled bytecode into \c{shaders/+hlsl/effect.frag}, while simply writing
+\c{fragmentShader: "qrc:shaders/effect.frag"} in QML.
+
+See the ShaderEffect documentation for more details.
+
+\section2 Multisample Render Targets
+
+The Direct3D 12 adaptation ignores the QSurfaceFormat set on the QQuickWindow
+or QQuickView (or set via QSurfaceFormat::setDefaultFormat()), with two
+exceptions: QSurfaceFormat::samples() and QSurfaceFormat::alphaBufferSize() are
+still taken into account. When the samples value is greater than 1, multisample
+offscreen render targets will be created with the specified sample count and a
+quality of the maximum supported quality level. The backend automatically
+performs resolving into the non-multisample swapchain buffers after each frame.
+
+\section2 Semi-transparent windows
+
+When the alpha channel is enabled either via
+QQuickWindow::setDefaultAlphaBuffer() or by setting alphaBufferSize to a
+non-zero value in the window's QSurfaceFormat or in the global format managed
+by QSurfaceFormat::setDefaultFormat(), the D3D12 backend will create a
+swapchain for composition and go through DirectComposition since the flip model
+swapchain (which is mandatory) would not support transparency otherwise.
+
+It is therefore important not to unneccessarily request an alpha channel. When
+the alphaBufferSize is 0 or the default -1, all these extra steps can be
+avoided and the traditional window-based swapchain is sufficient.
+
+This is not relevant on WinRT because there the backend always uses a
+composition swapchain which is associated with the ISwapChainPanel that backs
+QWindow on that platform.
+
+\section2 Mipmaps
+
+Mipmap generation is supported and handled transparently to the applications
+via a built-in compute shader, but is experimental and only supports
+power-of-two images at the moment. Textures of other size will work too, but
+this involves a QImage-based scaling on the CPU first. Therefore avoid enabling
+mipmapping for NPOT images whenever possible.
+
+\section2 Image formats
+
+When creating textures via the C++ scenegraph APIs like
+QQuickWindow::createTextureFromImage(), 32-bit formats will not involve any
+conversion, they will map directly to the corresponding \c{R8G8B8A8_UNORM} or
+\c{B8G8R8A8_UNORM} format. Everything else will trigger a QImage-based format
+conversion on the CPU first.
+
+\section2 Unsupported Features
+
+Particles and some other OpenGL-dependent utilities, like
+QQuickFramebufferObject, are not currently supported.
+
+Like with the \l{qtquick-visualcanvas-adaptations-software.html}{Software
+adaptation}, text is always rendered using the native method. Distance
+field-based text rendering is not currently implemented.
+
+The shader sources in the \l {Qt Graphical Effects} module have not been ported
+to any format other than the OpenGL 2.0 compatible one, meaning the QML types
+provided by that module are not currently functional with the D3D12 backend.
+
+Texture atlases are not currently in use.
+
+The renderer may lack support for certain minor features, for example drawing
+points and lines with a width other than 1.
+
+Custom Qt Quick items using custom scenegraph nodes can be problematic.
+Materials are inherently tied to the graphics API. Therefore only items using
+the utility rectangle and image nodes are functional across all adaptations.
+
+QQuickWidget and its underlying OpenGL-based compositing architecture is not
+supported. If mixing with QWidget-based user interfaces is desired, use
+QWidget::createWindowContainer() to embed the native window of the QQuickWindow
+or QQuickView.
+
+Finally, rendering via QSGEngine and QSGAbstractRenderer is not feasible with
+the D3D12 adaptation at the moment.
+
+\section2 Related APIs
+
+To integrate custom Direct3D 12 rendering, use QSGRenderNode in combination
+with QSGRendererInterface. This approach does not rely on OpenGL contexts or
+API specifics like framebuffers, and allows exposing the graphics device and
+command buffer from the adaptation. It is not necessarily suitable for easy
+integration of all types of content, in particular true 3D, so it will likely
+get complemented by an alternative to QQuickFramebufferObject in future
+releases.
+
+To perform runtime decisions based on the adaptation in use, use
+QSGRendererInterface from C++ and GraphicsInfo from QML. They can also be used
+to check the level of shader support (shading language, compilation approach).
+
+When creating custom items, use the new QSGRectangleNode and QSGImageNode
+classes. These replace the now deprecated QSGSimpleRectNode and
+QSGSimpleTextureNode. Unlike their predecessors, the new classes are
+interfaces, and implementations are created via the factory functions
+QQuickWindow::createRectangleNode() and QQuickWindow::createImageNode().
+
+\section2 Advanced Configuration
+
+The D3D12 adaptation can keep multiple frames in flight, similarly to modern
+game engines. This is somewhat different from the traditional render - swap -
+wait for vsync model and allows better GPU utilization at the expense of higher
+resource usage. This means that the renderer will be a number of frames ahead
+of what is displayed on the screen.
+
+For a discussion of flip model swap chains and the typical configuration
+parameters, refer to
+\l{https://software.intel.com/en-us/articles/sample-application-for-direct3d-12-flip-model-swap-chains}{this
+article}.
+
+Vertical synchronization is always enabled, meaning Present() is invoked with
+an interval of 1.
+
+The configuration can be changed by setting the following environment variables:
+
+\list
+
+\li \c{QT_D3D_BUFFER_COUNT} - The number of swap chain buffers in range 2 - 4.
+The default value is 3.
+
+\li \c{QT_D3D_FRAME_COUNT} - The number of frames prepared without blocking in
+range 1 - 4. Note that Present will start blocking after queuing 3 frames
+(regardless of \c{QT_D3D_BUFFER_COUNT}), unless the waitable object is in use.
+Note that every additional frame increases GPU resource usage since geometry
+and constant buffer data will have to be duplicated, and involves more
+bookkeeping on the CPU side. The default value is 2.
+
+\li \c{QT_D3D_WAITABLE_SWAP_CHAIN_MAX_LATENCY} - When set to a value between 1
+and 16, the frame latency is set to the specified value. This changes the limit
+for Present() and will trigger a wait for an available swap chain buffer when
+beginning each frame. Refer to the article above for a detailed discussion.
+This is considered experimental for now and the default value is 0 (disabled).
+
+\li \c{QT_D3D_BLOCKING_PRESENT} - When set to a non-zero value, there will be
+CPU-side wait for the GPU to finish its work after each call to Present. This
+effectively kills all parallelism but makes the behavior resemble the
+traditional swap-blocks-for-vsync model, and can therefore be useful in some
+special cases. This is not the same as setting the frame count to 1 because
+that still avoids blocking after Present, and may block only when starting to
+prepare the next frame (or may not block at all depending on the time gap
+between the frames). By default blocking present is disabled.
+
+\endlist
+
+*/

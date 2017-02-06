@@ -1,0 +1,113 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+
+if (enable_nacl) {
+  # This is separate so it can be used by ../broker:nacl64.
+  source_set("minimal") {
+    sources = [
+      "nacl_cmd_line.cc",
+      "nacl_cmd_line.h",
+      "nacl_constants.cc",
+      "nacl_constants.h",
+      "nacl_messages.cc",
+      "nacl_messages.h",
+      "nacl_process_type.h",
+      "nacl_renderer_messages.cc",
+      "nacl_renderer_messages.h",
+      "nacl_sandbox_type.h",
+      "nacl_types.cc",
+      "nacl_types.h",
+      "nacl_types_param_traits.cc",
+      "nacl_types_param_traits.h",
+    ]
+
+    public_deps = [
+      ":switches",
+    ]
+
+    deps = [
+      ":minimal_content_dummy",
+      "//base",
+      "//base:base_static",
+      "//ipc",
+    ]
+  }
+
+  # This exists just to make 'gn check' happy with :minimal.  It can't
+  # depend on //content/public/common or anything like that, because that
+  # would bring in lots more than counts as "minimal" (stuff that should
+  # not be in the nacl64.exe build).
+  source_set("minimal_content_dummy") {
+    check_includes = false
+    sources = [
+      "//content/public/common/content_switches.h",
+      "//content/public/common/process_type.h",
+      "//content/public/common/sandbox_type.h",
+    ]
+  }
+
+  source_set("common") {
+    sources = [
+      "nacl_host_messages.cc",
+      "nacl_host_messages.h",
+      "nacl_nonsfi_util.cc",
+      "nacl_nonsfi_util.h",
+      "pnacl_types.cc",
+      "pnacl_types.h",
+    ]
+
+    public_deps = [
+      ":minimal",
+      ":switches",
+    ]
+
+    deps = [
+      "//base",
+      "//content/public/common",
+      "//ipc",
+      "//url",
+    ]
+
+    if (is_linux) {
+      sources += [
+        "nacl_paths.cc",
+        "nacl_paths.h",
+      ]
+
+      defines = [ "__STDC_LIMIT_MACROS=1" ]
+    }
+  }
+
+  source_set("debug_exception_handler") {
+    sources = [
+      "nacl_debug_exception_handler_win.cc",
+      "nacl_debug_exception_handler_win.h",
+    ]
+
+    deps = [
+      "//base",
+    ]
+  }
+}
+
+# Depending on this allows targets to unconditionally include
+# nacl_process_type.h without testing whether nacl is enabled.
+source_set("process_type") {
+  public = [
+    "nacl_process_type.h",
+  ]
+
+  deps = [
+    "//content/public/common",
+  ]
+}
+
+source_set("switches") {
+  sources = [
+    "nacl_switches.cc",
+    "nacl_switches.h",
+  ]
+}

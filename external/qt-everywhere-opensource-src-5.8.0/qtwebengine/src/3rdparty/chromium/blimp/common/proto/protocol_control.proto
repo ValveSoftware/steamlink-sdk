@@ -1,0 +1,41 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+package blimp;
+
+// Indicates the message-Id that the peer has most-recently processed.
+message CheckpointAckMessage {
+  optional int64 checkpoint_id = 1;
+}
+
+// Contains Client->Engine information to establish an authenticated connection.
+message StartConnectionMessage {
+  optional string client_token = 1;
+  optional int32 protocol_version = 2;
+}
+
+// Indicates the reason for the peer ending the connection.
+message EndConnectionMessage {
+  enum Reason {
+    UNKNOWN = 0;
+    AUTHENTICATION_FAILED = 1;
+    PROTOCOL_MISMATCH = 2;
+  };
+  optional Reason reason = 1;
+}
+
+message ProtocolControlMessage {
+  oneof connection_message {
+    // Client => Server types.
+    StartConnectionMessage start_connection = 41;
+
+    // Bi-directional types.
+    CheckpointAckMessage checkpoint_ack = 42;
+    EndConnectionMessage end_connection = 43;
+  }
+}

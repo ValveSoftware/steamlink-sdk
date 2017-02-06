@@ -1,0 +1,143 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 The Qt Company Ltd.
+** Contact: http://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example planespotter
+    \title Plane Spotter (QML)
+    \ingroup qtlocation-examples
+
+    \brief The \c {Plane Spotter} example demonstrates the tight integration of
+    location and positioning data types into QML
+
+    \image planespotter.png
+
+    The \c {Plane Spotter} example demonstrates how to integrate location and positioning
+    related C++ data types into QML and vice versa. This is useful when it is desirable to
+    run CPU intensive position calculations in native environments
+    but the results are supposed to be displayed using QML.
+
+    The example shows a map of Europe and airplanes on two routes across Europe.
+    The first airplane commutes between Oslo and Berlin and the second airplane
+    commutes between London and Berlin. The position tracking of each airplane
+    is implemented in C++. The Oslo-Berlin plane is piloted in QML and the London-Berlin
+    plane is commanded by a C++ pilot.
+
+    \include examples-run.qdocinc
+
+    \section1 Overview
+
+
+    This example makes use of the \l Q_GADGET feature as part of its position controller
+    implementation. It permits \l {Cpp_value_integration_positioning}{direct integration}
+    of non-QObject based C++ value types into QML.
+
+    The main purpose of the \c PlaneController class is to track the current
+    coordinates of the plane at a given time. It exposes the position
+    via its position property.
+
+    \snippet planespotter/main.cpp PlaneController1
+    \snippet planespotter/main.cpp PlaneController2
+
+    The example's \c main() function is responsible for the binding of the
+    \c PlaneController class instances into the QML context:
+
+    \snippet planespotter/main.cpp PlaneControllerMain
+
+    Similar to QObject derived classes, \l QGeoCoordinate can be integrated without
+    an additional QML wrapper.
+
+    \section1 Steering the Planes
+
+    As mentioned above, the primary purpose of \c PlaneController class is to track the current
+    positions of the two planes (Oslo-Berlin and London-Berlin) and advertise them as a property
+    to the QML layer. Its secondary purpose is to set and progress a plane along a given
+    flight path. In a sense it can act as a pilot. This is very much like
+    \l CoordinateAnimation which can animate the transition from one geo coordinate to another.
+    This example demonstrates how the \c {PlaneController}'s position property is modified
+    by C++ code using the PlaneController's own piloting abilities and by QML code using
+    \l CoordinateAnimation as pilot. The Oslo-Berlin plane is animated using QML code
+    and the London-Berlin plane is animated using C++ code.
+
+    No matter which pilot is used, the results to the pilot's
+    actions are visible in C++ and QML and thus the example demonstrates unhindered and direct
+    exchange of position data through the C++/QML boundary.
+
+    The visual representation of each \c Plane is done using
+    the \l MapQuickItem type which permits the embedding of arbitrary QtQuick items
+    into a map:
+
+    \snippet planespotter/Plane.qml PlaneMapQuick1
+    \snippet planespotter/Plane.qml PlaneMapQuick2
+
+    \section2 The C++ Pilot
+
+    The C++ plane is steered by C++. The \c from and \c to property of the controller
+    class set the origin and destination which the pilot uses to calculate the
+    bearing for the plane:
+
+    \snippet planespotter/main.cpp C++Pilot1
+
+    The pilot employs a \l QBasicTimer and \l {QTimerEvent}{QTimerEvents} to
+    constantly update the position. During each timer iteration
+    \c PlaneController::updatePosition() is called and a new position calculated.
+
+    \snippet planespotter/main.cpp C++Pilot3
+
+    Once the new position is calculated, \c setPosition() is called and
+    the subsequent change notification of the property pushes the new position
+    to the QML layer.
+
+    The C++ plane is started by clicking on the plane:
+
+    \snippet planespotter/planespotter.qml CppPlane1
+    \snippet planespotter/planespotter.qml CppPlane2
+
+    \l {azimuthTo}() calculates the bearing in degrees from one coordinate to another.
+    Note that the above code utilizes a QML animation to tie the rotation
+    and the position change into a single animation flow:
+
+    \snippet planespotter/planespotter.qml CppPlane3
+
+    First, \l NumberAnimation rotates the plane into the correct direction
+    and once that is done the \c startFlight() function takes care of
+    starting the plane's position change.
+
+    \snippet planespotter/main.cpp C++Pilot2
+
+    \section2 The QML Pilot
+
+    The \l CoordinateAnimation type is used to control the flight from Oslo
+    to Berlin and vice versa. It replaces the above \l ScriptAction.
+
+    \snippet planespotter/planespotter.qml QmlPlane1
+
+    The \l MouseArea of the QML plane implements the logic for the course setting
+    and starts the animation when required.
+
+    \snippet planespotter/planespotter.qml QmlPlane2
+
+*/

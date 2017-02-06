@@ -1,0 +1,62 @@
+<!doctype html>
+<!--
+
+This page draws a square of random blue pixels whenever the page is clicked
+anywhere. The query string variable "interval" can be specified in milliseconds
+to automatically switch images on an interval, and the variable "size" can
+specify the size of the square in pixels.
+
+-->
+
+<script>
+
+var DEFAULT_SQUARE_SIZE = 200;
+
+// Returns an object with a key-value mapping from the query string.
+var parseQuery = function() {
+  var pieces = location.search.substring(1).split('&');
+  var query = {};
+  for (var i = 0; i < pieces.length; i++) {
+    var pair = pieces[i].split('=');
+    query[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1]);
+  }
+  return query;
+};
+
+// Draw a square made of random pixels.
+var drawSquare = function(size) {
+  var canvas = document.getElementById('square');
+  canvas.height = size;
+  canvas.width = size;
+
+  var context = canvas.getContext('2d');
+  for (var x = 0; x < size; x++) {
+    for (var y = 0; y < size; y++) {
+      var blue = Math.floor(Math.random() * 255);
+      context.fillStyle = 'rgb(0, 0, ' + blue + ')';
+      context.fillRect(x, y, 1, 1);
+    }
+  }
+
+  // Keep the canvas hidden and write the data URL to an <img> tag, because
+  // Blimp doesn't support canvas.
+  var image = document.getElementById('square-png');
+  image.src = canvas.toDataURL('image/png');
+};
+
+document.addEventListener('DOMContentLoaded', function(event) {
+  var query = parseQuery();
+  var interval = parseInt(query.interval);
+  var size = parseInt(query.size) || DEFAULT_SQUARE_SIZE;
+
+  document.addEventListener('click', drawSquare.bind(null, size));
+  if (interval) {
+    window.setInterval(drawSquare, interval, size);
+  }
+  drawSquare(size);
+});
+
+</script>
+
+<canvas id="square" style="display:none"></canvas>
+<img id="square-png">

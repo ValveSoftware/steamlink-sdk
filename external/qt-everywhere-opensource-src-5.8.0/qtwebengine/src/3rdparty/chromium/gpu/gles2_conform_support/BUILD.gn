@@ -1,0 +1,211 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+declare_args() {
+  # Set to true to compile with the OpenGL ES 2.0 conformance tests.
+  internal_gles2_conform_tests = false
+}
+
+config("gles2_conform_test_warnings") {
+  if (is_clang) {
+    cflags = [
+      "-Wno-array-bounds",
+      "-Wno-implicit-function-declaration",
+      "-Wno-logical-op-parentheses",
+
+      # Many struct initializers in the GTF_ES code are missing braces.
+      "-Wno-missing-braces",
+      "-Wno-parentheses-equality",
+      "-Wno-pointer-sign",
+      "-Wno-return-type",
+      "-Wno-sign-compare",
+      "-Wno-sizeof-pointer-memaccess",
+
+      # A few variables are unitialized if GLVersion != 2.0.
+      "-Wno-sometimes-uninitialized",
+      "-Wno-tautological-compare",
+
+      # GTFVecBase.h contains static no-inline functions in a header :-/
+      "-Wno-unused-function",
+      "-Wno-unused-variable",
+
+      # There are some implicit conversions from "int" to "char" in
+      # GTFExtensionTestSurfacelessContext.c.
+      "-Wno-constant-conversion",
+    ]
+  }
+}
+
+import("//testing/test.gni")
+
+# GYP version: gpu/gles2_conform_support/gles2_conform_support.gyp:gles2_conform_support
+executable("gles2_conform_support") {
+  sources = [
+    "gles2_conform_support.c",
+    "native/egl_native.cc",
+    "native/main.cc",
+  ]
+  defines = [
+    "GLES2_CONFORM_SUPPORT_ONLY",
+    "GTF_GLES20",
+    "EGLAPI=",
+    "EGLAPIENTRY=",
+  ]
+  deps = [
+    "//base",
+    "//base/third_party/dynamic_annotations",
+    "//build/config/sanitizers:deps",
+    "//build/win:default_exe_manifest",
+    "//gpu/command_buffer/client:gles2_c_lib_nocheck",
+    "//gpu/gles2_conform_support/egl",
+    "//ui/gl",
+  ]
+  if (is_linux) {
+    sources += [
+      "native/egl_native_aura.cc",
+      "native/egl_native_x11.cc",
+    ]
+  }
+}
+
+if (internal_gles2_conform_tests) {
+  action("generate_gles2_conform_embedded_data") {
+    script = "generate_gles2_embedded_data.py"
+    outputs = [
+      "$target_gen_dir/gles2_conform_test_embedded_data/FilesDATA.c",
+      "$target_gen_dir/gles2_conform_test_embedded_data/FilesDATA.h",
+      "$target_gen_dir/gles2_conform_test_embedded_data/FilesTOC.c",
+    ]
+    args = [
+      rebase_path("//third_party/gles2_conform/GTF_ES/glsl/GTF"),
+      rebase_path("$target_gen_dir/gles2_conform_test_embedded_data"),
+    ]
+  }
+  action("generate_gles2_conform_tests") {
+    script = "generate_gles2_conform_tests.py"
+    outputs = [
+      "$target_gen_dir/gles2_conform_test_autogen.cc",
+    ]
+    args = [ rebase_path("$target_gen_dir") ]
+  }
+  gles2_conform_gypi =
+      exec_script("//build/gypi_to_gn.py",
+                  [
+                    rebase_path("gles2_conform.gypi"),
+                    "--replace=<(DEPTH)=../..",
+                    "--replace=<(SHARED_INTERMEDIATE_DIR)=$target_gen_dir",
+                  ],
+                  "scope",
+                  [ "gles2_conform.gypi" ])
+  executable("gles2_conform_test_windowless") {
+    testonly = true
+
+    # Include a dummy c++ file to force linking of libstdc++.
+    sources = [
+      "dummy.cc",
+    ]
+    sources += gles2_conform_gypi.gtf_es_sources
+    sources += gles2_conform_gypi.gl2_extension_test_sources
+    sources += gles2_conform_gypi.gl2_fixed_test_sources
+    sources += gles2_conform_gypi.gl2_test_sources
+    defines = [
+      "GTF_API=GTF_GLES20",
+      "HKEMBEDDEDFILESYSTEM",
+    ]
+    include_dirs = [
+      rebase_path("$target_gen_dir/gles2_conform_test_embedded_data"),
+      "//third_party/gles2_conform/GTF_ES/glsl/GTF/Source",
+    ]
+    deps = [
+      ":generate_gles2_conform_embedded_data",
+      "//build/config/sanitizers:deps",
+      "//gpu/command_buffer/client:gles2_c_lib_nocheck",
+      "//gpu/gles2_conform_support/egl",
+      "//gpu/gles2_conform_support/native:windowless",
+      "//third_party/expat:expat",
+    ]
+    configs += [
+      "//build/config/compiler:no_incompatible_pointer_warnings",
+
+      # Must be done this way for warning flags to be ordered correctly.
+      ":gles2_conform_test_warnings",
+    ]
+    if (is_linux) {
+      if (!is_chromeos) {
+        deps += [ "//build/config/linux/gtk2" ]
+      }
+    }
+    if (is_win) {
+      deps += [
+        "//third_party/angle:libEGL",
+        "//third_party/angle:libGLESv2",
+      ]
+      defines += [
+        "EGLAPI=",
+        "EGLAPIENTRY=",
+      ]
+      configs -= [ "//build/config/win:nominmax" ]
+      cflags = [
+        "/wd4013",  # undefined function, assuming extern returning int
+        "/wd4018",  # signed/unsigned mismatch
+        "/wd4054",  # type cast from function pointer to data pointer
+        "/wd4057",  # non-constant aggregate initializer
+        "/wd4101",  # unreferenced local variable
+        "/wd4189",  # local variable is initialized but not referenced
+        "/wd4204",  # non-constant aggregate initializer
+        "/wd4245",  # conversion between int/uint
+        "/wd4389",  # signed/unsigned comparison
+        "/wd4701",  # potentially uninitialized variable used
+        "/wd4703",  # potentially uninitialized pointer variable used
+        "/wd4706",  # assignment within conditional expression
+        "/wd4715",  # not all control paths return a value
+        "/wd4716",  # function must return a value
+        "/wd4267",  # size_t/unsigned int conversion
+      ]
+    }
+    if (is_mac) {
+      defines += [
+        "_STDINT",
+        "_STDINT_H",
+      ]
+    }
+
+    #'run_as': {
+    #     'conditions': [
+    #       ['OS=="win"', {
+    #         'action': [
+    #           '$(TargetPath)',
+    #           '-noimagefileio',
+    #           '-run=<(DEPTH)/third_party/gles2_conform/GTF_ES/glsl/GTF/mustpass.run',
+    #         ],
+    #       }],
+    #     ],
+    #    },
+  }
+}
+
+test("gles2_conform_test") {
+  sources = [
+    "gles2_conform_test.cc",
+  ]
+  deps = [
+    "//base",
+    "//base/test:test_support",
+    "//gpu/config",
+    "//testing/gtest",
+  ]
+
+  data = [
+    "gles2_conform_test_expectations.txt",
+  ]
+
+  if (internal_gles2_conform_tests) {
+    data_deps = [
+      ":gles2_conform_test_windowless",
+    ]
+    deps += [ ":generate_gles2_conform_tests" ]
+    sources += [ "$target_gen_dir/gles2_conform_test_autogen.cc" ]
+    data += [ "//third_party/gles2_conform/GTF_ES/" ]
+  }
+}

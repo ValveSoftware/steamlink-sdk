@@ -1,0 +1,654 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// The <code>chrome.automation</code> API allows developers to access the
+// automation (accessibility) tree for the browser. The tree resembles the DOM
+// tree, but only exposes the <em>semantic</em> structure of a page. It can be
+// used to programmatically interact with a page by examining names, roles, and
+// states, listening for events, and performing actions on nodes.
+[nocompile] namespace automation {
+  // Keep the following enums in sync with 'ui/accessibility/ax_enums.idl'.
+  // They are kept here purely for extension docs generation.
+
+  // Possible events fired on an $(ref:automation.AutomationNode).
+  enum EventType {
+    activedescendantchanged,
+    alert,
+    ariaAttributeChanged,
+    autocorrectionOccured,
+    blur,
+    checkedStateChanged,
+    childrenChanged,
+    clicked,
+    documentSelectionChanged,
+    focus,
+    hide,
+    hover,
+    invalidStatusChanged,
+    layoutComplete,
+    liveRegionChanged,
+    loadComplete,
+    locationChanged,
+    menuEnd,
+    menuListItemSelected,
+    menuListValueChanged,
+    menuPopupEnd,
+    menuPopupStart,
+    menuStart,
+    rowCollapsed,
+    rowCountChanged,
+    rowExpanded,
+    scrollPositionChanged,
+    scrolledToAnchor,
+    selectedChildrenChanged,
+    selection,
+    selectionAdd,
+    selectionRemove,
+    show,
+    textChanged,
+    textSelectionChanged,
+    treeChanged,
+    valueChanged
+  };
+
+  // Describes the purpose of an $(ref:automation.AutomationNode).
+  enum RoleType {
+    abbr,
+    alertDialog,
+    alert,
+    annotation,
+    application,
+    article,
+    banner,
+    blockquote,
+    busyIndicator,
+    button,
+    buttonDropDown,
+    canvas,
+    caption,
+    cell,
+    checkBox,
+    client,
+    colorWell,
+    columnHeader,
+    column,
+    comboBox,
+    complementary,
+    contentInfo,
+    date,
+    dateTime,
+    definition,
+    descriptionListDetail,
+    descriptionList,
+    descriptionListTerm,
+    desktop,
+    details,
+    dialog,
+    directory,
+    disclosureTriangle,
+    div,
+    document,
+    embeddedObject,
+    figcaption,
+    figure,
+    footer,
+    form,
+    grid,
+    group,
+    heading,
+    iframe,
+    iframePresentational,
+    ignored,
+    imageMapLink,
+    imageMap,
+    image,
+    inlineTextBox,
+    inputTime,
+    labelText,
+    legend,
+    lineBreak,
+    link,
+    listBoxOption,
+    listBox,
+    listItem,
+    listMarker,
+    list,
+    locationBar,
+    log,
+    main,
+    mark,
+    marquee,
+    math,
+    menuBar,
+    menuButton,
+    menuItem,
+    menuItemCheckBox,
+    menuItemRadio,
+    menuListOption,
+    menuListPopup,
+    menu,
+    meter,
+    navigation,
+    note,
+    outline,
+    pane,
+    paragraph,
+    popUpButton,
+    pre,
+    presentational,
+    progressIndicator,
+    radioButton,
+    radioGroup,
+    region,
+    rootWebArea,
+    rowHeader,
+    row,
+    ruby,
+    ruler,
+    svgRoot,
+    scrollArea,
+    scrollBar,
+    seamlessWebArea,
+    search,
+    searchBox,
+    slider,
+    sliderThumb,
+    spinButtonPart,
+    spinButton,
+    splitter,
+    staticText,
+    status,
+    switch,
+    tabGroup,
+    tabList,
+    tabPanel,
+    tab,
+    tableHeaderContainer,
+    table,
+    textField,
+    time,
+    timer,
+    titleBar,
+    toggleButton,
+    toolbar,
+    treeGrid,
+    treeItem,
+    tree,
+    unknown,
+    tooltip,
+    webArea,
+    webView,
+    window
+  };
+
+  // Describes characteristics of an $(ref:automation.AutomationNode).
+  enum StateType {
+    busy,
+    checked,
+    collapsed,
+    default,
+    disabled,  // ui/views only
+    editable,
+    enabled,   // content only
+    expanded,
+    focusable,
+    focused,
+    haspopup,
+    horizontal,
+    hovered,
+    invisible,
+    linked,
+    multiline,
+    multiselectable,
+    offscreen,
+    pressed,
+    protected,
+    readOnly,
+    required,
+    richlyEditable,
+    selectable,
+    selected,
+    vertical,
+    visited
+  };
+
+  // Possible changes to the automation tree. For any given atomic change
+  // to the tree, each node that's added, removed, or changed, will appear
+  // in exactly one TreeChange, with one of these types.
+  //
+  //
+  // nodeCreated means that this node was added to the tree and its parent is
+  // new as well, so it's just one node in a new subtree that was added.
+  enum TreeChangeType {
+    /**
+     * This node was added to the tree and its parent is new as well,
+     * so it's just one node in a new subtree that was added.
+     */
+    nodeCreated,
+
+    /**
+     * This node was added to the tree but its parent was already in the
+     * tree, so it's possibly the root of a new subtree - it does not mean
+     * that it necessarily has children.
+     */
+    subtreeCreated,
+
+    /**
+     * This node changed.
+     */
+    nodeChanged,
+
+    /**
+     * This node's text (name) changed.
+     */
+    textChanged,
+
+    /**
+     * This node was removed.
+     */
+    nodeRemoved
+  };
+
+  dictionary Rect {
+    long left;
+    long top;
+    long width;
+    long height;
+  };
+
+  // Arguments for the find() and findAll() methods.
+  [nocompile, noinline_doc] dictionary FindParams {
+    automation.RoleType? role;
+
+    // A map of $(ref:automation.StateType) to boolean, indicating for each
+    // state whether it should be set or not. For example:
+    // <code>{ StateType.enabled: false }</code> would only match if
+    // <code>StateType.enabled</code> was <em>not</em> present in the node's
+    // <code>state</code> object.
+    object? state;
+
+    // A map of attribute name to expected value, for example
+    // <code>{ name: 'Root directory', checkbox_mixed: true }</code>.
+    // String attribute values may be specified as a regex, for example
+    // <code>{ name: /stralia$/</code> }</code>.
+    // Unless specifying a regex, the expected value must be an exact match
+    // in type and value for the actual value. Thus, the type of expected value
+    // must be one of:
+    // <ul>
+    // <li>string</li>
+    // <li>integer</li>
+    // <li>float</li>
+    // <li>boolean</li>
+    // </ul>
+    object? attributes;
+  };
+
+  // Arguments for the setDocumentSelection() function.
+  [nocompile, noinline_doc] dictionary SetDocumentSelectionParams {
+    // The node where the selection begins.
+    [instanceOf=AutomationNode] object anchorObject;
+    // The offset in the anchor node where the selection begins.
+    long anchorOffset;
+    // The node where the selection ends.
+    [instanceOf=AutomationNode] object focusObject;
+    // The offset within the focus node where the selection ends.
+    long focusOffset;
+  };
+
+  // Called when the result for a <code>query</code> is available.
+  callback QueryCallback = void(AutomationNode node);
+
+  // An event in the Automation tree.
+  [nocompile, noinline_doc] dictionary AutomationEvent {
+    // The $(ref:automation.AutomationNode) to which the event was targeted.
+    AutomationNode target;
+
+    // The type of the event.
+    EventType type;
+
+    // Stops this event from further processing except for any remaining
+    // listeners on $(ref:AutomationEvent.target).
+    static void stopPropagation();
+  };
+
+  // A listener for events on an <code>AutomationNode</code>.
+  callback AutomationListener = void(AutomationEvent event);
+
+  // A change to the Automation tree.
+  [nocompile, noinline_doc] dictionary TreeChange {
+    // The $(ref:automation.AutomationNode) that changed.
+    AutomationNode target;
+
+    // The type of change.
+    TreeChangeType type;
+  };
+
+  // Possible tree changes to listen to using addTreeChangeObserver.
+  // Note that listening to all tree changes can be expensive.
+  enum TreeChangeObserverFilter {
+    noTreeChanges,
+    liveRegionTreeChanges,
+    allTreeChanges
+  };
+
+  // A listener for changes on the <code>AutomationNode</code> tree.
+  callback TreeChangeObserver = void(TreeChange treeChange);
+
+  // A single node in an Automation tree.
+  [nocompile, noinline_doc] dictionary AutomationNode {
+    // The root node of the tree containing this AutomationNode.
+    AutomationNode root;
+
+    // Whether this AutomationNode is a root node.
+    boolean isRootNode;
+
+    // The role of this node.
+    automation.RoleType role;
+
+    // The $(ref:automation.StateType)s describing this node.
+    object state;
+
+    // The rendered location (as a bounding box) of this node in global
+    // screen coordinates.
+    automation.Rect location;
+
+    // Computes the bounding box of a subrange of this node in global screen
+    // coordinates. Returns the same as |location| if range information
+    // is not available. The start and end indices are zero-based offsets
+    // into the node's "name" string attribute.
+    static automation.Rect boundsForRange(long startIndex, long endIndex);
+
+    // The purpose of the node, other than the role, if any.
+    DOMString description;
+
+    // The help text for the node, if any.
+    DOMString help;
+
+    // The accessible name for this node, via the
+    // <a href="http://www.w3.org/TR/wai-aria/roles#namecalculation">
+    // Accessible Name Calculation</a> process.
+    DOMString name;
+
+    // The value for this node: for example the <code>value</code> attribute of
+    // an <code>&lt;input&gt; element.
+    DOMString value;
+
+    // The HTML tag for this element, if this node is an HTML element.
+    DOMString htmlTag;
+
+    // The level of a heading or tree item.
+    long hierarchicalLevel;
+
+    // The start and end index of each word in an inline text box.
+    long[] wordStarts;
+    long[] wordEnds;
+
+    // The nodes, if any, which this node is specified to control via
+    // <a href="http://www.w3.org/TR/wai-aria/states_and_properties#aria-controls">
+    // <code>aria-controls</code></a>.
+    AutomationNode[] controls;
+
+    // The nodes, if any, which form a description for this node.
+    AutomationNode[] describedBy;
+
+    // The nodes, if any, which may optionally be navigated to after this
+    // one. See
+    // <a href="http://www.w3.org/TR/wai-aria/states_and_properties#aria-flowto">
+    // <code>aria-flowto</code></a>.
+    AutomationNode[] flowTo;
+
+    // The nodes, if any, which form a label for this element. Generally, the
+    // text from these elements will also be exposed as the element's accessible
+    // name, via the $(ref:automation.AutomationNode.name) attribute.
+    AutomationNode[] labelledBy;
+
+    // The node referred to by <code>aria-activedescendant</code>, where
+    // applicable
+    AutomationNode activedescendant;
+
+    //
+    // Link attributes.
+    //
+
+    // The URL that this link will navigate to.
+    DOMString url;
+
+    //
+    // Document attributes.
+    //
+
+    // The URL of this document.
+    DOMString docUrl;
+
+    // The title of this document.
+    DOMString docTitle;
+
+    // Whether this document has finished loading.
+    boolean docLoaded;
+
+    // The proportion (out of 1.0) that this doc has completed loading.
+    double docLoadingProgress;
+
+    //
+    // Scrollable container attributes.
+    //
+
+    long scrollX;
+    long scrollXMin;
+    long scrollXMax;
+    long scrollY;
+    long scrollYMin;
+    long scrollYMax;
+
+    //
+    // Editable text field attributes.
+    //
+
+    // The character index of the start of the selection within this editable
+    // text element; -1 if no selection.
+    long textSelStart;
+
+    // The character index of the end of the selection within this editable
+    // text element; -1 if no selection.
+    long textSelEnd;
+
+    // The input type, like email or number.
+    DOMString textInputType;
+
+    //
+    // Tree selection attributes (available on root nodes only)
+    //
+
+    // The anchor node of the tree selection, if any.
+    AutomationNode? anchorObject;
+    // The anchor offset of the tree selection, if any.
+    long? anchorOffset;
+    // The focus node of the tree selection, if any.
+    AutomationNode? focusObject;
+    // The focus offset of the tree selection, if any.
+    long? focusOffset;
+
+    //
+    // Range attributes.
+    //
+
+    // The current value for this range.
+    double valueForRange;
+
+    // The minimum possible value for this range.
+    double minValueForRange;
+
+    // The maximum possible value for this range.
+    double maxValueForRange;
+
+    //
+    // Table attributes.
+    //
+
+    // The number of rows in this table.
+    long tableRowCount;
+
+    // The number of columns in this table.
+    long tableColumnCount;
+
+    //
+    // Table cell attributes.
+    //
+
+    // The zero-based index of the column that this cell is in.
+    long tableCellColumnIndex;
+
+    // The number of columns that this cell spans (default is 1).
+    long tableCellColumnSpan;
+
+    // The zero-based index of the row that this cell is in.
+    long tableCellRowIndex;
+
+    // The number of rows that this cell spans (default is 1).
+    long tableCellRowSpan;
+
+    //
+    // Live region attributes.
+    //
+
+    // The type of region if this is the root of a live region.
+    // Possible values are 'polite' and 'assertive'.
+    DOMString liveStatus;
+
+    // The value of aria-relevant for a live region.
+    DOMString liveRelevant;
+
+    // The value of aria-atomic for a live region.
+    boolean liveAtomic;
+
+    // The value of aria-busy for a live region.
+    boolean liveBusy;
+
+    // The type of live region if this node is inside a live region.
+    DOMString containerLiveStatus;
+
+    // The value of aria-relevant if this node is inside a live region.
+    DOMString containerLiveRelevant;
+
+    // The value of aria-atomic if this node is inside a live region.
+    boolean containerLiveAtomic;
+
+    // The value of aria-busy if this node is inside a live region.
+    boolean containerLiveBusy;
+
+    //
+    // Walking the tree.
+    //
+
+    AutomationNode[] children;
+    AutomationNode parent;
+    AutomationNode firstChild;
+    AutomationNode lastChild;
+    AutomationNode previousSibling;
+    AutomationNode nextSibling;
+
+    // The index of this node in its parent node's list of children. If this is
+    // the root node, this will be undefined.
+    long? indexInParent;
+
+    //
+    // Actions.
+    //
+
+    // Does the default action based on this node's role. This is generally
+    // the same action that would result from clicking the node such as
+    // expanding a treeitem, toggling a checkbox, selecting a radiobutton,
+    // or activating a button.
+    static void doDefault();
+
+    // Places focus on this node.
+    static void focus();
+
+    // Scrolls this node to make it visible.
+    static void makeVisible();
+
+    // Sets selection within a text field.
+    static void setSelection(long startIndex, long endIndex);
+
+    // Adds a listener for the given event type and event phase.
+    static void addEventListener(
+        EventType eventType, AutomationListener listener, boolean capture);
+
+    // Removes a listener for the given event type and event phase.
+    static void removeEventListener(
+        EventType eventType, AutomationListener listener, boolean capture);
+
+    // Gets the first node in this node's subtree which matches the given CSS
+    // selector and is within the same DOM context.
+    //
+    // If this node doesn't correspond directly with an HTML node in the DOM,
+    // querySelector will be run on this node's nearest HTML node ancestor. Note
+    // that this may result in the query returning a node which is not a
+    // descendant of this node.
+    //
+    // If the selector matches a node which doesn't directly correspond to an
+    // automation node (for example an element within an ARIA widget, where the
+    // ARIA widget forms one node of the automation tree, or an element which
+    // is hidden from accessibility via hiding it using CSS or using
+    // aria-hidden), this will return the nearest ancestor which does correspond
+    // to an automation node.
+    static void domQuerySelector(DOMString selector, QueryCallback callback);
+
+    // Finds the first AutomationNode in this node's subtree which matches the
+    // given search parameters.
+    static AutomationNode find(FindParams params);
+
+    // Finds all the AutomationNodes in this node's subtree which matches the
+    // given search parameters.
+    static AutomationNode[] findAll(FindParams params);
+
+    // Returns whether this node matches the given $(ref:automation.FindParams).
+    static boolean matches(FindParams params);
+  };
+
+  // Called when the <code>AutomationNode</code> for the page is available.
+  callback RootCallback = void(AutomationNode rootNode);
+
+  // Called with the <code>AutomationNode</code> that currently has focus.
+  callback FocusCallback = void(AutomationNode focusedNode);
+
+  interface Functions {
+    // Get the automation tree for the tab with the given tabId, or the current
+    // tab if no tabID is given, enabling automation if necessary. Returns a
+    // tree with a placeholder root node; listen for the "loadComplete" event to
+    // get a notification that the tree has fully loaded (the previous root node
+    // reference will stop working at or before this point).
+    [nocompile] static void getTree(optional long tabId, RootCallback callback);
+
+    // Get the automation tree for the whole desktop which consists of all on
+    // screen views. Note this API is currently only supported on Chrome OS.
+    [nocompile] static void getDesktop(RootCallback callback);
+
+    // Get the automation node that currently has focus, globally. Will return
+    // null if none of the nodes in any loaded trees have focus.
+    [nocompile] static void getFocus(FocusCallback callback);
+
+    // Add a tree change observer. Tree change observers are static/global, they
+    // listen to changes across all trees. Pass a filter to determine what
+    // specific tree changes to listen to, and note that listnening to all
+    // tree changes can be expensive.
+    [nocompile] static void addTreeChangeObserver(
+        TreeChangeObserverFilter filter, TreeChangeObserver observer);
+
+    // Remove a tree change observer.
+    [nocompile] static void removeTreeChangeObserver(
+        TreeChangeObserver observer);
+
+    // Sets the selection in a tree. This creates a selection in a single
+    // tree (anchorObject and focusObject must have the same root).
+    // Everything in the tree between the two node/offset pairs gets included
+    // in the selection. The anchor is where the user started the selection,
+    // while the focus is the point at which the selection gets extended
+    // e.g. when dragging with a mouse or using the keyboard. For nodes with
+    // the role staticText, the offset gives the character offset within
+    // the value where the selection starts or ends, respectively.
+    [nocompile] static void setDocumentSelection(
+        SetDocumentSelectionParams params);
+  };
+};

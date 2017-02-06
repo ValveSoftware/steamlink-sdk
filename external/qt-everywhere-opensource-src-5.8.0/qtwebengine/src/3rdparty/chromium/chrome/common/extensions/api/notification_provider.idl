@@ -1,0 +1,149 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+// Use the <code>chrome.notificationProvider</code> API to intercept
+// notifications that would otherwise go into the Chrome Notification Center,
+// get notifiers' information, and inform notifiers about users' actions on the
+// notifications.
+namespace notificationProvider {
+
+  // TODO(liyanhou): Use notifications.PermissionLevel everywhere and delete
+  // this type. See http://crbug.com/398266.
+
+  // whether notifications from this notifier is permitted or blocked.
+  enum NotifierPermissionLevel {
+    // User has elected to show notifications from the notifier.
+    // This is the default at install time.
+    granted,
+
+    // User has elected not to show notifications from the notifier.
+    denied
+  };
+
+  enum NotifierType {
+    // Notifiers that are extensions or applications.
+    application,
+
+    // Notifiers that are webistes.
+    web
+  };
+
+  dictionary Notifier {
+    // Id of the notifier.
+    DOMString notifierId;
+
+    // Type of the notifier.
+    NotifierType type;
+
+    // Name of the notifier.
+    DOMString name;
+
+    // Icon of the notifier.
+    notifications.NotificationBitmap notifierIcon;
+
+    // Permission level of the notifier.
+    NotifierPermissionLevel permissionLevel;
+
+    // If a notifier has advanced settings.
+    boolean hasSettings;
+  };
+
+  callback NotifyOnClearedCallback = void (boolean wasCleared);
+
+  callback NotifyOnClickedCallback = void (boolean matchExists);
+
+  callback NotifyOnButtonClickedCallback = void (boolean matchExists);
+
+  callback NotifyOnPermissionLevelChangedCallback = void (boolean wasChanged);
+
+  callback NotifyOnShowSettingsCallback = void (boolean hasSettings);
+
+  callback GetNotifierCallback = void (Notifier notifier);
+
+  callback GetAllNotifiersCallback = void (Notifier[] notifiers);
+
+  interface Functions {
+    // Inform the notifier that the user cleared a notification sent from that
+    // notifier.
+    // |notifierId|: The id of the notifier that sent the notification.
+    // |notificationId|: The id of the notification that was closed.
+    // |callback|: Called to indicate whether a matching notification existed.
+    static void notifyOnCleared(DOMString notifierId,
+                                DOMString notificationId,
+                                NotifyOnClearedCallback callback);
+
+    // Inform the notifier that the user clicked in a non-button area of a
+    // notification sent from that notifier.
+    // |notifierId|: The id of the notifier that sent the notification.
+    // |notificationId|: The id of the notification that was clicked on.
+    // |callback|: Called to indicate whether a matching notification existed.
+    static void notifyOnClicked(DOMString notifierId,
+                                DOMString notificationId,
+                                NotifyOnClickedCallback callback);
+
+    // Inform the notifier that the user pressed a button in the notification
+    // sent from that notifier.
+    // |notifierId|: The id of the notifier that sent the notification.
+    // |notificationId|: The id of the notification that was clicked on its
+    // button.
+    // |buttonIndex|: The index of the button that was clicked.
+    // |callback|: Called to indicate whether a matching notification existed.
+    static void notifyOnButtonClicked(DOMString notifierId,
+                                      DOMString notificationId,
+                                      long buttonIndex,
+                                      NotifyOnButtonClickedCallback callback);
+
+    // Inform the notifier that the user changed the permission level of that
+    // notifier.
+    // |notifierId|: The id of the notifier that sent the notification.
+    // |notifierType|: The type of the notifier that sent the notification.
+    // |level|: The perission level of the notifier
+    // |callback|: Called to indicate whether the permission level was changed.
+    static void notifyOnPermissionLevelChanged(
+                              DOMString notifierId,
+                              NotifierType notifierType,
+                              NotifierPermissionLevel level,
+                              NotifyOnPermissionLevelChangedCallback callback);
+
+    // Inform the notifier that the user chose to see advanced settings of that
+    // notifier.
+    // |notifierId|: The id of the notifier that sent the notification.
+    // |notifierType|: The type of the notifier that sent the notification.
+    // |callback|: Called to indicate whether the notifier has extra settings.
+    static void notifyOnShowSettings(DOMString notifierId,
+                                     NotifierType notifierType,
+                                     NotifyOnShowSettingsCallback callback);
+
+    // To get a notifier from it's notifier ID.
+    // |callback|: Returns the notifier object of the given ID.
+    static void getNotifier(GetNotifierCallback callback);
+
+    // To get all the notifiers that could send notifications.
+    // |callback|: Returns the set of notifiers currently in the system.
+    static void getAllNotifiers(GetAllNotifiersCallback callback);
+  };
+
+  interface Events {
+    // A new notification is created.
+    // |notifierId|: The id of the notifier that sent the new notification.
+    // |notificationId|: The id of the newly created notification.
+    // |options|: The content of the notification: type, title, message etc.
+    static void onCreated(DOMString notifierId, 
+                          DOMString notificationId, 
+                          notifications.NotificationOptions options);
+
+    // A notification is updated by the notifier.
+    // |notifierId|: The id of the notifier that sent the updated notification.
+    // |notificationId|: The id of the updated notification.
+    // |options|: The content of the notification: type, title, message etc.
+    static void onUpdated(DOMString notifierId,
+                          DOMString notificationId,
+                          notifications.NotificationOptions options);
+
+    // A notification is cleared by the notifier.
+    // |notifierId|: The id of the notifier that cleared the notification.
+    // |notificationId|: The id of the cleared notification.
+    static void onCleared(DOMString notifierId, DOMString notificationId);
+  };
+};

@@ -1,0 +1,115 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
+<link rel="import" href="chrome://history/constants.html">
+<link rel="import" href="chrome://history/history_item.html">
+<link rel="import" href="chrome://history/shared_style.html">
+
+<dom-module id="history-grouped-list">
+  <template>
+    <style include="shared-style">
+      :host {
+        display: block;
+        overflow: auto;
+        position: relative;
+      }
+
+      #main-container {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        padding: var(--first-card-padding-top) var(--card-padding-side);
+      }
+
+      .domain-heading {
+        align-items: center;
+        display: flex;
+        height: 40px;
+        padding: 0 20px;
+      }
+
+      .domain-count {
+        color: rgb(151, 156, 160);
+        padding-left: 10px;
+      }
+
+      .domain-heading-text {
+        display: flex;
+      }
+
+      .group-container {
+        background: #fff;
+        border: 1px solid var(--card-border-color);
+        border-bottom-width: 2px;
+        margin-bottom: var(--card-padding-between);
+        max-width: var(--card-max-width);
+        min-width: var(--card-min-width);
+        width: 100%;
+      }
+
+      .card-title {
+        margin-bottom: var(--card-first-last-item-padding);
+      }
+
+      .domain-heading-text {
+        flex: 1 1 0;
+      }
+
+      .dropdown-indicator {
+        max-width: 16px;
+      }
+
+      history-item {
+        --border-style: none;
+        padding-left: 20px;
+      }
+    </style>
+    <div id="no-results" class="centered-message"
+        hidden$="[[hasResults_(groupedHistoryData_.length)]]">
+      [[noResultsMessage_(searchedTerm, querying)]]
+    </div>
+    <div id="main-container"
+        hidden$="[[!hasResults_(groupedHistoryData_.length)]]">
+      <template is="dom-repeat" items="[[groupedHistoryData_]]" as="group"
+          initial-count="1" index-as="groupIndex">
+        <div class="group-container">
+          <div class="card-title">
+            [[group.title]]
+          </div>
+
+          <template is="dom-repeat" items="[[group.domains]]" as="domain"
+              initial-count="10" index-as="domainIndex">
+            <div>
+              <div class="domain-heading" on-tap="toggleDomainExpanded_">
+                <div class="domain-heading-text">
+                  <div class="website-icon"
+                      style="[[getWebsiteIconStyle_(domain)]]"></div>
+                  <span>[[domain.domain]]</span>
+                  <span class="domain-count">[[domain.visits.length]]</span>
+                </div>
+                <iron-icon icon="[[getDropdownIcon_(domain.expanded)]]"
+                    class="dropdown-indicator"></iron-icon>
+              </div>
+              <iron-collapse opened="{{domain.expanded}}" id="collapse">
+                <template is="dom-if" if="[[domain.rendered]]">
+                  <template is="dom-repeat" items="[[domain.visits]]"
+                      as="item" initial-count="5" index-as="itemIndex">
+                    <history-item item="[[item]]"
+                        starred="[[item.starred]]"
+                        selected="{{item.selected}}"
+                        has-time-gap="[[needsTimeGap_(
+                            groupIndex, domainIndex, itemIndex)]]"
+                        search-term="[[searchedTerm]]"
+                        number-of-items="[[historyData.length]]">
+                    </history-item>
+                  </template>
+                </template>
+              </iron-collapse>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+    </template>
+  <script src="chrome://history/grouped_list.js"></script>
+</dom-module>

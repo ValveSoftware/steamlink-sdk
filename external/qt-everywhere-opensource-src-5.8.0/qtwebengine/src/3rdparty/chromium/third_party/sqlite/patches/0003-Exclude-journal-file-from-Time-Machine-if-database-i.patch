@@ -1,0 +1,157 @@
+From bacae540479e7dc84bfbd059a20afa2ef00e8cdb Mon Sep 17 00:00:00 2001
+From: mrossetti <mrossetti@chromium.org>
+Date: Tue, 31 May 2011 23:12:11 +0000
+Subject: [PATCH 03/10] Exclude journal file from Time Machine if database is
+ excluded.
+
+BUG=74053
+
+Original review URL: http://codereview.chromium.org/6990066
+
+TODO(shess): The fts3_porter.c change is due to a conflict with an included
+Apple library.  Perhaps move the operative code to a .c file, and firewall
+SQLite from that include.
+
+TODO(shess): Revisit this for -wal mode.  http://crbug.com/78507
+---
+ third_party/sqlite/src/Makefile.linux-gcc     |  4 ++++
+ third_party/sqlite/src/ext/fts3/fts3_porter.c |  6 ++---
+ third_party/sqlite/src/main.mk                |  2 +-
+ third_party/sqlite/src/src/pager.c            | 32 +++++++++++++++++++++++++++
+ third_party/sqlite/src/src/sqliteInt.h        | 10 +++++++++
+ 5 files changed, 50 insertions(+), 4 deletions(-)
+
+diff --git a/third_party/sqlite/src/Makefile.linux-gcc b/third_party/sqlite/src/Makefile.linux-gcc
+index a1dec21..952e8d1 100644
+--- a/third_party/sqlite/src/Makefile.linux-gcc
++++ b/third_party/sqlite/src/Makefile.linux-gcc
+@@ -44,7 +44,11 @@ THREADLIB = -lpthread
+ #### Specify any extra libraries needed to access required functions.
+ #
+ #TLIBS = -lrt    # fdatasync on Solaris 8
++ifeq ($(shell uname -s),Darwin)
++TLIBS = -framework CoreServices
++else
+ TLIBS = -ldl
++endif
+ 
+ #### Leave SQLITE_DEBUG undefined for maximum speed.  Use SQLITE_DEBUG=1
+ #    to check for memory leaks.  Use SQLITE_DEBUG=2 to print a log of all
+diff --git a/third_party/sqlite/src/ext/fts3/fts3_porter.c b/third_party/sqlite/src/ext/fts3/fts3_porter.c
+index 8fb4c25d..b180ee2 100644
+--- a/third_party/sqlite/src/ext/fts3/fts3_porter.c
++++ b/third_party/sqlite/src/ext/fts3/fts3_porter.c
+@@ -128,7 +128,7 @@ static int porterClose(sqlite3_tokenizer_cursor *pCursor){
+ /*
+ ** Vowel or consonant
+ */
+-static const char cType[] = {
++static const char vOrCType[] = {
+    0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0,
+    1, 1, 1, 2, 1
+ };
+@@ -152,7 +152,7 @@ static int isConsonant(const char *z){
+   char x = *z;
+   if( x==0 ) return 0;
+   assert( x>='a' && x<='z' );
+-  j = cType[x-'a'];
++  j = vOrCType[x-'a'];
+   if( j<2 ) return j;
+   return z[1]==0 || isVowel(z + 1);
+ }
+@@ -161,7 +161,7 @@ static int isVowel(const char *z){
+   char x = *z;
+   if( x==0 ) return 0;
+   assert( x>='a' && x<='z' );
+-  j = cType[x-'a'];
++  j = vOrCType[x-'a'];
+   if( j<2 ) return 1-j;
+   return isConsonant(z + 1);
+ }
+diff --git a/third_party/sqlite/src/main.mk b/third_party/sqlite/src/main.mk
+index fcc0270..6ff3bd4 100644
+--- a/third_party/sqlite/src/main.mk
++++ b/third_party/sqlite/src/main.mk
+@@ -724,7 +724,7 @@ TESTFIXTURE_FLAGS += -DSQLITE_SERVER=1 -DSQLITE_PRIVATE="" -DSQLITE_CORE
+ testfixture$(EXE): $(TESTSRC2) libsqlite3.a $(TESTSRC) $(TOP)/src/tclsqlite.c
+ 	$(TCCX) $(TCL_FLAGS) -DTCLSH=1 $(TESTFIXTURE_FLAGS)                  \
+ 		$(TESTSRC) $(TESTSRC2) $(TOP)/src/tclsqlite.c                \
+-		-o testfixture$(EXE) $(LIBTCL) libsqlite3.a $(THREADLIB)
++		-o testfixture$(EXE) $(LIBTCL) libsqlite3.a $(THREADLIB) $(TLIBS)
+ 
+ amalgamation-testfixture$(EXE): sqlite3.c $(TESTSRC) $(TOP)/src/tclsqlite.c
+ 	$(TCCX) $(TCL_FLAGS) -DTCLSH=1 $(TESTFIXTURE_FLAGS)                  \
+diff --git a/third_party/sqlite/src/src/pager.c b/third_party/sqlite/src/src/pager.c
+index 2c904d2..74c76f37 100644
+--- a/third_party/sqlite/src/src/pager.c
++++ b/third_party/sqlite/src/src/pager.c
+@@ -5497,6 +5497,20 @@ void sqlite3PagerUnref(DbPage *pPg){
+   if( pPg ) sqlite3PagerUnrefNotNull(pPg);
+ }
+ 
++#if defined(__APPLE__)
++/*
++** Create and return a CFURLRef given a cstring containing the path to a file.
++*/
++static CFURLRef create_cfurl_from_cstring(const char* filePath){
++  CFStringRef urlString = CFStringCreateWithFileSystemRepresentation(
++      kCFAllocatorDefault, filePath);
++  CFURLRef urlRef = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
++      urlString, kCFURLPOSIXPathStyle, FALSE);
++  CFRelease(urlString);
++  return urlRef;
++}
++#endif
++
+ /*
+ ** This function is called at the start of every write transaction.
+ ** There must already be a RESERVED or EXCLUSIVE lock on the database 
+@@ -5561,6 +5575,24 @@ static int pager_open_journal(Pager *pPager){
+ #else
+           rc = sqlite3OsOpen(pVfs, pPager->zJournal, pPager->jfd, flags, 0);
+ #endif
++#if defined(__APPLE__)
++          /* Set the TimeMachine exclusion metadata for the journal if it has
++          ** been set for the database. Only do this for unix-type vfs
++          ** implementations. */
++          if( rc==SQLITE_OK && pPager->zFilename!=NULL
++           && strlen(pPager->zFilename)>0
++           && strncmp(pVfs->zName, "unix", 4)==0
++           && ( pVfs->zName[4]=='-' || pVfs->zName[4]=='\0' ) ){
++            CFURLRef database = create_cfurl_from_cstring(pPager->zFilename);
++            if( CSBackupIsItemExcluded(database, NULL) ){
++              CFURLRef journal = create_cfurl_from_cstring(pPager->zJournal);
++              /* Ignore errors from the following exclusion call. */
++              CSBackupSetItemExcluded(journal, TRUE, FALSE);
++              CFRelease(journal);
++            }
++            CFRelease(database);
++          }
++#endif
+         }
+       }
+       assert( rc!=SQLITE_OK || isOpen(pPager->jfd) );
+diff --git a/third_party/sqlite/src/src/sqliteInt.h b/third_party/sqlite/src/src/sqliteInt.h
+index c01bbc7..745b910 100644
+--- a/third_party/sqlite/src/src/sqliteInt.h
++++ b/third_party/sqlite/src/src/sqliteInt.h
+@@ -3168,6 +3168,16 @@ int sqlite3CantopenError(int);
+ #endif
+ 
+ /*
++** The CoreServices.h and CoreFoundation.h headers are needed for excluding a
++** -journal file from Time Machine backups when its associated database has
++** previously been excluded by the client code.
++*/
++#if defined(__APPLE__)
++#include <CoreServices/CoreServices.h>
++#include <CoreFoundation/CoreFoundation.h>
++#endif
++
++/*
+ ** The following macros mimic the standard library functions toupper(),
+ ** isspace(), isalnum(), isdigit() and isxdigit(), respectively. The
+ ** sqlite versions only work for ASCII characters, regardless of locale.
+-- 
+2.7.0
+

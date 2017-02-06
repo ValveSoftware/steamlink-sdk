@@ -1,0 +1,191 @@
+# Copyright 2014 The Crashpad Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+{
+  'includes': [
+    '../build/crashpad.gypi',
+    '../build/crashpad_dependencies.gypi',
+  ],
+  'targets': [
+    {
+      # This target exists so that the crashpad_handler can be embedded into
+      # another binary.
+      'target_name': 'crashpad_handler_lib',
+      'type': 'static_library',
+      'dependencies': [
+        '../client/client.gyp:crashpad_client',
+        '../compat/compat.gyp:crashpad_compat',
+        '../minidump/minidump.gyp:crashpad_minidump',
+        '../snapshot/snapshot.gyp:crashpad_snapshot',
+        '../third_party/mini_chromium/mini_chromium.gyp:base',
+        '../tools/tools.gyp:crashpad_tool_support',
+        '../util/util.gyp:crashpad_util',
+      ],
+      'include_dirs': [
+        '..',
+      ],
+      'sources': [
+        'crash_report_upload_thread.cc',
+        'crash_report_upload_thread.h',
+        'handler_main.cc',
+        'handler_main.h',
+        'mac/crash_report_exception_handler.cc',
+        'mac/crash_report_exception_handler.h',
+        'mac/exception_handler_server.cc',
+        'mac/exception_handler_server.h',
+        'prune_crash_reports_thread.cc',
+        'prune_crash_reports_thread.h',
+        'win/crash_report_exception_handler.cc',
+        'win/crash_report_exception_handler.h',
+      ],
+    },
+    {
+      'target_name': 'crashpad_handler',
+      'type': 'executable',
+      'dependencies': [
+        '../third_party/mini_chromium/mini_chromium.gyp:base',
+        '../tools/tools.gyp:crashpad_tool_support',
+        'crashpad_handler_lib',
+      ],
+      'include_dirs': [
+        '..',
+      ],
+      'sources': [
+        'main.cc',
+      ],
+
+      'conditions': [
+        ['OS=="mac"', {
+          # In an in-Chromium build with component=shared_library,
+          # crashpad_handler will depend on shared libraries such as
+          # libbase.dylib located in out/{Debug,Release} via the @rpath
+          # mechanism. When crashpad_handler is copied to its home deep inside
+          # the Chromium app bundle, it needs to have an LC_RPATH command
+          # pointing back to the directory containing these dependency
+          # libraries.
+          'variables': {
+            'component%': 'static_library',
+          },
+          'conditions': [
+            ['crashpad_dependencies=="chromium" and component=="shared_library"', {
+              'xcode_settings': {
+                'LD_RUNPATH_SEARCH_PATHS': [  # -Wl,-rpath
+                  # Get back from
+                  # Chromium.app/Contents/Versions/V/Framework.framework/Helpers
+                  '@loader_path/../../../../../..',
+                ],
+              },
+            }],
+          ],
+        }],
+      ],
+    },
+  ],
+  'conditions': [
+    ['OS=="win"', {
+      'targets': [
+        {
+          'target_name': 'crashy_program',
+          'type': 'executable',
+          'dependencies': [
+            '../client/client.gyp:crashpad_client',
+            '../third_party/mini_chromium/mini_chromium.gyp:base',
+            '../util/util.gyp:crashpad_util',
+          ],
+          'include_dirs': [
+            '..',
+          ],
+          'sources': [
+            'win/crashy_test_program.cc',
+          ],
+        },
+        {
+          'target_name': 'crash_other_program',
+          'type': 'executable',
+          'dependencies': [
+            '../client/client.gyp:crashpad_client',
+            '../test/test.gyp:crashpad_test',
+            '../third_party/mini_chromium/mini_chromium.gyp:base',
+            '../util/util.gyp:crashpad_util',
+          ],
+          'sources': [
+            'win/crash_other_program.cc',
+          ],
+        },
+        {
+          'target_name': 'hanging_program',
+          'type': 'executable',
+          'dependencies': [
+            '../client/client.gyp:crashpad_client',
+            '../third_party/mini_chromium/mini_chromium.gyp:base',
+          ],
+          'sources': [
+            'win/hanging_program.cc',
+          ],
+        },
+        {
+          'target_name': 'loader_lock_dll',
+          'type': 'loadable_module',
+          'sources': [
+            'win/loader_lock_dll.cc',
+          ],
+          'msvs_settings': {
+            'NoImportLibrary': 'true',
+          },
+        },
+        {
+          'target_name': 'self_destroying_program',
+          'type': 'executable',
+          'dependencies': [
+            '../client/client.gyp:crashpad_client',
+            '../compat/compat.gyp:crashpad_compat',
+            '../snapshot/snapshot.gyp:crashpad_snapshot',
+            '../third_party/mini_chromium/mini_chromium.gyp:base',
+            '../util/util.gyp:crashpad_util',
+          ],
+          'include_dirs': [
+            '..',
+          ],
+          'sources': [
+            'win/self_destroying_test_program.cc',
+          ],
+        },
+      ],
+      'conditions': [
+        # Cannot create an x64 DLL with embedded debug info.
+        ['target_arch=="ia32"', {
+          'targets': [
+            {
+              'target_name': 'crashy_z7_loader',
+              'type': 'executable',
+              'dependencies': [
+                '../client/client.gyp:crashpad_client',
+                '../test/test.gyp:crashpad_test',
+                '../third_party/mini_chromium/mini_chromium.gyp:base',
+              ],
+              'include_dirs': [
+                '..',
+              ],
+              'sources': [
+                'win/crashy_test_z7_loader.cc',
+              ],
+            },
+          ],
+        }],
+      ],
+    }, {
+      'targets': [],
+    }],
+  ],
+}
