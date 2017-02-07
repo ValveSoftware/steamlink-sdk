@@ -241,7 +241,7 @@ cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/ || exit 6
 for i in \
 	libass.so.5 \
 	libbluray.so.1 \
-	libcec.so.4.0.0 \
+	libcec.so.4.0.1 \
 	libcrypto.so.1.0.0 \
 	libcurl.so.4 \
 	libnfs.so.8 \
