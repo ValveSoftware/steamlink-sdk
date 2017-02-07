@@ -160,8 +160,6 @@ function satisfy_dependency
 }
 satisfy_dependency alsa-lib "${SOC_BUILD}/src/.libs/libasound.so"
 satisfy_dependency libsdl2 "${SOC_BUILD}/build/.libs/libSDL2.a"
-satisfy_dependency libogg "${SOC_BUILD}/src/.libs/libogg.a"
-satisfy_dependency libvorbis "${SOC_BUILD}/lib/.libs/libvorbis.a"
 
 # Fix libgpg-error
 pushd target/libgpg-error
@@ -241,7 +239,7 @@ cp -a ${DEPS_INSTALL_PATH}/lib/python2.7 ${DESTDIR}/lib/ || exit 6
 for i in \
 	libass.so.5 \
 	libbluray.so.1 \
-	libcec.so.4.0.0 \
+	libcec.so.4.0.1 \
 	libcrypto.so.1.0.0 \
 	libcurl.so.4 \
 	libnfs.so.8 \
