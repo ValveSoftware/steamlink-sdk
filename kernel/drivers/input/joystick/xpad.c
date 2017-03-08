@@ -218,7 +218,7 @@ static const struct xpad_device {
 	{ 0x24c6, 0x5303, "Xbox Airflo wired controller", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x541a, "Xbox ONE mini liquid metal", FLAG_NEEDS_RUMBLE_TO_INITIALIZE, XTYPE_XBOXONE_ELITE },
 	{ 0x24c6, 0x542a, "Xbox ONE spectra", FLAG_NEEDS_RUMBLE_TO_INITIALIZE, XTYPE_XBOXONE_ELITE },
-	{ 0x24c6, 0x543a, "PowerA Xbox One wired controller", 0, XTYPE_XBOXONE },
+	{ 0x24c6, 0x543a, "PowerA Xbox One wired controller", FLAG_NEEDS_RUMBLE_TO_INITIALIZE, XTYPE_XBOXONE },
 	{ 0x24c6, 0x5500, "Hori XBOX 360 EX 2 with Turbo", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5501, "Hori Real Arcade Pro VX-SA", 0, XTYPE_XBOX360 },
 	{ 0x24c6, 0x5506, "Hori SOULCALIBUR V Stick", 0, XTYPE_XBOX360 },
@@ -1231,10 +1231,10 @@ static int xpad_init_xbox_one_controller(struct usb_xpad *xpad)
 		ret = xpad_send_irq_out(xpad, xbox_one_elite_init_3, sizeof(xbox_one_elite_init_3));
 		if (ret) return ret;
 		xpad->odata_serial = 3;
-		if (xpad->mapping & FLAG_NEEDS_RUMBLE_TO_INITIALIZE) {
-			/* Do the rumble with magical values to make the controller send reports */
-			ret = xpad_send_ff(xpad, 0x1D * 512, 0x1D * 512);
-		}
+	}
+	if (xpad->mapping & FLAG_NEEDS_RUMBLE_TO_INITIALIZE) {
+		/* Do the rumble with magical values to make the controller send reports */
+		ret = xpad_send_ff(xpad, 0x1D * 512, 0x1D * 512);
 	}
 	return ret;
 }
