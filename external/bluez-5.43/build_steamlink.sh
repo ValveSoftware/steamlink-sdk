@@ -10,7 +10,9 @@ export LIBS="-ltinfo"
 	--disable-cups \
 	--disable-obex \
 	--enable-udev \
-	--enable-sixaxis
+	--with-udevdir=/etc/udev/ \
+	--enable-sixaxis \
+	--enable-library
 
 steamlink_make_clean
 steamlink_make 

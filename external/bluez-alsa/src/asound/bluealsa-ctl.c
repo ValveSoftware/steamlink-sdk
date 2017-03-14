@@ -1,0 +1,600 @@
+/*
+ * bluealsa-ctl.c
+ * Copyright (c) 2016-2017 Arkadiusz Bokowy
+ *
+ * This file is a part of bluez-alsa.
+ *
+ * This project is licensed under the terms of the MIT license.
+ *
+ */
+
+#include <ctype.h>
+#include <errno.h>
+#include <stdbool.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+
+#include <alsa/asoundlib.h>
+#include <alsa/control_external.h>
+
+#include "shared/ctl-client.h"
+#include "shared/ctl-proto.h"
+#include "shared/log.h"
+
+
+enum ctl_elem_type {
+	CTL_ELEM_TYPE_BATTERY,
+	CTL_ELEM_TYPE_SWITCH,
+	CTL_ELEM_TYPE_VOLUME,
+};
+
+struct ctl_elem {
+	enum ctl_elem_type type;
+	struct msg_device *device;
+	struct msg_transport *transport;
+	char name[44 /* internal ALSA constraint */ + 1];
+	/* if true, element is a playback control */
+	bool playback;
+};
+
+struct bluealsa_ctl {
+	snd_ctl_ext_t ext;
+
+	/* bluealsa socket */
+	int fd;
+
+	/* list of all BT devices */
+	struct msg_device *devices;
+	size_t devices_count;
+
+	/* list of all transports */
+	struct msg_transport *transports;
+	size_t transports_count;
+
+	/* list of control elements */
+	struct ctl_elem *elems;
+	size_t elems_count;
+
+};
+
+
+/**
+ * Get device ID number.
+ *
+ * @param ctl An address to the bluealsa ctl structure.
+ * @param device An address to the device structure.
+ * @return The device ID number, or -1 upon error. */
+static int bluealsa_get_device_id(const struct bluealsa_ctl *ctl,
+		const struct msg_device *device) {
+
+	size_t i;
+
+	for (i = 0; i < ctl->devices_count; i++)
+		if (bacmp(&ctl->devices[i].addr, &device->addr) == 0)
+			return i;
+
+	return -1;
+}
+
+/**
+ * Set element name within the element structure.
+ *
+ * @param elem An address to the element structure.
+ * @param id Device ID number. If the ID is other than -1, it will be
+ *   attached to the element name in order to prevent duplications. */
+static void bluealsa_set_elem_name(struct ctl_elem *elem, int id) {
+
+	const enum ctl_elem_type type = elem->type;
+	const struct msg_device *device = elem->device;
+	const struct msg_transport *transport = elem->transport;
+
+	int len = sizeof(elem->name) - 16 - 1;
+	char no[8] = "";
+
+	if (id != -1) {
+		sprintf(no, " #%d", id + 1);
+		len -= strlen(no);
+	}
+
+	if (type == CTL_ELEM_TYPE_BATTERY) {
+		len -= 10;
+		while (isspace(device->name[len - 1]))
+			len--;
+		sprintf(elem->name, "%.*s%s | Battery", len, device->name, no);
+	}
+	else if (transport != NULL) {
+		/* avoid name duplication by adding profile suffixes */
+		switch (transport->type) {
+		case PCM_TYPE_NULL:
+			break;
+		case PCM_TYPE_A2DP:
+			len -= 7;
+			while (isspace(device->name[len - 1]))
+				len--;
+			sprintf(elem->name, "%.*s%s - A2DP", len, device->name, no);
+			break;
+		case PCM_TYPE_SCO:
+			len -= 6;
+			while (isspace(device->name[len - 1]))
+				len--;
+			sprintf(elem->name, "%.*s%s - SCO", len, device->name, no);
+			break;
+		}
+	}
+
+	/* ALSA library determines the element type by checking it's
+	 * name suffix. This feature is not well documented, though. */
+
+	strcat(elem->name, elem->playback ? " Playback" : " Capture");
+
+	switch (type) {
+	case CTL_ELEM_TYPE_SWITCH:
+		strcat(elem->name, " Switch");
+		break;
+	case CTL_ELEM_TYPE_BATTERY:
+	case CTL_ELEM_TYPE_VOLUME:
+		strcat(elem->name, " Volume");
+		break;
+	}
+
+}
+
+static void bluealsa_close(snd_ctl_ext_t *ext) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+	close(ctl->fd);
+	free(ctl->devices);
+	free(ctl->transports);
+	free(ctl->elems);
+	free(ctl);
+}
+
+static int bluealsa_elem_count(snd_ctl_ext_t *ext) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+
+	size_t count = 0;
+	ssize_t cnt;
+	size_t i;
+
+	if ((cnt = bluealsa_get_devices(ctl->fd, &ctl->devices)) == -1)
+		return -errno;
+	ctl->devices_count = cnt;
+
+	if ((cnt = bluealsa_get_transports(ctl->fd, &ctl->transports)) == -1)
+		return -errno;
+	ctl->transports_count = cnt;
+
+	for (i = 0; i < ctl->devices_count; i++) {
+		/* add additional element for battery level */
+		if (ctl->devices[i].battery)
+			count++;
+	}
+
+	for (i = 0; i < ctl->transports_count; i++) {
+		/* Every stream has two controls associated to itself - volume adjustment
+		 * and mute switch. A2DP transport contains only one stream. However, SCO
+		 * transport represent both streams - playback and capture. */
+		switch (ctl->transports[i].type) {
+		case PCM_TYPE_NULL:
+			continue;
+		case PCM_TYPE_A2DP:
+			count += 2;
+			break;
+		case PCM_TYPE_SCO:
+			count += 4;
+			break;
+		}
+	}
+
+	ctl->elems = malloc(sizeof(*ctl->elems) * count);
+	ctl->elems_count = count;
+	count = 0;
+
+	/* construct control elements based on received transports */
+	for (i = 0; i < ctl->transports_count; i++) {
+
+		struct msg_transport *transport = &ctl->transports[i];
+		struct msg_device *device = NULL;
+		size_t ii;
+
+		/* get device structure for given transport */
+		for (ii = 0; ii < ctl->devices_count; ii++) {
+			if (bacmp(&ctl->devices[ii].addr, &transport->addr) == 0) {
+				device = &ctl->devices[ii];
+				break;
+			}
+		}
+
+		/* If the timing is right, the device list might not contain all devices.
+		 * It will happen, when between the get devices and get transports calls
+		 * a new BT device has been connected. */
+		if (device == NULL)
+			continue;
+
+		switch (transport->type) {
+		case PCM_TYPE_NULL:
+			break;
+
+		case PCM_TYPE_A2DP:
+
+			ctl->elems[count].type = CTL_ELEM_TYPE_VOLUME;
+			ctl->elems[count].device = device;
+			ctl->elems[count].transport = transport;
+			ctl->elems[count].playback = transport->stream == PCM_STREAM_PLAYBACK;
+			bluealsa_set_elem_name(&ctl->elems[count], -1);
+			count++;
+
+			ctl->elems[count].type = CTL_ELEM_TYPE_SWITCH;
+			ctl->elems[count].device = device;
+			ctl->elems[count].transport = transport;
+			ctl->elems[count].playback = transport->stream == PCM_STREAM_PLAYBACK;
+			bluealsa_set_elem_name(&ctl->elems[count], -1);
+			count++;
+
+			break;
+
+		case PCM_TYPE_SCO:
+
+			ctl->elems[count].type = CTL_ELEM_TYPE_VOLUME;
+			ctl->elems[count].device = device;
+			ctl->elems[count].transport = transport;
+			ctl->elems[count].playback = true;
+			bluealsa_set_elem_name(&ctl->elems[count], -1);
+			count++;
+
+			ctl->elems[count].type = CTL_ELEM_TYPE_SWITCH;
+			ctl->elems[count].device = device;
+			ctl->elems[count].transport = transport;
+			ctl->elems[count].playback = true;
+			bluealsa_set_elem_name(&ctl->elems[count], -1);
+			count++;
+
+			ctl->elems[count].type = CTL_ELEM_TYPE_VOLUME;
+			ctl->elems[count].device = device;
+			ctl->elems[count].transport = transport;
+			ctl->elems[count].playback = false;
+			bluealsa_set_elem_name(&ctl->elems[count], -1);
+			count++;
+
+			ctl->elems[count].type = CTL_ELEM_TYPE_SWITCH;
+			ctl->elems[count].device = device;
+			ctl->elems[count].transport = transport;
+			ctl->elems[count].playback = false;
+			bluealsa_set_elem_name(&ctl->elems[count], -1);
+			count++;
+
+			break;
+
+		}
+
+	}
+
+	/* construct device specific elements */
+	for (i = 0; i < ctl->devices_count; i++) {
+		/* add additional element for battery level */
+		if (ctl->devices[i].battery) {
+			ctl->elems[count].type = CTL_ELEM_TYPE_BATTERY;
+			ctl->elems[count].device = &ctl->devices[i];
+			ctl->elems[count].transport = NULL;
+			ctl->elems[count].playback = true;
+			bluealsa_set_elem_name(&ctl->elems[count], -1);
+			count++;
+		}
+	}
+
+	/* Detect element name duplicates and annotate them with the consecutive
+	 * device ID number - which will make ALSA library happy. */
+	for (i = 0; i < ctl->elems_count; i++) {
+
+		bool duplicated = false;
+		size_t ii;
+
+		for (ii = i + 1; ii < ctl->elems_count; ii++)
+			if (strcmp(ctl->elems[i].name, ctl->elems[ii].name) == 0) {
+				bluealsa_set_elem_name(&ctl->elems[ii],
+						bluealsa_get_device_id(ctl, ctl->elems[ii].device));
+				duplicated = true;
+			}
+
+		if (duplicated)
+			bluealsa_set_elem_name(&ctl->elems[i],
+					bluealsa_get_device_id(ctl, ctl->elems[i].device));
+
+	}
+
+	return count;
+}
+
+static int bluealsa_elem_list(snd_ctl_ext_t *ext, unsigned int offset, snd_ctl_elem_id_t *id) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+
+	if (offset > ctl->elems_count)
+		return -EINVAL;
+
+	snd_ctl_elem_id_set_interface(id, SND_CTL_ELEM_IFACE_MIXER);
+	snd_ctl_elem_id_set_name(id, ctl->elems[offset].name);
+
+	return 0;
+}
+
+static snd_ctl_ext_key_t bluealsa_find_elem(snd_ctl_ext_t *ext, const snd_ctl_elem_id_t *id) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+
+	unsigned int numid = snd_ctl_elem_id_get_numid(id);
+
+	if (numid > 0 && numid <= ctl->elems_count)
+		return numid - 1;
+
+	return SND_CTL_EXT_KEY_NOT_FOUND;
+}
+
+static int bluealsa_get_attribute(snd_ctl_ext_t *ext, snd_ctl_ext_key_t key,
+		int *type, unsigned int *acc, unsigned int *count) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+
+	if (key > ctl->elems_count)
+		return -EINVAL;
+
+	const struct ctl_elem *elem = &ctl->elems[key];
+	const struct msg_transport *transport = elem->transport;
+
+	switch (elem->type) {
+	case CTL_ELEM_TYPE_BATTERY:
+		*acc = SND_CTL_EXT_ACCESS_READ;
+		*type = SND_CTL_ELEM_TYPE_INTEGER;
+		*count = 1;
+		break;
+	case CTL_ELEM_TYPE_SWITCH:
+		*acc = SND_CTL_EXT_ACCESS_READWRITE;
+		*type = SND_CTL_ELEM_TYPE_BOOLEAN;
+		*count = transport->channels;
+		break;
+	case CTL_ELEM_TYPE_VOLUME:
+		*acc = SND_CTL_EXT_ACCESS_READWRITE;
+		*type = SND_CTL_ELEM_TYPE_INTEGER;
+		*count = transport->channels;
+		break;
+	}
+
+	return 0;
+}
+
+static int bluealsa_get_integer_info(snd_ctl_ext_t *ext, snd_ctl_ext_key_t key,
+		long *imin, long *imax, long *istep) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+
+	if (key > ctl->elems_count)
+		return -EINVAL;
+
+	const struct ctl_elem *elem = &ctl->elems[key];
+	const struct msg_transport *transport = elem->transport;
+
+	switch (elem->type) {
+	case CTL_ELEM_TYPE_BATTERY:
+		*imin = 0;
+		*imax = 9;
+		*istep = 1;
+		break;
+	case CTL_ELEM_TYPE_SWITCH:
+		return -EINVAL;
+	case CTL_ELEM_TYPE_VOLUME:
+		switch (transport->type) {
+		case PCM_TYPE_NULL:
+			return -EINVAL;
+		case PCM_TYPE_A2DP:
+			*imax = 127;
+			break;
+		case PCM_TYPE_SCO:
+			*imax = 15;
+			break;
+		}
+		*imin = 0;
+		*istep = 1;
+		break;
+	}
+
+	return 0;
+}
+
+static int bluealsa_read_integer(snd_ctl_ext_t *ext, snd_ctl_ext_key_t key, long *value) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+
+	if (key > ctl->elems_count)
+		return -EINVAL;
+
+	const struct ctl_elem *elem = &ctl->elems[key];
+	const struct msg_device *device = elem->device;
+	const struct msg_transport *transport = elem->transport;
+
+	switch (elem->type) {
+	case CTL_ELEM_TYPE_BATTERY:
+		value[0] = device->battery_level;
+		break;
+	case CTL_ELEM_TYPE_SWITCH:
+		switch (transport->type) {
+		case PCM_TYPE_NULL:
+			return -EINVAL;
+		case PCM_TYPE_A2DP:
+			value[0] = !transport->ch1_muted;
+			if (transport->channels == 2)
+				value[1] = !transport->ch2_muted;
+			break;
+		case PCM_TYPE_SCO:
+			if (elem->playback)
+				value[0] = !transport->ch1_muted;
+			else
+				value[0] = !transport->ch2_muted;
+			break;
+		}
+		break;
+	case CTL_ELEM_TYPE_VOLUME:
+		switch (transport->type) {
+		case PCM_TYPE_NULL:
+			return -EINVAL;
+		case PCM_TYPE_A2DP:
+			value[0] = transport->ch1_volume;
+			if (transport->channels == 2)
+				value[1] = transport->ch2_volume;
+			break;
+		case PCM_TYPE_SCO:
+			if (elem->playback)
+				value[0] = transport->ch1_volume;
+			else
+				value[0] = transport->ch2_volume;
+			break;
+		}
+		break;
+	}
+
+	return 0;
+}
+
+static int bluealsa_write_integer(snd_ctl_ext_t *ext, snd_ctl_ext_key_t key, long *value) {
+	struct bluealsa_ctl *ctl = (struct bluealsa_ctl *)ext->private_data;
+
+	if (key > ctl->elems_count)
+		return -EINVAL;
+
+	struct msg_status status;
+	struct ctl_elem *elem = &ctl->elems[key];
+	struct msg_transport *transport = elem->transport;
+
+	if (transport == NULL)
+		return -EINVAL;
+
+	struct request req = {
+		.command = COMMAND_TRANSPORT_SET_VOLUME,
+		.addr = transport->addr,
+		.stream = transport->stream,
+		.type = transport->type,
+		.ch1_muted = transport->ch1_muted,
+		.ch1_volume = transport->ch1_volume,
+		.ch2_muted = transport->ch2_muted,
+		.ch2_volume = transport->ch2_volume,
+	};
+
+	switch (elem->type) {
+	case CTL_ELEM_TYPE_BATTERY:
+		/* this element should be read-only */
+		return -EINVAL;
+	case CTL_ELEM_TYPE_SWITCH:
+		switch (transport->type) {
+		case PCM_TYPE_NULL:
+			return -EINVAL;
+		case PCM_TYPE_A2DP:
+			req.ch1_muted = transport->ch1_muted = !value[0];
+			if (transport->channels == 2)
+				req.ch2_muted = transport->ch2_muted = !value[1];
+			break;
+		case PCM_TYPE_SCO:
+			if (elem->playback)
+				req.ch1_muted = transport->ch1_muted = !value[0];
+			else
+				req.ch2_muted = transport->ch2_muted = !value[0];
+			break;
+		}
+		break;
+	case CTL_ELEM_TYPE_VOLUME:
+		switch (transport->type) {
+		case PCM_TYPE_NULL:
+			return -EINVAL;
+		case PCM_TYPE_A2DP:
+			req.ch1_volume = transport->ch1_volume = value[0];
+			if (transport->channels == 2)
+				req.ch2_volume = transport->ch2_volume = value[1];
+			break;
+		case PCM_TYPE_SCO:
+			if (elem->playback)
+				req.ch1_volume = transport->ch1_volume = value[0];
+			else
+				req.ch2_volume = transport->ch2_volume = value[0];
+			break;
+		}
+		break;
+	}
+
+	send(ctl->fd, &req, sizeof(req), MSG_NOSIGNAL);
+	if (read(ctl->fd, &status, sizeof(status)) == -1)
+		return -EIO;
+
+	return 0;
+}
+
+static const snd_ctl_ext_callback_t bluealsa_snd_ctl_ext_callback = {
+	.close = bluealsa_close,
+	.elem_count = bluealsa_elem_count,
+	.elem_list = bluealsa_elem_list,
+	.find_elem = bluealsa_find_elem,
+	.get_attribute = bluealsa_get_attribute,
+	.get_integer_info = bluealsa_get_integer_info,
+	.read_integer = bluealsa_read_integer,
+	.write_integer = bluealsa_write_integer,
+};
+
+SND_CTL_PLUGIN_DEFINE_FUNC(bluealsa) {
+	(void)root;
+
+	snd_config_iterator_t i, next;
+	const char *interface = "hci0";
+	struct bluealsa_ctl *ctl;
+	int ret;
+
+	snd_config_for_each(i, next, conf) {
+		snd_config_t *n = snd_config_iterator_entry(i);
+
+		const char *id;
+		if (snd_config_get_id(n, &id) < 0)
+			continue;
+
+		if (strcmp(id, "comment") == 0 ||
+				strcmp(id, "type") == 0 ||
+				strcmp(id, "hint") == 0)
+			continue;
+
+		if (strcmp(id, "interface") == 0) {
+			if (snd_config_get_string(n, &interface) < 0) {
+				SNDERR("Invalid type for %s", id);
+				return -EINVAL;
+			}
+			continue;
+		}
+
+		SNDERR("Unknown field %s", id);
+		return -EINVAL;
+	}
+
+	if ((ctl = calloc(1, sizeof(*ctl))) == NULL)
+		return -ENOMEM;
+
+	if ((ctl->fd = bluealsa_open(interface)) == -1) {
+		SNDERR("BlueALSA connection failed: %s", strerror(errno));
+		ret = -errno;
+		goto fail;
+	}
+
+	ctl->ext.version = SND_CTL_EXT_VERSION;
+	ctl->ext.card_idx = 0;
+	strncpy(ctl->ext.id, "bluealsa", sizeof(ctl->ext.id) - 1);
+	strncpy(ctl->ext.driver, "BlueALSA", sizeof(ctl->ext.driver) - 1);
+	strncpy(ctl->ext.name, "BlueALSA", sizeof(ctl->ext.name) - 1);
+	strncpy(ctl->ext.longname, "Bluetooth Audio Hub Controller", sizeof(ctl->ext.longname) - 1);
+	strncpy(ctl->ext.mixername, "BlueALSA Plugin", sizeof(ctl->ext.mixername) - 1);
+
+	ctl->ext.callback = &bluealsa_snd_ctl_ext_callback;
+	ctl->ext.private_data = ctl;
+	ctl->ext.poll_fd = -1;
+
+	if ((ret = snd_ctl_ext_create(&ctl->ext, name, mode)) < 0)
+		goto fail;
+
+	*handlep = ctl->ext.handle;
+	return 0;
+
+fail:
+	if (ctl->fd != -1)
+		close(ctl->fd);
+	free(ctl);
+	return ret;
+}
+
+SND_CTL_PLUGIN_SYMBOL(bluealsa);

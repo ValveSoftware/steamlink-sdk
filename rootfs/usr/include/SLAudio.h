@@ -61,6 +61,7 @@ typedef enum
 //--------------------------------------------------------------------------------------------------
 typedef struct CSLAudioContext CSLAudioContext;
 typedef struct CSLAudioStream CSLAudioStream;
+typedef struct CSLAudioInputStream CSLAudioInputStream;
 
 
 //--------------------------------------------------------------------------------------------------
@@ -141,6 +142,15 @@ extern SLAUDIO_DECLSPEC void SLAudio_FreeStream( CSLAudioStream *pStream );
 //--------------------------------------------------------------------------------------------------
 extern SLAUDIO_DECLSPEC void SLAudio_FreeContext( CSLAudioContext *pContext );
 
+typedef void (*SLAudio_InputStreamChanged)( void *pContext, CSLAudioInputStream *pStream, int nChannels, int nSamplerate );
+typedef void (*SLAudio_InputStreamData)( void *pContext, CSLAudioInputStream *pStream, const void *pData, int nBytes );
+
+//--------------------------------------------------------------------------------------------------
+// Free a Steam Link audio context
+//--------------------------------------------------------------------------------------------------
+extern SLAUDIO_DECLSPEC CSLAudioInputStream *SLAudio_CreateInputStream( CSLAudioContext *pAudioContext, SLAudio_InputStreamChanged pStreamChanged, SLAudio_InputStreamData pStreamData, void *pContext );
+
+extern SLAUDIO_DECLSPEC void SLAudio_FreeInputStream( CSLAudioInputStream *pStream );
 
 //--------------------------------------------------------------------------------------------------
 // Reset structure packing

@@ -43,6 +43,7 @@ install:
 	install -m 644 libudev.h $(DESTDIR)/usr/include/
 	install -m 644 libudev.a $(DESTDIR)/usr/lib/
 	install -m 755 libudev.so.1 $(DESTDIR)/usr/lib/
+	install -m 644 libudev.pc $(DESTDIR)/usr/lib/pkgconfig
 	ln -sf libudev.so.1 $(DESTDIR)/usr/lib/libudev.so
 
 uninstall:

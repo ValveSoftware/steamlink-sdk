@@ -201,10 +201,16 @@ bool CControllerManager::BShouldIgnoreController( const char *pszGUID )
 bool CControllerManager::BShouldIgnoreController( int iJoystick )
 {
 	// Always ignore wheels and flight sticks
-	SDL_JoystickType eType = SDL_JoystickGetDeviceType( iJoystick );
-	if ( eType == SDL_JOYSTICK_TYPE_WHEEL || eType == SDL_JOYSTICK_TYPE_FLIGHT_STICK )
+	switch ( SDL_JoystickGetDeviceType( iJoystick ) )
 	{
+	case SDL_JOYSTICK_TYPE_WHEEL:
+	case SDL_JOYSTICK_TYPE_FLIGHT_STICK:
+	case SDL_JOYSTICK_TYPE_THROTTLE:
+	case SDL_JOYSTICK_TYPE_GUITAR:
+	case SDL_JOYSTICK_TYPE_DRUM_KIT:
 		return true;
+	default:
+		break;
 	}
 
 	char pszGUID[ 33 ];

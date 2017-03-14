@@ -1,9 +1,10 @@
-#define QT_FEATURE_networkinterface 1
-#define QT_FEATURE_bearermanagement 1
+#define QT_FEATURE_bearermanagement -1
+#define QT_NO_BEARERMANAGEMENT 
 #define QT_FEATURE_ftp 1
 #define QT_FEATURE_http 1
 #define QT_FEATURE_localserver 1
 #define QT_FEATURE_networkdiskcache 1
+#define QT_FEATURE_networkinterface 1
 #define QT_FEATURE_networkproxy 1
 #define QT_FEATURE_sctp -1
 #define QT_NO_SCTP 

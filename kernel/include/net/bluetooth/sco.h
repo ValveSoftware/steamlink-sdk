@@ -74,6 +74,7 @@ struct sco_pinfo {
 	struct bt_sock	bt;
 	__u32		flags;
 	struct sco_conn	*conn;
+	__u16		setting;
 };
 
 #endif /* __SCO_H */
