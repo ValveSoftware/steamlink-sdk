@@ -1,20 +1,20 @@
 
-#SDK for the Valve Steam Link
+# SDK for the Valve Steam Link
 
 This is the SDK for the Valve Steam Link
 
-##Hardware
+## Hardware
 
 The Steam Link hardware is a single core ARMv7 processor using the hard-float ABI,
 running at `1 GHz`, with neon instruction support. It has approximately `256 MB` of available
 RAM and `1 GB` of usable flash storage.
 
 
-##Software
+## Software
 
 The Steam Link software is custom Linux firmware based on `kernel 3.8` and `glibc 2.19`.
 
-###API support
+### API support
 The Steam Link SDK has support for the following major APIs:
 
 - `OpenGL ES 2.0`
@@ -24,31 +24,31 @@ The Steam Link SDK has support for the following major APIs:
 The SDL game controller API is recommended for Steam Controller support on the Steam Link.
 
 
-##Repository Contents
-###examples
+## Repository Contents
+### examples
 Examples to demonstrate how to build applications using the SDK. Each application directory has a `build_steamlink.sh` script to build and package the example.
 
-###external
+### external
 Source code to 3rd party components of the Steam Link, each directory has a `build_steamlink.sh` script to rebuild the component.
 
-###kernel
+### kernel
 Steam Link linux kernel source code
 
-###rootfs
+### rootfs
 Steam Link root filesystem
 
 Debug symbols for binaries in the latest build are available from:
 http://media.steampowered.com/steamlink/steamlink-sdk-symbols.tar.xz
 
 
-###toolchain
+### toolchain
 GCC toolchain for Steam Link
 
-###setenv.sh
+### setenv.sh
 Script to configure build environment
 
 
-##Building
+## Building
 
 Steam Link applications are built using this SDK on Linux.
 
@@ -59,14 +59,14 @@ To set up the build environment, source the top level `setenv.sh`.
 This is done inside the build script for each example, as needed.
 
 
-##Deploying
+## Deploying
 
 Put the files in a folder with the app name on a USB drive under `\steamlink\apps`, insert it into the Steam Link and power cycle the device.
 
 The app will be copied onto the system at boot and can be launched from the menu.
 
 
-##SSH Access
+## SSH Access
 
 You may need to enable ssh access to the Steam Link for advanced debugging.
 You can do this by putting a file called `enable_ssh.txt` on a USB drive under `\steamlink\config\system`, inserting it into the Steam Link and power cycle the device.
@@ -76,11 +76,11 @@ The root password is `steamlink123` and should be changed using the `passwd` com
 SSH access will remain enabled until a factory reset.
 
 
-##Debugging
+## Debugging
 
 Recommended way is to run `gdbserver` on the Steam Link and use a local `gdb` to connect to it and debug an application.
 
-###Preparation
+### Preparation
 
 First, configure environment for SDK:
 ```Bash
