@@ -1,12 +1,12 @@
 
-#About
+# About
 
 This script compiles Kodi version Krypton.
 You can change this in `build_steamlink.sh` by providing different tag/branch or by removing `-b "Krypton"` parameter, however the build script can break.
 
 It was tested on Arch Linux and Ubuntu 16.04.
 
-##Building Kodi
+## Building Kodi
 
 Before compiling, make sure you have installed these packages:
 ```Bash
@@ -21,7 +21,7 @@ please install it with your package manager. You can find the list of all requir
 packages in [Kodi readme](https://github.com/xbmc/xbmc/blob/master/docs/README.linux#L46)
 (some libraries are not required, since they will be built with the Steam Link SDK compiler from source).
 
-##Executing the build process
+## Executing the build process
 
 1. Open new terminal window, **DO NOT** `source setenv.sh` - it will break the build environment!
 2. `$ cd /path/to/steamlink-sdk/examples/kodi`
@@ -32,11 +32,11 @@ This should end with `Build complete!` message and you should have `steamlink` d
 Copy the `steamlink` directory to a USB flash drive, insert it into the Steam Link and
 power cycle the device.
 
-##What is working:
+## What is working:
 - Addons
 - Pictures
 - Video output
 - Sound output (thanks to [@garbear](https://github.com/garbear/))
 
-##What is not working:
+## What is not working:
 - ...
