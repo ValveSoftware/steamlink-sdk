@@ -21,7 +21,7 @@ esac
 # Download the source to Kodi
 #
 if [ ! -d "${SRC}" ]; then
-	git clone -b "Krypton" https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
+	git clone --depth=1 --single-branch -b "17.2-Krypton" https://github.com/xbmc/xbmc.git "${SRC}" || exit 1
 	rm -f "${BUILD}/.patch-applied"
 fi
 
