@@ -198,7 +198,9 @@ popd
 # Finally build Kodi
 #
 source "${MARVELL_SDK_PATH}/setenv.sh" || exit 1
+OLD_PKG_CONFIG_LIBDIR=$PKG_CONFIG_LIBDIR
 source "${DEPS_CONFIG_SITE}"
+export PKG_CONFIG_LIBDIR="${PKG_CONFIG_LIBDIR}:${OLD_PKG_CONFIG_LIBDIR}"
 
 export CC="${CC} -DEGL_API_FB"
 export CXX="${CXX} -DEGL_API_FB"
