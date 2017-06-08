@@ -33,6 +33,7 @@
 #include "utils.h"
 #include "shared/ctl-proto.h"
 #include "shared/log.h"
+#include "shared/libshm.h"
 
 
 /**
@@ -295,6 +296,19 @@ fail:
 	send(fd, &status, sizeof(status), MSG_NOSIGNAL);
 }
 
+static uint32_t _get_shm_transport_size(struct ba_transport *t, uint32_t buffer_in_ms)
+{
+	uint32_t size;
+
+	if (t->type == TRANSPORT_TYPE_SCO)
+		size = 8 * sizeof(int16_t) * buffer_in_ms;
+	else
+		size = transport_get_sampling(t) / 1000 * transport_get_channels(t) * sizeof(int16_t) * buffer_in_ms;
+
+	error("SHM transport size = %u\n", size);
+	return size;
+}
+
 static void ctl_thread_cmd_pcm_open(const struct request *req, int fd) {
 
 	struct msg_status status = { STATUS_CODE_SUCCESS };
@@ -304,9 +318,6 @@ static void ctl_thread_cmd_pcm_open(const struct request *req, int fd) {
 	char addr[18];
 
 	ba2str(&req->addr, addr);
-	snprintf(pcm.fifo, sizeof(pcm.fifo), BLUEALSA_RUN_STATE_DIR "/%s-%s-%u-%u",
-			config.hci_dev.name, addr, req->type, req->stream);
-	pcm.fifo[sizeof(pcm.fifo) - 1] = '\0';
 
 	debug("PCM requested for %s type %d stream %d", addr, req->type, req->stream);
 
@@ -322,16 +333,23 @@ static void ctl_thread_cmd_pcm_open(const struct request *req, int fd) {
 		goto final;
 	}
 
-	if (t_pcm->fifo != NULL) {
-		debug("PCM already requested: %d", t_pcm->fd);
+	snprintf(pcm.ctrl_socket, sizeof(pcm.ctrl_socket), BLUEALSA_RUN_STATE_DIR "/%s-%s-%u-%u-socket",
+		 config.hci_dev.name, addr, req->type, req->stream);
+	snprintf(pcm.shm_file, sizeof(pcm.shm_file), "/%s-%s-%u-%u-shm",
+		 config.hci_dev.name, addr, req->type, req->stream);
+	pcm.transport_size = _get_shm_transport_size(t, t->type == TRANSPORT_TYPE_SCO ? 16 : 30);
+
+	if (t_pcm->shm != NULL) {
+		debug("SHM already requested: %p", t_pcm->shm);
 		status.code = STATUS_CODE_DEVICE_BUSY;
 		goto final;
 	}
 
 	_ctl_transport(t, &pcm.transport);
 
-	if (mkfifo(pcm.fifo, 0660) != 0) {
-		error("Couldn't create FIFO: %s", strerror(errno));
+	t_pcm->shm = libshm_create_master(pcm.ctrl_socket, pcm.shm_file, pcm.transport_size);
+	if (t_pcm->shm == NULL) {
+		error("Couldn't create SHM transport: %s", strerror(errno));
 		status.code = STATUS_CODE_ERROR_UNKNOWN;
 		/* Jumping to the final section will prevent from unintentional removal
 		 * of the FIFO, which was not created by ourself. Cleanup action should
@@ -339,18 +357,6 @@ static void ctl_thread_cmd_pcm_open(const struct request *req, int fd) {
 		goto final;
 	}
 
-	/* During the mkfifo() call the FIFO mode is modified by the process umask,
-	 * so the post-creation correction is required. */
-	if (chmod(pcm.fifo, 0660) == -1)
-		goto fail;
-	if (chown(pcm.fifo, -1, config.gid_audio) == -1)
-		goto fail;
-
-	/* XXX: This change will notify our sink IO thread, that the FIFO has just
-	 *      been created, so it is possible to open it. Source IO thread should
-	 *      not be started before the PCM open request has been made, so this
-	 *      "notification" mechanism does not apply. */
-	t_pcm->fifo = strdup(pcm.fifo);
 	eventfd_write(t->event_fd, 1);
 
 	/* A2DP source profile should be initialized (acquired) only if the audio
@@ -368,9 +374,8 @@ static void ctl_thread_cmd_pcm_open(const struct request *req, int fd) {
 	goto final;
 
 fail:
-	free(t_pcm->fifo);
-	t_pcm->fifo = NULL;
-	unlink(pcm.fifo);
+	libshm_close(t_pcm->shm);
+	t_pcm->shm = NULL;
 
 final:
 	pthread_mutex_unlock(&config.devices_mutex);
@@ -424,7 +429,7 @@ static void ctl_thread_cmd_pcm_control(const struct request *req, int fd) {
 		status.code = STATUS_CODE_ERROR_UNKNOWN;
 		goto fail;
 	}
-	if (t_pcm->fifo == NULL || t_pcm->client == -1) {
+	if (t_pcm->shm == NULL || t_pcm->client == -1) {
 		status.code = STATUS_CODE_ERROR_UNKNOWN;
 		goto fail;
 	}

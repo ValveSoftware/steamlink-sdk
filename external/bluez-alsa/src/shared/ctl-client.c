@@ -20,6 +20,7 @@
 #include <sys/un.h>
 
 #include "shared/log.h"
+#include "shared/libshm.h"
 
 
 /**
@@ -267,7 +268,7 @@ int bluealsa_get_transport_delay(int fd, const struct msg_transport *transport) 
  * @param transport Address to the transport structure with the addr, type
  *   and stream fields set - other fields are not used by this function.
  * @return PCM FIFO file descriptor, or -1 on error. */
-int bluealsa_open_transport(int fd, const struct msg_transport *transport) {
+struct libshm_data* bluealsa_open_transport(int fd, const struct msg_transport *transport) {
 
 	struct msg_status status = { 0xAB };
 	struct request req = {
@@ -279,6 +280,7 @@ int bluealsa_open_transport(int fd, const struct msg_transport *transport) {
 	struct msg_pcm res;
 	ssize_t len;
 	int pcm;
+	struct libshm_data *shm = NULL;
 
 #if DEBUG
 	char addr_[18];
@@ -287,31 +289,26 @@ int bluealsa_open_transport(int fd, const struct msg_transport *transport) {
 #endif
 
 	if (send(fd, &req, sizeof(req), MSG_NOSIGNAL) == -1)
-		return -1;
+		return NULL;
 	if ((len = read(fd, &res, sizeof(res))) == -1)
-		return -1;
+		return NULL;
 
 	/* in case of error, status message is returned */
 	if (len != sizeof(res)) {
 		memcpy(&status, &res, sizeof(status));
 		errno = bluealsa_status_to_errno(&status);
-		return -1;
+		return NULL;
 	}
 
 	if (read(fd, &status, sizeof(status)) == -1)
-		return -1;
+		return NULL;
 
-	debug("Opening PCM FIFO (mode: %s): %s",
-			req.stream == PCM_STREAM_PLAYBACK ? "WR" : "RO", res.fifo);
-	if ((pcm = open(res.fifo, req.stream == PCM_STREAM_PLAYBACK ?
-					O_WRONLY : O_RDONLY | O_NONBLOCK)) == -1)
-		return -1;
-
-	/* Restore the blocking mode. Non-blocking mode was required only for the
-	 * opening stage - FIFO read-write sides synchronization is done in the IO
-	 * thread. */
-	if (req.stream == PCM_STREAM_CAPTURE)
-		fcntl(pcm, F_SETFL, fcntl(pcm, F_GETFL) & ~O_NONBLOCK);
+	debug("Opening SHM transport (mode: %s): (%s, %s)",
+	      req.stream == PCM_STREAM_PLAYBACK ? "WR" : "RO",
+	      res.ctrl_socket, res.shm_file);
+	shm = libshm_create_slave(res.ctrl_socket, res.shm_file, res.transport_size);
+	if (!shm)
+		return NULL;
 
 	/* In the capture mode it is required to signal the server, that the PCM
 	 * opening process has been finished. This requirement comes from the fact,
@@ -323,7 +320,7 @@ int bluealsa_open_transport(int fd, const struct msg_transport *transport) {
 		bluealsa_send_request(fd, &req);
 	}
 
-	return pcm;
+	return shm;
 }
 
 /**

@@ -131,7 +131,9 @@ struct __attribute__ ((packed)) msg_transport {
 
 struct __attribute__ ((packed)) msg_pcm {
 	struct msg_transport transport;
-	char fifo[128];
+	char ctrl_socket[128];
+	char shm_file[128];
+	uint32_t transport_size;
 };
 
 #endif

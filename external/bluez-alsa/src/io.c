@@ -76,52 +76,11 @@ static void io_thread_release(struct ba_transport *t) {
 }
 
 /**
- * Open PCM for reading. */
-static int io_thread_open_pcm_read(struct ba_pcm *pcm) {
-
-	/* XXX: This check allows testing. During normal operation PCM FIFO
-	 *      should not be opened outside the IO thread function. */
-	if (pcm->fd == -1) {
-		debug("Opening FIFO for reading: %s", pcm->fifo);
-		/* this call will block until writing side is opened */
-		if ((pcm->fd = open(pcm->fifo, O_RDONLY)) == -1)
-			return -1;
-	}
-
-	return 0;
-}
-
-/**
  * Open PCM for writing. */
 static int io_thread_open_pcm_write(struct ba_pcm *pcm) {
 
-	/* transport PCM FIFO has not been requested */
-	if (pcm->fifo == NULL) {
-		errno = ENXIO;
+	if (pcm->shm == NULL)
 		return -1;
-	}
-
-	if (pcm->fd == -1) {
-
-		debug("Opening FIFO for writing: %s", pcm->fifo);
-		if ((pcm->fd = open(pcm->fifo, O_WRONLY | O_NONBLOCK)) == -1) {
-			debug("FIFO reading endpoint is not connected yet");
-			return -1;
-		}
-
-		/* Restore the blocking mode of our FIFO. Non-blocking mode was required
-		 * only for the opening process - we do not want to block if the reading
-		 * endpoint is not connected yet. On the other hand, blocking upon data
-		 * write will prevent frame dropping. */
-		fcntl(pcm->fd, F_SETFL, fcntl(pcm->fd, F_GETFL) & ~O_NONBLOCK);
-
-		/* In order to receive EPIPE while writing to the pipe whose reading end
-		 * is closed, the SIGPIPE signal has to be handled. For more information
-		 * see the io_thread_write_pcm() function. */
-		const struct sigaction sigact = { .sa_handler = SIG_IGN };
-		sigaction(SIGPIPE, &sigact, NULL);
-
-	}
 
 	return 0;
 }
@@ -148,69 +107,31 @@ static void io_thread_scale_pcm(struct ba_transport *t, int16_t *buffer,
 }
 
 /**
- * Read PCM signal from the transport PCM FIFO. */
+ * Read PCM signal from the transport PCM shm. */
 static ssize_t io_thread_read_pcm(struct ba_pcm *pcm, int16_t *buffer, size_t size) {
 
-	uint8_t *head = (uint8_t *)buffer;
 	size_t len = size * sizeof(int16_t);
-	ssize_t ret;
+	int ret;
 
-	/* This call will block until data arrives. If the passed file descriptor
-	 * is invalid (e.g. -1) is means, that other thread (the controller) has
-	 * closed the connection. If the connection was closed during the blocking
-	 * part, we will still read correct data, because Linux kernel does not
-	 * decrement file descriptor reference counter until the read returns. */
-	while (len != 0 && (ret = read(pcm->fd, head, len)) != 0) {
-		if (ret == -1) {
-			if (errno == EINTR)
-				continue;
-			break;
-		}
-		head += ret;
-		len -= ret;
-	}
-
-	if (ret > 0)
-		/* atomic data read is guaranteed */
-		return size;
-
-	if (ret == 0)
-		debug("FIFO endpoint has been closed: %d", pcm->fd);
-	if (errno == EBADF)
-		ret = 0;
-	if (ret == 0)
+	if ((ret = libshm_read_all(pcm->shm, buffer, len)) < 0) {
 		transport_release_pcm(pcm);
-
-	return ret;
+		return -1;
+	}
+	return size; // return amount of samples read
 }
 
 /**
- * Write PCM signal to the transport PCM FIFO. */
+ * Write PCM signal to the transport PCM shm. */
 static ssize_t io_thread_write_pcm(struct ba_pcm *pcm, const int16_t *buffer, size_t size) {
 
-	const uint8_t *head = (uint8_t *)buffer;
 	size_t len = size * sizeof(int16_t);
-	ssize_t ret;
+	int ret;
 
-	do {
-		if ((ret = write(pcm->fd, head, len)) == -1) {
-			if (errno == EINTR)
-				continue;
-			if (errno == EPIPE) {
-				/* This errno value will be received only, when the SIGPIPE
-				 * signal is caught, blocked or ignored. */
-				debug("FIFO endpoint has been closed: %d", pcm->fd);
-				transport_release_pcm(pcm);
-				return 0;
-			}
-			return ret;
-		}
-		head += ret;
-		len -= ret;
-	} while (len != 0);
-
-	/* It is guaranteed, that this function will write data atomically. */
-	return size;
+	if ((ret = libshm_write_all(pcm->shm, buffer, len)) < 0) {
+		transport_release_pcm(pcm);
+		return -1;
+	}
+	return size; // return samples written
 }
 
 /**
@@ -486,11 +407,6 @@ void *io_thread_a2dp_source_sbc(void *arg) {
 		goto fail;
 	}
 
-	if (io_thread_open_pcm_read(&t->a2dp.pcm) == -1) {
-		error("Couldn't open FIFO: %s", strerror(errno));
-		goto fail;
-	}
-
 	uint16_t seq_number = random();
 	uint32_t timestamp = random();
 
@@ -510,7 +426,8 @@ void *io_thread_a2dp_source_sbc(void *arg) {
 
 	struct pollfd pfds[] = {
 		{ t->event_fd, POLLIN, 0 },
-		{ -1, POLLIN, 0 },
+		{ -1, 0, 0 },
+		{ -1, 0, 0 },
 	};
 
 	struct io_sync io_sync = {
@@ -524,10 +441,10 @@ void *io_thread_a2dp_source_sbc(void *arg) {
 
 		ssize_t samples;
 
-		/* add PCM socket to the poll if transport is active */
-		pfds[1].fd = t->state == TRANSPORT_ACTIVE ? t->a2dp.pcm.fd : -1;
+		int nr_shm_fds = libshm_nr_pollfd(t->a2dp.pcm.shm);
+		libshm_populate_pollfd(t->a2dp.pcm.shm, pfds + 1);
 
-		if (poll(pfds, sizeof(pfds) / sizeof(*pfds), -1) == -1) {
+		if (poll(pfds, 1 + nr_shm_fds, -1) == -1) {
 			error("Transport poll error: %s", strerror(errno));
 			goto fail;
 		}
@@ -538,6 +455,11 @@ void *io_thread_a2dp_source_sbc(void *arg) {
 			eventfd_read(pfds[0].fd, &event);
 			io_sync.frames = 0;
 			continue;
+		}
+
+		if (libshm_poll(t->a2dp.pcm.shm, pfds + 1, nr_shm_fds) < 0) {
+			error("SHM poll failed");
+			goto fail;
 		}
 
 		/* read data from the FIFO - this function will block */
@@ -928,11 +850,6 @@ void *io_thread_a2dp_source_aac(void *arg) {
 	/* helper variable used during payload fragmentation */
 	const size_t rtp_header_len = out_payload - out_buffer;
 
-	if (io_thread_open_pcm_read(&t->a2dp.pcm) == -1) {
-		error("Couldn't open FIFO: %s", strerror(errno));
-		goto fail;
-	}
-
 	/* initial input buffer head position and the available size */
 	size_t in_samples = in_buffer_size / in_buffer_element_size;
 	in_buffer_head = in_buffer;
@@ -1215,8 +1132,10 @@ void *io_thread_rfcomm(void *arg) {
 
 			uint32_t ag_features = HFP_AG_FEATURES;
 #if defined(ENABLE_MSBC)
-			if (hf_features & HFP_HF_FEAT_CODEC) {
-				ag_features |= HFP_AG_FEAT_CODEC;
+			if (config.enable_msbc) {
+				if (hf_features & HFP_HF_FEAT_CODEC) {
+					ag_features |= HFP_AG_FEAT_CODEC;
+				}
 			}
 #endif
 			if ((ag_features & HFP_AG_FEAT_CODEC) == 0) {
@@ -1338,8 +1257,11 @@ void *io_thread_sco(void *arg) {
 
 	struct pollfd pfds[] = {
 		{ t->event_fd, POLLIN, 0 },
-		{ -1, POLLIN, 0 },
-		{ -1, POLLIN, 0 },
+		{ -1, POLLIN, 0 }, //bt
+		{ -1, 0, 0 }, // shm pcm mic follower by shm pcm spk
+		{ -1, 0, 0 },
+		{ -1, 0, 0 },
+		{ -1, 0, 0 },
 	};
 
 	struct io_sync io_sync = {
@@ -1353,11 +1275,15 @@ void *io_thread_sco(void *arg) {
 		if (t->sco.codec == TRANSPORT_SCO_CODEC_MSBC) {
 			pfds[1].fd = t->bt_fd;
 		} else {
-			pfds[1].fd = t->sco.mic_pcm.fd != -1 ? t->bt_fd : -1;
+			pfds[1].fd = t->sco.mic_pcm.shm != NULL ? t->bt_fd : -1;
 		}
-		pfds[2].fd = t->sco.spk_pcm.fd;
 
-		if (poll(pfds, sizeof(pfds) / sizeof(*pfds), -1) == -1) {
+		int shm_mic_nr_pfds = libshm_nr_pollfd(t->sco.mic_pcm.shm);
+		int shm_spk_nr_pfds = libshm_nr_pollfd(t->sco.spk_pcm.shm);
+		libshm_populate_pollfd(t->sco.mic_pcm.shm, &pfds[2]);
+		libshm_populate_pollfd(t->sco.spk_pcm.shm, &pfds[2 + shm_mic_nr_pfds]);
+
+		if (poll(pfds, 2 + shm_mic_nr_pfds + shm_spk_nr_pfds, -1) == -1) {
 			error("Transport poll error: %s", strerror(errno));
 			goto fail;
 		}
@@ -1368,19 +1294,15 @@ void *io_thread_sco(void *arg) {
 			eventfd_t event;
 			eventfd_read(pfds[0].fd, &event);
 
-			/* Try to open reading and/or writing PCM file descriptor. Note,
-			 * that we are not checking for errors, because we don't care. */
-			io_thread_open_pcm_read(&t->sco.spk_pcm);
-			io_thread_open_pcm_write(&t->sco.mic_pcm);
-
 			/* It is required to release SCO if we are not transferring audio,
 			 * because it will free Bluetooth bandwidth - microphone signal is
 			 * transfered even though we are not reading from it! */
-			if (t->sco.spk_pcm.fd == -1 && t->sco.mic_pcm.fd == -1) {
+			if (t->sco.spk_pcm.shm == NULL && t->sco.mic_pcm.shm == NULL) {
 				transport_release_bt_sco(t);
 				io_sync.frames = 0;
 			}
 			else {
+				debug("Trying to acquire");
 				transport_acquire_bt_sco(t);
 #if defined(ENABLE_MSBC)
 				/* This can be called again, make sure it is "reentrant" */
@@ -1401,13 +1323,14 @@ void *io_thread_sco(void *arg) {
 			io_sync.ts0 = io_sync.ts;
 		}
 
-		if (pfds[1].revents & POLLIN) {
+		int poll_mic = libshm_poll(t->sco.mic_pcm.shm, &pfds[2], shm_mic_nr_pfds);
+		int poll_spk = libshm_poll(t->sco.spk_pcm.shm, &pfds[2 + shm_mic_nr_pfds], shm_spk_nr_pfds);
+
+		if (pfds[1].revents & POLLIN) { // bluetooth socket incoming
 
 #if defined(ENABLE_MSBC)
-			if (t->sco.codec ==TRANSPORT_SCO_CODEC_MSBC) {
-				if (iothread_handle_incoming_msbc(t, sbc))
-					pfds[2].events = POLLIN; /* There is space,
-								    kick off the producer */
+			if (t->sco.codec == TRANSPORT_SCO_CODEC_MSBC) {
+				iothread_handle_incoming_msbc(t, sbc);
 			}
 			else
 #endif
@@ -1419,18 +1342,15 @@ void *io_thread_sco(void *arg) {
 					continue;
 				}
 
-				write(t->sco.mic_pcm.fd, buffer, len);
+				libshm_write_all(t->sco.mic_pcm.shm, buffer, len);
 			}
 		}
 
-		if (pfds[2].revents & POLLIN) {
+		if (poll_spk & POLLIN) {
 
 #if defined(ENABLE_MSBC)
 			if (t->sco.codec == TRANSPORT_SCO_CODEC_MSBC) {
-				if (iothread_handle_outgoing_msbc(t, sbc))
-					pfds[2].events = 0; /* Stop reading until there
-							       is enough space for
-							       another frame */
+				iothread_handle_outgoing_msbc(t, sbc);
 			}
 			else
 #endif

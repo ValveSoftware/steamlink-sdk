@@ -24,6 +24,7 @@
 
 /* Bluetooth HCI connection handling. */
 
+#include <linux/module.h>
 #include <linux/export.h>
 
 #include <net/bluetooth/bluetooth.h>
@@ -162,6 +163,11 @@ static void hci_add_sco(struct hci_conn *conn, __u16 handle)
 	hci_send_cmd(hdev, HCI_OP_ADD_SCO, sizeof(cp), &cp);
 }
 
+static unsigned int esco_retransmission_effort = 2;
+
+module_param(esco_retransmission_effort, uint, 0644);
+MODULE_PARM_DESC(esco_retransmission_effort, "Set eSCO connection retransmission effort");
+
 void hci_setup_sync(struct hci_conn *conn, __u16 handle)
 {
 	struct hci_dev *hdev = conn->hdev;
@@ -181,7 +187,7 @@ void hci_setup_sync(struct hci_conn *conn, __u16 handle)
 	cp.rx_bandwidth   = __constant_cpu_to_le32(0x00001f40);
 	cp.max_latency    = __constant_cpu_to_le16(0xffff);
 	cp.voice_setting  = cpu_to_le16(hdev->voice_setting);
-	cp.retrans_effort = 0xff;
+	cp.retrans_effort = esco_retransmission_effort;
 
 	hci_send_cmd(hdev, HCI_OP_SETUP_SYNC_CONN, sizeof(cp), &cp);
 }

@@ -39,6 +39,9 @@ AC_CHECK_HEADERS([ortp/rtp.h],
 AC_SEARCH_LIBS([pow], [m],
 	[], [AC_MSG_ERROR([unable to find pow() function])])
 
+AC_CHECK_LIB([rt], [shm_open],
+	[], [AC_MSG_ERROR([rt library not found])])
+
 PKG_CHECK_MODULES([ALSA], [alsa])
 PKG_CHECK_MODULES([BLUEZ], [bluez >= 5.0])
 PKG_CHECK_MODULES([GLIB2], [glib-2.0 >= 2.16])

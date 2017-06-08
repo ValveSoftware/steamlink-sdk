@@ -76,6 +76,7 @@ int main(int argc, char **argv) {
 		{ "disable-a2dp", no_argument, NULL, 1 },
 		{ "disable-hsp", no_argument, NULL, 2 },
 		{ "disable-hfp", no_argument, NULL, 3 },
+		{ "disable-msbc", no_argument, NULL, 9 },
 #if ENABLE_AAC
 		{ "aac-afterburner", no_argument, NULL, 4 },
 		{ "aac-vbr-mode", required_argument, NULL, 5 },
@@ -174,6 +175,10 @@ int main(int argc, char **argv) {
 			break;
 		case 3 /* --disable-hfp */ :
 			config.enable_hfp = FALSE;
+			break;
+
+		case 9 /* --disable-msbc */ :
+			config.enable_msbc = FALSE;
 			break;
 
 #if ENABLE_AAC

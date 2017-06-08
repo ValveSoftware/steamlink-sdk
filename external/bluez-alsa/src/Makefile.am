@@ -5,6 +5,7 @@ bin_PROGRAMS = bluealsa
 SUBDIRS = asound
 
 bluealsa_SOURCES = \
+	shared/libshm.c \
 	shared/log.c \
 	shared/rt.c \
 	at.c \

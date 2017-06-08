@@ -35,6 +35,7 @@ struct ba_config {
 	gboolean enable_a2dp;
 	gboolean enable_hsp;
 	gboolean enable_hfp;
+	gboolean enable_msbc;
 
 	/* established D-Bus connection */
 	GDBusConnection *dbus;

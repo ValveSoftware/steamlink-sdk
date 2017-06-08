@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <poll.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 
@@ -42,8 +43,7 @@ struct bluealsa_pcm {
 
 	/* requested transport */
 	struct msg_transport *transport;
-	size_t pcm_buffer_size;
-	int pcm_fd;
+	struct libshm_data *shm;
 
 	/* virtual hardware - ring buffer */
 	snd_pcm_uframes_t io_ptr;
@@ -70,18 +70,6 @@ static void *io_thread(void *arg) {
 	const snd_pcm_channel_area_t *areas = snd_pcm_ioplug_mmap_areas(io);
 	int16_t silence = snd_pcm_format_silence_16(io->format);
 
-	/* In the capture mode, the PCM FIFO is opened in the non-blocking mode.
-	 * So right now, we have to synchronize write and read sides, otherwise
-	 * reading might return 0, which will be incorrectly recognized as FIFO
-	 * close signal, but in fact it means, that it was not opened yet. */
-	if (io->stream == SND_PCM_STREAM_CAPTURE) {
-		struct pollfd pfds[1] = {{ pcm->pcm_fd, POLLIN, 0 }};
-		if (poll(pfds, 1, -1) == -1) {
-			SNDERR("PCM FIFO poll error: %s", strerror(errno));
-			goto final;
-		}
-	}
-
 	debug("Starting IO loop");
 	for (;;) {
 
@@ -107,35 +95,16 @@ static void *io_thread(void *arg) {
 
 			/* Read the whole period "atomically". This will assure, that frames
 			 * are not fragmented, so the pointer can be correctly updated. */
-			while (len != 0 && (ret = read(pcm->pcm_fd, head, len)) != 0) {
-				if (ret == -1) {
-					if (errno == EINTR)
-						continue;
-					SNDERR("PCM FIFO read error: %s", strerror(errno));
-					goto final;
-				}
-				head += ret;
-				len -= ret;
-			}
-
-			if (ret == 0)
+			ret = libshm_read_all(pcm->shm, head, len);
+			if (ret < 0)
 				goto final;
 
 		}
 		else {
 
-			/* Perform atomic write - see the explanation above. */
-			do {
-				if ((ret = write(pcm->pcm_fd, head, len)) == -1) {
-					if (errno == EINTR)
-						continue;
-					SNDERR("PCM FIFO write error: %s", strerror(errno));
-					goto final;
-				}
-				head += ret;
-				len -= ret;
-			}
-			while (len != 0);
+			ret = libshm_write_all(pcm->shm, head, len);
+			if (ret < 0)
+				goto final;
 
 			/* Silence processed period, so if the underrun occurs,
 			 * we will play silence instead of previous samples. */
@@ -226,8 +195,8 @@ static int bluealsa_hw_params(snd_pcm_ioplug_t *io, snd_pcm_hw_params_t *params)
 
 	pcm->frame_size = (snd_pcm_format_physical_width(io->format) * io->channels) / 8;
 
-	if ((pcm->pcm_fd = bluealsa_open_transport(pcm->fd, pcm->transport)) == -1) {
-		debug("Couldn't open PCM FIFO: %s", strerror(errno));
+	if ((pcm->shm = bluealsa_open_transport(pcm->fd, pcm->transport)) == -1) {
+		debug("Couldn't open PCM transport: %s", strerror(errno));
 		return -errno;
 	}
 
@@ -236,17 +205,6 @@ static int bluealsa_hw_params(snd_pcm_ioplug_t *io, snd_pcm_hw_params_t *params)
 	 * require PCM to be writable before the snd_pcm_start() call. */
 	if (io->stream == SND_PCM_STREAM_PLAYBACK)
 		eventfd_write(pcm->event_fd, 1);
-
-	if (pcm->io.stream == SND_PCM_STREAM_PLAYBACK) {
-		/* By default, the size of the pipe buffer is set to a too large value for
-		 * our purpose. On modern Linux system it is 65536 bytes. Large buffer in
-		 * the playback mode might contribute to an unnecessary audio delay. Since
-		 * it is possible to modify the size of this buffer we will set is to some
-		 * low value, but big enough to prevent audio tearing. Note, that the size
-		 * will be rounded up to the page size (typically 4096 bytes). */
-		pcm->pcm_buffer_size = fcntl(pcm->pcm_fd, F_SETPIPE_SZ, 2048);
-		debug("FIFO buffer size: %zd", pcm->pcm_buffer_size);
-	}
 
 	debug("Selected HW buffer: %zd periods x %zd bytes %c= %zd bytes",
 			io->buffer_size / io->period_size, pcm->frame_size * io->period_size,
@@ -260,14 +218,13 @@ static int bluealsa_hw_free(snd_pcm_ioplug_t *io) {
 	struct bluealsa_pcm *pcm = io->private_data;
 	debug("Freeing HW");
 
-	if (pcm->pcm_fd == -1)
-		return -EBADF;
+	if (!pcm->shm)
+		return -1;
 
 	if (bluealsa_close_transport(pcm->fd, pcm->transport) == -1)
 		debug("Couldn't close PCM FIFO: %s", strerror(errno));
 
-	close(pcm->pcm_fd);
-	pcm->pcm_fd = -1;
+	libshm_close(pcm->shm);
 
 	return 0;
 }
@@ -275,8 +232,8 @@ static int bluealsa_hw_free(snd_pcm_ioplug_t *io) {
 static int bluealsa_prepare(snd_pcm_ioplug_t *io) {
 	struct bluealsa_pcm *pcm = io->private_data;
 
-	/* if PCM FIFO is not opened, report it right away */
-	if (pcm->pcm_fd == -1)
+	/* if PCM shm transport is not opened, report it right away */
+	if (!pcm->shm)
 		return -ENODEV;
 
 	/* initialize ring buffer */
@@ -330,9 +287,7 @@ static int bluealsa_delay(snd_pcm_ioplug_t *io, snd_pcm_sframes_t *delayp) {
 	snd_pcm_sframes_t delay = 0;
 	unsigned int size;
 
-	/* bytes queued in the FIFO buffer */
-	if (ioctl(pcm->pcm_fd, FIONREAD, &size) != -1)
-		delay += size / pcm->frame_size;
+	delay += io->stream == SND_PCM_STREAM_PLAYBACK ? libshm_bytes_outgoing(pcm->shm) : libshm_bytes_incoming(pcm->shm);
 
 	/* data transfer (communication) and encoding/decoding */
 	if (io->state == SND_PCM_STATE_RUNNING && io->stream == SND_PCM_STREAM_PLAYBACK &&
@@ -558,7 +513,6 @@ SND_PCM_PLUGIN_DEFINE_FUNC(bluealsa) {
 
 	pcm->fd = -1;
 	pcm->event_fd = -1;
-	pcm->pcm_fd = -1;
 	pcm->delay_ex = delay;
 
 	if ((pcm->fd = bluealsa_open(interface)) == -1) {

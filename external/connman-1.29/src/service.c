@@ -5278,6 +5278,38 @@ static void connman_service_load_last_explicit_service()
 	return;
 }
 
+static void reset_autoconnect_states(gpointer value, gpointer user_data)
+{
+	struct connman_service *service = value;
+	char *identifier = user_data;
+
+	if (service->type == CONNMAN_SERVICE_TYPE_ETHERNET)
+		return;
+
+	if (g_strcmp0(service->identifier, identifier)) {
+		if (service->autoconnect) {
+			service->autoconnect = false;
+			autoconnect_changed(service);
+			service_save(service);
+		}
+	}
+	else {
+		if (!service->autoconnect) {
+			service->autoconnect = true;
+			autoconnect_changed(service);
+			service_save(service);
+		}
+	}
+}
+
+/* Set AutoConnect to true for given service, false for all others except ethernet, always keep it on */
+static void service_reset_autoconnect_states(struct connman_service *service)
+{
+	DBG("identifier %s", service->identifier);
+
+	g_list_foreach(service_list, reset_autoconnect_states, service->identifier);
+}
+
 static int service_indicate_state(struct connman_service *service)
 {
 	enum connman_service_state old_state, new_state;
@@ -5322,9 +5354,25 @@ static int service_indicate_state(struct connman_service *service)
 				last_explicitly_connected_service = NULL;
 				last_explicitly_connected_service = g_strdup(service->path);
 				connman_service_save_last_explicit_service();
+
+				service_reset_autoconnect_states(service);
 			}
 		}
 	}
+	else if(service->type == CONNMAN_SERVICE_TYPE_ETHERNET) {
+	/*
+	 * Steam link:
+	 * Always keep Ethernet AutoConnect as true and if we (automatically or explicitly)
+	 * complete a connection to ethernet service, disable autoconnect on WiFi services to
+	 * stop "silent switch-offs" if ethernet is non-functional or disconnected.
+	 * Instead an explicit action from user is required
+	 */
+		if (new_state == CONNMAN_SERVICE_STATE_ONLINE ||
+		    new_state == CONNMAN_SERVICE_STATE_READY) {
+			service_reset_autoconnect_states(service);
+		}
+	}
+
 
 	if (old_state == CONNMAN_SERVICE_STATE_ONLINE)
 		__connman_notifier_leave_online(service->type);

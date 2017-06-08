@@ -22,6 +22,7 @@ struct ba_config config = {
 	.enable_a2dp = TRUE,
 	.enable_hsp = TRUE,
 	.enable_hfp = TRUE,
+	.enable_msbc = TRUE,
 
 	/* initialization flags */
 	.ctl_socket_created = FALSE,

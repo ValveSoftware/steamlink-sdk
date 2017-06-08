@@ -42,6 +42,7 @@
  * TODO: Figure out why.
  */
 #define MSBC_MTU		120
+#define MSBC_PREBUFFER_FRAMES	2
 
 #if defined (SILENCE)
 uint8_t msbc_zero[] = {
@@ -59,7 +60,7 @@ int iothread_write_encoded_data(int bt_fd, struct sbc_state *sbc, size_t length)
 	size_t written = 0;
 
 	if (sbc->enc_buffer_cnt < length) {
-		warn("Encoded data underflow");
+		debug("Encoded data underflow");
 		return -1;
 	}
 
@@ -124,7 +125,7 @@ static void iothread_encode_msbc_frames(struct sbc_state *sbc)
 	sbc->enc_pcm_buffer_cnt -= pcm_consumed;
 }
 
-static void iothread_find_and_decode_msbc(int pcm_fd, struct sbc_state *sbc)
+static void iothread_find_and_decode_msbc(struct ba_pcm *pcm, struct sbc_state *sbc)
 {
 	ssize_t len;
 	size_t bytes_left = sbc->dec_buffer_cnt;
@@ -141,13 +142,13 @@ static void iothread_find_and_decode_msbc(int pcm_fd, struct sbc_state *sbc)
 					      sbc->dec_pcm_buffer,
 					      sizeof(sbc->dec_pcm_buffer),
 					      &decoded)) < 0) {
-				error("mSBC decoding error: %s\n", strerror(-len));
+				error("mSBC decoding error: %s", strerror(-len));
 				sbc->dec_buffer_cnt = 0;
 				return;
 			}
 			bytes_left -= len + SCO_H2_HDR_LEN;
 			p += len + SCO_H2_HDR_LEN;
-			if (write(pcm_fd, sbc->dec_pcm_buffer, decoded) < 0)
+			if (libshm_write_all(pcm->shm, sbc->dec_pcm_buffer, decoded) < 0)
 				warn("Could not write PCM data: %s", strerror(errno));
 		}
 		else {
@@ -205,7 +206,7 @@ int iothread_handle_incoming_msbc(struct ba_transport *t, struct sbc_state *sbc)
 
 	uint8_t *read_buf = sbc->dec_buffer + sbc->dec_buffer_cnt;
 	size_t read_buf_size = sbc->dec_buffer_size - sbc->dec_buffer_cnt;
-	ssize_t len;
+	ssize_t len, i;
 
 	if ((len = read(t->bt_fd, read_buf, read_buf_size)) == -1) {
 		debug("SCO read error: %s", strerror(errno));
@@ -214,16 +215,29 @@ int iothread_handle_incoming_msbc(struct ba_transport *t, struct sbc_state *sbc)
 
 	sbc->dec_buffer_cnt += len;
 
-	if (t->sco.mic_pcm.fd >= 0)
-		iothread_find_and_decode_msbc(t->sco.mic_pcm.fd, sbc);
+	if (t->sco.mic_pcm.shm != NULL)
+		iothread_find_and_decode_msbc(&t->sco.mic_pcm, sbc);
 	else
 		sbc->dec_buffer_cnt = 0; /* Drop microphone data if PCM isn't open */
 
 	/* Synchronize write to read */
-	if (t->sco.spk_pcm.fd >= 0) {
+	if (t->sco.spk_pcm.shm != NULL) {
+		if (!sbc->enc_first_frame_sent) {
+			debug("Trying to send first frame enc_buffer_cnt=%zd", sbc->enc_buffer_cnt);
+			if (sbc->enc_buffer_cnt < (MSBC_PREBUFFER_FRAMES * MSBC_MTU))
+				return 1;
+
+			debug("Sending first frame");
+			for (i = 0; i < MSBC_PREBUFFER_FRAMES; ++i)
+				iothread_write_encoded_data(t->bt_fd, sbc, MSBC_MTU);
+
+			sbc->enc_first_frame_sent = true;
+			debug("...sent");
+		}
+
 		iothread_write_encoded_data(t->bt_fd, sbc, MSBC_MTU);
+
 		if ((sbc->enc_buffer_size - sbc->enc_buffer_cnt) >= SCO_H2_FRAME_LEN) {
-			//pfds[2].events = POLLIN;
 			return 1;
 		}
 	}
@@ -231,23 +245,42 @@ int iothread_handle_incoming_msbc(struct ba_transport *t, struct sbc_state *sbc)
 
 }
 
+static bool is_pcm_buffer_full(struct sbc_state *sbc)
+{
+	return sbc->enc_pcm_buffer_cnt == sbc->enc_pcm_buffer_size;
+}
+
+static bool is_enc_buffer_full(struct sbc_state *sbc)
+{
+	size_t enc_buffer_free = sbc->enc_pcm_buffer_size - sbc->enc_pcm_buffer_cnt;
+
+	if (enc_buffer_free < SCO_H2_FRAME_LEN)
+		return true;
+
+	return false;
+}
+
 int iothread_handle_outgoing_msbc(struct ba_transport *t, struct sbc_state *sbc) {
 
 	ssize_t len;
 
 	/* Read PCM samples */
-	if ((len = read(t->sco.spk_pcm.fd,
+	if ((len = libshm_read(t->sco.spk_pcm.shm,
 			sbc->enc_pcm_buffer + sbc->enc_pcm_buffer_cnt,
 			sbc->enc_pcm_buffer_size - sbc->enc_pcm_buffer_cnt)) == -1) {
 		error("Unable to read PCM data: %s", strerror(errno));
-		-1;
+		return -1;
 	}
+
 	sbc->enc_pcm_buffer_cnt += len;
 
 	/* Encode as much data as we can */
 	iothread_encode_msbc_frames(sbc);
 
-	return 1;
+	if (is_pcm_buffer_full(sbc) && is_enc_buffer_full(sbc))
+		return 1;
+
+	return 0;
 }
 
 #endif

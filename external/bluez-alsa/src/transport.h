@@ -76,11 +76,10 @@ struct ba_device {
 
 };
 
+struct libshm_data;
 struct ba_pcm {
 
-	int fd;
-	/* named FIFO absolute file name */
-	char *fifo;
+	struct libshm_data *shm;
 
 	/* client identifier (most likely client socket file descriptor) used
 	 * by the PCM client lookup function - transport_lookup_pcm_client() */

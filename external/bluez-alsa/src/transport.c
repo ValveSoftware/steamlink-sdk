@@ -351,9 +351,6 @@ struct ba_transport *transport_new_a2dp(
 		memcpy(t->a2dp.cconfig, transport_config, transport_config_size);
 	}
 
-	t->a2dp.pcm.fd = -1;
-	t->a2dp.pcm.client = -1;
-
 	return t;
 }
 
@@ -380,11 +377,6 @@ struct ba_transport *transport_new_rfcomm(
 
 	t_sco->sco.spk_gain = 15;
 	t_sco->sco.mic_gain = 15;
-
-	t_sco->sco.spk_pcm.fd = -1;
-	t_sco->sco.spk_pcm.client = -1;
-	t_sco->sco.mic_pcm.fd = -1;
-	t_sco->sco.mic_pcm.client = -1;
 
 	transport_set_state(t_sco, TRANSPORT_ACTIVE);
 
@@ -931,17 +923,9 @@ int transport_release_pcm(struct ba_pcm *pcm) {
 	 * of what is going on, see the io_thread_read_pcm() function. */
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
 
-	if (pcm->fifo != NULL) {
-		debug("Cleaning PCM FIFO: %s", pcm->fifo);
-		unlink(pcm->fifo);
-		free(pcm->fifo);
-		pcm->fifo = NULL;
-	}
-
-	if (pcm->fd != -1) {
-		debug("Closing PCM: %d", pcm->fd);
-		close(pcm->fd);
-		pcm->fd = -1;
+	if (pcm->shm) {
+		libshm_close(pcm->shm);
+		pcm->shm = NULL;
 	}
 
 	pthread_setcancelstate(oldstate, NULL);
