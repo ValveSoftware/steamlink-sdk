@@ -36,7 +36,7 @@ struct sbc_state {
 	sbc_t dec;
 	size_t dec_buffer_cnt;
 	size_t dec_buffer_size;
-	uint8_t dec_buffer[SCO_H2_FRAME_LEN * 2];
+	uint8_t dec_buffer[240]; // magic number, 2x MTU
 	uint8_t dec_pcm_buffer[MSBC_PCM_LEN];
 
 	/* encoder */
@@ -52,6 +52,8 @@ struct sbc_state {
 	ssize_t enc_frame_len; /* mSBC frame length, without H2 header. Should be 57 bytes */
 	unsigned enc_frame_number;
 	int enc_first_frame_sent;
+
+	int dec_previous_frame_number;
 };
 
 int iothread_handle_outgoing_msbc(struct ba_transport *t, struct sbc_state *sbc);

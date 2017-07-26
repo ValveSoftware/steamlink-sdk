@@ -5355,8 +5355,8 @@ static int service_indicate_state(struct connman_service *service)
 				last_explicitly_connected_service = g_strdup(service->path);
 				connman_service_save_last_explicit_service();
 
-				service_reset_autoconnect_states(service);
 			}
+			service_reset_autoconnect_states(service);
 		}
 	}
 	else if(service->type == CONNMAN_SERVICE_TYPE_ETHERNET) {

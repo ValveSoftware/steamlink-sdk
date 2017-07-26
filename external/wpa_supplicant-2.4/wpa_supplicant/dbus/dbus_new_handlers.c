@@ -4017,6 +4017,45 @@ dbus_bool_t wpas_dbus_setter_network_properties(DBusMessageIter *iter,
 	return set_network_properties(net->wpa_s, ssid, &variant_iter, error);
 }
 
+extern unsigned int g_band_selection;
+int wpa_config_set_band_selection(struct wpa_config *config);
+
+dbus_bool_t wpas_dbus_getter_band_selection(DBusMessageIter *iter,
+					    DBusError *error,
+					    void *user_data)
+{
+	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_UINT32,
+						&g_band_selection, error);
+}
+
+dbus_bool_t wpas_dbus_setter_band_selection(DBusMessageIter *iter,
+					    DBusError *error,
+					    void *user_data)
+{
+	struct wpa_global *global = user_data;
+	struct wpa_supplicant *wpa_s;
+	dbus_uint32_t val;
+
+	if (!wpas_dbus_simple_property_setter(iter, error, DBUS_TYPE_UINT32,
+					      &val))
+		return FALSE;
+
+	if (val > 2)
+		return FALSE;
+
+	if (val == g_band_selection)
+		return FALSE;
+
+	g_band_selection = val;
+
+	wpa_printf(MSG_DEBUG, "wpas_dbus_setter_band_selection %u", val);
+	for (wpa_s = global->ifaces; wpa_s; wpa_s = wpa_s->next) {
+		wpa_config_set_band_selection(wpa_s->conf);
+		wpa_bss_flush(wpa_s);
+	}
+
+	return TRUE;
+}
 
 #ifdef CONFIG_AP
 

@@ -326,4 +326,10 @@ DBusMessage * wpas_dbus_handler_subscribe_preq(
 DBusMessage * wpas_dbus_handler_unsubscribe_preq(
 	DBusMessage *message, struct wpa_supplicant *wpa_s);
 
+dbus_bool_t wpas_dbus_getter_band_selection(DBusMessageIter *iter,
+					    DBusError *error,
+					    void *user_data);
+dbus_bool_t wpas_dbus_setter_band_selection(DBusMessageIter *iter,
+					    DBusError *error, void *user_data);
+
 #endif /* CTRL_IFACE_DBUS_HANDLERS_NEW_H */

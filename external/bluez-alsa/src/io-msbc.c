@@ -55,6 +55,18 @@ uint8_t msbc_zero[] = {
 };
 #endif
 
+// get h2 frame number, bits are duplicated
+static int get_h2_frame_number(uint8_t data)
+{
+	unsigned low_bit, high_bit;
+
+	low_bit  = (data >> 4) & 0x3 ? 1 : 0;
+	high_bit = (data >> 6) & 0x3 ? 2 : 0;
+
+	return low_bit + high_bit;
+}
+
+
 int iothread_write_encoded_data(int bt_fd, struct sbc_state *sbc, size_t length)
 {
 	size_t written = 0;
@@ -125,6 +137,25 @@ static void iothread_encode_msbc_frames(struct sbc_state *sbc)
 	sbc->enc_pcm_buffer_cnt -= pcm_consumed;
 }
 
+static bool iothread_check_h2_frame_number(uint8_t seq, struct sbc_state *sbc)
+{
+	int frame_number = get_h2_frame_number(seq);
+	int expected_frame_number = (sbc->dec_previous_frame_number + 1) % 4;
+
+	if (sbc->dec_previous_frame_number != -1) {
+		sbc->dec_previous_frame_number = frame_number;
+		if (frame_number != expected_frame_number) {
+			error("Unexpected frame number %d, expected %d",
+			      frame_number, expected_frame_number);
+			return false;
+		}
+		return true;
+	} else {
+		sbc->dec_previous_frame_number = frame_number;
+		return true;
+	}
+}
+
 static void iothread_find_and_decode_msbc(struct ba_pcm *pcm, struct sbc_state *sbc)
 {
 	ssize_t len;
@@ -134,7 +165,10 @@ static void iothread_find_and_decode_msbc(struct ba_pcm *pcm, struct sbc_state *
 	/* Find frame start */
 	while (bytes_left >= (SCO_H2_HDR_LEN + sbc->sbc_frame_len)) {
 		if (p[0] == SCO_H2_HDR_0 && p[2] == MSBC_SYNC) {
+
 			/* Found frame.  TODO: Check SEQ, implement PLC */
+			iothread_check_h2_frame_number(p[1], sbc);
+
 			size_t decoded = 0;
 			if ((len = sbc_decode(&sbc->dec,
 					      p + 2,
@@ -171,6 +205,8 @@ struct sbc_state* iothread_initialize_msbc(struct sbc_state *sbc)
 	}
 
 	memset(sbc, 0, sizeof(*sbc));
+
+	sbc->dec_previous_frame_number = -1;
 
 	if (errno = -sbc_init_msbc(&sbc->dec, 0) != 0) {
 		error("Couldn't initialize mSBC decoder: %s", strerror(errno));

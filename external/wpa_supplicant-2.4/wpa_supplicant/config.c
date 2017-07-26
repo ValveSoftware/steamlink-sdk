@@ -3706,6 +3706,55 @@ static int wpa_config_process_freq_list(const struct global_parse_data *data,
 	return 0;
 }
 
+const char* FREQ_LIST_2_4GHZ = "2412 2417 2422 2427 2432 2437 2442 2447 2452 2457 2462 2467 2472 2484";
+const char* FREQ_LIST_5GHZ = "5180 5200 5220 5240 5260 5280 5300 5320 5500 5520 5540 5560 5580 5600 5620 5640 5660 5680 5700 5720 5745 5765 5785 5805 5825";
+
+/**
+ * Band selection.
+ * 0 = automatic (default)
+ * 1 = 2.4GHz only
+ * 2 = 5GHz only
+ */
+unsigned int g_band_selection = 0;
+/* Only read the configuration file for initial configuration.
+ * On subsequent times use the cached value set using d-bus */
+int g_band_selection_initialized = 0;
+
+int wpa_config_set_band_selection(struct wpa_config *config)
+{
+	wpa_printf(MSG_DEBUG, "%s %u", __FUNCTION__, g_band_selection);
+
+	if (config->freq_list) {
+		os_free(config->freq_list);
+		config->freq_list = NULL;
+	}
+
+	if (g_band_selection == 1) {
+		config->freq_list = wpa_config_parse_int_array(FREQ_LIST_2_4GHZ);
+	}
+	else if (g_band_selection == 2) {
+		config->freq_list = wpa_config_parse_int_array(FREQ_LIST_5GHZ);
+	}
+
+	return 0;
+}
+
+static int wpa_config_process_band_selection(const struct global_parse_data *data,
+					     struct wpa_config *config, int line,
+					     const char *value)
+{
+	int val = atoi(value);
+
+	if (!g_band_selection_initialized) {
+		if (val >= 0 && val <= 2) {
+			g_band_selection = val;
+			g_band_selection_initialized = 1;
+		}
+	}
+
+	return wpa_config_set_band_selection(config);
+}
+
 
 #ifdef CONFIG_P2P
 static int wpa_global_config_parse_ipv4(const struct global_parse_data *data,
@@ -4177,6 +4226,7 @@ static const struct global_parse_data global_fields[] = {
 	{ FUNC(ap_vendor_elements), 0 },
 	{ INT_RANGE(ignore_old_scan_res, 0, 1), 0 },
 	{ FUNC(freq_list), 0 },
+	{ FUNC(band_selection), 0 },
 	{ INT(scan_cur_freq), 0 },
 	{ INT(sched_scan_interval), 0 },
 	{ INT(tdls_external_control), 0},

@@ -3940,6 +3940,7 @@ next_driver:
 	return 0;
 }
 
+int wpa_config_set_band_selection(struct wpa_config *config);
 
 static int wpa_supplicant_init_iface(struct wpa_supplicant *wpa_s,
 				     struct wpa_interface *iface)
@@ -4005,6 +4006,8 @@ static int wpa_supplicant_init_iface(struct wpa_supplicant *wpa_s,
 		wpa_printf(MSG_ERROR, "\nNo configuration found.");
 		return -1;
 	}
+
+	wpa_config_set_band_selection(wpa_s->conf);
 
 	if (iface->ifname == NULL) {
 		wpa_printf(MSG_ERROR, "\nInterface name is required.");

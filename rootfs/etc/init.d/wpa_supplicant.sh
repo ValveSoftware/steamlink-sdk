@@ -18,6 +18,7 @@ FACTORY_DIR=/mnt/factory_setting
 CONFIG_DIR=/mnt/config/system
 SUPPLICANT_CONF_FILE=/tmp/wpa_supplicant.conf
 SKU_DOMAIN_FILE=$FACTORY_DIR/sku_domain.txt
+WIFI_BAND_CONF_FILE=${CONFIG_DIR}/wifi_band_selection.txt
 
 
 ################
@@ -65,6 +66,10 @@ os_version=00000308
 config_methods="display virtual_display virtual_push_button"
 wps_cred_processing=0
 
+band_selection_line=""
+if [ -f "$WIFI_BAND_CONF_FILE" ]; then
+	band_selection_line="band_selection=$(cat $WIFI_BAND_CONF_FILE)"
+fi
 
 ################
 # Generate configuration file
@@ -83,6 +88,7 @@ os_version=${os_version}
 config_methods=${config_methods}
 wps_cred_processing=${wps_cred_processing}
 pmf=1
+${band_selection_line}
 
 __EOF__
 
@@ -96,19 +102,16 @@ __EOF__
 
 restart_count=0
 while [ 1 = 1 ]; do
-	# TODO: busybox supposedly supports pgrep -x, but in practice it doesn't
-	# work.  It never finds the process
-	running=$(pgrep -l wpa_supplicant | grep -v wpa_supplicant.sh | grep -c wpa_supplicant)
-	if [ "${running}" = "0" ]; then
-		restart_count=$((${restart_count} + 1))
-		if [ ${restart_count} -ge 5 ]; then
-			echo STARTING wpa_supplicant without config file
-			# the config file might be corrupt, start without it
-			wpa_supplicant -B -u ${DEBUG_OPTIONS} -Dnl80211 -imlan0 
-		else
-			echo STARTING wpa_supplicant
-			wpa_supplicant -B -u ${DEBUG_OPTIONS} -c${SUPPLICANT_CONF_FILE} -Dnl80211 -imlan0 
-		fi
+	restart_count=$((${restart_count} + 1))
+	# This script runs in the background. Start wpa_supplicant on the foreground to avoid having to run the pgrep in a background loop.
+	# Instead just re-start supplicant when it quits.
+	if [ ${restart_count} -ge 5 ]; then
+		echo STARTING wpa_supplicant without config file
+		# the config file might be corrupt, start without it
+		wpa_supplicant -u ${DEBUG_OPTIONS} -Dnl80211 -imlan0
+	else
+		echo STARTING wpa_supplicant
+		wpa_supplicant -u ${DEBUG_OPTIONS} -c${SUPPLICANT_CONF_FILE} -Dnl80211 -imlan0
 	fi
 
 	sleep 2

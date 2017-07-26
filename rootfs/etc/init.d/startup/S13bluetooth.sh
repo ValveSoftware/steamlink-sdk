@@ -20,7 +20,7 @@ else
 	echo "warning bluetooth mac address file not found: ${BT_MAC_FILE}"
 fi
 
-echo "modprobe bt8xxx ${BG_MAC_ARG} cal_cfg=${BT_CAL}"
-modprobe bt8xxx ${BG_MAC_ARG} cal_cfg=${BT_CAL}
+echo "modprobe bt8xxx ${BG_MAC_ARG} cal_cfg=${BT_CAL} psmode=0"
+modprobe bt8xxx ${BG_MAC_ARG} cal_cfg=${BT_CAL} psmode=0
 
 /etc/init.d/bluetooth.sh &

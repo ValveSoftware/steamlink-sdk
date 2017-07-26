@@ -1163,6 +1163,11 @@ struct wpa_config {
 	 * reassoc_same_bss_optim - Whether to optimize reassoc-to-same-BSS
 	 */
 	int reassoc_same_bss_optim;
+
+	/**
+	 * This is unused. It is only here to satisfy the configuration parser
+	 */
+	unsigned int band_selection;
 };
 
 

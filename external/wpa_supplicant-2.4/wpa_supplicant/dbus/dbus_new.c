@@ -2033,6 +2033,10 @@ static const struct wpa_dbus_property_desc wpas_dbus_global_properties[] = {
 	  wpas_dbus_setter_global_wfd_ies
 	},
 #endif /* CONFIG_WIFI_DISPLAY */
+	{ "BandSelection", WPAS_DBUS_NEW_INTERFACE, "u",
+	  wpas_dbus_getter_band_selection,
+	  wpas_dbus_setter_band_selection
+	},
 	{ NULL, NULL, NULL, NULL, NULL }
 };
 
