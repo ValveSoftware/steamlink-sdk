@@ -1,0 +1,250 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/dcheck_always_on.gni")
+import("//services/service_manager/public/constants.gni")
+
+# Used to produce a Service Manifest for a Service.
+#
+# Parameters:
+#
+#   source
+#       The manifest file template for this service, must be valid JSON with
+#       a valid 'url' key matching name.
+#
+#   overlays (optional)
+#       A list of partial manifests to overlay onto the source manifest before
+#       emitting the final output. Overlays are applied as the last step, after
+#       any packaged manifests are embedded.
+#
+#   name
+#       The host portion of the mojo: URL of the service. A script validates
+#       that the value of this parameter matches the host name portion of the
+#       'url' property set in the manifest and throws a ValueError if they do
+#       not.
+#
+#   output_name (optional)
+#       The name of the package to output. The default value is copied from
+#       |name|. Note that this has no effect on the contents of the manifest,
+#       but only determines the output subdirectory within ${out}/Packages.
+#
+#   deps (optional)
+#       An array of dependent instances of this template. This template enforces
+#       that dependencies can only be instances of this template.
+#
+#   packaged_services (optional)
+#       An array of names of the dependent services.
+#
+# Outputs:
+#
+#   An instantiation of this template produces in
+#       $outdir/<name>/manifest.json
+#   a meta manifest from the source template and the output manifest of all
+#   dependent children.
+#
+template("service_manifest") {
+  assert(defined(invoker.source),
+         "\"source\" must be defined for the $target_name template")
+  assert(defined(invoker.name),
+         "\"name\" must be defined for the $target_name template")
+  if (defined(invoker.deps)) {
+    assert(defined(invoker.packaged_services) || defined(invoker.overlays),
+           "\"deps\" implies that you also want \"packaged_services\" and/or" +
+               "\"overlays\", but you have neither.")
+  }
+  if (defined(invoker.packaged_services)) {
+    assert(defined(invoker.deps),
+           "\"deps\" building the dependent packaged services must be " +
+               "provided.")
+  }
+
+  action(target_name) {
+    script =
+        "//services/service_manager/public/tools/manifest/manifest_collator.py"
+
+    name = invoker.name
+    inputs = [
+      invoker.source,
+    ]
+    if (defined(invoker.overlays)) {
+      inputs += invoker.overlays
+    }
+
+    if (defined(invoker.output_name)) {
+      output = "$root_out_dir/$packages_directory/${invoker.output_name}/manifest.json"
+    } else {
+      output = "$root_out_dir/$packages_directory/$name/manifest.json"
+    }
+    outputs = [
+      output,
+    ]
+
+    rebase_parent = rebase_path(invoker.source, root_build_dir)
+    rebase_output = rebase_path(output, root_build_dir)
+
+    args = [
+      "--name=$name",
+      "--parent=$rebase_parent",
+      "--output=$rebase_output",
+    ]
+
+    if (is_debug || dcheck_always_on) {
+      args += [ "--pretty" ]
+    }
+
+    if (defined(invoker.overlays)) {
+      args += [ "--overlays" ]
+      foreach(overlay_path, invoker.overlays) {
+        args += [ rebase_path(overlay_path, root_build_dir) ]
+      }
+    }
+
+    if (defined(invoker.packaged_services)) {
+      args += [ "--packaged-services" ]
+      foreach(name, invoker.packaged_services) {
+        input = "$root_out_dir/$packages_directory/$name/manifest.json"
+        inputs += [ input ]
+        args += [ rebase_path(input, root_build_dir) ]
+      }
+    }
+    deps = []
+    data_deps = []
+    if (defined(invoker.deps)) {
+      deps += invoker.deps
+      data_deps += invoker.deps
+    }
+  }
+
+  all_deps = []
+  if (defined(invoker.deps)) {
+    all_deps += invoker.deps
+  }
+
+  group("${target_name}__is_service_manifest_or_overlay") {
+  }
+
+  # Explicitly ensure that all dependencies are service_manifest
+  # or service_manifest_overlay targets themselves.
+  group("${target_name}__check_deps_are_all_service_manifest") {
+    deps = []
+    foreach(d, all_deps) {
+      name = get_label_info(d, "label_no_toolchain")
+      toolchain = get_label_info(d, "toolchain")
+      deps += [ "${name}__is_service_manifest_or_overlay(${toolchain})" ]
+    }
+  }
+}
+
+# A simple derivative of the service_manifest template above. This allows for
+# embedding of packaged services into a manifest overlay.
+#
+# Parameters:
+#
+#   source
+#       The manifest overlay file to procss.
+#
+#   overlays (optional)
+#       A list of partial manifests to overlay onto the source manifest before
+#       emitting the final output. Overlays are applied as the last step, after
+#       any packaged manifests are embedded.
+#
+#   output_name (optional)
+#       The output name of the manifest. Defaults to the target name.
+#
+#   deps (optional)
+#       An array of the service_manifest targets this overlay depends on.
+#
+#   packaged_services (optional)
+#       An array of names of the services packaged into this overlay.
+#
+# Outputs:
+#
+#   An instantiation of this template produces in
+#       ${root_gen_dir}/${output_name}.json
+#
+template("service_manifest_overlay") {
+  assert(defined(invoker.source),
+         "\"source\" must be defined for the $target_name template")
+  if (defined(invoker.deps)) {
+    assert(defined(invoker.packaged_services) || defined(invoker.overlays),
+           "\"deps\" implies that you also want \"packaged_services\" and/or" +
+               "\"overlays\", but you have neither.")
+  }
+  if (defined(invoker.packaged_services)) {
+    assert(defined(invoker.deps),
+           "\"deps\" building the dependent packaged services must be " +
+               "provided.")
+  }
+
+  action(target_name) {
+    script =
+        "//services/service_manager/public/tools/manifest/manifest_collator.py"
+
+    inputs = [
+      invoker.source,
+    ]
+    if (defined(invoker.overlays)) {
+      inputs += invoker.overlays
+    }
+
+    output_name = target_name
+    if (defined(invoker.output_name)) {
+      output_name = invoker.output_name
+    }
+    output = "${root_gen_dir}/${output_name}.json"
+
+    outputs = [
+      output,
+    ]
+
+    rebase_parent = rebase_path(invoker.source, root_build_dir)
+    rebase_output = rebase_path(output, root_build_dir)
+
+    args = [
+      "--parent=$rebase_parent",
+      "--output=$rebase_output",
+    ]
+
+    if (is_debug || dcheck_always_on) {
+      args += [ "--pretty" ]
+    }
+
+    if (defined(invoker.overlays)) {
+      args += [ "--overlays" ]
+      foreach(overlay_path, invoker.overlays) {
+        args += [ rebase_path(overlay_path, root_build_dir) ]
+      }
+    }
+
+    if (defined(invoker.packaged_services)) {
+      args += [ "--packaged-services" ]
+      foreach(name, invoker.packaged_services) {
+        input = "$root_out_dir/$packages_directory/$name/manifest.json"
+        inputs += [ input ]
+        args += [ rebase_path(input, root_build_dir) ]
+      }
+    }
+
+    deps = []
+    data_deps = []
+    if (defined(invoker.deps)) {
+      deps += invoker.deps
+      data_deps += invoker.deps
+    }
+  }
+
+  group("${target_name}__is_service_manifest_or_overlay") {
+  }
+
+  # Explicitly ensure that all dependencies are service_manifest
+  # or service_manifest_overlay targets themselves.
+  group("${target_name}__check_deps_are_all_service_manifest") {
+    deps = []
+    foreach(d, all_deps) {
+      name = get_label_info(d, "label_no_toolchain")
+      toolchain = get_label_info(d, "toolchain")
+      deps += [ "${name}__is_service_manifest_or_overlay(${toolchain})" ]
+    }
+  }
+}

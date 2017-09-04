@@ -1,0 +1,28 @@
+CONFIG += testcase
+TARGET = tst_qdirmodel
+QT += widgets testlib
+SOURCES         += tst_qdirmodel.cpp
+
+INCLUDEPATH += ../../../../shared/
+HEADERS += ../../../../shared/emulationdetector.h
+
+wince* {
+	addit.files = dirtest\\test1\\*
+	addit.path = dirtest\\test1
+	tests.files = test\\*
+	tests.path = test
+        sourceFile.files = tst_qdirmodel.cpp
+        sourceFile.path = .
+	DEPLOYMENT += addit tests sourceFile
+}
+
+android {
+    DEFINES += SRCDIR=\\\"./\\\"
+} else {
+    DEFINES += SRCDIR=\\\"$$PWD/\\\"
+}
+
+android {
+    RESOURCES += \
+        testdata.qrc
+}

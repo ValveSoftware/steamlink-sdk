@@ -1,0 +1,100 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/android/rules.gni")
+import("//chrome/common/features.gni")
+import("//testing/test.gni")
+
+assert(enable_vr_shell || enable_webvr)
+
+if (current_cpu == "arm" || current_cpu == "arm64") {
+  static_library("vr_common") {
+    defines = []
+
+    sources = [
+      "animation.cc",
+      "animation.h",
+      "easing.cc",
+      "easing.h",
+      "ui_elements.cc",
+      "ui_elements.h",
+      "ui_interface.cc",
+      "ui_interface.h",
+      "ui_scene.cc",
+      "ui_scene.h",
+      "vr_compositor.cc",
+      "vr_compositor.h",
+      "vr_controller.cc",
+      "vr_controller.h",
+      "vr_gesture.h",
+      "vr_gl_util.cc",
+      "vr_gl_util.h",
+      "vr_input_manager.cc",
+      "vr_input_manager.h",
+      "vr_math.cc",
+      "vr_math.h",
+      "vr_shell.cc",
+      "vr_shell.h",
+      "vr_shell_delegate.cc",
+      "vr_shell_delegate.h",
+      "vr_shell_renderer.cc",
+      "vr_shell_renderer.h",
+      "vr_usage_monitor.cc",
+      "vr_usage_monitor.h",
+      "vr_web_contents_observer.cc",
+      "vr_web_contents_observer.h",
+    ]
+
+    if (enable_vr_shell) {
+      defines += [ "ENABLE_VR_SHELL" ]
+    }
+    if (enable_vr_shell_ui_dev) {
+      assert(enable_vr_shell)
+      defines += [ "ENABLE_VR_SHELL_UI_DEV" ]
+    }
+
+    deps = [
+      ":vr_shell_jni_headers",
+      "//base",
+      "//cc",
+      "//content/public/browser",
+      "//content/public/common",
+      "//device/vr",
+      "//ui/android",
+      "//ui/base",
+      "//ui/display",
+      "//ui/gl",
+      "//ui/gl/init",
+    ]
+
+    libs =
+        [ "//third_party/gvr-android-sdk/libgvr_shim_static_${current_cpu}.a" ]
+    configs += [ "//third_party/gvr-android-sdk:libgvr_config" ]
+  }
+
+  generate_jni("vr_shell_jni_headers") {
+    sources = [
+      "//chrome/android/java/src/org/chromium/chrome/browser/vr_shell/VrShellDelegate.java",
+      "//chrome/android/java/src/org/chromium/chrome/browser/vr_shell/VrShellImpl.java",
+    ]
+    jni_package = "vr_shell"
+  }
+}
+
+if (enable_vr_shell) {
+  test("vr_shell_unittests") {
+    sources = [
+      "ui_elements_unittest.cc",
+      "ui_scene_unittest.cc",
+    ]
+
+    deps = [
+      ":vr_common",
+      "//base/test:run_all_unittests",
+      "//base/test:test_support",
+      "//testing/gtest",
+      "//ui/gfx/geometry",
+    ]
+  }
+}

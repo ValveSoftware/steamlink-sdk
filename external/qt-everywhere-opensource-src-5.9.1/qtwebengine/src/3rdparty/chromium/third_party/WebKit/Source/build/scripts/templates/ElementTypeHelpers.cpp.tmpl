@@ -1,0 +1,42 @@
+{% from "macros.tmpl" import license %}
+{{ license() }}
+
+#include "{{namespace}}ElementTypeHelpers.h"
+
+#include "core/dom/Document.h"
+#include "platform/RuntimeEnabledFeatures.h"
+#include "wtf/HashMap.h"
+
+namespace blink {
+{% if namespace == "HTML" %}
+using HTMLTypeMap = HashMap<AtomicString, HTMLElementType>;
+
+static HTMLTypeMap* html_type_map = 0;
+
+void createHTMLTypeMap() {
+  DCHECK(!html_type_map);
+  html_type_map = new HTMLTypeMap;
+  {% for tag in tags|sort %}
+  html_type_map->set(AtomicString("{{tag.name}}"), HTMLElementType::k{{tag.interface}});
+  {% endfor %}
+}
+
+HTMLElementType htmlElementTypeForTag(const AtomicString& tagName) {
+  if (!html_type_map) createHTMLTypeMap();
+  if (html_type_map->contains(tagName)) {
+    {% for tag in tags|sort %}
+    {% if tag.runtimeEnabled %}
+    if (tagName == "{{tag.name}}") {
+      if (!RuntimeEnabledFeatures::{{tag.runtimeEnabled}}Enabled()) {
+        return HTMLElementType::kHTMLUnknownElement;
+      }
+    }
+    {% endif %}
+    {% endfor %}
+    return html_type_map->get(tagName);
+  } else {
+    return HTMLElementType::kHTMLUnknownElement;
+  }
+}
+{% endif %}
+} // namespace blink

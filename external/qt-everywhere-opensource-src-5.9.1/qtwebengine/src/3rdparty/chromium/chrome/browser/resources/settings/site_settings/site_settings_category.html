@@ -1,0 +1,95 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="/site_settings/constants.html">
+<link rel="import" href="/site_settings/site_details.html">
+<link rel="import" href="/site_settings/site_list.html">
+<link rel="import" href="/site_settings/site_settings_behavior.html">
+<link rel="import" href="/site_settings/site_settings_prefs_browser_proxy.html">
+
+<dom-module id="site-settings-category">
+  <template>
+    <style include="settings-shared">
+      site-list {
+        border-bottom: 1px solid var(--paper-grey-300);
+      }
+
+      site-list:last-of-type {
+        border-bottom: none;
+      }
+
+      paper-toggle-button {
+        --paper-toggle-button-label-spacing: 0;
+      }
+    </style>
+    <content select=".media-picker"></content>
+
+    <div class="settings-box first two-line">
+      <div class="start secondary">[[sliderDescription_]]</div>
+      <paper-toggle-button id="toggle" checked="{{categoryEnabled}}"
+          on-change="onChangePermissionControl_"></paper-toggle-button>
+    </div>
+
+    <template is="dom-if" if="[[isCookiesCategory_(category)]]">
+      <div class="settings-box">
+        <div class="start">$i18n{deleteDataPostSession}</div>
+        <paper-toggle-button checked="{{cookiesSessionOnly_}}"
+            disabled="[[!categoryEnabled]]" id="sessionOnlyCheckbox"
+            on-change="onChangePermissionControl_">
+        </paper-toggle-button>
+      </div>
+    </template>
+
+    <template is="dom-if" if="[[isFlashCategory_(category)]]">
+      <div class="settings-box two-line">
+        <div class="start">
+          $i18n{siteSettingsFlashAskBefore}
+          <div class="secondary">$i18n{siteSettingsFlashAskBeforeSubtitle}</div>
+        </div>
+        <paper-toggle-button checked="{{flashAskFirst_}}"
+            disabled="[[!categoryEnabled]]" id="flashAskCheckbox"
+            on-change="onChangePermissionControl_">
+        </paper-toggle-button>
+      </div>
+    </template>
+
+    <content select=".cookie-controls"></content>
+
+<if expr="chromeos">
+    <div class="settings-box layout horizontal">
+      <div class="flex" hidden$="[[!isPluginCategory_(category)]]">
+          <div class="list-item list-button"
+              on-tap="onAdobeFlashStorageClicked_">
+            $i18n{adobeFlashStorage}
+          </div>
+      </div>
+    </div>
+</if>
+
+    <site-list
+        category="[[category]]"
+        category-subtype="[[PermissionValues.BLOCK]]"
+        category-enabled="[[categoryEnabled]]"
+        category-header="$i18n{siteSettingsBlock}"
+        selected-site="{{selectedSite}}">
+    </site-list>
+    <site-list
+        category="[[category]]"
+        category-subtype="[[PermissionValues.SESSION_ONLY]]"
+        category-enabled="[[categoryEnabled]]"
+        category-header="$i18n{siteSettingsSessionOnly}"
+        selected-site="{{selectedSite}}">
+    </site-list>
+    <site-list
+        category="[[category]]"
+        category-subtype="[[PermissionValues.ALLOW]]"
+        category-enabled="[[categoryEnabled]]"
+        category-header="$i18n{siteSettingsAllow}"
+        selected-site="{{selectedSite}}">
+    </site-list>
+
+    <content select=".site-data"></content>
+  </template>
+  <script src="site_settings_category.js"></script>
+</dom-module>

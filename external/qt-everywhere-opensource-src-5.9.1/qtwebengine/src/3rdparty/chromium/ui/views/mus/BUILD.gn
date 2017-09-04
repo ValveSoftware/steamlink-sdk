@@ -1,0 +1,431 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+import("//build/config/ui.gni")
+import("//services/service_manager/public/cpp/service.gni")
+import("//services/service_manager/public/service_manifest.gni")
+import("//testing/test.gni")
+import("//tools/grit/repack.gni")
+
+component("mus") {
+  output_name = "ui_views_mus_lib"
+
+  sources = [
+    "aura_init.cc",
+    "aura_init.h",
+    "clipboard_mus.cc",
+    "clipboard_mus.h",
+    "desktop_window_tree_host_mus.cc",
+    "desktop_window_tree_host_mus.h",
+    "drag_drop_client_mus.cc",
+    "drag_drop_client_mus.h",
+    "drop_target_mus.cc",
+    "drop_target_mus.h",
+    "input_method_mus.cc",
+    "input_method_mus.h",
+    "mus_client.cc",
+    "mus_client.h",
+    "mus_export.h",
+    "native_widget_mus.cc",
+    "native_widget_mus.h",
+    "pointer_watcher_event_router.cc",
+    "pointer_watcher_event_router.h",
+    "screen_mus.cc",
+    "screen_mus.h",
+    "screen_mus_delegate.h",
+    "surface_context_factory.cc",
+    "surface_context_factory.h",
+    "text_input_client_impl.cc",
+    "text_input_client_impl.h",
+    "window_manager_connection.cc",
+    "window_manager_connection.h",
+    "window_manager_constants_converters.cc",
+    "window_manager_constants_converters.h",
+    "window_manager_frame_values.cc",
+    "window_manager_frame_values.h",
+    "window_tree_host_mus.cc",
+    "window_tree_host_mus.h",
+  ]
+
+  defines = [ "VIEWS_MUS_IMPLEMENTATION" ]
+
+  public_deps = [
+    ":resources",
+    "//services/ui/public/cpp",
+    "//ui/aura",
+  ]
+  deps = [
+    "//base",
+    "//base:i18n",
+    "//base/third_party/dynamic_annotations",
+    "//cc",
+    "//cc/surfaces",
+    "//mojo/common",
+    "//mojo/public/cpp/bindings",
+    "//net",
+    "//services/catalog/public/cpp",
+    "//services/catalog/public/interfaces:constants",
+    "//services/service_manager/public/cpp",
+    "//services/service_manager/public/interfaces",
+    "//services/ui/public/cpp",
+    "//services/ui/public/interfaces",
+    "//skia",
+    "//third_party/icu",
+    "//ui/aura",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/events",
+    "//ui/events:events_base",
+    "//ui/gfx",
+    "//ui/gfx/geometry",
+    "//ui/gfx/geometry/mojo",
+    "//ui/gl",
+    "//ui/native_theme",
+    "//ui/platform_window",
+    "//ui/platform_window/mojo",
+    "//ui/platform_window/mojo:interfaces_cpp_sources",
+    "//ui/platform_window/stub",
+    "//ui/views",
+    "//ui/wm",
+  ]
+
+  if (is_linux && !is_android) {
+    deps += [ "//components/font_service/public/cpp" ]
+    data_deps = [
+      "//components/font_service",
+    ]
+  }
+}
+
+repack("resources") {
+  sources = [
+    "$root_gen_dir/ui/resources/ui_resources_100_percent.pak",
+    "$root_gen_dir/ui/strings/app_locale_settings_en-US.pak",
+    "$root_gen_dir/ui/strings/ui_strings_en-US.pak",
+    "$root_gen_dir/ui/views/resources/views_resources_100_percent.pak",
+  ]
+  output = "$root_out_dir/views_mus_resources.pak"
+  deps = [
+    "//ui/resources",
+    "//ui/strings",
+    "//ui/views/resources",
+  ]
+}
+
+group("for_mojo_application") {
+  public_deps = [
+    ":mus",
+  ]
+}
+
+static_library("test_support") {
+  testonly = true
+
+  sources = [
+    "../test/native_widget_factory_mus.cc",
+    "test_utils.h",
+    "views_mus_test_suite.cc",
+    "views_mus_test_suite.h",
+  ]
+
+  deps = [
+    ":mus",
+    "//base",
+    "//base/test:test_support",
+    "//services/service_manager/background:lib",
+    "//services/service_manager/public/cpp:sources",
+    "//services/ui/common:mus_common",
+    "//testing/gtest",
+    "//ui/aura",
+    "//ui/gl:test_support",
+    "//ui/resources",
+    "//ui/resources:ui_test_pak",
+    "//ui/views",
+    "//ui/views:test_support_internal",
+  ]
+
+  data_deps = [
+    "//ui/resources:ui_test_pak_data",
+  ]
+}
+
+test("views_mus_unittests") {
+  testonly = true
+
+  sources = [
+    "input_method_mus_unittest.cc",
+    "native_widget_mus_unittest.cc",
+    "pointer_watcher_event_router_unittest.cc",
+    "run_all_unittests_mus.cc",
+    "screen_mus_unittest.cc",
+    "window_manager_connection_unittest.cc",
+  ]
+
+  configs += [ "//build/config:precompiled_headers" ]
+
+  deps = [
+    ":mus",
+    ":test_support",
+    "//base",
+    "//base:i18n",
+    "//base/test:test_support",
+    "//cc",
+    "//net",
+    "//services/service_manager/background:main",  # Provides main().
+    "//services/ui/public/cpp",
+    "//services/ui/public/cpp:internal_or_test",
+    "//services/ui/public/cpp/tests:unittest_support",
+    "//services/ui/public/interfaces",
+    "//skia",
+    "//testing/gtest",
+    "//third_party/icu",
+    "//ui/accessibility",
+    "//ui/aura",
+    "//ui/aura:test_support",
+    "//ui/base",
+    "//ui/base:test_support",
+    "//ui/base/ime",
+    "//ui/compositor:test_support",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events:events_base",
+    "//ui/events:test_support",
+    "//ui/events/platform",
+    "//ui/gfx:test_support",
+    "//ui/gfx/geometry",
+    "//ui/native_theme",
+    "//ui/strings",
+    "//ui/touch_selection",
+    "//ui/views",
+    "//ui/views:test_support_internal",
+    "//ui/views:views_unittests_sources",
+    "//ui/wm",
+    "//url",
+  ]
+
+  data_deps = [
+    ":unittests_manifest",
+    "//services/ui/ime/test_ime_driver",
+    "//services/ui/test_wm",
+  ]
+
+  if (use_qt) {
+    data_deps -= [
+      "//services/ui/ime/test_ime_driver",
+      "//services/ui/test_wm",
+     ]
+  }
+
+  if (is_win) {
+    deps += [
+      "//build/win:default_exe_manifest",
+      "//third_party/iaccessible2",
+      "//third_party/wtl",
+    ]
+    libs = [
+      "imm32.lib",
+      "oleacc.lib",
+      "comctl32.lib",
+    ]
+  }
+
+  if (use_x11) {
+    configs += [
+      "//build/config/linux:x11",
+      "//build/config/linux:xext",
+    ]
+    deps += [
+      "//ui/events/devices",
+      "//ui/events/platform/x11",
+      "//ui/gfx/x",
+    ]
+  }
+}
+
+static_library("test_support_aura_mus") {
+  testonly = true
+
+  sources = [
+    "../test/native_widget_factory_aura_mus.cc",
+    "test_utils.h",
+    "views_aura_mus_test_suite.cc",
+    "views_aura_mus_test_suite.h",
+  ]
+
+  deps = [
+    ":mus",
+    "//base",
+    "//base/test:test_support",
+    "//services/service_manager/background:lib",
+    "//services/service_manager/public/cpp:sources",
+    "//services/ui/common:mus_common",
+    "//testing/gtest",
+    "//ui/aura",
+    "//ui/aura:test_support",
+    "//ui/gl:test_support",
+    "//ui/resources",
+    "//ui/resources:ui_test_pak",
+    "//ui/views",
+    "//ui/views:test_support_internal",
+  ]
+
+  data_deps = [
+    "//ui/resources:ui_test_pak_data",
+  ]
+}
+
+test("views_aura_mus_unittests") {
+  testonly = true
+
+  sources = [
+    "run_all_unittests_aura_mus.cc",
+    "screen_mus_unittest.cc",
+  ]
+
+  configs += [ "//build/config:precompiled_headers" ]
+
+  deps = [
+    ":mus",
+    ":test_support_aura_mus",
+    "//base",
+    "//base:i18n",
+    "//base/test:test_support",
+    "//cc",
+    "//net",
+    "//services/service_manager/background:main",  # Provides main().
+    "//services/ui/public/interfaces",
+    "//skia",
+    "//testing/gtest",
+    "//third_party/icu",
+    "//ui/accessibility",
+    "//ui/aura",
+    "//ui/aura:test_support",
+    "//ui/base",
+    "//ui/base:test_support",
+    "//ui/base/ime",
+    "//ui/compositor:test_support",
+    "//ui/events:dom_keycode_converter",
+    "//ui/events:events_base",
+    "//ui/events:test_support",
+    "//ui/events/platform",
+    "//ui/gfx:test_support",
+    "//ui/gfx/geometry",
+    "//ui/native_theme",
+    "//ui/strings",
+    "//ui/touch_selection",
+    "//ui/views",
+    "//ui/views:test_support_internal",
+    "//ui/views:views_unittests_sources",
+    "//ui/wm",
+    "//url",
+  ]
+
+  data_deps = [
+    ":unittests_aura_manifest",
+    "//services/ui/ime/test_ime_driver",
+    "//services/ui/test_wm",
+  ]
+
+  if (use_qt) {
+    data_deps -= [
+      "//services/ui/ime/test_ime_driver",
+      "//services/ui/test_wm",
+     ]
+  }
+
+  if (is_win) {
+    deps += [
+      "//build/win:default_exe_manifest",
+      "//third_party/iaccessible2",
+      "//third_party/wtl",
+    ]
+    libs = [
+      "imm32.lib",
+      "oleacc.lib",
+      "comctl32.lib",
+    ]
+  }
+
+  if (use_x11) {
+    configs += [
+      "//build/config/linux:x11",
+      "//build/config/linux:xext",
+    ]
+    deps += [
+      "//ui/events/devices",
+      "//ui/events/platform/x11",
+      "//ui/gfx/x",
+    ]
+  }
+}
+
+# Tests that must run sequentially because they access system-wide features
+# like capture.
+test("views_mus_interactive_ui_tests") {
+  testonly = true
+
+  sources = [
+    "../widget/widget_interactive_uitest.cc",
+    "clipboard_unittest.cc",
+    "interactive_ui_tests_mus.cc",
+  ]
+
+  deps = [
+    ":mus",
+    ":test_support",
+    "//base",
+    "//services/service_manager/background:main",  # Provides main().
+    "//testing/gmock",
+    "//testing/gtest",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/base/ime",
+    "//ui/events:events_base",
+    "//ui/events:test_support",
+    "//ui/gl:test_support",
+    "//ui/touch_selection",
+    "//ui/views",
+    "//ui/views:test_support_internal",
+    "//ui/wm",
+  ]
+
+  data_deps = [
+    ":interactive_ui_tests_manifest",
+    "//services/ui/test_wm",
+  ]
+
+  if (use_qt) {
+    data_deps -= [
+      "//services/ui/test_wm",
+     ]
+  }
+
+  if (is_win) {
+    deps += [
+      "//build/win:default_exe_manifest",
+      "//third_party/iaccessible2",
+      "//third_party/wtl",
+    ]
+    libs = [
+      "imm32.lib",
+      "oleacc.lib",
+      "comctl32.lib",
+    ]
+  }
+}
+
+service_manifest("unittests_manifest") {
+  name = "views_mus_unittests"
+  source = "unittests_manifest.json"
+}
+
+service_manifest("unittests_aura_manifest") {
+  name = "views_aura_mus_unittests"
+  source = "unittests_aura_manifest.json"
+}
+
+service_manifest("interactive_ui_tests_manifest") {
+  name = "views_mus_interactive_ui_tests"
+  source = "interactive_ui_tests_manifest.json"
+}

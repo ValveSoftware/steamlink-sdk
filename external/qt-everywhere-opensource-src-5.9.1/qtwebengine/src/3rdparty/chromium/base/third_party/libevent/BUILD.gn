@@ -1,0 +1,80 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/nacl/config.gni")
+import("//build/shim_headers.gni")
+
+declare_args() {
+  use_system_libevent = false
+}
+
+static_library("bundled_libevent") {
+  sources = [
+    "buffer.c",
+    "evbuffer.c",
+    "evdns.c",
+    "event.c",
+    "event_tagging.c",
+    "evrpc.c",
+    "evutil.c",
+    "http.c",
+    "log.c",
+    "poll.c",
+    "select.c",
+    "signal.c",
+    "strlcpy.c",
+  ]
+
+  defines = [ "HAVE_CONFIG_H" ]
+
+  if (is_mac || is_ios) {
+    sources += [ "kqueue.c" ]
+    include_dirs = [ "mac" ]
+  } else if (is_linux) {
+    sources += [ "epoll.c" ]
+    include_dirs = [ "linux" ]
+  } else if (is_android) {
+    sources += [ "epoll.c" ]
+    include_dirs = [ "android" ]
+  } else if (is_nacl_nonsfi) {
+    sources -= [
+      "evdns.c",
+      "event_tagging.c",
+      "evrpc.c",
+      "http.c",
+      "select.c",
+      "signal.c",
+    ]
+    sources += [
+      "nacl_nonsfi/config.h",
+      "nacl_nonsfi/event-config.h",
+      "nacl_nonsfi/random.c",
+      "nacl_nonsfi/signal_stub.c",
+    ]
+    include_dirs = [ "nacl_nonsfi" ]
+  }
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [ "//build/config/compiler:no_chromium_code" ]
+}
+
+shim_headers("libevent_shim") {
+  root_path = "."
+  headers = [ "event.h" ]
+}
+
+source_set("system_libevent") {
+  deps = [
+    ":libevent_shim",
+  ]
+  libs = [ "event" ]
+}
+
+group("libevent") {
+  if (use_system_libevent) {
+    public_deps = [ ":system_libevent" ]
+  } else {
+    public_deps = [ ":bundled_libevent" ]
+  }
+}

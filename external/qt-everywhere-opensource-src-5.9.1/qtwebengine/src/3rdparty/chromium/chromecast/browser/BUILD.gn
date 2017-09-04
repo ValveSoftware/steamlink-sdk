@@ -1,0 +1,225 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//chromecast/chromecast.gni")
+import("//testing/test.gni")
+import("//tools/grit/grit_rule.gni")
+
+if (is_android) {
+  import("//build/config/android/rules.gni")
+}
+
+source_set("browser") {
+  sources = [
+    "android/cast_window_android.cc",
+    "android/cast_window_android.h",
+    "android/cast_window_manager.cc",
+    "android/cast_window_manager.h",
+    "cast_browser_context.cc",
+    "cast_browser_context.h",
+    "cast_browser_main_parts.cc",
+    "cast_browser_main_parts.h",
+    "cast_browser_process.cc",
+    "cast_browser_process.h",
+    "cast_content_browser_client.cc",
+    "cast_content_browser_client.h",
+    "cast_content_window.cc",
+    "cast_content_window.h",
+    "cast_download_manager_delegate.cc",
+    "cast_download_manager_delegate.h",
+    "cast_http_user_agent_settings.cc",
+    "cast_http_user_agent_settings.h",
+    "cast_media_blocker.cc",
+    "cast_media_blocker.h",
+    "cast_net_log.cc",
+    "cast_net_log.h",
+    "cast_network_delegate.cc",
+    "cast_network_delegate.h",
+    "cast_permission_manager.cc",
+    "cast_permission_manager.h",
+    "cast_quota_permission_context.cc",
+    "cast_quota_permission_context.h",
+    "cast_resource_dispatcher_host_delegate.cc",
+    "cast_resource_dispatcher_host_delegate.h",
+    "devtools/cast_devtools_manager_delegate.cc",
+    "devtools/cast_devtools_manager_delegate.h",
+    "devtools/remote_debugging_server.cc",
+    "devtools/remote_debugging_server.h",
+    "geolocation/cast_access_token_store.cc",
+    "geolocation/cast_access_token_store.h",
+    "media/media_caps_impl.cc",
+    "media/media_caps_impl.h",
+    "metrics/cast_metrics_prefs.cc",
+    "metrics/cast_metrics_prefs.h",
+    "metrics/cast_metrics_service_client.cc",
+    "metrics/cast_metrics_service_client.h",
+    "metrics/cast_stability_metrics_provider.cc",
+    "metrics/cast_stability_metrics_provider.h",
+    "pref_service_helper.cc",
+    "pref_service_helper.h",
+    "service/cast_service_simple.cc",
+    "service/cast_service_simple.h",
+    "url_request_context_factory.cc",
+    "url_request_context_factory.h",
+  ]
+
+  if (chromecast_branding == "public") {
+    sources += [
+      "cast_content_browser_client_simple.cc",
+      "cast_network_delegate_simple.cc",
+      "pref_service_helper_simple.cc",
+    ]
+  }
+
+  deps = [
+    "//base",
+    "//base:i18n",
+    "//cc",
+    "//chromecast:chromecast_features",
+    "//chromecast/app:cast_crash_client",
+    "//chromecast/app:chromecast_settings",
+    "//chromecast/app:resources",
+    "//chromecast/base",
+    "//chromecast/base:cast_sys_info",
+    "//chromecast/base:cast_version",
+    "//chromecast/browser:resources",
+    "//chromecast/common",
+    "//chromecast/common/media",
+    "//chromecast/common/media:interfaces",
+    "//chromecast/graphics",
+    "//chromecast/media",
+    "//chromecast/media/service",
+    "//chromecast/net",
+    "//chromecast/service",
+    "//components/crash/content/app",
+    "//components/crash/content/browser",
+    "//components/metrics",
+    "//components/metrics:gpu",
+    "//components/metrics:net",
+    "//components/metrics:profiler",
+
+    # TODO(gfhuang): Eliminate this dependency if ScreenInfoMetricsProvider
+    # isn't needed. crbug.com/541577
+    "//components/metrics:ui",
+    "//components/network_hints/browser",
+    "//components/prefs",
+    "//content",
+    "//content/public/browser",
+    "//content/public/common",
+    "//content/public/utility",
+    "//device/geolocation",
+    "//gpu",
+    "//ipc",
+    "//media",
+    "//net",
+    "//ui/base",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/gl",
+  ]
+
+  if (is_linux) {
+    sources += [
+      "cast_memory_pressure_monitor.cc",
+      "cast_memory_pressure_monitor.h",
+      "metrics/external_metrics.cc",
+      "metrics/external_metrics.h",
+    ]
+
+    deps += [
+      "//build/linux:fontconfig",
+      "//components/metrics:serialization",
+      "//ui/aura",
+    ]
+  } else if (is_android) {
+    deps += [ ":jni_headers" ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+}
+
+grit("resources") {
+  visibility = [
+    ":browser",
+    "//chromecast:cast_shell_pak",
+  ]
+  source = "cast_browser_resources.grd"
+  use_qualified_include = true
+  output_dir = "$root_gen_dir/chromecast/browser"
+  outputs = [
+    "grit/cast_browser_resources.h",
+    "cast_browser_resources.pak",
+  ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "test/cast_browser_test.cc",
+    "test/cast_browser_test.h",
+  ]
+
+  public_deps = [
+    ":browser",
+    "//content/test:test_support",
+  ]
+
+  deps = [
+    "//base",
+    "//chromecast/base",
+    "//content/public/browser",
+    "//content/public/common",
+    "//testing/gtest",
+  ]
+}
+
+source_set("browsertests") {
+  testonly = true
+  sources = [
+    "cast_media_blocker_browsertest.cc",
+    "test/cast_navigation_browsertest.cc",
+  ]
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  deps = [
+    ":test_support",
+    "//chromecast:chromecast_features",
+    "//media/base:test_support",
+  ]
+}
+
+source_set("unittests") {
+  testonly = true
+
+  sources = [
+    "cast_media_blocker_unittest.cc",
+    "devtools/cast_devtools_manager_delegate_unittest.cc",
+  ]
+
+  deps = [
+    ":browser",
+    "//base",
+    "//chromecast/base",
+    "//content/public/browser",
+    "//content/test:test_support",
+  ]
+}
+
+if (is_android) {
+  generate_jni("jni_headers") {
+    sources = [
+      "android/apk/src/org/chromium/chromecast/shell/CastCrashHandler.java",
+      "android/apk/src/org/chromium/chromecast/shell/CastMetricsHelper.java",
+      "android/apk/src/org/chromium/chromecast/shell/CastSysInfoAndroid.java",
+      "android/apk/src/org/chromium/chromecast/shell/CastWindowAndroid.java",
+      "android/apk/src/org/chromium/chromecast/shell/CastWindowManager.java",
+    ]
+
+    jni_package = "chromecast"
+  }
+}

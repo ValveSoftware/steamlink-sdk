@@ -1,0 +1,141 @@
+{%- set data_view = union|get_qualified_name_for_kind ~ "DataView" %}
+{%- set data_type = union|get_qualified_name_for_kind(internal=True) %}
+
+namespace internal {
+
+template <typename MaybeConstUserType>
+struct Serializer<{{data_view}}, MaybeConstUserType> {
+  using UserType = typename std::remove_const<MaybeConstUserType>::type;
+  using Traits = UnionTraits<{{data_view}}, UserType>;
+
+  static size_t PrepareToSerialize(MaybeConstUserType& input,
+                                   bool inlined,
+                                   SerializationContext* context) {
+    size_t size = inlined ? 0 : sizeof({{data_type}});
+
+    if (CallIsNullIfExists<Traits>(input))
+      return size;
+
+    void* custom_context = CustomContextHelper<Traits>::SetUp(input, context);
+    ALLOW_UNUSED_LOCAL(custom_context);
+
+    switch (CallWithContext(Traits::GetTag, input, custom_context)) {
+{%- for field in union.fields %}
+{%-   set name = field.name %}
+      case {{data_view}}::Tag::{{name|upper}}: {
+{%-   if field.kind|is_object_kind %}
+{%-     set kind = field.kind %}
+{%-     set serializer_type = kind|unmapped_type_for_serializer %}
+        decltype(CallWithContext(Traits::{{name}}, input, custom_context))
+            in_{{name}} = CallWithContext(Traits::{{name}}, input,
+                                          custom_context);
+{%-     if kind|is_union_kind %}
+        size += mojo::internal::PrepareToSerialize<{{serializer_type}}>(
+            in_{{name}}, false, context);
+{%-     else %}
+        size += mojo::internal::PrepareToSerialize<{{serializer_type}}>(
+            in_{{name}}, context);
+{%-     endif %}
+{%-   endif %}
+        break;
+      }
+{%- endfor %}
+    }
+    return size;
+  }
+
+  static void Serialize(MaybeConstUserType& input,
+                        Buffer* buffer,
+                        {{data_type}}** output,
+                        bool inlined,
+                        SerializationContext* context) {
+    if (CallIsNullIfExists<Traits>(input)) {
+      if (inlined)
+        (*output)->set_null();
+      else
+        *output = nullptr;
+      return;
+    }
+
+    void* custom_context = CustomContextHelper<Traits>::GetNext(context);
+
+    if (!inlined)
+      *output = {{data_type}}::New(buffer);
+
+    {{data_type}}* result = *output;
+    ALLOW_UNUSED_LOCAL(result);
+    // TODO(azani): Handle unknown and objects.
+    // Set the not-null flag.
+    result->size = kUnionDataSize;
+    result->tag = CallWithContext(Traits::GetTag, input, custom_context);
+    switch (result->tag) {
+{%- for field in union.fields %}
+{%-   set name = field.name %}
+{%-   set kind = field.kind %}
+{%-   set serializer_type = kind|unmapped_type_for_serializer %}
+      case {{data_view}}::Tag::{{field.name|upper}}: {
+        decltype(CallWithContext(Traits::{{name}}, input, custom_context))
+            in_{{name}} = CallWithContext(Traits::{{name}}, input,
+                                          custom_context);
+{%-   if kind|is_object_kind %}
+        typename decltype(result->data.f_{{name}})::BaseType* ptr;
+{%-     if kind|is_union_kind %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            in_{{name}}, buffer, &ptr, false, context);
+{%-     elif kind|is_array_kind or kind|is_map_kind %}
+        const ContainerValidateParams {{name}}_validate_params(
+            {{kind|get_container_validate_params_ctor_args|indent(16)}});
+        mojo::internal::Serialize<{{serializer_type}}>(
+            in_{{name}}, buffer, &ptr, &{{name}}_validate_params, context);
+{%-     else %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            in_{{name}}, buffer, &ptr, context);
+{%-     endif %}
+        result->data.f_{{name}}.Set(ptr);
+{%-     if not kind|is_nullable_kind %}
+        MOJO_INTERNAL_DLOG_SERIALIZATION_WARNING(
+            !ptr, mojo::internal::VALIDATION_ERROR_UNEXPECTED_NULL_POINTER,
+            "null {{name}} in {{union.name}} union");
+{%-     endif %}
+
+{%-   elif kind|is_any_handle_or_interface_kind %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            in_{{name}}, &result->data.f_{{name}}, context);
+{%-     if not kind|is_nullable_kind %}
+        MOJO_INTERNAL_DLOG_SERIALIZATION_WARNING(
+            !mojo::internal::IsHandleOrInterfaceValid(result->data.f_{{name}}),
+{%-       if kind|is_associated_kind %}
+            mojo::internal::VALIDATION_ERROR_UNEXPECTED_INVALID_INTERFACE_ID,
+{%-       else %}
+            mojo::internal::VALIDATION_ERROR_UNEXPECTED_INVALID_HANDLE,
+{%-       endif %}
+            "invalid {{name}} in {{union.name}} union");
+{%-     endif %}
+
+{%-   elif kind|is_enum_kind %}
+        mojo::internal::Serialize<{{serializer_type}}>(
+            in_{{name}}, &result->data.f_{{name}});
+
+{%-   else %}
+        result->data.f_{{name}} = in_{{name}};
+{%-   endif %}
+        break;
+      }
+{%- endfor %}
+    }
+
+    CustomContextHelper<Traits>::TearDown(input, custom_context);
+  }
+
+  static bool Deserialize({{data_type}}* input,
+                          UserType* output,
+                          SerializationContext* context) {
+    if (!input || input->is_null())
+      return CallSetToNullIfExists<Traits>(output);
+
+    {{data_view}} data_view(input, context);
+    return Traits::Read(data_view, output);
+  }
+};
+
+}  // namespace internal

@@ -1,0 +1,65 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/protobuf/proto_library.gni")
+
+source_set("sample") {
+  sources = [
+    "proto_lww_register.h",
+    "proto_syncable.h",
+    "proto_value_converter.cc",
+    "proto_value_converter.h",
+  ]
+
+  deps = [
+    "//base",
+    "//blimp/common",
+    "//blimp/common/proto",
+    "//blimp/helium",
+    "//blimp/helium:helium_export",
+  ]
+
+  public_deps = [
+    ":proto",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "syncable_comparison_unittest.cc",
+  ]
+
+  deps = [
+    ":sample",
+    "//base",
+    "//blimp/common",
+    "//blimp/helium",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+source_set("proto") {
+  public_deps = [
+    ":proto_internal",
+    "//third_party/protobuf:protobuf_lite",
+  ]
+}
+
+proto_library("proto_internal") {
+  sources = [
+    "sample.proto",
+  ]
+
+  cc_generator_options = "dllexport_decl=BLIMP_HELIUM_EXPORT:"
+  cc_include = "blimp/helium/blimp_helium_export.h"
+  component_build_force_source_set = true
+
+  defines = [ "BLIMP_HELIUM_PROTO_IMPLEMENTATION" ]
+
+  # Warn if clang creates exit destructors
+  extra_configs = [ "//build/config/compiler:wexit_time_destructors" ]
+}

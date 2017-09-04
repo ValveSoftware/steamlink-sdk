@@ -1,0 +1,95 @@
+# Copyright (c) 2013 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+declare_args() {
+  use_system_snappy = false
+}
+
+config("snappy_config") {
+  include_dirs = [ "src" ]
+
+  # These OS-specific generated headers were made by running the configure
+  # script offline.
+  if (is_win) {
+    include_dirs += [ "win32" ]
+  } else if (is_mac) {
+    include_dirs += [ "mac" ]
+  } else {
+    include_dirs += [ "linux" ]
+  }
+}
+
+config("snappy_warnings") {
+  if (is_clang) {
+    # ComputeTable is unused,
+    # https://code.google.com/p/snappy/issues/detail?id=96
+    cflags = [ "-Wno-unused-function" ]
+  }
+}
+
+static_library("bundled_snappy") {
+  sources = [
+    "src/snappy-internal.h",
+    "src/snappy-sinksource.cc",
+    "src/snappy-sinksource.h",
+    "src/snappy-stubs-internal.cc",
+    "src/snappy-stubs-internal.h",
+    "src/snappy.cc",
+    "src/snappy.h",
+  ]
+
+  configs -= [ "//build/config/compiler:chromium_code" ]
+  configs += [
+    "//build/config/compiler:no_chromium_code",
+
+    # Must be after no_chromium_code for warning flags to be ordered correctly.
+    ":snappy_warnings",
+  ]
+  public_configs = [ ":snappy_config" ]
+
+  if (is_win) {
+    cflags = [ "/wd4018" ]  # Signed/unsigned mismatch in comparison.
+  }
+
+  if (is_clang) {
+    # snappy-stubs-internal.h unapologetically has: using namespace std
+    # https://code.google.com/p/snappy/issues/detail?id=70
+    configs -= [ "//build/config/clang:extra_warnings" ]
+  }
+}
+
+if (use_system_snappy) {
+  import("//build/shim_headers.gni")
+
+  shim_headers("snappy_shim") {
+    root_path = "src"
+    headers = [
+      "snappy-c.h",
+      "snappy-sinksource.h",
+      "snappy.h",
+    ]
+  }
+  shim_headers("snappy_shim_platform") {
+    if (is_win) {
+      root_path = "win32"
+    } else if (is_mac) {
+      root_path = "mac"
+    } else {
+      root_path = "linux"
+    }
+    headers = [ "snappy-stubs-public.h" ]
+  }
+
+  source_set("snappy") {
+    deps = [
+      ":snappy_shim",
+      ":snappy_shim_platform"
+    ]
+    libs = [ "snappy" ]
+  }
+} else {
+  group("snappy") {
+    public_deps = [ ":bundled_snappy" ]
+  }
+}

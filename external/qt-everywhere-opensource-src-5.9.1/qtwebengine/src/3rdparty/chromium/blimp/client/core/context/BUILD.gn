@@ -1,0 +1,151 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+source_set("context") {
+  visibility = [
+    ":unit_tests",
+    "//blimp/client/app:session",  # TODO(nyquist): Remove this. See crbug/651964.
+    "//blimp/client/core",
+    "//blimp/engine:browser_tests",  # TODO(nyquist): Remove this. See crbug/653789.
+  ]
+
+  sources = [
+    "assignment_fetcher.cc",
+    "assignment_fetcher.h",
+    "blimp_client_context_impl.cc",
+    "blimp_client_context_impl.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//blimp/client/core/compositor:compositor",
+    "//blimp/client/core/contents",
+    "//blimp/client/core/session",
+    "//blimp/client/public:public_headers",
+    "//device/geolocation",
+    "//url",
+  ]
+
+  deps = [
+    "//blimp/client/core/feedback",
+    "//blimp/client/core/geolocation",
+    "//blimp/client/core/settings",
+    "//blimp/client/core/switches",
+    "//components/prefs:prefs",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/blimp_client_context_impl_android.cc",
+      "android/blimp_client_context_impl_android.h",
+      "android/blimp_jni_registrar.cc",
+    ]
+
+    deps += [
+      ":context_jni_headers",
+      "//blimp/client/core/settings",
+      "//ui/android",
+    ]
+  }
+}
+
+source_set("dummy") {
+  visibility = [ "//blimp/client/core:dummy_core" ]
+
+  sources = [
+    "dummy_blimp_client_context.cc",
+    "dummy_blimp_client_context.h",
+  ]
+
+  deps = [
+    "//base",
+    "//blimp/client/public:public_headers",
+    "//url",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/dummy_blimp_client_context_android.cc",
+      "android/dummy_blimp_client_context_android.h",
+      "android/dummy_blimp_jni_registrar.cc",
+    ]
+
+    deps += [ ":dummy_context_jni_headers" ]
+  }
+}
+
+source_set("unit_tests") {
+  visibility = [ "//blimp/client/core:unit_tests" ]
+
+  testonly = true
+
+  sources = [
+    "blimp_client_context_impl_unittest.cc",
+  ]
+
+  deps = [
+    ":context",
+    "//blimp/client/core/settings",
+    "//blimp/client/public:public_headers",
+    "//blimp/client/test",
+    "//components/prefs:test_support",
+    "//testing/gtest",
+  ]
+}
+
+if (is_android) {
+  android_library("context_java") {
+    visibility = [ "//blimp/client/core/*" ]
+
+    java_files = [ "android/java/src/org/chromium/blimp/core/BlimpClientContextImpl.java" ]
+
+    deps = [
+      "//base:base_java",
+      "//blimp/client/core/common:common_java",
+      "//blimp/client/core/contents:contents_java",
+      "//blimp/client/core/feedback:feedback_java",
+      "//blimp/client/core/settings:settings_java",
+      "//blimp/client/core/switches:switches_java",
+      "//blimp/client/public:public_headers_java",
+      "//ui/android:ui_java",
+    ]
+  }
+
+  android_library("dummy_context_java") {
+    visibility = [ "//blimp/client/core/*" ]
+
+    java_files = [ "android/java/src/org/chromium/blimp/core/DummyBlimpClientContext.java" ]
+
+    deps = [
+      "//base:base_java",
+      "//blimp/client/public:public_headers_java",
+      "//ui/android:ui_java",
+    ]
+  }
+
+  generate_jni("context_jni_headers") {
+    visibility = [ ":*" ]
+
+    sources = [
+      "android/java/src/org/chromium/blimp/core/BlimpClientContextImpl.java",
+    ]
+
+    jni_package = "blimp/client/core"
+  }
+
+  generate_jni("dummy_context_jni_headers") {
+    visibility = [ ":*" ]
+
+    sources = [
+      "android/java/src/org/chromium/blimp/core/DummyBlimpClientContext.java",
+    ]
+
+    jni_package = "blimp/client/core"
+  }
+}

@@ -1,0 +1,52 @@
+#!/usr/bin/python
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+"""Converts CSV files to machine-readable JSON.
+
+Example usage:
+
+./csv_to_json input.csv --output directory_owners.json\
+--skip-keys number-tests\
+-f directory test-number team notification-email other-contact component
+"""
+
+import argparse
+import csv
+import json
+import sys
+
+
+def main(argv):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filename', metavar='filename',
+                        help='The path to the input CSV file.')
+    parser.add_argument('-o', '--output',
+                        help='The output file name.')
+    parser.add_argument('-f', '--field-names', nargs='*',
+                        help='The ordered field names of the CSV file. Defaults to first row.')
+    parser.add_argument('-s', '--skip-keys', nargs='*',
+                        help='Fields that should be skipped.')
+    args = parser.parse_args()
+    convert_csv_to_json(args.filename, args.output, args.field_names, args.skip_keys)
+
+
+def convert_csv_to_json(filename, output_filename=None, field_names=None, skip_keys=None):
+    out = output_filename or (filename + '.json')
+    dict_list = []
+    json_file = open(out, 'w')
+    with open(filename) as csv_file:
+        reader = csv.DictReader(csv_file, fieldnames=field_names)
+        for row in reader:
+            if not row['directory'].startswith('imported'):
+                continue
+            if skip_keys:
+                for s in skip_keys:
+                    del row[s]
+            dict_list.append(row)
+        json.dump(dict_list, json_file, indent=4)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1:])

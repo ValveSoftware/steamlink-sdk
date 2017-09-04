@@ -1,4 +1,4 @@
 #!/bin/sh
 
-/usr/bin/bluealsa --disable-hfp --disable-hsp --a2dp-volume &
+/usr/bin/bluealsa --disable-hsp --a2dp-volume &
 

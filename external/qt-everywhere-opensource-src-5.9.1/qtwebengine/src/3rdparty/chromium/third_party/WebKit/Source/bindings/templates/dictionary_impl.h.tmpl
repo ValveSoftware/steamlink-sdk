@@ -1,0 +1,53 @@
+{% filter format_blink_cpp_source_code %}
+
+{% include 'copyright_block.txt' %}
+#ifndef {{cpp_class}}_h
+#define {{cpp_class}}_h
+
+{% for filename in header_includes %}
+#include "{{filename}}"
+{% endfor %}
+
+namespace blink {
+
+{% for decl in header_forward_decls %}
+class {{decl}};
+{% endfor %}
+
+{# FIXME: Add "final" if this class doesn\'t have subclasses #}
+class {{exported}}{{cpp_class}}{% if parent_cpp_class %} : public {{parent_cpp_class}}{% endif %} {
+  DISALLOW_NEW_EXCEPT_PLACEMENT_NEW();
+ public:
+  {{cpp_class}}();
+  virtual ~{{cpp_class}}();
+  {{cpp_class}}(const {{cpp_class}}&);
+  {{cpp_class}}& operator=(const {{cpp_class}}&);
+
+  {% for member in members %}
+  bool {{member.has_method_name}}() const;
+  {{member.rvalue_cpp_type}} {{member.cpp_name}}() const;
+  void {{member.setter_name}}({{member.rvalue_cpp_type}});
+  {% if member.null_setter_name %}
+  void {{member.null_setter_name}}();
+  {% endif %}
+
+  {% endfor %}
+  v8::Local<v8::Value> toV8Impl(v8::Local<v8::Object>, v8::Isolate*) const override;
+  DECLARE_VIRTUAL_TRACE();
+
+ private:
+  {% for member in members %}
+  {% if member.nullable_indicator_name %}
+  bool {{member.nullable_indicator_name}} = false;
+  {% endif %}
+  {{member.member_cpp_type}} m_{{member.cpp_name}};
+  {% endfor %}
+
+  friend class V8{{cpp_class}};
+};
+
+}  // namespace blink
+
+#endif  // {{cpp_class}}_h
+
+{% endfilter %}{# format_blink_cpp_source_code #}

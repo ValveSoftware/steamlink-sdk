@@ -1,0 +1,175 @@
+<link rel="import" href="chrome://resources/cr_elements/cr_dialog/cr_dialog.html">
+<link rel="import" href="chrome://resources/cr_elements/network/cr_onc_types.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-input/paper-input.html">
+<link rel="import" href="/icons.html">
+<link rel="import" href="internet_shared_css.html">
+
+<dom-module id="network-siminfo">
+  <template>
+    <style include="internet-shared">
+      iron-icon {
+       -webkit-margin-end: 10px;
+      }
+
+      .dialog-error {
+        color: red;
+        font-size: 125%;
+        font-weight: 500;
+        margin-top: 10px;
+      }
+
+      .error {
+        color: red;
+        font-weight: 500;
+      }
+
+      .pin {
+        min-width: 100px;
+      }
+
+      .puk {
+        min-width: 200px;
+      }
+
+      /* Siminfo is embedded; remove the padding. */
+      .settings-box {
+        padding: 0;
+      }
+
+      .settings-box:first-of-type {
+        border-top: none;
+      }
+    </style>
+
+    <!-- SIM missing UI -->
+    <div class="settings-box two-line"
+        hidden$="[[networkProperties.Cellular.SIMPresent]]">
+      <div class="start layout horizontal center">
+        <iron-icon icon="settings:sim-card-alert"></iron-icon>
+        <div class="error">$i18n{networkSimCardMissing}</div>
+      </div>
+    </div>
+
+    <!-- SIM locked -->
+    <div class="settings-box two-line"
+        hidden$="[[!showSimLocked_(networkProperties)]]">
+      <div class="start layout horizontal center">
+        <iron-icon icon="settings:lock"></iron-icon>
+        <div class="error">$i18n{networkSimCardLocked}</div>
+      </div>
+      <div class="secondary-action">
+        <paper-button on-tap="onUnlockPinTap_">
+          $i18n{networkSimUnlock}
+        </paper-button>
+      </div>
+    </div>
+
+    <!-- SIM unlocked -->
+    <div class="settings-box two-line"
+        hidden$="[[!showSimUnlocked_(networkProperties)]]">
+      <paper-checkbox class="start" on-change="onSimLockEnabledChange_"
+          checked="[[networkProperties.Cellular.SIMLockStatus.LockEnabled]]">
+        $i18n{networkSimLockEnable}
+      </paper-checkbox>
+      <paper-button  on-tap="onChangePinTap_"
+          hidden$="[[!networkProperties.Cellular.SIMLockStatus.LockEnabled]]">
+        $i18n{networkSimChangePin}
+      </paper-button>
+    </div>
+
+    <!-- Enter PIN dialog -->
+    <dialog is="cr-dialog" id="enterPinDialog">
+      <div class="title">$i18n{networkSimEnterPinTitle}</div>
+      <div class="body">
+        <paper-input id="enterPin" class="pin" no-label-float
+            label="$i18n{networkSimEnterPin}">
+        </paper-input>
+        <div class="dialog-error">
+          [[getErrorMsg_(error_, networkProperties)]]
+        </div>
+      </div>
+      <div class="button-container">
+        <paper-button on-tap="sendEnterPin_">
+          $i18n{networkSimEnter}
+        </paper-button>
+      </div>
+    </dialog>
+
+    <!-- Change PIN dialog -->
+    <dialog is="cr-dialog" id="changePinDialog">
+      <div class="title">$i18n{networkSimChangePinTitle}</div>
+      <div class="body">
+        <paper-input id="changePinOld" class="pin" no-label-float
+            label="$i18n{networkSimEnterOldPin}">
+        </paper-input>
+        <paper-input id="changePinNew1" class="pin" no-label-float
+            label="$i18n{networkSimEnterNewPin}">
+        </paper-input>
+        <paper-input id="changePinNew2" class="pin" no-label-float
+            label="$i18n{networkSimReEnterNewPin}">
+        </paper-input>
+        <div class="dialog-error">
+          [[getErrorMsg_(error_, networkProperties)]]
+        </div>
+      </div>
+      <div class="button-container">
+        <paper-button on-tap="sendChangePin_">
+          $i18n{networkSimChange}
+        </paper-button>
+      </div>
+    </dialog>
+
+    <!-- Unlock PIN dialog -->
+    <dialog is="cr-dialog" id="unlockPinDialog">
+      <div class="title">$i18n{networkSimLockedTitle}</div>
+      <div class="body">
+        <paper-input id="unlockPin" class="pin" no-label-float
+            label="$i18n{networkSimEnterPin}">
+        </paper-input>
+        <div class="dialog-error">
+          [[getErrorMsg_(error_, networkProperties)]]
+        </div>
+      </div>
+      <div class="button-container">
+        <paper-button on-tap="sendUnlockPin_">
+          $i18n{networkSimUnlock}
+        </paper-button>
+      </div>
+    </dialog>
+
+    <!-- Unlock PUK dialog -->
+    <dialog is="cr-dialog" id="unlockPukDialog">
+      <div class="title">$i18n{networkSimLockedTitle}</div>
+      <div class="body">
+        <div>
+          Enter the 8-digit PIN Unblocking Key provided by your carrier
+        </div>
+        <paper-input id="unlockPuk" class="puk" no-label-float
+            label="$i18n{networkSimEnterPuk}">
+        </paper-input>
+        <paper-input id="unlockPin1" class="pin" no-label-float
+            label="$i18n{networkSimEnterNewPin}">
+        </paper-input>
+        <paper-input id="unlockPin2" class="pin" no-label-float
+            label="$i18n{networkSimReEnterNewPin}">
+        </paper-input>
+        <div class="dialog-error">
+          $i18n{networkSimLockedWarning}
+        </div>
+        <div class="dialog-error">
+          [[getErrorMsg_(error_, networkProperties)]]
+        </div>
+      </div>
+      <div class="button-container">
+        <paper-button on-tap="sendUnlockPuk_">
+          $i18n{networkSimUnlock}
+        </paper-button>
+      </div>
+    </dialog>
+  </template>
+  <script src="network_siminfo.js"></script>
+</dom-module>

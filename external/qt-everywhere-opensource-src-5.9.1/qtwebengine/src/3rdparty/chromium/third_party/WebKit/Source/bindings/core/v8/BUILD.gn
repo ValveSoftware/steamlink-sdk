@@ -1,0 +1,321 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//testing/libfuzzer/fuzzer_test.gni")
+import("//third_party/WebKit/Source/bindings/bindings.gni")
+import("//third_party/WebKit/Source/bindings/scripts/scripts.gni")
+import("//third_party/WebKit/Source/core/core.gni")
+import("//third_party/WebKit/Source/core/core_idl_files.gni")
+
+visibility = [ "//third_party/WebKit/Source/*" ]
+
+generated_core_dictionary_files = [
+  "$blink_core_output_dir/animation/AnimationEffectTimingProperties.cpp",
+  "$blink_core_output_dir/animation/AnimationEffectTimingProperties.h",
+  "$blink_core_output_dir/animation/ComputedTimingProperties.cpp",
+  "$blink_core_output_dir/animation/ComputedTimingProperties.h",
+  "$blink_core_output_dir/animation/KeyframeEffectOptions.cpp",
+  "$blink_core_output_dir/animation/KeyframeEffectOptions.h",
+  "$blink_core_output_dir/css/FontFaceDescriptors.cpp",
+  "$blink_core_output_dir/css/FontFaceDescriptors.h",
+  "$blink_core_output_dir/css/FontFaceSetLoadEventInit.cpp",
+  "$blink_core_output_dir/css/FontFaceSetLoadEventInit.h",
+  "$blink_core_output_dir/css/MediaQueryListEventInit.cpp",
+  "$blink_core_output_dir/css/MediaQueryListEventInit.h",
+  "$blink_core_output_dir/css/PropertyDescriptor.cpp",
+  "$blink_core_output_dir/css/PropertyDescriptor.h",
+  "$blink_core_output_dir/css/cssom/CSSCalcDictionary.cpp",
+  "$blink_core_output_dir/css/cssom/CSSCalcDictionary.h",
+  "$blink_core_output_dir/dom/DOMPointInit.cpp",
+  "$blink_core_output_dir/dom/DOMPointInit.h",
+  "$blink_core_output_dir/dom/DOMMatrixInit.cpp",
+  "$blink_core_output_dir/dom/DOMMatrixInit.h",
+  "$blink_core_output_dir/dom/ElementCreationOptions.cpp",
+  "$blink_core_output_dir/dom/ElementCreationOptions.h",
+  "$blink_core_output_dir/dom/ElementDefinitionOptions.cpp",
+  "$blink_core_output_dir/dom/ElementDefinitionOptions.h",
+  "$blink_core_output_dir/dom/ElementRegistrationOptions.cpp",
+  "$blink_core_output_dir/dom/ElementRegistrationOptions.h",
+  "$blink_core_output_dir/dom/GetRootNodeOptions.cpp",
+  "$blink_core_output_dir/dom/GetRootNodeOptions.h",
+  "$blink_core_output_dir/dom/IdleRequestOptions.cpp",
+  "$blink_core_output_dir/dom/IdleRequestOptions.h",
+  "$blink_core_output_dir/dom/IntersectionObserverInit.cpp",
+  "$blink_core_output_dir/dom/IntersectionObserverInit.h",
+  "$blink_core_output_dir/dom/MutationObserverInit.cpp",
+  "$blink_core_output_dir/dom/MutationObserverInit.h",
+  "$blink_core_output_dir/dom/shadow/ShadowRootInit.cpp",
+  "$blink_core_output_dir/dom/shadow/ShadowRootInit.h",
+  "$blink_core_output_dir/dom/TouchInit.cpp",
+  "$blink_core_output_dir/dom/TouchInit.h",
+  "$blink_core_output_dir/events/AddEventListenerOptions.cpp",
+  "$blink_core_output_dir/events/AddEventListenerOptions.h",
+  "$blink_core_output_dir/events/AnimationEventInit.cpp",
+  "$blink_core_output_dir/events/AnimationEventInit.h",
+  "$blink_core_output_dir/events/AnimationPlaybackEventInit.cpp",
+  "$blink_core_output_dir/events/AnimationPlaybackEventInit.h",
+  "$blink_core_output_dir/events/ApplicationCacheErrorEventInit.cpp",
+  "$blink_core_output_dir/events/ApplicationCacheErrorEventInit.h",
+  "$blink_core_output_dir/events/CompositionEventInit.cpp",
+  "$blink_core_output_dir/events/CompositionEventInit.h",
+  "$blink_core_output_dir/events/CustomEventInit.cpp",
+  "$blink_core_output_dir/events/CustomEventInit.h",
+  "$blink_core_output_dir/events/DragEventInit.cpp",
+  "$blink_core_output_dir/events/DragEventInit.h",
+  "$blink_core_output_dir/events/ErrorEventInit.cpp",
+  "$blink_core_output_dir/events/ErrorEventInit.h",
+  "$blink_core_output_dir/events/EventInit.cpp",
+  "$blink_core_output_dir/events/EventInit.h",
+  "$blink_core_output_dir/events/EventListenerOptions.cpp",
+  "$blink_core_output_dir/events/EventListenerOptions.h",
+  "$blink_core_output_dir/events/EventModifierInit.cpp",
+  "$blink_core_output_dir/events/EventModifierInit.h",
+  "$blink_core_output_dir/events/FocusEventInit.cpp",
+  "$blink_core_output_dir/events/FocusEventInit.h",
+  "$blink_core_output_dir/events/HashChangeEventInit.cpp",
+  "$blink_core_output_dir/events/HashChangeEventInit.h",
+  "$blink_core_output_dir/events/InputEventInit.cpp",
+  "$blink_core_output_dir/events/InputEventInit.h",
+  "$blink_core_output_dir/events/KeyboardEventInit.cpp",
+  "$blink_core_output_dir/events/KeyboardEventInit.h",
+  "$blink_core_output_dir/events/MessageEventInit.cpp",
+  "$blink_core_output_dir/events/MessageEventInit.h",
+  "$blink_core_output_dir/events/MouseEventInit.cpp",
+  "$blink_core_output_dir/events/MouseEventInit.h",
+  "$blink_core_output_dir/events/PageTransitionEventInit.cpp",
+  "$blink_core_output_dir/events/PageTransitionEventInit.h",
+  "$blink_core_output_dir/events/PointerEventInit.cpp",
+  "$blink_core_output_dir/events/PointerEventInit.h",
+  "$blink_core_output_dir/events/PopStateEventInit.cpp",
+  "$blink_core_output_dir/events/PopStateEventInit.h",
+  "$blink_core_output_dir/events/ProgressEventInit.cpp",
+  "$blink_core_output_dir/events/ProgressEventInit.h",
+  "$blink_core_output_dir/events/PromiseRejectionEventInit.cpp",
+  "$blink_core_output_dir/events/PromiseRejectionEventInit.h",
+  "$blink_core_output_dir/events/RelatedEventInit.cpp",
+  "$blink_core_output_dir/events/RelatedEventInit.h",
+  "$blink_core_output_dir/events/SecurityPolicyViolationEventInit.cpp",
+  "$blink_core_output_dir/events/SecurityPolicyViolationEventInit.h",
+  "$blink_core_output_dir/events/TouchEventInit.cpp",
+  "$blink_core_output_dir/events/TouchEventInit.h",
+  "$blink_core_output_dir/events/TransitionEventInit.cpp",
+  "$blink_core_output_dir/events/TransitionEventInit.h",
+  "$blink_core_output_dir/events/UIEventInit.cpp",
+  "$blink_core_output_dir/events/UIEventInit.h",
+  "$blink_core_output_dir/events/WheelEventInit.cpp",
+  "$blink_core_output_dir/events/WheelEventInit.h",
+  "$blink_core_output_dir/fileapi/BlobPropertyBag.cpp",
+  "$blink_core_output_dir/fileapi/BlobPropertyBag.h",
+  "$blink_core_output_dir/fileapi/FilePropertyBag.cpp",
+  "$blink_core_output_dir/fileapi/FilePropertyBag.h",
+  "$blink_core_output_dir/frame/ScrollOptions.cpp",
+  "$blink_core_output_dir/frame/ScrollOptions.h",
+  "$blink_core_output_dir/frame/ScrollToOptions.cpp",
+  "$blink_core_output_dir/frame/ScrollToOptions.h",
+  "$blink_core_output_dir/html/AssignedNodesOptions.cpp",
+  "$blink_core_output_dir/html/AssignedNodesOptions.h",
+  "$blink_core_output_dir/html/canvas/CanvasContextCreationAttributes.cpp",
+  "$blink_core_output_dir/html/canvas/CanvasContextCreationAttributes.h",
+  "$blink_core_output_dir/html/track/TrackEventInit.cpp",
+  "$blink_core_output_dir/html/track/TrackEventInit.h",
+  "$blink_core_output_dir/imagebitmap/ImageBitmapOptions.cpp",
+  "$blink_core_output_dir/imagebitmap/ImageBitmapOptions.h",
+  "$blink_core_output_dir/input/InputDeviceCapabilitiesInit.cpp",
+  "$blink_core_output_dir/input/InputDeviceCapabilitiesInit.h",
+  "$blink_core_output_dir/offscreencanvas/ImageEncodeOptions.cpp",
+  "$blink_core_output_dir/offscreencanvas/ImageEncodeOptions.h",
+  "$blink_core_output_dir/page/scrolling/ScrollStateInit.cpp",
+  "$blink_core_output_dir/page/scrolling/ScrollStateInit.h",
+  "$blink_core_output_dir/timing/PerformanceObserverInit.cpp",
+  "$blink_core_output_dir/timing/PerformanceObserverInit.h",
+]
+
+bindings_core_generated_union_type_files = [
+  "$bindings_core_v8_output_dir/AddEventListenerOptionsOrBoolean.cpp",
+  "$bindings_core_v8_output_dir/AddEventListenerOptionsOrBoolean.h",
+  "$bindings_core_v8_output_dir/ArrayBufferOrArrayBufferView.cpp",
+  "$bindings_core_v8_output_dir/ArrayBufferOrArrayBufferView.h",
+  "$bindings_core_v8_output_dir/ArrayBufferOrArrayBufferViewOrBlobOrDocumentOrStringOrFormData.cpp",
+  "$bindings_core_v8_output_dir/ArrayBufferOrArrayBufferViewOrBlobOrDocumentOrStringOrFormData.h",
+  "$bindings_core_v8_output_dir/ArrayBufferOrArrayBufferViewOrBlobOrUSVString.cpp",
+  "$bindings_core_v8_output_dir/ArrayBufferOrArrayBufferViewOrBlobOrUSVString.h",
+  "$bindings_core_v8_output_dir/CSSStyleValueOrCSSStyleValueSequence.cpp",
+  "$bindings_core_v8_output_dir/CSSStyleValueOrCSSStyleValueSequence.h",
+  "$bindings_core_v8_output_dir/CSSStyleValueOrCSSStyleValueSequenceOrString.cpp",
+  "$bindings_core_v8_output_dir/CSSStyleValueOrCSSStyleValueSequenceOrString.h",
+  "$bindings_core_v8_output_dir/DictionarySequenceOrDictionary.cpp",
+  "$bindings_core_v8_output_dir/DictionarySequenceOrDictionary.h",
+  "$bindings_core_v8_output_dir/DoubleOrAutoKeyword.cpp",
+  "$bindings_core_v8_output_dir/DoubleOrAutoKeyword.h",
+  "$bindings_core_v8_output_dir/DoubleOrDoubleSequence.cpp",
+  "$bindings_core_v8_output_dir/DoubleOrDoubleSequence.h",
+  "$bindings_core_v8_output_dir/DoubleOrInternalEnum.cpp",
+  "$bindings_core_v8_output_dir/DoubleOrInternalEnum.h",
+  "$bindings_core_v8_output_dir/DoubleOrString.cpp",
+  "$bindings_core_v8_output_dir/DoubleOrString.h",
+  "$bindings_core_v8_output_dir/DoubleOrStringOrStringArray.cpp",
+  "$bindings_core_v8_output_dir/DoubleOrStringOrStringArray.h",
+  "$bindings_core_v8_output_dir/DoubleOrStringOrStringSequence.cpp",
+  "$bindings_core_v8_output_dir/DoubleOrStringOrStringSequence.h",
+  "$bindings_core_v8_output_dir/EventListenerOptionsOrBoolean.cpp",
+  "$bindings_core_v8_output_dir/EventListenerOptionsOrBoolean.h",
+  "$bindings_core_v8_output_dir/FileOrUSVString.cpp",
+  "$bindings_core_v8_output_dir/FileOrUSVString.h",
+  "$bindings_core_v8_output_dir/HTMLElementOrLong.cpp",
+  "$bindings_core_v8_output_dir/HTMLElementOrLong.h",
+  "$bindings_core_v8_output_dir/HTMLImageElementOrHTMLVideoElementOrHTMLCanvasElementOrBlobOrImageDataOrImageBitmap.cpp",
+  "$bindings_core_v8_output_dir/HTMLImageElementOrHTMLVideoElementOrHTMLCanvasElementOrBlobOrImageDataOrImageBitmap.h",
+  "$bindings_core_v8_output_dir/HTMLOptionElementOrHTMLOptGroupElement.cpp",
+  "$bindings_core_v8_output_dir/HTMLOptionElementOrHTMLOptGroupElement.h",
+  "$bindings_core_v8_output_dir/HTMLScriptElementOrSVGScriptElement.cpp",
+  "$bindings_core_v8_output_dir/HTMLScriptElementOrSVGScriptElement.h",
+  "$bindings_core_v8_output_dir/NodeListOrElement.cpp",
+  "$bindings_core_v8_output_dir/NodeListOrElement.h",
+  "$bindings_core_v8_output_dir/NodeOrString.cpp",
+  "$bindings_core_v8_output_dir/NodeOrString.h",
+  "$bindings_core_v8_output_dir/RadioNodeListOrElement.cpp",
+  "$bindings_core_v8_output_dir/RadioNodeListOrElement.h",
+  "$bindings_core_v8_output_dir/StringOrArrayBuffer.cpp",
+  "$bindings_core_v8_output_dir/StringOrArrayBuffer.h",
+  "$bindings_core_v8_output_dir/StringOrArrayBufferOrArrayBufferView.cpp",
+  "$bindings_core_v8_output_dir/StringOrArrayBufferOrArrayBufferView.h",
+  "$bindings_core_v8_output_dir/StringOrCSSVariableReferenceValue.cpp",
+  "$bindings_core_v8_output_dir/StringOrCSSVariableReferenceValue.h",
+  "$bindings_core_v8_output_dir/StringOrDictionary.cpp",
+  "$bindings_core_v8_output_dir/StringOrDictionary.h",
+  "$bindings_core_v8_output_dir/StringOrFloat.cpp",
+  "$bindings_core_v8_output_dir/StringOrFloat.h",
+  "$bindings_core_v8_output_dir/USVStringOrURLSearchParams.cpp",
+  "$bindings_core_v8_output_dir/USVStringOrURLSearchParams.h",
+  "$bindings_core_v8_output_dir/UnrestrictedDoubleOrString.cpp",
+  "$bindings_core_v8_output_dir/UnrestrictedDoubleOrString.h",
+  "$bindings_core_v8_output_dir/VideoTrackOrAudioTrackOrTextTrack.cpp",
+  "$bindings_core_v8_output_dir/VideoTrackOrAudioTrackOrTextTrack.h",
+]
+
+generated_core_testing_dictionary_files = [
+  "$blink_core_output_dir/testing/InternalDictionary.cpp",
+  "$blink_core_output_dir/testing/InternalDictionary.h",
+  "$blink_core_output_dir/testing/InternalDictionaryDerived.cpp",
+  "$blink_core_output_dir/testing/InternalDictionaryDerived.h",
+  "$blink_core_output_dir/testing/InternalDictionaryDerivedDerived.cpp",
+  "$blink_core_output_dir/testing/InternalDictionaryDerivedDerived.h",
+]
+
+generated_core_testing_callback_function_files = [
+  "$bindings_core_v8_output_dir/TestCallback.cpp",
+  "$bindings_core_v8_output_dir/TestCallback.h",
+  "$bindings_core_v8_output_dir/TestInterfaceCallback.cpp",
+  "$bindings_core_v8_output_dir/TestInterfaceCallback.h",
+  "$bindings_core_v8_output_dir/TestReceiverObjectCallback.cpp",
+  "$bindings_core_v8_output_dir/TestReceiverObjectCallback.h",
+  "$bindings_core_v8_output_dir/TestSequenceCallback.cpp",
+  "$bindings_core_v8_output_dir/TestSequenceCallback.h",
+]
+
+generated_core_callback_function_files = [
+  "$bindings_core_v8_output_dir/PerformanceObserverCallback.cpp",
+  "$bindings_core_v8_output_dir/PerformanceObserverCallback.h",
+]
+
+if (is_win) {
+  # On Windows Official release builds, we try to preserve symbol space.
+  bindings_core_generated_interface_files =
+      [ "$bindings_core_v8_output_dir/V8GeneratedCoreBindings.cpp" ]
+} else {
+  bindings_core_generated_interface_files =
+      process_file_template(
+          core_definition_idl_files,
+          [
+            "$bindings_core_v8_output_dir/V8{{source_name_part}}.cpp",
+            "$bindings_core_v8_output_dir/V8{{source_name_part}}.h",
+          ])
+}
+
+group("bindings_core_v8_generated") {
+  public_deps = [
+    ":bindings_core_impl_generated",
+  ]
+  if (is_win) {
+    public_deps += [ ":generate_bindings_core_v8_all_interfaces" ]
+  } else {
+    public_deps += [ ":generate_bindings_core_v8_interfaces" ]
+  }
+}
+
+# IDL file lists; see: http://www.chromium.org/developers/web-idl-interfaces
+# Interface IDL files: generate individual bindings (includes testing)
+idl_compiler("generate_bindings_core_v8_interfaces") {
+  sources = core_definition_idl_files + core_testing_definition_idl_files +
+            generated_webcore_testing_idl_files
+  output_dir = bindings_core_v8_output_dir
+  output_name_suffix = ""
+  target_component = "core"
+}
+
+aggregate_generated_bindings("generate_bindings_core_v8_all_interfaces") {
+  sources = core_definition_idl_files
+  outputs = [
+    "$bindings_core_v8_output_dir/V8GeneratedCoreBindings.cpp",
+  ]
+  component = "core"
+  public_deps = [
+    ":generate_bindings_core_v8_interfaces",
+  ]
+}
+
+idl_impl("bindings_core_impl_generated") {
+  sources = core_dictionary_idl_files + core_testing_dictionary_idl_files
+  outputs = bindings_core_generated_union_type_files +
+            generated_core_dictionary_files +
+            generated_core_testing_dictionary_files +
+            generated_core_testing_callback_function_files +
+            generated_core_callback_function_files
+  output_dir = bindings_core_v8_output_dir
+  target_component = "core"
+}
+
+# Compile the non-test sources generated above.
+blink_core_sources("bindings_core_impl") {
+  sources = bindings_core_generated_union_type_files +
+            generated_core_dictionary_files +
+            bindings_core_generated_interface_files +
+            generated_core_callback_function_files
+
+  deps = [
+    ":bindings_core_v8_generated",
+  ]
+}
+
+# Compile the test sources generated above. This test target doesn't count
+# as part of the "core" component so shouldn't use the blink_core_sources for
+# linking on Windows.
+source_set("testing") {
+  sources = generated_core_testing_dictionary_files +
+            generated_core_testing_callback_function_files
+
+  configs -= core_config_remove
+  configs += [
+    "//third_party/WebKit/Source:inside_blink",
+    "//third_party/WebKit/Source:config",
+  ]
+
+  deps = [
+    ":bindings_core_impl_generated",
+    "//skia",
+    "//third_party/WebKit/Source/wtf",
+    "//v8",
+  ]
+}
+
+fuzzer_test("v8_serialized_script_value_fuzzer") {
+  sources = [
+    "serialization/SerializedScriptValueFuzzer.cpp",
+  ]
+  seed_corpus = "serialization/fuzz_corpus"
+  deps = [
+    "//third_party/WebKit/Source/core",
+    "//third_party/WebKit/Source/platform:blink_fuzzer_test_support",
+  ]
+}

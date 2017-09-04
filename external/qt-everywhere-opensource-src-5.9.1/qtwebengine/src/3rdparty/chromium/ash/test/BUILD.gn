@@ -1,0 +1,212 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+
+# Used to test ash with an aura backend.
+source_set("ash_with_aura_test_support") {
+  testonly = true
+  sources = [
+    "ash_test_impl_aura.cc",
+    "ash_test_impl_aura.h",
+  ]
+  deps = [
+    ":test_support_common",
+    "//ash",
+    "//ash/common/test:test_support",
+    "//base",
+    "//skia",
+    "//ui/aura:test_support",
+    "//ui/display",
+    "//ui/wm",
+  ]
+}
+
+static_library("test_support_without_content") {
+  testonly = true
+  sources = [
+    "ash_test_environment_default.cc",
+  ]
+
+  public_deps = [
+    ":test_support_common",
+  ]
+
+  deps = [
+    "//base",
+    "//base/test:test_support",
+    "//skia",
+  ]
+}
+
+static_library("test_support_with_content") {
+  testonly = true
+  sources = [
+    "ash_test_environment_content.cc",
+    "ash_test_environment_content.h",
+    "content/test_shell_content_state.cc",
+    "content/test_shell_content_state.h",
+  ]
+  configs += [ "//build/config:precompiled_headers" ]
+
+  public_deps = [
+    ":test_support_common",
+    "//ash:ash_with_content",
+    "//content/public/browser",
+    "//content/test:test_support",
+    "//skia",
+  ]
+}
+
+# Internal target consumed by |test_support_with_content| and
+# |test_support_without_content|. This target contains all the test support
+# files, with the exception of an implementation of AshTestEnvironment.
+# Consumers of ash should use one of |test_support_with_content| or
+# |test_support_without_content|.
+static_library("test_support_common") {
+  testonly = true
+  visibility = [ ":*" ]
+  sources = [
+    "../shell/toplevel_window.cc",
+    "../shell/toplevel_window.h",
+    "ash_md_test_base.cc",
+    "ash_md_test_base.h",
+    "ash_test_base.cc",
+    "ash_test_base.h",
+    "ash_test_environment.h",
+    "ash_test_helper.cc",
+    "ash_test_helper.h",
+    "ash_test_views_delegate.cc",
+    "ash_test_views_delegate.h",
+    "child_modal_window.cc",
+    "child_modal_window.h",
+    "cursor_manager_test_api.cc",
+    "cursor_manager_test_api.h",
+    "immersive_fullscreen_controller_test_api.cc",
+    "immersive_fullscreen_controller_test_api.h",
+    "lock_state_controller_test_api.cc",
+    "lock_state_controller_test_api.h",
+    "mirror_window_test_api.cc",
+    "mirror_window_test_api.h",
+    "overflow_bubble_view_test_api.cc",
+    "overflow_bubble_view_test_api.h",
+    "shelf_button_pressed_metric_tracker_test_api.cc",
+    "shelf_button_pressed_metric_tracker_test_api.h",
+    "shelf_view_test_api.cc",
+    "shelf_view_test_api.h",
+    "shell_test_api.cc",
+    "shell_test_api.h",
+    "status_area_widget_test_helper.cc",
+    "status_area_widget_test_helper.h",
+    "task_switch_time_tracker_test_api.cc",
+    "task_switch_time_tracker_test_api.h",
+    "test_activation_delegate.cc",
+    "test_activation_delegate.h",
+    "test_keyboard_ui.cc",
+    "test_keyboard_ui.h",
+    "test_overlay_delegate.cc",
+    "test_overlay_delegate.h",
+    "test_screenshot_delegate.cc",
+    "test_screenshot_delegate.h",
+    "test_session_state_animator.cc",
+    "test_session_state_animator.h",
+    "test_shell_delegate.cc",
+    "test_shell_delegate.h",
+    "test_suite.cc",
+    "test_suite.h",
+    "test_suite_init.h",
+    "test_suite_init.mm",
+    "test_system_tray_item.cc",
+    "test_system_tray_item.h",
+    "test_wallpaper_delegate.cc",
+    "test_wallpaper_delegate.h",
+    "ui_controls_factory_ash.cc",
+    "ui_controls_factory_ash.h",
+    "user_metrics_recorder_test_api.cc",
+    "user_metrics_recorder_test_api.h",
+  ]
+  configs += [ "//build/config:precompiled_headers" ]
+
+  public_deps = [
+    "//ash",
+    "//ui/display:display_manager_test_api",
+  ]
+  deps = [
+    "//ash/common/test:test_support",
+    "//ash/public/cpp",
+    "//ash/public/interfaces",
+    "//ash/resources",
+    "//base:i18n",
+    "//base/test:test_support",
+    "//components/signin/core/account_id",
+    "//components/user_manager:user_manager",
+    "//device/bluetooth",
+    "//skia",
+    "//testing/gtest",
+    "//ui/accessibility",
+    "//ui/app_list:test_support",
+    "//ui/app_list/presenter",
+    "//ui/aura",
+    "//ui/aura:test_support",
+    "//ui/base:test_support",
+    "//ui/compositor:test_support",
+    "//ui/display/types",
+    "//ui/events:events_base",
+    "//ui/events:test_support",
+    "//ui/events/devices",
+    "//ui/gl",
+    "//ui/gl:test_support",
+    "//ui/keyboard",
+    "//ui/message_center",
+    "//ui/views",
+    "//ui/views:test_support",
+    "//ui/wm",
+  ]
+
+  if (is_win) {
+    deps += [ "//ui/platform_window/win" ]
+  }
+
+  if (use_x11) {
+    deps += [ "//ui/gfx/x" ]
+  }
+
+  if (is_chromeos) {
+    deps += [
+      "//chromeos",
+      "//ui/display",
+    ]
+
+    sources += [
+      "../laser/laser_pointer_controller_test_api.cc",
+      "../laser/laser_pointer_controller_test_api.h",
+      "../laser/laser_pointer_points_test_api.cc",
+      "../laser/laser_pointer_points_test_api.h",
+      "tray_cast_test_api.cc",
+      "tray_cast_test_api.h",
+    ]
+  }
+}
+
+static_library("interactive_ui_test_support") {
+  testonly = true
+  configs += [ "//build/config:precompiled_headers" ]
+  public_deps = [
+    ":test_support_without_content",
+    "//ash",
+  ]
+  sources = [
+    "ash_interactive_ui_test_base.cc",
+    "ash_interactive_ui_test_base.h",
+  ]
+  deps = [
+    ":test_support_with_content",
+    "//base",
+    "//skia",
+    "//testing/gtest",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/gl:test_support",
+  ]
+}

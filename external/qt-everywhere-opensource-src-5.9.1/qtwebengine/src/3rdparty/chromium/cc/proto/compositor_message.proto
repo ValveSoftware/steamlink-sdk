@@ -1,0 +1,40 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+import "client_state_update.proto";
+import "layer_tree_host.proto";
+
+package cc.proto;
+
+// A top level message for serialized state used by the compositor remote
+// channels.
+// TODO(khushalsagar): Remove CompositorMessage and stop using
+// RemoteProtoChannel to plumb these to/from the browser. See crbug.com/648442
+message CompositorMessage {
+  // Engine -> Client
+  // Frame Update.
+  optional LayerTreeHost layer_tree_host = 3;
+
+  // Client -> Engine
+  // Sent from the client to the engine when a frame update was processed
+  // on the client.
+  optional bool frame_ack = 4;
+
+  // Client -> Engine
+  // Reports any changes made to the main thread state on the compositor thread
+  // on the client.
+  optional ClientStateUpdate client_state_update = 5;
+
+  // Engine -> Client
+  // Acknowledges the application of the client state update to the associated
+  // state on the engine.
+  // If the application of the update resulted in any additional changes to the
+  // state on the engine, the ack will always be bundled with the resulting
+  // frame update.
+  optional bool client_state_update_ack = 6;
+}

@@ -1,0 +1,98 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//remoting/build/config/remoting_build.gni")
+
+group("all_tests") {
+  testonly = true
+}
+
+if (enable_me2me_host) {
+  copy("remoting_me2me_host_copy_script") {
+    sources = [
+      "linux_me2me_host.py",
+    ]
+    outputs = [
+      "$root_build_dir/remoting/chrome-remote-desktop",
+    ]
+  }
+
+  copy("remoting_me2me_host_copy_host") {
+    sources = [
+      "remoting_me2me_host_wrapper.sh",
+    ]
+    outputs = [
+      "$root_build_dir/remoting/chrome-remote-desktop-host",
+    ]
+
+    deps = [
+      "//remoting/host:remoting_me2me_host",
+    ]
+  }
+
+  group("remoting_dev_me2me_host") {
+    deps = [
+      ":remoting_me2me_host_copy_host",
+      ":remoting_me2me_host_copy_script",
+    ]
+  }
+}
+
+source_set("linux") {
+  sources = [
+    "audio_pipe_reader.cc",
+    "audio_pipe_reader.h",
+    "certificate_watcher.cc",
+    "certificate_watcher.h",
+    "unicode_to_keysym.cc",
+    "unicode_to_keysym.h",
+  ]
+
+  deps = [
+    "//remoting/protocol",
+    "//third_party/webrtc/modules/desktop_capture",
+  ]
+
+  if (use_x11) {
+    deps += [ ":x11" ]
+  }
+}
+
+source_set("x11") {
+  sources = [
+    "x11_util.cc",
+    "x11_util.h",
+    "x_server_clipboard.cc",
+    "x_server_clipboard.h",
+  ]
+  deps = [
+    "//third_party/webrtc/modules/desktop_capture",
+  ]
+}
+
+target("executable", "remoting_native_messaging_host") {
+  configs += [ "//build/config/compiler:wexit_time_destructors" ]
+
+  sources = [
+    "//remoting/host/setup/me2me_native_messaging_host_entry_point.cc",
+    "//remoting/host/setup/me2me_native_messaging_host_main.cc",
+    "//remoting/host/setup/me2me_native_messaging_host_main.h",
+  ]
+
+  deps = [
+    "//base",
+    "//remoting/base:breakpad",
+    "//remoting/host",
+    "//remoting/host:remoting_infoplist_strings",
+    "//remoting/host/native_messaging",
+    "//remoting/host/setup",
+  ]
+
+  # The |major|, |build| and |patch| versions are inherited from Chrome.
+  # Since Chrome's |minor| version is always '0', we replace it with a
+  # Chromoting-specific patch version.
+  defines =
+      [ "VERSION=" + "$chrome_version_major" + "." + "$remoting_version_patch" +
+        "." + "$chrome_version_build" + "." + "$chrome_version_patch" ]
+}

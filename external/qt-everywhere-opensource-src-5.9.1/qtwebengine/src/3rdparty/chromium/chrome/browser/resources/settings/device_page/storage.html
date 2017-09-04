@@ -1,0 +1,220 @@
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/html/web_ui_listener_behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button-light.html">
+<link rel="import" href="/device_page/drive_cache_dialog.html">
+<link rel="import" href="/prefs/prefs.html">
+<link rel="import" href="/route.html">
+<link rel="import" href="/settings_shared_css.html">
+
+<dom-module id="settings-storage">
+  <template>
+    <style include="settings-shared">
+      progress {
+        -webkit-appearance: none;
+        display: block;
+        height: 28px;
+        width: 100%;
+      }
+
+      progress::-webkit-progress-bar {
+        background-color: rgba(0, 0, 0, 0.06);
+        border-radius: 2px;
+      }
+
+      progress::-webkit-progress-value {
+        background-color: rgb(0, 175, 255);
+        border-radius: 2px;
+      }
+
+      progress.space-low::-webkit-progress-value {
+        background-color: rgb(255, 176, 0);
+      }
+
+      progress.space-critically-low::-webkit-progress-value {
+        background-color: var(--google-red-500);
+      }
+
+      iron-icon {
+        --iron-icon-fill-color: rgb(255, 176, 0);
+        --iron-icon-height: 32px;
+        --iron-icon-width: 32px;
+      }
+
+      #criticallyLowMessage iron-icon {
+        --iron-icon-fill-color: var(--google-red-500);
+      }
+
+      .storage-size {
+        color: var(--paper-grey-600);
+      }
+
+      .message-area {
+        -webkit-padding-end: 48px;
+        -webkit-padding-start: 16px;
+        background-color: var(--google-grey-100);
+        border-radius: 2px;
+        display: flex;
+        margin: 14px 0 16px;
+        padding-bottom: 12px;
+        padding-top: 16px;
+        width: 100%;
+      }
+
+      .message-area > iron-icon {
+        -webkit-padding-end: 16px;
+        flex: none;
+      }
+
+      .message-title {
+        font-size: 115%;
+      }
+
+      .message-description {
+        color: rgb(90, 90, 90);
+        font-size: 92%;
+        line-height: 1.6em;
+        margin: 1em 0;
+      }
+
+      #barArea {
+        display: flex;
+        flex-direction: column;
+        margin: 24px 0 54px;
+        width: 100%;
+      }
+
+      #barLabels {
+        display: flex;
+      }
+
+      .bar-label {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .bar-label .vertical-line {
+        align-self: center;
+        background-color: rgba(0, 0, 0, 0.17);
+        height: 8px;
+        margin-bottom: 4px;
+        width: 1px;
+      }
+
+      .bar-label .wrapper {
+        color: rgb(51, 51, 51);
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      /* If the "Available" part in the ber is too small, the label "Available"
+       * and a label for its size can overstep the right edge of bar area.
+       * To prevent it, we invert the direction to put the text labels here.
+       * We restore the direction for inner span elements not to change how to
+       * render the text contents. */
+      .end-aligned .wrapper {
+        direction: rtl;
+      }
+
+      :host-context([dir=rtl]) .end-aligned .wrapper {
+        direction: ltr;
+      }
+
+      .end-aligned .wrapper span {
+        direction: initial;
+        unicode-bidi: embed;
+      }
+    </style>
+    <div class="settings-box first"
+        hidden$="[[!isSpaceLow_(sizeStat_.spaceState)]]">
+      <div class="message-area">
+        <iron-icon icon="cr:warning"></iron-icon>
+        <div class="message">
+          <div class="message-title">$i18n{storageSpaceLowMessageTitle}</div>
+          <div class="message-description">
+            <span>$i18n{storageSpaceLowMessageLine1}</span>
+            <span>$i18n{storageSpaceLowMessageLine2}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-box first"
+        hidden$="[[!isSpaceCriticallyLow_(sizeStat_.spaceState)]]">
+      <div id="criticallyLowMessage" class="message-area">
+        <iron-icon icon="cr:warning"></iron-icon>
+        <div class="message">
+          <div class="message-title">
+            $i18n{storageSpaceCriticallyLowMessageTitle}
+          </div>
+          <div class="message-description">
+            <span>$i18n{storageSpaceCriticallyLowMessageLine1}</span>
+            <span>$i18n{storageSpaceCriticallyLowMessageLine2}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-box first">
+      <div id="barArea">
+        <progress id="bar" class$="[[getBarClass_(sizeStat_.spaceState)]]"
+            value="[[sizeStat_.usedRatio]]"></progress>
+        <div id="barLabels">
+          <div id="inUseLabelArea" class="bar-label">
+            <div class="vertical-line"></div>
+            <div class="wrapper"><span>$i18n{storageItemInUse}</span></div>
+            <div class="wrapper">
+              <span class="storage-size">[[sizeStat_.usedSize]]</span>
+            </div>
+          </div>
+          <div id="availableLabelArea" class="bar-label end-aligned">
+            <div class="vertical-line"></div>
+            <div class="wrapper"><span>$i18n{storageItemAvailable}</span></div>
+            <div class="wrapper">
+              <span class="storage-size">[[sizeStat_.availableSize]]</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="settings-box" on-tap="onDownloadsTap_" actionable>
+      <div class="start">$i18n{storageItemDownloads}</div>
+      <div id="downloadsSize" class="storage-size">
+        $i18n{storageSizeComputing}
+      </div>
+      <button class="icon-external" is="paper-icon-button-light"></button>
+    </div>
+    <div class="settings-box" on-tap="onDriveCacheTap_"
+         hidden$="[[!driveEnabled_]]" actionable>
+      <div class="start">$i18n{storageItemDriveCache}</div>
+      <div id="driveCacheSize" class="storage-size">
+        $i18n{storageSizeComputing}
+      </div>
+      <button class="subpage-arrow" is="paper-icon-button-light"></button>
+    </div>
+    <div class="settings-box" on-tap="onBrowsingDataTap_" actionable>
+      <div class="start">$i18n{storageItemBrowsingData}</div>
+      <div id="browsingDataSize" class="storage-size">
+        $i18n{storageSizeComputing}
+      </div>
+      <button class="subpage-arrow" is="paper-icon-button-light"></button>
+    </div>
+    <div class="settings-box" on-tap="onAndroidTap_"
+         hidden$="[[!androidEnabled_]]" actionable>
+      <div class="start">$i18n{storageItemAndroid}</div>
+      <div id="androidSize" class="storage-size">
+        $i18n{storageSizeComputing}
+      </div>
+      <button class="icon-external" is="paper-icon-button-light"></button>
+    </div>
+    <div class="settings-box" on-tap="onOtherUsersTap_" actionable>
+      <div class="start">$i18n{storageItemOtherUsers}</div>
+      <div id="otherUsersSize" class="storage-size">
+        $i18n{storageSizeComputing}
+      </div>
+      <button class="subpage-arrow" is="paper-icon-button-light"></button>
+    </div>
+    <settings-drive-cache-dialog id="storageDriveCache">
+    </settings-drive-cache-dialog>
+  </template>
+  <script src="/device_page/storage.js"></script>
+</dom-module>

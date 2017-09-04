@@ -1,0 +1,118 @@
+<link rel="import" href="chrome://resources/cr_elements/cr_toolbar/cr_toolbar.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/app-layout/app-drawer/app-drawer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-header-panel/paper-header-panel.html">
+<link rel="import" href="/direction_delegate.html">
+<link rel="import" href="/global_scroll_target_behavior.html">
+<link rel="import" href="/i18n_setup.html">
+<link rel="import" href="/icons.html">
+<link rel="import" href="/settings_main/settings_main.html">
+<link rel="import" href="/settings_menu/settings_menu.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="/prefs/prefs.html">
+<link rel="import" href="/route.html">
+<link rel="import" href="/settings_vars_css.html">
+
+<dom-module id="settings-ui">
+  <template>
+    <style include="settings-shared">
+      :host {
+        @apply(--layout-fit);
+        --paper-header-panel-waterfall-container: {
+          overflow-x: auto;  /* Undo paper-header-panel default of 'hidden'. */
+          overflow-y: overlay;
+        };
+        -webkit-user-select: none;
+        background-color: var(--settings-background-color);
+        color: var(--paper-grey-800);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;  /* Prevent double scroll bar bugs. */
+      }
+
+      paper-header-panel {
+        flex: 1;
+      }
+
+      .paper-header {
+        -webkit-padding-start: 24px;
+        align-items: center;
+        border-bottom: var(--settings-separator-line);
+        display: flex;
+        font-size: 123.08%; /* go to 16px from 13px */
+        min-height: 56px;
+      }
+
+      .last {
+        display: flex;
+        justify-content: flex-end;
+        width: 100%;
+      }
+
+      app-drawer {
+        z-index: 2;
+      }
+
+      app-drawer .drawer-header {
+        align-items: center;
+        display: flex;
+        font-size: 123.08%; /* go to 16px from 13px */
+        min-height: 56px;
+      }
+
+      cr-toolbar {
+        @apply(--layout-center);
+        --cr-toolbar-field-width: var(--settings-card-max-width);
+        background-color: var(--settings-title-bar-background-color);
+        color: white;
+        min-height: 56px;
+        z-index: 2;
+      }
+
+      cr-toolbar {
+        --iron-icon-fill-color: white;
+      }
+
+      app-drawer .drawer-header {
+        -webkit-padding-start: 24px;
+        border-bottom: var(--settings-separator-line);
+      }
+
+      app-drawer .drawer-content {
+        height: calc(100% - 56px);
+        overflow: auto;
+      }
+    </style>
+    <settings-prefs id="prefs" prefs="{{prefs}}"></settings-prefs>
+    <cr-toolbar page-name="$i18n{settings}"
+        clear-label="$i18n{clearSearch}"
+        search-prompt="$i18n{searchPrompt}"
+        on-cr-toolbar-menu-tap="onMenuButtonTap_"
+        spinner-active="[[toolbarSpinnerActive_]]"
+        menu-label="$i18n{menuButtonLabel}"
+        on-search-changed="onSearchChanged_"
+        show-menu>
+    </cr-toolbar>
+    <app-drawer swipe-open>
+      <div class="drawer-header">$i18n{settings}</div>
+      <div class="drawer-content">
+        <template is="dom-if" id="drawerTemplate">
+          <settings-menu page-visibility="[[pageVisibility_]]"
+              on-iron-activate="onIronActivate_"
+              advanced-opened="{{advancedOpened_}}">
+          </settings-menu>
+        </template>
+      </div>
+    </app-drawer>
+    <paper-header-panel id="headerPanel" mode="waterfall">
+      <settings-main id="main" prefs="{{prefs}}"
+          toolbar-spinner-active="{{toolbarSpinnerActive_}}"
+          page-visibility="[[pageVisibility_]]"
+          advanced-toggle-expanded="{{advancedOpened_}}">
+      </settings-main>
+    </paper-header-panel>
+  </template>
+  <script src="settings_ui.js"></script>
+</dom-module>

@@ -1,0 +1,85 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//services/service_manager/public/cpp/service.gni")
+import("//services/service_manager/public/service_manifest.gni")
+import("//testing/test.gni")
+
+source_set("lib") {
+  sources = [
+    "bitmap_uploader.cc",
+    "bitmap_uploader.h",
+    "mus_demo.cc",
+    "mus_demo.h",
+  ]
+
+  public_deps = [
+    "//services/service_manager/public/cpp:sources",
+    "//skia",
+  ]
+
+  deps = [
+    "//base",
+    "//mojo/public/cpp/bindings",
+    "//services/service_manager/public/cpp",
+    "//services/ui/public/cpp",
+    "//services/ui/public/cpp:internal",
+    "//services/ui/public/interfaces",
+    "//ui/gfx/geometry",
+  ]
+}
+
+service("mus_demo") {
+  sources = [
+    "main.cc",
+  ]
+
+  deps = [
+    ":lib",
+  ]
+
+  data_deps = [
+    ":manifest",
+    "//services/ui",
+  ]
+}
+
+service_manifest("manifest") {
+  name = "mus_demo"
+  source = "manifest.json"
+}
+
+service_manifest("test_manifest") {
+  name = "mus_demo_unittests"
+  source = "test_manifest.json"
+}
+
+test("mus_demo_unittests") {
+  testonly = true
+
+  sources = [
+    "mus_demo_unittests.cc",
+  ]
+
+  deps = [
+    ":demo",
+    "//base",
+    "//services/service_manager/public/cpp",
+    "//services/service_manager/public/cpp:service_test_support",
+    "//services/ui/common:run_all_service_tests",
+    "//services/ui/public/interfaces",
+    "//testing/gtest",
+  ]
+
+  data_deps = [
+    ":mus_demo",
+    ":test_manifest",
+  ]
+}
+
+group("demo") {
+  deps = [
+    ":mus_demo",
+  ]
+}

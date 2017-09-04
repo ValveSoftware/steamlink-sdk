@@ -1,0 +1,69 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_dialog/cr_dialog.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button-light.html">
+<link rel="import" href="/settings_page/settings_subpage_search.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="/site_settings/cookie_tree_behavior.html">
+<link rel="import" href="/site_settings/site_settings_behavior.html">
+
+<dom-module id="site-data">
+  <template>
+    <style include="settings-shared">
+      paper-button#removeButton {
+        -webkit-margin-start: auto;
+      }
+
+      .subtitle-row {
+        margin-top: 9px;  /* With 15px in sub-items == 24px total margin. */
+      }
+    </style>
+    <div class="settings-box first subtitle-row">
+      <div class="start">
+        <div>$i18n{siteSettingsCookieHeader}</div>
+      </div>
+      <settings-subpage-search id="filter" on-search-changed="onSearchChanged_"
+          label="$i18n{siteSettingsCookieSearch}">
+      </settings-subpage-search>
+    </div>
+    <div class="settings-box continuation">
+      <paper-button class="secondary-button" id="removeButton"
+          on-tap="onConfirmDeleteMultipleSites_"
+          hidden$="[[!isRemoveButtonVisible_(sites, renderedItemCount)]]">
+          [[computeRemoveLabel_(filterString_)]]
+      </paper-button>
+    </div>
+    <div class="list-frame vertical-list">
+      <template is="dom-repeat" id="list" items="[[sites]]" filter="showItem_"
+          rendered-item-count="{{renderedItemCount}}">
+        <div class="list-item two-line" on-tap="onSiteTap_" actionable>
+          <div class="favicon-image" style$="[[computeSiteIcon(item.site)]]">
+          </div>
+          <div class="middle">
+            [[item.site]]
+            <div class="secondary">[[item.localData]]</div>
+          </div>
+          <button class="subpage-arrow" is="paper-icon-button-light"></button>
+        </div>
+      </template>
+    </div>
+
+    <!-- Confirm Delete dialog -->
+    <dialog is="cr-dialog" id="confirmDeleteDialog">
+      <div class="title">$i18n{siteSettingsCookieRemoveDialogTitle}</div>
+      <div class="body">[[confirmationDeleteMsg_]]</div>
+      <div class="button-container">
+        <paper-button class="cancel-button" on-tap="onCloseDialog_">
+          $i18n{cancel}
+        </paper-button>
+        <paper-button class="action-button" on-tap="onConfirmDelete_">
+          $i18n{siteSettingsCookiesClearAll}
+        </paper-button>
+      </div>
+    </dialog>
+  </template>
+  <script src="cookie_info.js"></script>
+  <script src="cookie_tree_node.js"></script>
+  <script src="site_data.js"></script>
+</dom-module>

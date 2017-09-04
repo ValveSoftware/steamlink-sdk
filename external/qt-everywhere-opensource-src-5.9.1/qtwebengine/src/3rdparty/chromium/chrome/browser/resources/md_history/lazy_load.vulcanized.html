@@ -1,0 +1,1431 @@
+<html><head><!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+--><!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+--><meta charset="UTF-8"></head><body><div hidden="" by-vulcanize="">
+
+<dom-module id="iron-collapse" assetpath="chrome://resources/polymer/v1_0/iron-collapse/" css-build="shadow">
+
+  <template>
+
+    <style scope="iron-collapse">:host {
+  display: block;
+        transition-duration: var(--iron-collapse-transition-duration, 300ms);
+        overflow: visible;
+}
+
+:host(.iron-collapse-closed) {
+  display: none;
+}
+
+:host(:not(.iron-collapse-opened)) {
+  overflow: hidden;
+}
+
+</style>
+
+    <content></content>
+
+  </template>
+
+</dom-module>
+
+<dom-module id="history-grouped-list" assetpath="chrome://history/" css-build="shadow">
+  <template>
+    <style scope="history-grouped-list">[hidden] {
+  display: none !important;
+}
+
+.card-title {
+  align-items: center;
+        border-bottom: 1px solid var(--card-border-color);
+        border-radius: 2px 2px 0 0;
+        color: var(--primary-text-color);
+        display: flex;
+        font-size: 14px;
+        font-weight: 500;
+        height: 48px;
+        line-height: 48px;
+        overflow: hidden;
+        padding: 0 20px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+}
+
+.centered-message {
+  align-items: center;
+        color: #b4b4b4;
+        display: flex;
+        flex: 1;
+        font-size: 14px;
+        font-weight: 500;
+        height: 100%;
+        justify-content: center;
+}
+
+.menu-item {
+  -webkit-user-select: none;
+        cursor: pointer;
+        font: inherit;
+        white-space: nowrap;
+}
+
+.website-icon {
+  -webkit-margin-end: 16px;
+        background-repeat: no-repeat;
+        background-size: 16px;
+        height: 16px;
+        width: 16px;
+}
+
+.website-title {
+  color: var(--primary-text-color);
+        overflow: hidden;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+}
+
+button.icon-button {
+  background: none;
+        border: none;
+        height: 36px;
+        outline: none;
+        width: 36px;
+}
+
+button.icon-button iron-icon {
+  color: var(--secondary-text-color);
+        height: 20px;
+        width: 20px;
+}
+
+button.more-vert-button {
+  height: 36px;
+        padding: 6px;
+        width: 36px;
+}
+
+button.more-vert-button div {
+  border: 2px solid var(--secondary-text-color);
+        border-radius: 2px;
+        margin: 1px 10px;
+        pointer-events: none;
+        transform: scale(0.8);
+}
+
+:host {
+  display: block;
+        overflow: auto;
+        position: relative;
+}
+
+#main-container {
+  margin: var(--card-sizing_-_margin); max-width: var(--card-sizing_-_max-width); min-width: var(--card-sizing_-_min-width); padding: var(--card-sizing_-_padding); width: var(--card-sizing_-_width);
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        padding-top: var(--first-card-padding-top);
+}
+
+.domain-heading {
+  align-items: center;
+        display: flex;
+        height: var(--item-height);
+        padding: 0 20px;
+}
+
+.domain-count {
+  color: rgb(151, 156, 160);
+        padding-left: 10px;
+}
+
+.domain-heading-text {
+  display: flex;
+}
+
+.group-container {
+  box-shadow: var(--shadow-elevation-2dp_-_box-shadow);
+        background: #fff;
+        border-radius: 2px;
+        margin-bottom: var(--card-padding-between);
+        max-width: var(--card-max-width);
+        min-width: var(--card-min-width);
+        width: 100%;
+}
+
+.card-title {
+  margin-bottom: var(--card-first-last-item-padding);
+}
+
+.domain-heading-text {
+  flex: 1 1 0;
+}
+
+.dropdown-indicator {
+  max-width: 16px;
+}
+
+history-item {
+  padding-left: 20px;
+}
+
+</style>
+    <div id="no-results" class="centered-message" hidden$="[[hasResults(groupedHistoryData_.length)]]">
+      [[noResultsMessage(searchedTerm, querying)]]
+    </div>
+    <div id="main-container" hidden$="[[!hasResults(groupedHistoryData_.length)]]">
+      <template is="dom-repeat" items="[[groupedHistoryData_]]" as="group" initial-count="1" index-as="groupIndex">
+        <div class="group-container">
+          <div class="card-title">
+            [[group.title]]
+          </div>
+
+          <template is="dom-repeat" items="[[group.domains]]" as="domain" initial-count="10" index-as="domainIndex">
+            <div>
+              <div class="domain-heading" on-tap="toggleDomainExpanded_">
+                <div class="domain-heading-text">
+                  <div class="website-icon" style="[[getWebsiteIconStyle_(domain)]]"></div>
+                  <span>[[domain.domain]]</span>
+                  <span class="domain-count">[[domain.visits.length]]</span>
+                </div>
+                <iron-icon icon="[[getDropdownIcon_(domain.expanded)]]" class="dropdown-indicator"></iron-icon>
+              </div>
+              <iron-collapse opened="{{domain.expanded}}" id="collapse">
+                <template is="dom-if" if="[[domain.rendered]]">
+                  <template is="dom-repeat" items="[[domain.visits]]" as="item" initial-count="5" index-as="itemIndex">
+                    <history-item item="[[item]]" selected="{{item.selected}}" has-time-gap="[[needsTimeGap_(
+                            groupIndex, domainIndex, itemIndex)]]" search-term="[[searchedTerm]]" number-of-items="[[historyData.length]]" path="[[pathForItem_(
+                            groupIndex, domainIndex, itemIndex)]]" embedded="">
+                    </history-item>
+                  </template>
+                </template>
+              </iron-collapse>
+            </div>
+          </template>
+        </div>
+      </template>
+    </div>
+    </template>
+  </dom-module>
+<dom-module id="paper-material-shared-styles" assetpath="chrome://resources/polymer/v1_0/paper-material/" css-build="shadow">
+  <template>
+    <style scope="paper-material-shared-styles">:host {
+  display: block;
+        position: relative;
+}
+
+:host([elevation="1"]) {
+  box-shadow: var(--shadow-elevation-2dp_-_box-shadow);
+}
+
+:host([elevation="2"]) {
+  box-shadow: var(--shadow-elevation-4dp_-_box-shadow);
+}
+
+:host([elevation="3"]) {
+  box-shadow: var(--shadow-elevation-6dp_-_box-shadow);
+}
+
+:host([elevation="4"]) {
+  box-shadow: var(--shadow-elevation-8dp_-_box-shadow);
+}
+
+:host([elevation="5"]) {
+  box-shadow: var(--shadow-elevation-16dp_-_box-shadow);
+}
+
+</style>
+  </template>
+</dom-module>
+
+
+<dom-module id="paper-button" assetpath="chrome://resources/polymer/v1_0/paper-button/" css-build="shadow">
+  <template strip-whitespace="">
+    <style scope="paper-button">:host {
+  display: block;
+        position: relative;
+}
+
+:host([elevation="1"]) {
+  box-shadow: var(--shadow-elevation-2dp_-_box-shadow);
+}
+
+:host([elevation="2"]) {
+  box-shadow: var(--shadow-elevation-4dp_-_box-shadow);
+}
+
+:host([elevation="3"]) {
+  box-shadow: var(--shadow-elevation-6dp_-_box-shadow);
+}
+
+:host([elevation="4"]) {
+  box-shadow: var(--shadow-elevation-8dp_-_box-shadow);
+}
+
+:host([elevation="5"]) {
+  box-shadow: var(--shadow-elevation-16dp_-_box-shadow);
+}
+
+:host {
+  display: var(--layout-inline_-_display);
+        -ms-flex-align: var(--layout-center-center_-_-ms-flex-align); -webkit-align-items: var(--layout-center-center_-_-webkit-align-items); align-items: var(--layout-center-center_-_align-items); -ms-flex-pack: var(--layout-center-center_-_-ms-flex-pack); -webkit-justify-content: var(--layout-center-center_-_-webkit-justify-content); justify-content: var(--layout-center-center_-_justify-content);
+        position: relative;
+        box-sizing: border-box;
+        min-width: 5.14em;
+        margin: 0 0.29em;
+        background: transparent;
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        -webkit-tap-highlight-color: transparent;
+        font: inherit;
+        text-transform: uppercase;
+        outline-width: 0;
+        border-radius: 3px;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
+        cursor: pointer;
+        z-index: 0;
+        padding: 0.7em 0.57em;
+
+        font-family: var(--paper-font-common-base_-_font-family); -webkit-font-smoothing: var(--paper-font-common-base_-_-webkit-font-smoothing);
+        ;
+}
+
+:host([hidden]) {
+  display: none !important;
+}
+
+:host([raised].keyboard-focus) {
+  font-weight: bold;
+        ;
+}
+
+:host(:not([raised]).keyboard-focus) {
+  font-weight: bold;
+        background: var(--paper-button-flat-keyboard-focus_-_background);
+}
+
+:host([disabled]) {
+  background: #eaeaea;
+        color: #a8a8a8;
+        cursor: auto;
+        pointer-events: none;
+
+        ;
+}
+
+:host([animated]) {
+  transition: var(--shadow-transition_-_transition);
+}
+
+paper-ripple {
+  color: var(--paper-button-ink-color);
+}
+
+</style>
+
+    <content></content>
+  </template>
+
+  </dom-module>
+<dom-module id="paper-item-shared-styles" assetpath="chrome://resources/polymer/v1_0/paper-item/" css-build="shadow">
+  <template>
+    <style scope="paper-item-shared-styles">:host, .paper-item {
+  display: block;
+        position: relative;
+        min-height: var(--paper-item-min-height, 48px);
+        padding: 0px 16px;
+}
+
+.paper-item {
+  font-family: var(--paper-font-subhead_-_font-family); -webkit-font-smoothing: var(--paper-font-subhead_-_-webkit-font-smoothing); font-size: var(--paper-font-subhead_-_font-size); font-weight: var(--paper-font-subhead_-_font-weight); line-height: var(--paper-font-subhead_-_line-height);
+        border:none;
+        outline: none;
+        background: white;
+        width: 100%;
+        text-align: left;
+}
+
+:host([hidden]), .paper-item[hidden] {
+  display: none !important;
+}
+
+:host(.iron-selected), .paper-item.iron-selected {
+  font-weight: var(--paper-item-selected-weight, bold);
+
+        ;
+}
+
+:host([disabled]), .paper-item[disabled] {
+  color: var(--paper-item-disabled-color,var(--disabled-text-color));;
+
+        ;
+}
+
+:host(:focus), .paper-item:focus {
+  position: relative;
+        outline: 0;
+
+        ;
+}
+
+:host(:focus):before, .paper-item:focus:before {
+  position: var(--layout-fit_-_position); top: var(--layout-fit_-_top); right: var(--layout-fit_-_right); bottom: var(--layout-fit_-_bottom); left: var(--layout-fit_-_left);
+
+        background: currentColor;
+        content: '';
+        opacity: var(--dark-divider-opacity);
+        pointer-events: none;
+
+        ;
+}
+
+</style>
+  </template>
+</dom-module>
+
+
+<dom-module id="paper-item" assetpath="chrome://resources/polymer/v1_0/paper-item/" css-build="shadow">
+  <template>
+    
+    <style scope="paper-item">:host, .paper-item {
+  display: block;
+        position: relative;
+        min-height: var(--paper-item-min-height, 48px);
+        padding: 0px 16px;
+}
+
+.paper-item {
+  font-family: var(--paper-font-subhead_-_font-family); -webkit-font-smoothing: var(--paper-font-subhead_-_-webkit-font-smoothing); font-size: var(--paper-font-subhead_-_font-size); font-weight: var(--paper-font-subhead_-_font-weight); line-height: var(--paper-font-subhead_-_line-height);
+        border:none;
+        outline: none;
+        background: white;
+        width: 100%;
+        text-align: left;
+}
+
+:host([hidden]), .paper-item[hidden] {
+  display: none !important;
+}
+
+:host(.iron-selected), .paper-item.iron-selected {
+  font-weight: var(--paper-item-selected-weight, bold);
+
+        ;
+}
+
+:host([disabled]), .paper-item[disabled] {
+  color: var(--paper-item-disabled-color,var(--disabled-text-color));;
+
+        ;
+}
+
+:host(:focus), .paper-item:focus {
+  position: relative;
+        outline: 0;
+
+        ;
+}
+
+:host(:focus):before, .paper-item:focus:before {
+  position: var(--layout-fit_-_position); top: var(--layout-fit_-_top); right: var(--layout-fit_-_right); bottom: var(--layout-fit_-_bottom); left: var(--layout-fit_-_left);
+
+        background: currentColor;
+        content: '';
+        opacity: var(--dark-divider-opacity);
+        pointer-events: none;
+
+        ;
+}
+
+:host {
+  display: var(--layout-horizontal_-_display); -ms-flex-direction: var(--layout-horizontal_-_-ms-flex-direction); -webkit-flex-direction: var(--layout-horizontal_-_-webkit-flex-direction); flex-direction: var(--layout-horizontal_-_flex-direction);
+        -ms-flex-align: var(--layout-center_-_-ms-flex-align); -webkit-align-items: var(--layout-center_-_-webkit-align-items); align-items: var(--layout-center_-_align-items);
+        font-family: var(--paper-font-subhead_-_font-family); -webkit-font-smoothing: var(--paper-font-subhead_-_-webkit-font-smoothing); font-size: var(--paper-font-subhead_-_font-size); font-weight: var(--paper-font-subhead_-_font-weight); line-height: var(--paper-font-subhead_-_line-height);
+
+        ;
+}
+
+</style>
+
+    <content></content>
+  </template>
+
+  </dom-module>
+<dom-module id="iron-overlay-backdrop" assetpath="chrome://resources/polymer/v1_0/iron-overlay-behavior/" css-build="shadow">
+
+  <template>
+    <style scope="iron-overlay-backdrop">:host {
+  position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: var(--iron-overlay-backdrop-background-color, #000);
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        ;
+}
+
+:host(.opened) {
+  opacity: var(--iron-overlay-backdrop-opacity, 0.6);
+        pointer-events: auto;
+        ;
+}
+
+</style>
+
+    <content></content>
+  </template>
+
+</dom-module>
+
+<script src="chrome://resources/polymer/v1_0/web-animations-js/web-animations-next-lite.min.js"></script>
+
+
+<dom-module id="iron-dropdown" assetpath="chrome://resources/polymer/v1_0/iron-dropdown/" css-build="shadow">
+  <template>
+    <style scope="iron-dropdown">:host {
+  position: fixed;
+}
+
+#contentWrapper ::content > * {
+  overflow: auto;
+}
+
+#contentWrapper.animating ::content > * {
+  overflow: hidden;
+}
+
+</style>
+
+    <div id="contentWrapper">
+      <content id="content" select=".dropdown-content"></content>
+    </div>
+  </template>
+
+  </dom-module>
+<dom-module id="paper-listbox" assetpath="chrome://resources/polymer/v1_0/paper-listbox/" css-build="shadow">
+  <template>
+    <style scope="paper-listbox">:host {
+  display: block;
+        padding: 8px 0;
+
+        background: var(--paper-listbox-background-color,var(--primary-background-color));;
+        color: var(--paper-listbox-color,var(--primary-text-color));;
+
+        ;
+}
+
+</style>
+
+    <content></content>
+  </template>
+
+  </dom-module>
+<dom-module id="cr-shared-menu" assetpath="chrome://resources/cr_elements/cr_shared_menu/" css-build="shadow">
+  <template>
+    <style scope="cr-shared-menu">paper-listbox {
+  box-shadow: var(--shadow-elevation-2dp_-_box-shadow);
+        overflow: hidden;
+        position: relative;
+        width: var(--cr-shared-menu-width);
+}
+
+</style>
+    <iron-dropdown id="dropdown" allow-outside-scroll="" restore-focus-on-close="" vertical-align="auto" horizontal-align="right" opened="{{menuOpen}}" open-animation-config="[[openAnimationConfig]]" close-animation-config="[[closeAnimationConfig]]">
+      <paper-listbox id="menu" class="dropdown-content">
+        <content></content>
+      </paper-listbox>
+    </iron-dropdown>
+  </template>
+  </dom-module>
+
+<dom-module id="paper-icon-button-light" assetpath="chrome://resources/polymer/v1_0/paper-icon-button/" css-build="shadow">
+  <template strip-whitespace="">
+    <style scope="paper-icon-button-light">:host {
+  vertical-align: middle;
+        color: inherit;
+        outline: none;
+        width: 24px;
+        height: 24px;
+        background: none;
+        margin: 0;
+        border: none;
+        padding: 0;
+
+        position: relative;
+        cursor: pointer;
+
+        
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        -webkit-tap-highlight-color: transparent;
+}
+
+:host([disabled]) {
+  color: #9b9b9b;
+        pointer-events: none;
+        cursor: auto;
+}
+
+paper-ripple {
+  opacity: 0.6;
+        color: currentColor;
+        ;
+}
+
+</style>
+    <content></content>
+  </template>
+  </dom-module>
+<dom-module id="history-synced-device-card" assetpath="chrome://history/" css-build="shadow">
+  <template>
+    <style scope="history-synced-device-card">[hidden] {
+  display: none !important;
+}
+
+.card-title {
+  align-items: center;
+        border-bottom: 1px solid var(--card-border-color);
+        border-radius: 2px 2px 0 0;
+        color: var(--primary-text-color);
+        display: flex;
+        font-size: 14px;
+        font-weight: 500;
+        height: 48px;
+        line-height: 48px;
+        overflow: hidden;
+        padding: 0 20px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+}
+
+.centered-message {
+  align-items: center;
+        color: #b4b4b4;
+        display: flex;
+        flex: 1;
+        font-size: 14px;
+        font-weight: 500;
+        height: 100%;
+        justify-content: center;
+}
+
+.menu-item {
+  -webkit-user-select: none;
+        cursor: pointer;
+        font: inherit;
+        white-space: nowrap;
+}
+
+.website-icon {
+  -webkit-margin-end: 16px;
+        background-repeat: no-repeat;
+        background-size: 16px;
+        height: 16px;
+        width: 16px;
+}
+
+.website-title {
+  color: var(--primary-text-color);
+        overflow: hidden;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+}
+
+button.icon-button {
+  background: none;
+        border: none;
+        height: 36px;
+        outline: none;
+        width: 36px;
+}
+
+button.icon-button iron-icon {
+  color: var(--secondary-text-color);
+        height: 20px;
+        width: 20px;
+}
+
+button.more-vert-button {
+  height: 36px;
+        padding: 6px;
+        width: 36px;
+}
+
+button.more-vert-button div {
+  border: 2px solid var(--secondary-text-color);
+        border-radius: 2px;
+        margin: 1px 10px;
+        pointer-events: none;
+        transform: scale(0.8);
+}
+
+:host {
+  margin: var(--card-sizing_-_margin); max-width: var(--card-sizing_-_max-width); min-width: var(--card-sizing_-_min-width); padding: var(--card-sizing_-_padding); width: var(--card-sizing_-_width);
+        -webkit-tap-highlight-color: transparent;
+        display: block;
+        padding-bottom: var(--card-padding-between);
+}
+
+#card-heading {
+  -webkit-padding-end: 0;
+        cursor: pointer;
+        justify-content: space-between;
+}
+
+#tab-item-list {
+  padding: 8px 0;
+}
+
+#last-update-time {
+  color: var(--secondary-text-color);
+}
+
+#title-left-content {
+  display: flex;
+        overflow: hidden;
+}
+
+#device-name {
+  overflow: hidden;
+        padding-right: 3px;
+        text-overflow: ellipsis;
+}
+
+#right-buttons {
+  -webkit-margin-end: 4px;
+}
+
+#menu-button {
+  -webkit-margin-end: 8px;
+}
+
+#collapse {
+  overflow: hidden;
+}
+
+#history-item-container {
+  box-shadow: var(--shadow-elevation-2dp_-_box-shadow);
+        background: #fff;
+        border-radius: 2px;
+}
+
+.item-container {
+  align-items: center;
+        display: flex;
+        margin: 0 20px;
+        min-height: var(--item-height);
+}
+
+.window-separator {
+  background-color: var(--card-border-color);
+        height: 1px;
+        margin: 5px auto;
+        width: 80%;
+}
+
+</style>
+    <div id="history-item-container">
+      <div class="card-title" id="card-heading" aria-expanded$="[[opened]]" aria-controls="collapse" on-click="toggleTabCard">
+        <div id="title-left-content">
+          <div id="device-name">
+            [[device]]
+          </div>
+          <span id="last-update-time">[[lastUpdateTime]]</span>
+        </div>
+        <div id="right-buttons">
+          <button is="paper-icon-button-light" id="menu-button" class="more-vert-button" on-click="onMenuButtonTap_" title="$i18n{moreActionsButton}">
+            <div></div>
+            <div></div>
+            <div></div>
+          </button>
+          <button is="paper-icon-button-light" class="icon-button" id="collapse-button" title$="[[getCollapseTitle_(opened)]]">
+            <iron-icon icon="[[getCollapseIcon_(opened)]]" id="dropdown-indicator">
+            </iron-icon>
+          </button>
+        </div>
+      </div>
+
+      <iron-collapse opened="{{opened}}" id="collapse">
+        <div id="tab-item-list">
+          <template is="dom-repeat" items="[[tabs]]" as="tab" id="tab-list">
+            <div class="item-container">
+              <div class="website-icon"></div>
+              <a href="[[tab.url]]" class="website-title" title="[[tab.title]]" on-click="openTab_" on-contextmenu="onLinkRightClick_">
+                <history-searched-label title="[[tab.title]]" search-term="[[searchTerm]]"></history-searched-label>
+              </a>
+            </div>
+            <div class="window-separator" hidden$="[[!isWindowSeparatorIndex_(index, separatorIndexes)]]">
+            </div>
+          </template>
+        </div>
+      </iron-collapse>
+    </div>
+  </template>
+  </dom-module>
+<dom-module id="history-synced-device-manager" assetpath="chrome://history/" css-build="shadow">
+  <template>
+    <style scope="history-synced-device-manager">[hidden] {
+  display: none !important;
+}
+
+.card-title {
+  align-items: center;
+        border-bottom: 1px solid var(--card-border-color);
+        border-radius: 2px 2px 0 0;
+        color: var(--primary-text-color);
+        display: flex;
+        font-size: 14px;
+        font-weight: 500;
+        height: 48px;
+        line-height: 48px;
+        overflow: hidden;
+        padding: 0 20px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+}
+
+.centered-message {
+  align-items: center;
+        color: #b4b4b4;
+        display: flex;
+        flex: 1;
+        font-size: 14px;
+        font-weight: 500;
+        height: 100%;
+        justify-content: center;
+}
+
+.menu-item {
+  -webkit-user-select: none;
+        cursor: pointer;
+        font: inherit;
+        white-space: nowrap;
+}
+
+.website-icon {
+  -webkit-margin-end: 16px;
+        background-repeat: no-repeat;
+        background-size: 16px;
+        height: 16px;
+        width: 16px;
+}
+
+.website-title {
+  color: var(--primary-text-color);
+        overflow: hidden;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+}
+
+button.icon-button {
+  background: none;
+        border: none;
+        height: 36px;
+        outline: none;
+        width: 36px;
+}
+
+button.icon-button iron-icon {
+  color: var(--secondary-text-color);
+        height: 20px;
+        width: 20px;
+}
+
+button.more-vert-button {
+  height: 36px;
+        padding: 6px;
+        width: 36px;
+}
+
+button.more-vert-button div {
+  border: 2px solid var(--secondary-text-color);
+        border-radius: 2px;
+        margin: 1px 10px;
+        pointer-events: none;
+        transform: scale(0.8);
+}
+
+paper-spinner {
+  --paper-spinner-layer-1-color: var(--google-blue-500);
+        --paper-spinner-layer-2-color: var(--google-blue-500);
+        --paper-spinner-layer-3-color: var(--google-blue-500);
+        --paper-spinner-layer-4-color: var(--google-blue-500);
+}
+
+.action-button {
+  background: var(--google-blue-500);
+        color: white;
+        --paper-button-flat-keyboard-focus_-_background:  rgb(58, 117, 215);;
+}
+
+.action-button[disabled] {
+  opacity: .25;
+}
+
+.cancel-button {
+  --paper-button-flat-keyboard-focus_-_background:  rgba(0, 0, 0, .12);;
+}
+
+.action-button, .cancel-button {
+  font-weight: 500;
+}
+
+[actionable] {
+  cursor: var(--cr-actionable_-_cursor);
+}
+
+[scrollable] {
+  border-color: transparent;
+        border-style: solid;
+        border-width: 1px 0;
+        overflow-y: auto;
+}
+
+[scrollable].is-scrolled {
+  border-top-color: var(--google-grey-300);
+}
+
+[scrollable].can-scroll:not(.scrolled-to-bottom) {
+  border-bottom-color: var(--google-grey-300);
+}
+
+[scrollable] :focus {
+  ;
+        background-color: var(--cr-selectable-focus_-_background-color); outline: var(--cr-selectable-focus_-_outline);
+}
+
+[scrollable] iron-list > * {
+  cursor: var(--cr-actionable_-_cursor);
+}
+
+.scroll-container {
+  display: flex;
+        flex-direction: column;
+        min-height: 1px;
+}
+
+[selectable]:focus, [selectable] > :focus {
+  background-color: var(--cr-selectable-focus_-_background-color); outline: var(--cr-selectable-focus_-_outline);
+}
+
+[selectable] > * {
+  cursor: var(--cr-actionable_-_cursor);
+}
+
+:host {
+  display: block;
+        overflow: auto;
+}
+
+#illustration {
+  background: -webkit-image-set(
+            url("chrome://history/images/100/sign_in_promo.png") 1x,
+            url("chrome://history/images/200/sign_in_promo.png") 2x)
+                no-repeat center center;
+        height: 222px;
+        margin-top: 100px;
+        width: 594px;
+}
+
+#no-synced-tabs {
+  height: 100%;
+}
+
+#sign-in-guide {
+  align-items: center;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow-x: hidden;
+        text-align: center;
+}
+
+#sign-in-promo {
+  color: var(--primary-text-color);
+        font-size: 215%;
+        margin-top: 40px;
+}
+
+#sign-in-promo-desc {
+  color: #848484;
+        font-size: 123%;
+        margin-top: 10px;
+}
+
+#sign-in-button {
+  margin: 24px 0;
+        padding-left: 12px;
+        padding-right: 12px;
+}
+
+#synced-device-list {
+  padding-top: var(--first-card-padding-top);
+}
+
+</style>
+    <div id="synced-device-list" hidden="[[!syncedDevices_.length]]">
+      <template is="dom-repeat" items="[[syncedDevices_]]" as="syncedDevice">
+        <history-synced-device-card device="[[syncedDevice.device]]" last-update-time="[[syncedDevice.lastUpdateTime]]" tabs="[[syncedDevice.tabs]]" separator-indexes="[[syncedDevice.separatorIndexes]]" search-term="[[searchTerm]]" session-tag="[[syncedDevice.tag]]" opened="{{syncedDevice.opened}}">
+        </history-synced-device-card>
+      </template>
+    </div>
+    <div id="no-synced-tabs" class="centered-message" hidden="[[!showNoSyncedMessage(signInState, syncedDevices_.length,
+                                       guestSession_)]]">
+      [[noSyncedTabsMessage(fetchingSyncedTabs_, searchTerm)]]
+    </div>
+    <div id="sign-in-guide" hidden="[[!showSignInGuide(signInState, guestSession_)]]">
+      <div id="illustration"></div>
+      <div id="sign-in-promo">$i18n{signInPromo}</div>
+      <div id="sign-in-promo-desc">$i18n{signInPromoDesc}</div>
+      <paper-button id="sign-in-button" class="action-button" on-tap="onSignInTap_">
+        $i18n{signInButton}
+      </paper-button>
+    </div>
+
+    <template is="cr-lazy-render" id="menu">
+      <cr-shared-menu>
+        <paper-item id="menuOpenButton" class="menu-item" on-tap="onOpenAllTap_">
+          $i18n{openAll}
+        </paper-item>
+        <paper-item id="menuDeleteButton" class="menu-item" on-tap="onDeleteSessionTap_">
+          $i18n{deleteSession}
+        </paper-item>
+      </cr-shared-menu>
+    </template>
+  </template>
+  </dom-module>
+<dom-module id="cr-dialog" assetpath="chrome://resources/cr_elements/cr_dialog/" css-build="shadow">
+  <template>
+    <style scope="cr-dialog">:host {
+  border: 0;
+        border-radius: 2px;
+        bottom: 0;
+        color: inherit;
+        padding: 0;
+        top: 0;
+}
+
+:host::backdrop {
+  background-color: rgba(0, 0, 0, 0.6);
+        bottom: 0;
+        left: 0;
+        position: fixed;
+        right: 0;
+        top: 0;
+}
+
+.title-container {
+  align-items: center;
+        
+        border-bottom: 1px solid rgba(0, 0, 0, 0.14);
+        display: flex;
+        min-height: 52px;
+}
+
+:host ::content .title {
+  font-size: 123.07%;
+}
+
+#close {
+  --paper-icon-button_-_height:  40px; --paper-icon-button_-_width:  40px;;
+        -webkit-margin-end: 6px;
+        
+        padding: 10px;
+}
+
+.body-container {
+  display: flex;
+        flex-direction: column;
+        max-width: 800px;
+        min-width: 512px;
+        
+        overflow: auto;
+}
+
+:host ::content .body {
+  padding-bottom: 12px;
+        padding-top: 12px;
+}
+
+:host ::content .body, :host ::content .title {
+  -webkit-padding-end: 24px;
+        -webkit-padding-start: 24px;
+        flex: 1;
+}
+
+:host ::content .button-container {
+  -webkit-padding-end: 16px;
+        -webkit-padding-start: 16px;
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 12px;
+        margin-top: 12px;
+}
+
+:host ::content .button-container .cancel-button {
+  -webkit-margin-end: 8px;
+        color: var(--paper-grey-600);
+}
+
+:host ::content .footer {
+  background-color: var(--paper-grey-200);
+        border-bottom-left-radius: inherit;
+        border-bottom-right-radius: inherit;
+        margin: 0;
+        padding: 12px 20px;
+}
+
+</style>
+    <div class="title-container">
+      <content select=".title"></content>
+      <paper-icon-button icon="cr:clear" on-tap="cancel" id="close" aria-label$="[[closeText]]">
+      </paper-icon-button>
+    </div>
+    <div class="body-container">
+      <content select=".body"></content>
+    </div>
+    <content select=".button-container"></content>
+    <content select=".footer"></content>
+  </template>
+  </dom-module>
+
+
+<dom-module id="app-drawer" assetpath="chrome://resources/polymer/v1_0/app-layout/app-drawer/" css-build="shadow">
+  <template>
+    <style scope="app-drawer">:host {
+  position: fixed;
+        top: -120px;
+        right: 0;
+        bottom: -120px;
+        left: 0;
+
+        visibility: hidden;
+
+        transition: visibility 0.2s ease;
+}
+
+:host([opened]) {
+  visibility: visible;
+}
+
+:host([persistent]) {
+  width: var(--app-drawer-width, 256px);
+}
+
+:host([persistent][position=left]) {
+  right: auto;
+}
+
+:host([persistent][position=right]) {
+  left: auto;
+}
+
+#contentContainer {
+  position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+
+        width: var(--app-drawer-width, 256px);
+        padding: 120px 0;
+
+        transition: 0.2s ease;
+        transition-property: -webkit-transform;
+        transition-property: transform;
+        -webkit-transform: translate3d(-100%, 0, 0);
+        transform: translate3d(-100%, 0, 0);
+
+        background-color: #FFF;
+
+        ;
+}
+
+:host([position=right]) > #contentContainer {
+  right: 0;
+        left: auto;
+
+        -webkit-transform: translate3d(100%, 0, 0);
+        transform: translate3d(100%, 0, 0);
+}
+
+:host([swipe-open]) > #contentContainer::after {
+  position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 100%;
+
+        visibility: visible;
+
+        width: 20px;
+
+        content: '';
+}
+
+:host([swipe-open][position=right]) > #contentContainer::after {
+  right: 100%;
+        left: auto;
+}
+
+:host([opened]) > #contentContainer {
+  -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+}
+
+#scrim {
+  position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+
+        transition: opacity 0.2s ease;
+        -webkit-transform: translateZ(0);
+        transform:  translateZ(0);
+
+        opacity: 0;
+        background: var(--app-drawer-scrim-background, rgba(0, 0, 0, 0.5));
+}
+
+:host([opened]) > #scrim {
+  opacity: 1;
+}
+
+:host([opened][persistent]) > #scrim {
+  visibility: hidden;
+        
+
+        opacity: 0;
+}
+
+</style>
+
+    <div id="scrim" on-tap="close"></div>
+
+    <div id="contentContainer">
+      <content></content>
+    </div>
+  </template>
+
+  </dom-module>
+<dom-module id="paper-tab" assetpath="chrome://resources/polymer/v1_0/paper-tabs/" css-build="shadow">
+  <template>
+    <style scope="paper-tab">:host {
+  display: var(--layout-inline_-_display);
+        -ms-flex-align: var(--layout-center_-_-ms-flex-align); -webkit-align-items: var(--layout-center_-_-webkit-align-items); align-items: var(--layout-center_-_align-items);
+        -ms-flex-pack: var(--layout-center-justified_-_-ms-flex-pack); -webkit-justify-content: var(--layout-center-justified_-_-webkit-justify-content); justify-content: var(--layout-center-justified_-_justify-content);
+        -ms-flex: var(--layout-flex-auto_-_-ms-flex); -webkit-flex: var(--layout-flex-auto_-_-webkit-flex); flex: var(--layout-flex-auto_-_flex);
+
+        position: relative;
+        padding: 0 12px;
+        overflow: hidden;
+        cursor: pointer;
+        vertical-align: middle;
+
+        font-family: var(--paper-font-common-base_-_font-family); -webkit-font-smoothing: var(--paper-font-common-base_-_-webkit-font-smoothing);
+        ;
+}
+
+:host(:focus) {
+  outline: none;
+}
+
+:host([link]) {
+  padding: 0;
+}
+
+.tab-content {
+  height: 100%;
+        transform: translateZ(0);
+          -webkit-transform: translateZ(0);
+        transition: opacity 0.1s cubic-bezier(0.4, 0.0, 1, 1);
+        display: var(--layout-horizontal_-_display); -ms-flex-direction: var(--layout-horizontal_-_-ms-flex-direction); -webkit-flex-direction: var(--layout-horizontal_-_-webkit-flex-direction); flex-direction: var(--layout-horizontal_-_flex-direction);
+        -ms-flex-align: var(--layout-center-center_-_-ms-flex-align); -webkit-align-items: var(--layout-center-center_-_-webkit-align-items); align-items: var(--layout-center-center_-_align-items); -ms-flex-pack: var(--layout-center-center_-_-ms-flex-pack); -webkit-justify-content: var(--layout-center-center_-_-webkit-justify-content); justify-content: var(--layout-center-center_-_justify-content);
+        -ms-flex: var(--layout-flex-auto_-_-ms-flex); -webkit-flex: var(--layout-flex-auto_-_-webkit-flex); flex: var(--layout-flex-auto_-_flex);
+        ;
+}
+
+:host(:not(.iron-selected)) > .tab-content {
+  opacity: 0.8;
+
+        ;
+}
+
+:host(:focus) .tab-content {
+  opacity: 1;
+        font-weight: 700;
+}
+
+paper-ripple {
+  color: var(--paper-tab-ink,var(--paper-yellow-a100));;
+}
+
+.tab-content > ::content > a {
+  -ms-flex: var(--layout-flex-auto_-_-ms-flex); -webkit-flex: var(--layout-flex-auto_-_-webkit-flex); flex: var(--layout-flex-auto_-_flex);
+
+        height: 100%;
+}
+
+</style>
+
+    <div class="tab-content">
+      <content></content>
+    </div>
+  </template>
+
+  </dom-module>
+<iron-iconset-svg name="paper-tabs" size="24">
+<svg><defs>
+<g id="chevron-left"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"></path></g>
+<g id="chevron-right"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"></path></g>
+</defs></svg>
+</iron-iconset-svg>
+
+
+<dom-module id="paper-tabs" assetpath="chrome://resources/polymer/v1_0/paper-tabs/" css-build="shadow">
+  <template>
+    <style scope="paper-tabs">:host {
+  display: var(--layout_-_display);
+        -ms-flex-align: var(--layout-center_-_-ms-flex-align); -webkit-align-items: var(--layout-center_-_-webkit-align-items); align-items: var(--layout-center_-_align-items);
+
+        height: 48px;
+        font-size: 14px;
+        font-weight: 500;
+        overflow: hidden;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        -webkit-user-select: none;
+        user-select: none;
+
+        
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        -webkit-tap-highlight-color: transparent;
+
+        ;
+}
+
+:host-context([dir=rtl]) {
+  display: var(--layout-horizontal-reverse_-_display); -ms-flex-direction: var(--layout-horizontal-reverse_-_-ms-flex-direction); -webkit-flex-direction: var(--layout-horizontal-reverse_-_-webkit-flex-direction); flex-direction: var(--layout-horizontal-reverse_-_flex-direction);
+}
+
+#tabsContainer {
+  position: relative;
+        height: 100%;
+        white-space: nowrap;
+        overflow: hidden;
+        -ms-flex: var(--layout-flex-auto_-_-ms-flex); -webkit-flex: var(--layout-flex-auto_-_-webkit-flex); flex: var(--layout-flex-auto_-_flex);
+}
+
+#tabsContent {
+  height: 100%;
+        -moz-flex-basis: auto;
+        -ms-flex-basis: auto;
+        flex-basis: auto;
+}
+
+#tabsContent.scrollable {
+  position: absolute;
+        white-space: nowrap;
+}
+
+#tabsContent:not(.scrollable), #tabsContent.scrollable.fit-container {
+  display: var(--layout-horizontal_-_display); -ms-flex-direction: var(--layout-horizontal_-_-ms-flex-direction); -webkit-flex-direction: var(--layout-horizontal_-_-webkit-flex-direction); flex-direction: var(--layout-horizontal_-_flex-direction);
+}
+
+#tabsContent.scrollable.fit-container {
+  min-width: 100%;
+}
+
+#tabsContent.scrollable.fit-container > ::content > * {
+  -ms-flex: 1 0 auto;
+        -webkit-flex: 1 0 auto;
+        flex: 1 0 auto;
+}
+
+.hidden {
+  display: none;
+}
+
+.not-visible {
+  opacity: 0;
+        cursor: default;
+}
+
+paper-icon-button {
+  width: 48px;
+        height: 48px;
+        padding: 12px;
+        margin: 0 4px;
+}
+
+#selectionBar {
+  position: absolute;
+        height: 2px;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: var(--paper-tabs-selection-bar-color,var(--paper-yellow-a100));;
+          -webkit-transform: scale(0);
+        transform: scale(0);
+          -webkit-transform-origin: left center;
+        transform-origin: left center;
+          transition: -webkit-transform;
+        transition: transform;
+
+        ;
+}
+
+#selectionBar.align-bottom {
+  top: 0;
+        bottom: auto;
+}
+
+#selectionBar.expand {
+  transition-duration: 0.15s;
+        transition-timing-function: cubic-bezier(0.4, 0.0, 1, 1);
+}
+
+#selectionBar.contract {
+  transition-duration: 0.18s;
+        transition-timing-function: cubic-bezier(0.0, 0.0, 0.2, 1);
+}
+
+#tabsContent > ::content > *:not(#selectionBar) {
+  height: 100%;
+}
+
+</style>
+
+    <paper-icon-button icon="paper-tabs:chevron-left" class$="[[_computeScrollButtonClass(_leftHidden, scrollable, hideScrollButtons)]]" on-up="_onScrollButtonUp" on-down="_onLeftScrollButtonDown" tabindex="-1"></paper-icon-button>
+
+    <div id="tabsContainer" on-track="_scroll" on-down="_down">
+      <div id="tabsContent" class$="[[_computeTabsContentClass(scrollable, fitContainer)]]">
+        <div id="selectionBar" class$="[[_computeSelectionBarClass(noBar, alignBottom)]]" on-transitionend="_onBarTransitionEnd"></div>
+        <content select="*"></content>
+      </div>
+    </div>
+
+    <paper-icon-button icon="paper-tabs:chevron-right" class$="[[_computeScrollButtonClass(_rightHidden, scrollable, hideScrollButtons)]]" on-up="_onScrollButtonUp" on-down="_onRightScrollButtonDown" tabindex="-1"></paper-icon-button>
+
+  </template>
+
+  </dom-module>
+</div><script src="lazy_load.crisper.js"></script></body></html>

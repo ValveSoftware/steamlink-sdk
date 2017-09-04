@@ -1,0 +1,49 @@
+class {{export_attribute}} {{interface.name}}StubDispatch {
+ public:
+  static bool Accept({{interface.name}}* impl,
+                     mojo::internal::SerializationContext* context,
+                     mojo::Message* message);
+  static bool AcceptWithResponder({{interface.name}}* impl,
+                                  mojo::internal::SerializationContext* context,
+                                  mojo::Message* message,
+                                  mojo::MessageReceiverWithStatus* responder);
+};
+
+template <typename ImplRefTraits =
+              mojo::RawPtrImplRefTraits<{{interface.name}}>>
+class {{interface.name}}Stub
+    : public NON_EXPORTED_BASE(mojo::MessageReceiverWithResponderStatus) {
+ public:
+  using ImplPointerType = typename ImplRefTraits::PointerType;
+
+  {{interface.name}}Stub() {}
+  ~{{interface.name}}Stub() override {}
+
+  void set_sink(ImplPointerType sink) { sink_ = std::move(sink); }
+  ImplPointerType& sink() { return sink_; }
+
+  mojo::internal::SerializationContext* serialization_context() {
+    return &serialization_context_;
+  }
+
+  bool Accept(mojo::Message* message) override {
+    if (ImplRefTraits::IsNull(sink_))
+      return false;
+    return {{interface.name}}StubDispatch::Accept(
+        ImplRefTraits::GetRawPointer(&sink_), &serialization_context_, message);
+  }
+
+  bool AcceptWithResponder(
+      mojo::Message* message,
+      mojo::MessageReceiverWithStatus* responder) override {
+    if (ImplRefTraits::IsNull(sink_))
+      return false;
+    return {{interface.name}}StubDispatch::AcceptWithResponder(
+        ImplRefTraits::GetRawPointer(&sink_), &serialization_context_, message,
+        responder);
+  }
+
+ private:
+  ImplPointerType sink_;
+  mojo::internal::SerializationContext serialization_context_;
+};

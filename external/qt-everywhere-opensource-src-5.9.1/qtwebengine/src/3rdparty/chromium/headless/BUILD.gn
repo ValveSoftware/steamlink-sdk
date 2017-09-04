@@ -1,0 +1,379 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chrome_build.gni")
+import("//mojo/public/tools/bindings/mojom.gni")
+import("//testing/test.gni")
+import("//tools/grit/grit_rule.gni")
+import("//tools/grit/repack.gni")
+
+config("headless_implementation") {
+  defines = [ "HEADLESS_IMPLEMENTATION" ]
+}
+
+group("headless") {
+  deps = [
+    "//headless:headless_lib",
+  ]
+}
+
+repack("pak") {
+  sources = [
+    "$root_gen_dir/blink/devtools_resources.pak",
+    "$root_gen_dir/blink/public/resources/blink_image_resources_100_percent.pak",
+    "$root_gen_dir/blink/public/resources/blink_resources.pak",
+    "$root_gen_dir/components/strings/components_strings_en-US.pak",
+    "$root_gen_dir/content/app/resources/content_resources_100_percent.pak",
+    "$root_gen_dir/content/app/strings/content_strings_en-US.pak",
+    "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
+    "$root_gen_dir/content/content_resources.pak",
+    "$root_gen_dir/headless/headless_lib_resources.pak",
+    "$root_gen_dir/net/net_resources.pak",
+    "$root_gen_dir/ui/resources/ui_resources_100_percent.pak",
+    "$root_gen_dir/ui/resources/webui_resources.pak",
+    "$root_gen_dir/ui/strings/app_locale_settings_en-US.pak",
+    "$root_gen_dir/ui/strings/ui_strings_en-US.pak",
+  ]
+
+  if (is_chrome_branded) {
+    sources += [ "${root_gen_dir}/components/strings/components_google_chrome_strings_en-US.pak" ]
+  } else {
+    sources += [ "${root_gen_dir}/components/strings/components_chromium_strings_en-US.pak" ]
+  }
+
+  deps = [
+    ":headless_lib_resources_grit",
+    "//components/strings",
+    "//content:resources",
+    "//content/app/resources",
+    "//content/app/strings",
+    "//content/browser/devtools:resources",
+    "//content/browser/tracing:resources",
+    "//net:net_resources",
+    "//third_party/WebKit/public:image_resources",
+    "//third_party/WebKit/public:resources",
+    "//ui/resources",
+    "//ui/strings",
+  ]
+
+  if (use_qt) {
+    sources -= [
+      "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
+    ]
+    deps -= [
+      "//content/browser/tracing:resources",
+    ]
+  }
+
+  output = "$root_out_dir/headless_lib.pak"
+}
+
+grit("headless_lib_resources_grit") {
+  source = "lib/resources/headless_lib_resources.grd"
+  outputs = [
+    "grit/headless_lib_resources.h",
+    "$root_gen_dir/headless/headless_lib_resources.pak",
+  ]
+}
+
+devtools_domains = [
+  "accessibility",
+  "animation",
+  "application_cache",
+  "cache_storage",
+  "console",
+  "css",
+  "database",
+  "debugger",
+  "device_orientation",
+  "dom",
+  "dom_debugger",
+  "dom_storage",
+  "emulation",
+  "heap_profiler",
+  "indexeddb",
+  "input",
+  "inspector",
+  "io",
+  "layer_tree",
+  "log",
+  "memory",
+  "network",
+  "page",
+  "profiler",
+  "rendering",
+  "runtime",
+  "security",
+  "service_worker",
+  "target",
+  "tracing",
+]
+
+generated_devtools_api = [
+  "$target_gen_dir/public/domains/types.h",
+  "$target_gen_dir/public/domains/type_conversions.h",
+]
+foreach(domain, devtools_domains) {
+  generated_devtools_api += [
+    "$target_gen_dir/public/domains/" + domain + ".h",
+    "$target_gen_dir/public/devtools/domains/" + domain + ".cc",
+    "$target_gen_dir/public/devtools/domains/" + domain + ".h",
+    "$target_gen_dir/public/devtools/domains/types_" + domain + ".h",
+    "$target_gen_dir/public/devtools/domains/types_" + domain + ".cc",
+    "$target_gen_dir/public/devtools/internal/type_conversions_" + domain +
+        ".h",
+    "$target_gen_dir/public/devtools/internal/" +
+        "types_forward_declarations_" + domain + ".h",
+  ]
+}
+
+action("gen_devtools_client_api") {
+  script = "//headless/lib/browser/devtools_api/client_api_generator.py"
+  deps = [
+    "//third_party/WebKit/Source/core/inspector:protocol_version",
+  ]
+  inputs = [
+    "$root_gen_dir/blink/core/inspector/protocol.json",
+  ]
+
+  outputs = generated_devtools_api
+
+  sources = [
+    "lib/browser/devtools_api/deprecated_type_conversions_h.template",
+    "lib/browser/devtools_api/deprecated_types_h.template",
+    "lib/browser/devtools_api/domain_cc.template",
+    "lib/browser/devtools_api/domain_h.template",
+    "lib/browser/devtools_api/domain_type_conversions_h.template",
+    "lib/browser/devtools_api/domain_types_cc.template",
+    "lib/browser/devtools_api/domain_types_forward_declaration_h.template",
+    "lib/browser/devtools_api/domain_types_h.template",
+  ]
+
+  args = [
+    "--protocol",
+    rebase_path(inputs[0], root_build_dir),
+    "--output_dir",
+    rebase_path(target_gen_dir) + "/public",
+  ]
+}
+
+static_library("headless_lib") {
+  sources = generated_devtools_api + [
+              "lib/browser/headless_browser_context_impl.cc",
+              "lib/browser/headless_browser_context_impl.h",
+              "lib/browser/headless_browser_context_options.cc",
+              "lib/browser/headless_browser_context_options.h",
+              "lib/browser/headless_browser_impl.cc",
+              "lib/browser/headless_browser_impl.h",
+              "lib/browser/headless_browser_main_parts.cc",
+              "lib/browser/headless_browser_main_parts.h",
+              "lib/browser/headless_content_browser_client.cc",
+              "lib/browser/headless_content_browser_client.h",
+              "lib/browser/headless_devtools.cc",
+              "lib/browser/headless_devtools.h",
+              "lib/browser/headless_devtools_client_impl.cc",
+              "lib/browser/headless_devtools_client_impl.h",
+              "lib/browser/headless_devtools_manager_delegate.cc",
+              "lib/browser/headless_devtools_manager_delegate.h",
+              "lib/browser/headless_screen.cc",
+              "lib/browser/headless_screen.h",
+              "lib/browser/headless_url_request_context_getter.cc",
+              "lib/browser/headless_url_request_context_getter.h",
+              "lib/browser/headless_web_contents_impl.cc",
+              "lib/browser/headless_web_contents_impl.h",
+              "lib/browser/headless_window_parenting_client.cc",
+              "lib/browser/headless_window_parenting_client.h",
+              "lib/headless_content_client.cc",
+              "lib/headless_content_client.h",
+              "lib/headless_content_main_delegate.cc",
+              "lib/headless_content_main_delegate.h",
+              "lib/renderer/headless_content_renderer_client.cc",
+              "lib/renderer/headless_content_renderer_client.h",
+              "lib/utility/headless_content_utility_client.cc",
+              "lib/utility/headless_content_utility_client.h",
+              "public/headless_browser.cc",
+              "public/headless_browser.h",
+              "public/headless_browser_context.h",
+              "public/headless_devtools_client.h",
+              "public/headless_devtools_host.h",
+              "public/headless_devtools_target.h",
+              "public/headless_export.h",
+              "public/headless_web_contents.h",
+              "public/internal/message_dispatcher.h",
+              "public/internal/value_conversions.h",
+              "public/util/black_hole_protocol_handler.cc",
+              "public/util/black_hole_protocol_handler.h",
+              "public/util/deterministic_dispatcher.cc",
+              "public/util/deterministic_dispatcher.h",
+              "public/util/deterministic_http_protocol_handler.cc",
+              "public/util/deterministic_http_protocol_handler.h",
+              "public/util/dom_tree_extractor.cc",
+              "public/util/dom_tree_extractor.h",
+              "public/util/error_reporter.cc",
+              "public/util/error_reporter.h",
+              "public/util/expedited_dispatcher.cc",
+              "public/util/expedited_dispatcher.h",
+              "public/util/generic_url_request_job.cc",
+              "public/util/generic_url_request_job.h",
+              "public/util/http_url_fetcher.cc",
+              "public/util/http_url_fetcher.h",
+              "public/util/in_memory_protocol_handler.cc",
+              "public/util/in_memory_protocol_handler.h",
+              "public/util/in_memory_request_job.cc",
+              "public/util/in_memory_request_job.h",
+              "public/util/managed_dispatch_url_request_job.cc",
+              "public/util/managed_dispatch_url_request_job.h",
+              "public/util/testing/generic_url_request_mocks.cc",
+              "public/util/testing/generic_url_request_mocks.h",
+              "public/util/url_fetcher.cc",
+              "public/util/url_fetcher.h",
+              "public/util/url_request_dispatcher.h",
+              "public/util/user_agent.cc",
+              "public/util/user_agent.h",
+            ]
+
+  deps = [
+    ":gen_devtools_client_api",
+    ":pak",
+    "//base",
+    "//components/security_state/content",
+    "//components/security_state/core",
+    "//content/public/app:both",
+    "//content/public/browser",
+    "//content/public/child",
+    "//content/public/common",
+    "//content/public/common:service_names",
+    "//content/public/renderer",
+    "//content/public/utility",
+    "//net",
+    "//services/service_manager/public/cpp",
+    "//third_party/mesa:osmesa",
+    "//ui/aura",
+    "//ui/base",
+    "//ui/compositor",
+    "//ui/display",
+    "//ui/ozone",
+    "//url",
+  ]
+
+  configs += [ ":headless_implementation" ]
+}
+
+group("headless_tests") {
+  testonly = true
+
+  deps = [
+    ":headless_browsertests",
+    ":headless_unittests",
+  ]
+}
+
+test("headless_unittests") {
+  sources = [
+    "public/domains/types_unittest.cc",
+    "public/util/deterministic_dispatcher_test.cc",
+    "public/util/error_reporter_unittest.cc",
+    "public/util/expedited_dispatcher_test.cc",
+    "public/util/generic_url_request_job_test.cc",
+    "public/util/testing/fake_managed_dispatch_url_request_job.cc",
+    "public/util/testing/fake_managed_dispatch_url_request_job.h",
+  ]
+
+  deps = [
+    ":headless_lib",
+    "//base/test:run_all_unittests",
+    "//base/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+mojom("embedder_mojo_for_testing") {
+  sources = [
+    "lib/embedder_test.mojom",
+  ]
+}
+
+grit("headless_browsertest_resources_grit") {
+  source = "lib/headless_browsertest_resources.grd"
+  outputs = [
+    "grit/headless_browsertest_resources.h",
+    "$root_gen_dir/headless/headless_browsertest_resources.pak",
+  ]
+  grit_flags = [
+    "-E",
+    "mojom_root=" + rebase_path(root_gen_dir),
+  ]
+  deps = [
+    ":embedder_mojo_for_testing__generator",
+  ]
+  resource_ids = "lib/headless_browsertest_resource_ids"
+}
+
+repack("headless_browser_tests_pak") {
+  sources = [
+    "$root_gen_dir/headless/headless_browsertest_resources.pak",
+  ]
+  output = "$root_out_dir/headless_browser_tests.pak"
+  deps = [
+    ":headless_browsertest_resources_grit",
+  ]
+}
+
+test("headless_browsertests") {
+  sources = [
+    "lib/embedder_mojo_browsertest.cc",
+    "lib/headless_browser_browsertest.cc",
+    "lib/headless_browser_context_browsertest.cc",
+    "lib/headless_devtools_client_browsertest.cc",
+    "lib/headless_web_contents_browsertest.cc",
+    "public/util/dom_tree_extractor_browsertest.cc",
+    "test/headless_browser_test.cc",
+    "test/headless_browser_test.h",
+    "test/headless_test_launcher.cc",
+    "test/test_protocol_handler.cc",
+    "test/test_protocol_handler.h",
+    "test/test_url_request_job.cc",
+    "test/test_url_request_job.h",
+  ]
+
+  data = [
+    "$root_out_dir/headless_browser_tests.pak",
+  ]
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  deps = [
+    ":embedder_mojo_for_testing",
+    ":headless_browser_tests_pak",
+    "//base",
+    "//content/test:test_support",
+    "//headless:headless_lib",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+static_library("headless_shell_lib") {
+  sources = [
+    "app/headless_shell.cc",
+    "app/headless_shell_switches.cc",
+    "app/headless_shell_switches.h",
+    "public/headless_shell.h",
+  ]
+
+  deps = [
+    "//headless:headless_lib",
+  ]
+}
+
+executable("headless_shell") {
+  sources = [
+    "app/headless_shell_main.cc",
+  ]
+
+  deps = [
+    "//headless:headless_shell_lib",
+  ]
+}

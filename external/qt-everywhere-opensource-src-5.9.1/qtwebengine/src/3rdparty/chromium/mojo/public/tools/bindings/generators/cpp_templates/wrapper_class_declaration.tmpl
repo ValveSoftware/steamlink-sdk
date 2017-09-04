@@ -1,0 +1,82 @@
+class {{export_attribute}} {{struct.name}} {
+ public:
+  using DataView = {{struct.name}}DataView;
+  using Data_ = internal::{{struct.name}}_Data;
+
+{#--- Enums #}
+{%- for enum in struct.enums -%}
+  using {{enum.name}} = {{enum|get_name_for_kind(flatten_nested_kind=True)}};
+{%- endfor %}
+
+{#--- Constants #}
+{%- for constant in struct.constants %}
+{%-   if constant.kind|is_integral_kind %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}} = {{constant|constant_value}};
+{%-   else %}
+  static const {{constant.kind|cpp_pod_type}} {{constant.name}};
+{%-   endif %}
+{%- endfor %}
+
+  static {{struct.name}}Ptr New();
+
+  template <typename U>
+  static {{struct.name}}Ptr From(const U& u) {
+    return mojo::TypeConverter<{{struct.name}}Ptr, U>::Convert(u);
+  }
+
+  template <typename U>
+  U To() const {
+    return mojo::TypeConverter<U, {{struct.name}}>::Convert(*this);
+  }
+
+  {{struct.name}}();
+  ~{{struct.name}}();
+
+  // Clone() is a template so it is only instantiated if it is used. Thus, the
+  // bindings generator does not need to know whether Clone() or copy
+  // constructor/assignment are available for members.
+  template <typename StructPtrType = {{struct.name}}Ptr>
+  {{struct.name}}Ptr Clone() const;
+
+  // Equals() is a template so it is only instantiated if it is used. Thus, the
+  // bindings generator does not need to know whether Equals() or == operator
+  // are available for members.
+  template <typename T,
+            typename std::enable_if<std::is_same<
+                T, {{struct.name}}>::value>::type* = nullptr>
+  bool Equals(const T& other) const;
+
+{%- if struct|is_hashable %}
+  size_t Hash(size_t seed) const;
+{%- endif %}
+
+{%- set serialization_result_type = "mojo::WTFArray<uint8_t>"
+        if for_blink else "mojo::Array<uint8_t>" %}
+
+  template <typename UserType>
+  static {{serialization_result_type}} Serialize(UserType* input) {
+    return mojo::internal::StructSerializeImpl<
+        {{struct.name}}::DataView, {{serialization_result_type}}>(input);
+  }
+
+  template <typename UserType>
+  static bool Deserialize(const {{serialization_result_type}}& input,
+                          UserType* output) {
+    return mojo::internal::StructDeserializeImpl<
+        {{struct.name}}::DataView, {{serialization_result_type}}>(
+            input, output);
+  }
+
+{#--- Struct members #}
+{%  for field in struct.fields %}
+{%-   set type = field.kind|cpp_wrapper_type %}
+{%-   set name = field.name %}
+  {{type}} {{name}};
+{%- endfor %}
+
+{%- if struct|contains_move_only_members %}
+ private:
+  DISALLOW_COPY_AND_ASSIGN({{struct.name}});
+{%- endif %}
+};
+

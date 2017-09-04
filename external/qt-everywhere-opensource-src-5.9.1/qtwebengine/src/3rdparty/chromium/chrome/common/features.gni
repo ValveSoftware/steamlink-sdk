@@ -1,0 +1,100 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/chrome_build.gni")
+import("//build/config/chromecast_build.gni")
+import("//build/config/compiler/compiler.gni")
+import("//build/config/features.gni")
+import("//extensions/features/features.gni")
+import("//net/features.gni")
+import("//printing/features/features.gni")
+
+# Please keep features in alphabetical order.
+declare_args() {
+  # Whether the Java UI is being used (Java infobars and popups, Java native
+  # settings and first run experience, sign-in etc.).
+  # Default to true if compiling for android, but allow this being overriden
+  # through the environment.
+  android_java_ui = is_android
+
+  enable_app_list = is_chromeos
+
+  # Enables support for background apps.
+  enable_background = !is_ios && !is_android && !is_chromecast
+
+  # Enable the printing system dialog for platforms that support printing
+  # and have a system dialog.
+  enable_basic_print_dialog = enable_basic_printing && !is_chromeos
+
+  enable_captive_portal_detection = !is_android && !is_ios && !is_chromecast
+
+  # Google Now is disabled to prepare for its removal.
+  # http://crbug.com/539674
+  enable_google_now = false
+
+  # Hangout services is an extension that adds extra features to Hangouts.
+  # It is enableable separately to facilitate testing.
+  enable_hangout_services_extension = is_chrome_branded
+
+  # 'Ok Google' hotwording is disabled by default. Set to true to enable. (This
+  # will download a closed-source NaCl module at startup.) Chrome-branded
+  # ChromeOS builds have this enabled by default.
+  enable_hotwording = is_chrome_branded && is_chromeos
+
+  enable_one_click_signin =
+      is_win || is_mac || (is_linux && !is_chromeos && !is_chromecast)
+
+  # Set to true to bundle all the mash related mojo services into chrome.
+  # Specify --mash to chrome to have chrome start the mash environment.
+  enable_package_mash_services = is_chromeos
+
+  enable_plugin_installation = is_win || is_mac
+
+  enable_service_discovery = enable_mdns || is_mac
+
+  # Enables use of the session service, which is enabled by default.
+  # Android stores them separately on the Java side.
+  enable_session_service = !is_android && !is_ios && !is_chromecast
+
+  enable_supervised_users = !is_ios && !is_chromecast
+
+  # Enables vr shell.
+  enable_vr_shell = false
+
+  # Enables vr shell UI development on local or remote page.
+  enable_vr_shell_ui_dev = false
+
+  # Enable native notifications via XPC services (mac only).
+  enable_xpc_notifications = false
+
+  # Indicates if the build is using PGO.
+  pgo_build = chrome_pgo_phase > 0
+
+  # Use vulcanized HTML/CSS/JS resources to speed up WebUI (chrome://)
+  # pages. https://github.com/polymer/vulcanize
+  use_vulcanize = true
+}
+
+# Use brlapi from brltty for braille display support.
+use_brlapi = is_chromeos
+
+_enable_printing = enable_basic_printing || enable_print_preview
+
+# Every grit target in //chrome should apply these defines so that the
+# proper build flags can be set.
+chrome_grit_defines = [
+  "enable_app_list=$enable_app_list",
+  "enable_background=$enable_background",
+  "enable_extensions=$enable_extensions",
+  "enable_google_now=$enable_google_now",
+  "enable_hangout_services_extension=$enable_hangout_services_extension",
+  "enable_hotwording=$enable_hotwording",
+  "enable_print_preview=$enable_print_preview",
+  "enable_printing=$_enable_printing",
+  "enable_service_discovery=$enable_service_discovery",
+  "enable_vr_shell=$enable_vr_shell",
+  "enable_webvr=$enable_webvr",
+  "safe_browsing_mode=$safe_browsing_mode",
+  "use_vulcanize=$use_vulcanize",
+]

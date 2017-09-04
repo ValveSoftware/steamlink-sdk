@@ -1,0 +1,225 @@
+{
+    "module": "webengine",
+    "depends": [
+        "printsupport"
+    ],
+
+    "commandline": {
+        "options": {
+            "alsa": "boolean",
+            "embedded": "boolean",
+            "webengine-icu": { "type": "enum", "name": "system-icu", "values": { "system": "yes", "qt": "no" } },
+            "ffmpeg": { "type": "enum", "name": "system-ffmpeg", "values": { "system": "yes", "qt": "no" } },
+            "opus": { "type": "enum", "name": "system-opus", "values": { "system": "yes", "qt": "no" } },
+            "webp": { "type": "enum", "name": "system-webp", "values": { "system": "yes", "qt": "no" } },
+            "pepper-plugins": "boolean",
+            "printing-and-pdf": "boolean",
+            "proprietary-codecs": "boolean",
+            "pulseaudio": "boolean",
+            "spellchecker": "boolean",
+            "webrtc": "boolean"
+        }
+    },
+
+    "libraries": {
+        "alsa": {
+            "label": "ALSA",
+            "test": "alsa",
+            "sources": [
+                "-lasound"
+            ]
+        },
+        "pulseaudio": {
+            "label": "PulseAudio >= 0.9.10",
+            "sources": [
+                { "type": "pkgConfig", "args": "libpulse >= 0.9.10 libpulse-mainloop-glib" }
+            ]
+        },
+        "icu": {
+            "label": "icu >= 53",
+            "sources": [
+                { "type": "pkgConfig", "args": "icu-uc >= 53 icu-i18n >= 53" }
+            ]
+        },
+        "ffmpeg": {
+            "label": "libavcodec libavformat libavutil",
+            "sources": [
+                { "type": "pkgConfig", "args": "libavcodec libavformat libavutil" }
+            ]
+        },
+        "opus": {
+            "label": "opus",
+            "sources": [
+                { "type": "pkgConfig", "args": "opus" }
+            ]
+        },
+        "webp": {
+            "label": "libwebp and libwebpdemux",
+            "sources": [
+                { "type": "pkgConfig", "args": "libwebp libwebpdemux" }
+            ]
+        }
+    },
+
+    "tests" : {
+        "python2": {
+            "label": "Python 2",
+            "type": "detectPython2",
+            "log": "location"
+        },
+        "ninja": {
+            "label": "system ninja",
+            "type": "detectNinja"
+        },
+        "gn": {
+            "label": "system gn",
+            "type": "detectGn"
+        },
+        "embedded": {
+            "label": "embedded",
+            "type": "embedded"
+        }
+    },
+
+    "features": {
+        "python2": {
+            "label": "Python 2",
+            "condition": "tests.python2",
+            "output": [
+                { "type": "varAssign", "name": "QMAKE_PYTHON2", "value": "tests.python2.location" }
+            ]
+        },
+        "embedded": {
+            "label": "Embedded build",
+            "purpose": "Enables the embedded build configuration.",
+            "section": "WebEngine",
+            "condition": "config.unix",
+            "autoDetect": "tests.embedded",
+            "output": [ "privateFeature" ]
+        },
+        "alsa": {
+            "label": "ALSA",
+            "condition": "config.unix && libs.alsa",
+            "output": [ "privateFeature" ]
+        },
+        "pulseaudio": {
+            "label": "PulseAudio",
+            "autoDetect": "config.unix",
+            "condition": "libs.pulseaudio",
+            "output": [ "privateFeature" ]
+        },
+        "pepper-plugins": {
+            "label": "Pepper Plugins",
+            "purpose": "Enables use of Pepper Flash and Widevine plugins.",
+            "section": "WebEngine",
+            "autoDetect": "!features.embedded",
+            "output": [ "privateFeature" ]
+        },
+        "printing-and-pdf": {
+            "label": "Printing and PDF",
+            "purpose": "Provides printing and output to PDF.",
+            "section": "WebEngine",
+            "condition": "module.printsupport && features.printer",
+            "autoDetect": "!features.embedded",
+            "output": [ "privateFeature" ]
+        },
+        "proprietary-codecs": {
+            "label": "Proprietary Codecs",
+            "purpose": "Enables the use of proprietary codecs such as h.264/h.265 and MP3.",
+            "section": "WebEngine",
+            "autoDetect": false,
+            "output": [ "privateFeature" ]
+        },
+        "spellchecker": {
+            "label": "Spellchecker",
+            "purpose": "Provides a spellchecker.",
+            "section": "WebEngine",
+            "output": [ "privateFeature" ]
+        },
+        "webrtc": {
+            "label": "WebRTC",
+            "purpose": "Provides WebRTC support.",
+            "section": "WebEngine",
+            "autoDetect": "!features.embedded",
+            "output": [ "privateFeature" ]
+        },
+        "system-webp": {
+            "label": "libwebp and libwebpdemux",
+            "autoDetect": "config.unix",
+            "condition": "libs.webp",
+            "output": [ "privateFeature" ]
+        },
+        "system-opus": {
+            "label": "Opus",
+            "autoDetect": "config.unix",
+            "condition": "libs.opus",
+            "output": [ "privateFeature" ]
+        },
+        "system-ffmpeg": {
+            "label": "ffmpeg",
+            "autoDetect": false,
+            "condition": "libs.ffmpeg && features.system-opus && features.system-webp",
+            "output": [ "privateFeature" ]
+        },
+        "system-icu": {
+            "label": "ICU",
+            "autoDetect": false,
+            "condition": "libs.icu",
+            "output": [ "privateFeature" ]
+        },
+        "system-ninja": {
+            "label": "Using system ninja",
+            "condition": "tests.ninja",
+            "output": [ "privateFeature" ]
+        },
+        "system-gn": {
+            "label": "Using system gn",
+            "autoDetect": false,
+            "condition": "tests.gn",
+            "output": [ "privateFeature" ]
+        }
+    },
+
+    "report": [
+        {
+            "type": "warning",
+            "condition": "!features.python2",
+            "message": "Python version 2 (2.7.5 or later) is required to build QtWebEngine."
+        }
+    ],
+
+    "summary": [
+        {
+            "section": "Qt WebEngine",
+            "entries": [
+                "embedded",
+                "pepper-plugins",
+                "printing-and-pdf",
+                "proprietary-codecs",
+                "spellchecker",
+                "webrtc",
+                "system-ninja",
+                {
+                    "type": "feature",
+                    "args": "alsa",
+                    "condition": "config.unix"
+                },
+                {
+                    "type": "feature",
+                    "args": "pulseaudio",
+                    "condition": "config.unix"
+                },
+                {
+                   "section": "System libraries",
+                   "condition": "config.unix",
+                   "entries": [
+                        "system-icu",
+                        "system-webp",
+                        "system-opus",
+                        "system-ffmpeg"
+                    ]
+                }
+            ]
+        }
+    ]
+}

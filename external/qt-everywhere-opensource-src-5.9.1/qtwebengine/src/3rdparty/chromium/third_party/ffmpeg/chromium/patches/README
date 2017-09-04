@@ -1,0 +1,135 @@
+Upstream cherry-picks, most recent cherry-picks at end of list:
+  9d83b209d8861f1daf55f6719b1e0c226ed7269a lavf/mov.c mov_fix_index() fix for nb_old <=0
+  acc163c6ab52d2235767852262c64c7f6b273d1c lavc/flacdsp_template: Fix undefined shift in flac_decorrelate_indep_c
+  83a75bf6c31b3c0ce2ca7e1426d1f2e3df634239 lavc/flacdec: Fix signed integer overflow in decode_subframe_fixed()
+  c72fa432349881d5a445cd110abf698cc94d490d lavc/get_bits: Fix get_sbits_long(x, 0)
+  1f5630af51f24d79053b6bef5b8b3ba93d637306 lavc/flacdec: Fix undefined shift in decode_subframe()
+  afcf15b0dbb4b6429be5083e50b296cdca61875e lavf/oggparsespeex: Check frames_per_packet and packet_size
+  90da187f1d334422477886a19eca3c1da29c59a7 lavf/utils update_stream_timings() fix for start/end out of range
+  ee2a6f5df8c6a151c3e3826872f1b0a07401c62a lavf/oggdec: Skip streams in duration correction that did not had their duration set.
+  8258e363851434ad5662c19d036fddb3e3f27683 lavc/mpeg4videodec: Fix undefined shifts in mpeg4_decode_sprite_trajectory()
+
+
+Autorename:
+  autorename_* files are renamed copies of various files that would cause
+    base name collisions from mac libtool. These files are generated
+    by generate_gn.py. https://chromium-review.googlesource.com/#/c/274543/
+
+Current patches:
+  Changes to libavformat/flacdec.c crbug.com/686387
+    95bde49982a82bc10470c0adab5969ffe635d064  Check avio_read result when reading
+                                              flac block header. (upstreamed)
+
+  Changes to libavcodec/flac_parser.c crbug.com/665305
+    Started decrementing buffered header count during flac parsing, to prevent
+    a clusterfuzz hang.
+
+  .gitignore has a "Chromium stuff" section.
+
+  Changes to configure
+    Commented out a section that creates symlink for source_path. Using symlink
+    causes windows builds to fail (cl.exe cant find the files).
+    Commented out some pkg-config checks for libopus since we use Chromium's
+    copy.
+
+    Pinned older mipsel minimum ISA detection logic, including removal of
+    add_cflags "-mips64", which conflicts with --extra-cflags=-mips64r6 for
+    mips64el. In M56 roll, returned to previous logic here to prevent population
+    of CFLAGS etc with various -mips32r* which broke builds.
+
+  Changes/additions to compat/msvcrt/{snprintf.c,snprintf.h}
+  Changes/additions to compat/{strtod.c,strtod.h}
+    Commit b5269bfb48c71fe17c02eee00c71b1e9762497db changes these files and
+    relevant build rules to fix inconsistent linkage when building with MSVC.
+    The rules/files expose overriden symbols as externs and force inject these
+    headers when building with the component build.
+    strtod.h was added, so it may not appear in diffs that ignore additions.
+    f3299330654ac1b40c50b3cbcae619f42eb7d838 added an include to snprintf.c.
+
+  !!!SECURITY SENSITIVE ISSUE PLEASE VERIFY AFTER EACH FFMPEG ROLL!!!
+  Remove UNCHECKED_BITSTREAM_READER defines in libavcodec/
+    Remove "#define UNCHECKED_BITSTREAM_READER 1" from all codecs.
+    In Chromium, all codecs should use the safe bitstream reader.
+
+  In libavcodec/libopusdec.c libopus_decode_init(), protect against OOB access
+    of ff_vorbis_channel_layouts[] with index < 0. TODO: push upstream.
+
+  Changes to libavcodec/utils.c
+    Disable deprecation warnings related to FF_API_AVPACKET_OLD_API.
+    We cannot just disable FF_API_AVPACKET_OLD_API because upstream does not yet
+    compile with it disabled. Therefore, suppress the warnings locally.
+
+    Locally disable deprecation warnings related to
+    avcodec_encode_{audio,video}2 until upstream introduces an appropriate
+    FF_API_AVsomething_OLD_API gate that we can use in our BUILD.gn, or upstream
+    stops using the deprecated methods.
+
+  Revert 'sidx' processing for .mov containers. (libavformat/isom.h and mov.c)
+    8b946dec reverts commit 4ab56667594842283dc5ae07f0daba2a2cb4d3af.
+    'sidx' box processing is broken for MOV containers. http://crbug.com/568336.
+    Reported: http://ffmpeg.org/pipermail/ffmpeg-devel/2015-December/185040.html
+
+    Upstream ffplay as of 134233972e7961d9a41c67d27da505e459d5edfa still
+    reproduces this problem.
+
+    That revert removed a local |ret| needed by later dd34e89f, so M56 merge
+    commit e4decbe7 includes a downstream declaration of |ret| in
+    mov_seek_stream in mov.c.
+
+  Other changes to libavformat/mov.c:
+    Avoid heap allocation wrap when allocating title_str in mov_read_hdlr().
+    TODO: push upstream.
+
+    Avoid heap allocation wraps when allocating buffers in mov_read_uuid().
+    TODO: push upstream.
+
+    Avoid heap allocation wraps and OOB in mov_read_{senc,saiz,udta_string}().
+    TODO: push upstream.
+
+  Changes to libavformat/matroskadec.c
+    Add CONFIG_LZO and CONFIG_SIPR_DECODER (and other CONFIG_*) checks to remove
+    code that may be a security risk. Discuss with cevans@ before removing.
+
+    Remove extra const from static EbmlSyntax arrays. This fixes windows
+    compile error C4114, since EbmlSyntax struct is already defined with const.
+    TODO: push upstream.
+
+  Changes to libavformat/mp3dec.c
+    Fixes for MSAN Use-of-uninitialized-value. http://crbug.com/666874.
+    TODO(chcunningham): Submit upstream.
+
+    Other changes: TODO(chcunningham/dalecurtis): https://crbug.com/504623 -
+    Determine whether these changes are still necessary and either remove or
+    document them.
+
+  In libavformat/wavdec.c, exclude code blocks using #if to remove references
+    to symbols not in our builds which some toolchains don't elide, for each of
+    CONFIG_SPDIF_DEMUXER and CONFIG_W64_DEMUXER.
+
+  Changes to libavformat/utils.c
+    Locally disable deprecation warnings related to AVStream.codec access until
+    upstream stops using deprecated fields.
+
+    Protect against out-of-bounds access when searching for the next
+    non-discarded packet in ff_index_search_timestamp(). TODO: push upstream
+
+  Changes to libavutil/arm/intmath.h
+    Remove static av_always_inline av_const unsigned av_clip_uintp2_arm() and
+    av_clip_intp2_arm() due to compilation failure.
+
+  Disable FMA3 instructions in libavutil/log.c (http://crbug.com/440892)
+    Remove call to _set_FMA3_enable() on Windows.
+    TODO: Remove once Chromium requires VS2015.
+
+  Changes to libavutil/mem.c
+    Enable av_max_alloc(0) to remove alloc size bound.
+
+  Changes to libavutil/timer.h
+    C++11 compatability for string concatenation (http://crbug.com/454590).
+    Add spaces between string literals and tokens.
+
+  Changes/additions to libavutil/x86/x86inc.asm
+    https://chromium-review.googlesource.com/#/c/272274/
+    Fixes the conditionals on Linux so that these symbols are hidden and
+    adds the Chromium-specific private_extern extension for hiding these
+    symbols on OSX.

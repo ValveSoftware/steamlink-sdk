@@ -1,0 +1,116 @@
+<link rel="import" href="chrome://resources/cr_elements/cr_dialog/cr_dialog.html">
+<link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/md_select_css.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-input/paper-input.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-input/paper-textarea.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="/settings_vars_css.html">
+
+<dom-module id="settings-address-edit-dialog">
+  <template>
+    <style include="settings-shared md-select">
+      .address-row {
+        display: flex;
+      }
+
+      .address-column {
+        -webkit-margin-end: 16px;
+        margin-bottom: 8px;
+        width: calc((var(--paper-input-max-width) - 16px) / 2);
+      }
+
+      .md-select.address-column {
+        -webkit-margin-end: 0;
+        margin-bottom: 0;
+      }
+
+      #select-row {
+        display: block;
+      }
+
+      #select-label {
+       color: var(--light-theme-secondary-color);
+       font-size: 12px
+      }
+
+      .long {
+        width: var(--paper-input-max-width);
+      }
+
+      #saveButton {
+        -webkit-margin-start: 8px;
+      }
+
+      #dialog .body {
+        max-height: 450px;
+      }
+
+      @media all and (max-height: 714px) {
+        #dialog .body {
+          max-height: 270px;
+        }
+      }
+    </style>
+    <dialog is="cr-dialog" id="dialog">
+      <div class="title">[[title_]]</div>
+      <div class="body">
+        <template is="dom-repeat" items="[[addressWrapper_]]">
+          <div class="address-row">
+            <template is="dom-repeat" items="[[item]]">
+              <template is="dom-if" if="[[item.isTextArea]]">
+                <paper-textarea label="[[item.component.fieldName]]"
+                    value="{{item.value}}" on-value-changed="updateCanSave_"
+                    class$="address-column [[long_(item)]]" always-float-label>
+                </paper-textarea>
+              </template>
+              <template is="dom-if" if="[[!item.isTextArea]]">
+                <paper-input type="text" label="[[item.component.fieldName]]"
+                    always-float-label value="{{item.value}}"
+                    on-value-changed="updateCanSave_"
+                    class$="address-column [[long_(item)]]"></paper-input>
+              </template>
+            </template>
+          </div>
+        </template>
+        <div id="select-row" class="address-row">
+          <div id="select-label">$i18n{addressCountry}</div>
+          <span class="md-select-wrapper">
+            <select class="md-select address-column long"
+                  value="[[countryCode_]]" on-change="onCountryChange_">
+              <option value=""></option>
+              <template is="dom-repeat" items="[[countries_]]">
+                <option value="[[getCode_(item)]]"
+                    disabled="[[isDivision_(item)]]">
+                  [[getName_(item)]]
+                </option>
+              </template>
+            </select>
+            <span class="md-select-underline"></span>
+          </span>
+        </div>
+        <div class="address-row">
+          <paper-input id="phoneInput" type="text" label="$i18n{addressPhone}"
+              always-float-label class="address-column"
+              on-value-changed="updateCanSave_" value="{{phoneNumber_}}">
+          </paper-input>
+          <paper-input id="emailInput" type="text" label="$i18n{addressEmail}"
+              on-value-changed="updateCanSave_" always-float-label
+              class="address-column long" value="{{email_}}">
+          </paper-input>
+        </div>
+      </div>
+      <div class="button-container">
+        <paper-button id="cancelButton" on-tap="onCancelTap_">
+          $i18n{cancel}
+        </paper-button>
+        <paper-button id="saveButton" class="action-button"
+            disabled="[[!canSave_]]" on-tap="onSaveButtonTap_">
+          $i18n{save}
+        </paper-button>
+      </div>
+    </dialog>
+  </template>
+  <script src="/passwords_and_forms_page/address_edit_dialog.js"></script>
+</dom-module>

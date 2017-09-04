@@ -1,0 +1,151 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/toolchain/toolchain.gni")
+import("//services/service_manager/public/constants.gni")
+
+if (is_android) {
+  import("//build/config/android/rules.gni")
+  import("//build/config/zip.gni")
+}
+
+# Generates a Service "package", which includes:
+# . A self-named subdirectory
+# . A binary .library
+# . A resources subdirectory alongside .library that contains the contents of
+#   "resources"
+#
+# The parameters of this template are those of a shared library.
+template("service") {
+  base_target_name = target_name
+  if (defined(invoker.output_name)) {
+    base_target_name = invoker.output_name
+  }
+
+  final_target_name = target_name
+
+  library_deps = []
+  if (defined(invoker.deps)) {
+    library_deps += invoker.deps
+  }
+
+  library_data_deps = []
+
+  if (defined(invoker.resources)) {
+    copy_step_name = "${base_target_name}__copy_resources"
+    copy(copy_step_name) {
+      sources = invoker.resources
+      outputs = [
+        "${root_out_dir}/${packages_directory}/${base_target_name}/resources/{{source_file_part}}",
+      ]
+      if (defined(invoker.testonly)) {
+        testonly = invoker.testonly
+      }
+      deps = library_deps
+    }
+    library_data_deps += [ ":$copy_step_name" ]
+  }
+
+  output = base_target_name + ".library"
+  library_target_name = base_target_name + "_library"
+  library_name = "${shlib_prefix}${library_target_name}${shlib_extension}"
+
+  shared_library(library_target_name) {
+    if (defined(invoker.cflags)) {
+      cflags = invoker.cflags
+    }
+    if (defined(invoker.cflags_c)) {
+      cflags_c = invoker.cflags_c
+    }
+    if (defined(invoker.cflags_cc)) {
+      cflags_cc = invoker.cflags_cc
+    }
+    if (defined(invoker.cflags_objc)) {
+      cflags_objc = invoker.cflags_objc
+    }
+    if (defined(invoker.cflags_objcc)) {
+      cflags_objcc = invoker.cflags_objcc
+    }
+    if (defined(invoker.defines)) {
+      defines = invoker.defines
+    }
+    if (defined(invoker.include_dirs)) {
+      include_dirs = invoker.include_dirs
+    }
+    if (defined(invoker.ldflags)) {
+      ldflags = invoker.ldflags
+    }
+    if (defined(invoker.lib_dirs)) {
+      lib_dirs = invoker.lib_dirs
+    }
+    if (defined(invoker.libs)) {
+      libs = invoker.libs
+    }
+
+    data_deps = []
+    if (!defined(invoker.avoid_runner_cycle) || !invoker.avoid_runner_cycle) {
+      # Give the user an out; as some Services are depended on by the runner.
+      data_deps += [ "//services/service_manager/standalone" ]
+    }
+    if (defined(invoker.data_deps)) {
+      data_deps += invoker.data_deps
+    }
+    data_deps += library_data_deps
+
+    deps = [
+      "//mojo/public/c/system:set_thunks_for_app",
+      "//services/service_manager/public/cpp:application_support",
+    ]
+
+    deps += library_deps
+    if (defined(invoker.public_deps)) {
+      public_deps = invoker.public_deps
+    }
+    if (defined(invoker.all_dependent_configs)) {
+      all_dependent_configs = invoker.all_dependent_configs
+    }
+    if (defined(invoker.public_configs)) {
+      public_configs = invoker.public_configs
+    }
+    if (defined(invoker.check_includes)) {
+      check_includes = invoker.check_includes
+    }
+    if (defined(invoker.configs)) {
+      configs += invoker.configs
+    }
+    if (defined(invoker.data)) {
+      data = invoker.data
+    }
+    if (defined(invoker.inputs)) {
+      inputs = invoker.inputs
+    }
+    if (defined(invoker.public)) {
+      public = invoker.public
+    }
+    if (defined(invoker.sources)) {
+      sources = invoker.sources
+    }
+    if (defined(invoker.testonly)) {
+      testonly = invoker.testonly
+    }
+  }
+
+  copy(final_target_name) {
+    forward_variables_from(invoker,
+                           [
+                             "testonly",
+                             "visibility",
+                           ])
+    deps = [
+      ":${library_target_name}",
+    ]
+
+    sources = [
+      "${root_shlib_dir}/${library_name}",
+    ]
+    outputs = [
+      "${root_out_dir}/${packages_directory}/${base_target_name}/${output}",
+    ]
+  }
+}

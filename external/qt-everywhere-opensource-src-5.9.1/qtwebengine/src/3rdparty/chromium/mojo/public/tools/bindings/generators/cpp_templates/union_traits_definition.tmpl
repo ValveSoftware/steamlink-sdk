@@ -1,0 +1,47 @@
+{%- set mojom_type = union|get_qualified_name_for_kind %}
+
+// static
+bool UnionTraits<{{mojom_type}}::DataView, {{mojom_type}}Ptr>::Read(
+    {{mojom_type}}::DataView input,
+    {{mojom_type}}Ptr* output) {
+  *output = {{mojom_type}}::New();
+  {{mojom_type}}Ptr& result = *output;
+
+  internal::UnionAccessor<{{mojom_type}}> result_acc(result.get());
+  switch (input.tag()) {
+{%- for field in union.fields %}
+    case {{mojom_type}}::Tag::{{field.name|upper}}: {
+{%-   set name = field.name %}
+{%-   set kind = field.kind %}
+{%-   set serializer_type = kind|unmapped_type_for_serializer %}
+{%-   if kind|is_object_kind %}
+      result_acc.SwitchActive({{mojom_type}}::Tag::{{name|upper}});
+      if (!input.Read{{name|under_to_camel}}(result_acc.data()->{{name}}))
+        return false;
+
+{%-   elif kind|is_any_handle_kind %}
+      auto result_{{name}} = input.Take{{name|under_to_camel}}();
+      result->set_{{name}}(std::move(result_{{name}}));
+
+{%-   elif kind|is_any_interface_kind %}
+      auto result_{{name}} =
+          input.Take{{name|under_to_camel}}<typename std::remove_reference<decltype(result->get_{{name}}())>::type>();
+      result->set_{{name}}(std::move(result_{{name}}));
+
+{%-   elif kind|is_enum_kind %}
+      decltype(result->get_{{name}}()) result_{{name}};
+      if (!input.Read{{name|under_to_camel}}(&result_{{name}}))
+        return false;
+      result->set_{{name}}(result_{{name}});
+
+{%-   else %}
+      result->set_{{name}}(input.{{name}}());
+{%-   endif %}
+      break;
+    }
+{%- endfor %}
+    default:
+      return false;
+  }
+  return true;
+}

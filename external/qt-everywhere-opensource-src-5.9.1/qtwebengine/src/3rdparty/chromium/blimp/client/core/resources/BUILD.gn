@@ -1,0 +1,205 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//blimp/client/core/config.gni")
+import("//build/config/locales.gni")
+import("//tools/grit/grit_rule.gni")
+import("//tools/grit/repack.gni")
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+# String resources for the embedder. Build different internal resource sets based on
+# |enable_blimp_client| flag.
+group("strings") {
+  visibility = [ "//blimp/client/public/resources" ]
+  public_deps = [
+    ":locales",
+  ]
+}
+
+# Build string locale files based on |enable_blimp_client| flag.
+# The embedder will take the output files to continue its build chain without knowing the
+# |enable_blimp_client| build flag.
+repack_locales("locales") {
+  visibility = [ ":strings" ]
+
+  input_locales = locales_with_fake_bidi
+  output_locales = []
+  foreach(locale, locales_with_fake_bidi) {
+    output_locales += [ "blimp_strings_$locale" ]
+  }
+
+  if (enable_blimp_client) {
+    source_patterns =
+        [ "${root_gen_dir}/blimp/client/core/resources/blimp_strings_" ]
+    deps = [
+      ":string_data",
+    ]
+  } else {
+    source_patterns =
+        [ "${root_gen_dir}/blimp/client/core/resources/dummy/blimp_strings_" ]
+    deps = [
+      ":dummy_string_data",
+    ]
+  }
+
+  output_dir = "$root_gen_dir/blimp/client/public/resources"
+}
+
+# Blimp internal resource. Blimp internal build targets may directly depends on this.
+# //blimp/client/public shouldn't directly depend on this since we want to
+# build different things based on |enable_blimp_client| build flag.
+source_set("resources") {
+  visibility = [
+    "//blimp/client/app/*",
+    "//blimp/client/core/*",
+  ]
+
+  sources = [
+    "blimp_strings.cc",
+  ]
+
+  public_deps = [
+    ":string_data",
+  ]
+
+  deps = [
+    "//blimp/client/public:public_headers",
+    "//blimp/common/proto",
+    "//ui/base:base",
+  ]
+}
+
+# Dummy Blimp internal resource. It doesn't build any string data, and string helper functions
+# return empty values to the embedder.
+# Blimp internal targets shouldn't depend on this.
+source_set("dummy") {
+  visibility = [ "//blimp/client/core/*" ]
+
+  sources = [
+    "dummy_blimp_strings.cc",
+  ]
+
+  public_deps = [
+    ":dummy_string_data",
+  ]
+
+  deps = [
+    "//blimp/client/public:public_headers",
+  ]
+}
+
+if (is_android) {
+  android_blimp_java_resources = [
+    "java/res/values-am/blimp_strings.xml",
+    "java/res/values-ar/blimp_strings.xml",
+    "java/res/values-bg/blimp_strings.xml",
+    "java/res/values-ca/blimp_strings.xml",
+    "java/res/values-cs/blimp_strings.xml",
+    "java/res/values-da/blimp_strings.xml",
+    "java/res/values-de/blimp_strings.xml",
+    "java/res/values-el/blimp_strings.xml",
+    "java/res/values/blimp_strings.xml",
+    "java/res/values-en-rGB/blimp_strings.xml",
+    "java/res/values-es/blimp_strings.xml",
+    "java/res/values-es-rUS/blimp_strings.xml",
+    "java/res/values-fa/blimp_strings.xml",
+    "java/res/values-fi/blimp_strings.xml",
+    "java/res/values-tl/blimp_strings.xml",
+    "java/res/values-fr/blimp_strings.xml",
+    "java/res/values-hi/blimp_strings.xml",
+    "java/res/values-hr/blimp_strings.xml",
+    "java/res/values-hu/blimp_strings.xml",
+    "java/res/values-in/blimp_strings.xml",
+    "java/res/values-it/blimp_strings.xml",
+    "java/res/values-iw/blimp_strings.xml",
+    "java/res/values-ja/blimp_strings.xml",
+    "java/res/values-ko/blimp_strings.xml",
+    "java/res/values-lt/blimp_strings.xml",
+    "java/res/values-lv/blimp_strings.xml",
+    "java/res/values-nl/blimp_strings.xml",
+    "java/res/values-nb/blimp_strings.xml",
+    "java/res/values-pl/blimp_strings.xml",
+    "java/res/values-pt-rBR/blimp_strings.xml",
+    "java/res/values-pt-rPT/blimp_strings.xml",
+    "java/res/values-ro/blimp_strings.xml",
+    "java/res/values-ru/blimp_strings.xml",
+    "java/res/values-sk/blimp_strings.xml",
+    "java/res/values-sl/blimp_strings.xml",
+    "java/res/values-sr/blimp_strings.xml",
+    "java/res/values-sv/blimp_strings.xml",
+    "java/res/values-sw/blimp_strings.xml",
+    "java/res/values-th/blimp_strings.xml",
+    "java/res/values-tr/blimp_strings.xml",
+    "java/res/values-uk/blimp_strings.xml",
+    "java/res/values-vi/blimp_strings.xml",
+    "java/res/values-zh-rCN/blimp_strings.xml",
+    "java/res/values-zh-rTW/blimp_strings.xml",
+  ]
+}
+
+# String data.
+grit("string_data") {
+  source = "blimp_strings.grd"
+  use_qualified_include = true
+  outputs = [
+    "grit/blimp_strings.h",
+  ]
+
+  foreach(locale, locales_with_fake_bidi) {
+    outputs += [ "blimp_strings_$locale.pak" ]
+  }
+
+  if (is_android) {
+    outputs += android_blimp_java_resources
+  }
+}
+
+# Dummy string data.
+grit("dummy_string_data") {
+  source = "dummy_blimp_strings.grd"
+  use_qualified_include = true
+
+  outputs = [
+    "grit/dummy_blimp_strings.h",
+  ]
+
+  foreach(locale, locales_with_fake_bidi) {
+    outputs += [ "dummy/blimp_strings_$locale.pak" ]
+  }
+}
+
+if (is_android) {
+  # Android resources needed to wrap the apk. This includes xml resources files and string xml
+  # files that are generated from the grd file.
+  android_resources("java_resources") {
+    visibility = [ "//blimp/client/core/*" ]
+
+    resource_dirs = [ "android/java/res" ]
+    deps = [
+      ":strings_grd",
+    ]
+
+    # TODO(xingliu): Consider changing the package name to |org.chromium.blimp| if we remove the
+    # grd file in //blimp/client/app.
+    custom_package = "org.chromium.blimp.core"
+  }
+
+  # Generate Java string resources from blimp_strings grd file. Mark formatter_data to
+  # "android_java" for strings needed in the apk.
+  # To access Java strings, use |org.chromium.blimp.core.R|.
+  java_strings_grd_prebuilt("strings_grd") {
+    visibility = [ "//blimp/client/core/*" ]
+
+    grit_output_dir = "$root_gen_dir/blimp/client/core/resources/java/res"
+    generated_files =
+        rebase_path(android_blimp_java_resources, "../android/java/res", ".")
+    deps = [
+      ":string_data",
+    ]
+  }
+}

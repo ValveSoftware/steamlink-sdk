@@ -1,0 +1,149 @@
+# Copyright 2015 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/android/rules.gni")
+import("shell_apk_version.gni")
+
+declare_args() {
+  # The origin URL of the WebAPK. Used to generate a unique package name for
+  # WebAPK. Example: "foo.com"
+  webapk_manifest_package_origin = "template"
+
+  # The browser that the WebAPK will be bound to.
+  webapk_runtime_host = "com.google.android.apps.chrome"
+
+  # The Url of the Web Manifest file.
+  webapk_web_manifest_url = "https://www.template.com/manifest.json"
+
+  # Attributes from Web Manifest.
+  webapk_start_url = "https://www.template.com/home_page"
+  webapk_name = "Longer Sample WebAPK Name"
+  webapk_short_name = "Sample WebAPK"
+  webapk_scope_url = "https://www.template.com/"
+  webapk_display_mode = "standalone"
+  webapk_orientation = "portrait"
+  webapk_theme_color = "2147483648L"  # HostBrowserLauncher#MANIFEST_COLOR_INVALID_OR_MISSING
+  webapk_background_color = "2147483648L"  #HostBrowserLauncher#MANIFEST_COLOR_INVALID_OR_MISSING
+
+  # The URL of the app icon. Empty if the app icon is generated.
+  webapk_icon_url = "http://www.template.com/icon.png"
+
+  # Murmur2 hash of the homescreen icon. The hash should be of the icon as it is
+  # available from the web. The icon bytes should not be transformed (e.g.
+  # decoded / encoded) prior to taking the hash.
+  webapk_icon_murmur2_hash = "0L"
+
+  # Host part of |webapk_scope_url|.
+  webapk_scope_url_host = "www.template.com"
+
+  # Path part of |webapk_scope_url|.
+  webapk_scope_url_path = "/"
+
+  # Android version code for the WebAPK.
+  webapk_version_code = "1"
+
+  # Android version name for the WebAPK.
+  webapk_version_name = "1.0"
+}
+
+shell_apk_manifest_package =
+    "org.chromium.webapk.$webapk_manifest_package_origin"
+
+shell_apk_manifest = "$target_gen_dir/shell_apk_manifest/AndroidManifest.xml"
+
+jinja_template("shell_apk_manifest") {
+  input = "AndroidManifest.xml"
+  output = shell_apk_manifest
+
+  variables = [
+    "shell_apk_version=$shell_apk_version",
+    "manifest_package=$shell_apk_manifest_package",
+    "runtime_host=$webapk_runtime_host",
+    "start_url=$webapk_start_url",
+    "name=$webapk_name",
+    "short_name=$webapk_short_name",
+    "scope_url=$webapk_scope_url",
+    "display_mode=$webapk_display_mode",
+    "orientation=$webapk_orientation",
+    "theme_color=$webapk_theme_color",
+    "background_color=$webapk_background_color",
+    "icon_url=$webapk_icon_url",
+    "icon_murmur2_hash=$webapk_icon_murmur2_hash",
+    "scope_url_host=$webapk_scope_url_host",
+    "scope_url_path=$webapk_scope_url_path",
+    "web_manifest_url=$webapk_web_manifest_url",
+    "version_code=$webapk_version_code",
+    "version_name=$webapk_version_name",
+  ]
+}
+
+android_resources("shell_apk_resources") {
+  resource_dirs = [ "res" ]
+  custom_package = "org.chromium.webapk.shell_apk"
+}
+
+android_library("webapk_java") {
+  java_files = [
+    "src/org/chromium/webapk/shell_apk/DexLoader.java",
+    "src/org/chromium/webapk/shell_apk/HostBrowserClassLoader.java",
+    "src/org/chromium/webapk/shell_apk/MainActivity.java",
+    "src/org/chromium/webapk/shell_apk/NotificationSettingsLauncherActivity.java",
+    "src/org/chromium/webapk/shell_apk/WebApkSandboxedProcessService.java",
+    "src/org/chromium/webapk/shell_apk/WebApkSandboxedProcessService0.java",
+    "src/org/chromium/webapk/shell_apk/WebApkSandboxedProcessService1.java",
+    "src/org/chromium/webapk/shell_apk/WebApkSandboxedProcessService2.java",
+    "src/org/chromium/webapk/shell_apk/WebApkServiceFactory.java",
+    "src/org/chromium/webapk/shell_apk/WebApkUtils.java",
+  ]
+  deps = [
+    ":shell_apk_resources",
+    "//chrome/android/webapk/libs/common:common_java",
+  ]
+}
+
+# Template for WebAPK. When a WebAPK is generated:
+# - Android manifest is customized to the website.
+# - App icon is extracted from the website and added to the APK's resources.
+android_apk("webapk") {
+  android_manifest = shell_apk_manifest
+  android_manifest_dep = ":shell_apk_manifest"
+  apk_name = "WebApk.$webapk_manifest_package_origin"
+  deps = [
+    ":webapk_java",
+  ]
+  if (!is_java_debug) {
+    proguard_enabled = true
+    proguard_configs = [
+      "//chrome/android/java/proguard.flags",
+      "//base/android/proguard/chromium_apk.flags",
+      "//base/android/proguard/chromium_code.flags",
+    ]
+  }
+}
+
+android_library("shell_apk_javatests") {
+  testonly = true
+  java_files =
+      [ "javatests/src/org/chromium/webapk/shell_apk/DexLoaderTest.java" ]
+  deps = [
+    ":webapk_java",
+    "//base:base_java",
+    "//base:base_java_test_support",
+    "//chrome/android/webapk/libs/common:common_java",
+    "//content/public/test/android:content_java_test_support",
+  ]
+  srcjar_deps = [ "javatests/dex_optimizer:dex_optimizer_service_aidl" ]
+}
+
+junit_binary("webapk_shell_apk_junit_tests") {
+  java_files = [
+    "junit/src/org/chromium/webapk/shell_apk/HostBrowserClassLoaderTest.java",
+    "junit/src/org/chromium/webapk/shell_apk/MainActivityTest.java",
+  ]
+  deps = [
+    ":webapk_java",
+    "//chrome/android/webapk/libs/common:common_java",
+    "//chrome/android/webapk/test:junit_test_support",
+  ]
+}

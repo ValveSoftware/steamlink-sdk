@@ -1,0 +1,135 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module service_manager.mojom;
+
+import "services/service_manager/public/interfaces/interface_provider.mojom";
+
+const string kRootUserID = "505C0EE9-3013-43C0-82B0-A84F50CF8D84";
+const string kInheritUserID = "D26290E4-4485-4EAE-81A2-66D1EEB40A9D";
+
+const uint32 kInvalidInstanceID = 0;
+
+enum ConnectResult {
+  // The connection was established successfully.
+  SUCCEEDED,
+
+  // The name or user id supplied was malformed, or the service specified by
+  // |name| could not be loaded.
+  INVALID_ARGUMENT,
+
+  // The connection was blocked by policy. Either connections to |name| are
+  // forbidden from this app by the CapabilityFilter, or the service attempted
+  // to connect using a user id other than its own, |kInheritUserID| or
+  // |kRootUserID|.
+  ACCESS_DENIED
+};
+
+// A collection of metadata that disambiguates instances in the service manager.
+struct Identity {
+  // A service: or exe: name identifying a service.
+  string name;
+
+  // The user id of the target service instance to connect to. If no such
+  // instance exists, the service manager may start one. This user id will be
+  // passed to the new instance via Initialize().
+  //
+  // When connecting to other services, services must generally pass
+  // kInheritUserID for this value, and the service manager will either connect
+  // to an existing instance matching the caller's user id, create a new
+  // instance matching the caller's user id, or connect to an existing instance
+  // running as kRootUserID. By default, services do not have the ability to set
+  // arbitrary values to this field, and doing so will result in a connection
+  // error on the remote service provider.
+  //
+  // A service with the ability to launch other services with arbitrary user ids
+  // (e.g. a login service) may set this  value to something meaningful to it.
+  // The user id string is a valid guid of the form
+  // "%08X-%04X-%04X-%04X-%012llX", and (aside from the root user whose
+  // guid is defined above) intended to be not-guessable.
+  //
+  // When a service is initialized or receives a connection from another
+  // service, this value is always the resolved user id, never |kInheritUserID|.
+  string user_id;
+
+  // A service may spawn multiple instances with the same (name, user_id)
+  // pair, provided they are started with unique values of this field.
+  // TODO(beng): enforce the emptiness of this parameter unless the client bears
+  //             the appropriate capability.
+  string instance;
+};
+
+// Implemented by an object in the service manager associated with a specific
+// instance. Tells the service manager the PID for a process launched by the
+// client. See |ClientProcessConnection|.
+interface PIDReceiver {
+  SetPID(uint32 pid);
+};
+
+// Typically, the service manager will start a process for a service the first
+// time it receives a connection request for it. This struct allows a client to
+// start the process itself and provide the service manager the pipes it needs
+// to communicate with it. When an instance of this struct is supplied to
+// Connect(), the client owns the lifetime of the child process, not the service
+// manager. The service manager binds the |service| pipe, and when it closes
+// destroys the associated  instance but the process stays alive.
+struct ClientProcessConnection {
+  // Provides the service manager the ability to bind a Service from the client
+  // process to the instance it creates.
+  handle<message_pipe> service;
+
+  // Allows the client process launcher to tell the service manager the PID of
+  // the process it created (the pid isn't supplied directly here as the process
+  // may not have been launched by the time Connect() is called.)
+  handle<message_pipe> pid_receiver_request;
+};
+
+// Encapsulates establishing connections with other Services.
+interface Connector {
+  // Requests a connection with another service. The service originating the
+  // request is referred to as the "source" and the one receiving the "target".
+  //
+  // The connection is embodied by a pair of message pipes binding the
+  // InterfaceProvider interface, which allows both the source and target
+  // services to export interfaces to one another. The interfaces bound via
+  // these InterfaceProviders are brokered by the service manager according to
+  // the security policy defined by each service in its manifest.
+  //
+  // If the target service is not running, the service manager will run it,
+  // calling its OnStart() method before completing the connection.
+  //
+  // Parameters:
+  //
+  //  target
+  //    Identifies the target service instance to connect to.
+  //
+  //  remote_interfaces
+  //    Allows the source service access to interface implementations exposed by
+  //    the target service. The interfaces accessible via this InterfaceProvider
+  //    are filtered by the security policy described by the source and target
+  //    service manifests.
+  //
+  //  client_process_connection
+  //    When non-null, supplies control pipes the service manager can use to
+  //    bind a process created by the client, instead of creating one itself.
+  //
+  // Response parameters:
+  //
+  //  result
+  //    Indicates the result of the Connect() operation.
+  //
+  //  user_id
+  //    The user id the service manager ran the target service as. Typically a
+  //    client passes |kInheritUserID| as the user id to Connect(), which is
+  //    resolved by the service manager into a valid user id returned through
+  //    this callback.
+  //
+  Connect(Identity target,
+          InterfaceProvider&? remote_interfaces,
+          ClientProcessConnection? client_process_connection) =>
+      (ConnectResult result, string user_id);
+
+  // Clones this Connector so it can be passed to another thread.
+  Clone(Connector& request);
+};

@@ -1,0 +1,228 @@
+/****************************************************************************
+**
+** Copyright (C) 2017 The Qt Company Ltd.
+** Copyright (C) 2017 Klaralvdalens Datakonsult AB (KDAB).
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \module Qt3DAnimation
+    \title Qt 3D Animation C++ Classes
+
+    \brief The Qt 3D Animation modules provides a set of prebuilt elements to help
+    you get started with Qt 3D.
+
+    This module is still in tech preview. This means it is unstable, likely to
+    change and provided as a convenience only.
+
+    \ingroup modules
+    \ingroup qt3d-modules
+    \qtvariable 3danimation
+
+    \code
+       #include <Qt3DAnimation>
+    \endcode
+
+    To link against the corresponding C++ library, add the following to your qmake project file:
+
+    \badcode
+       QT += 3danimation
+    \endcode
+
+    Classes, types, and functions are declared under the \l [Qt3DAnimation]{Qt3DAnimation} namespace.
+
+    \section1 Overview
+
+    The Qt 3D Animation module adds support for specifying and using animations
+    that can be applied to the properties of objects in your simulation.
+    Initially this module supports key frame based animations. That is,
+    properties have values 'keyed' at certain times and when played back the
+    property values are calculated by interpolating between the known values
+    within the key frames. All of the animation evaluation within the Qt 3D
+    Animation module takes place on the Qt 3D threadpool. This allows the
+    animations to run smoothly and to scale up to high throughput.
+
+    \section2 Animation Data
+
+    Key frame animation data can either be created programmatically via the Qt
+    3D Animation APIs such as Qt3DAnimation::QKeyFrameData or it can come from
+    digital content creation (DCC) tools such as Blender, Maya or 3D Studio
+    Max. Qt 3D provides an example export script for animation data for
+    Blender. The format consumed by Qt 3D Animation at present is a simple JSON
+    based format. This allows both developers and artists to easily work with
+    animation data. More formats optimised for runtime consumption will be
+    added later.
+
+    The key frame animation data can be loaded from file using the
+    Qt3DAnimation::QAnimationClipLoader class. To specify animation data
+    programmatically use the Qt3DAnimation::QAnimationClip class.
+
+    By default, the key frame data is specified using cubic bezier curves. This
+    allows smooth animations to be created from a small number of key frame
+    data points. Other interpolation types will be added later.
+
+    \section2 Playing Animations
+
+    In addition to the animation data containing the key frames, Qt 3D
+    Animation also provides APIs for playing the animations and mapping the
+    resulting property values onto properties of objects in your simulation.
+    There are currently two ways of playing the animations:
+
+    \list
+    \li Qt3DAnimation::QClipAnimator
+    \li Qt3DAnimation::QBlendedClipAnimator
+    \endlist
+
+    Both of these are implemented as subclasses of Qt3DCore::QComponent meaning
+    that objects of these types can be aggregated by Qt3DCore::QEntity objects
+    to add animation capabilities to your simulated entities.
+
+    \section2 Simple Animation Playback
+
+    The Qt3DAnimation::QClipAnimator class allows the playback of a single
+    Qt3DAnimation::QAbstractAnimationClip at a time. To add an animation to an
+    entity, simply add an instance of the Qt3DAnimation::QClipAnimator class to
+    your entity's \c components property.
+
+    The Qt 3D Animation module takes a slightly different approach to
+    QPropertyAnimation and AbstractAnimation. With those animation frameworks,
+    the animation specifies both the animation values \e {and} the target
+    objects and properties. The animation components in Qt 3D separate these
+    two orthogonal concepts. For example, the Qt3DAnimation::QClipAnimator
+    component has a \c clip property for specifying the animation data
+    (Qt3DAnimation::QAnimationClip or Qt3DAnimation::QAnimationClipLoader).
+
+    This allows calculation of the animated values, but more information is
+    needed in order to map these values onto properties of objects. This is
+    accomplished with the a Qt3DAnimation::QChannelMapper which contains a list
+    of Qt3DAnimation::QChannelMapping objects. A Qt3DAnimation::QChannelMapping
+    is used to map a specific channel from an animation clip onto a named
+    property of a target object. By separating the animation data and property
+    mappings like this, the same animation can be applied to many objects
+    without needing to have multiple copies of the animation data or objects.
+    It also allows animation data to easily be retargeted to other objects.
+
+    \section2 Blended Animation Playback
+
+    The Qt3DAnimation::QBlendedClipAnimator component allows to go beyond what
+    is possible with Qt3DAnimation::QClipAnimator by blending several animation
+    clips together before applying the property changes to the target
+    properties. The animator component still takes a channel mapper just like
+    the standard Qt3DAnimation::QClipAnimator component. However, instead of
+    specifying a single animation clip, it is necessary to set the \c blendTree
+    property to point to the root node of a \e {blend tree}.
+
+    A blend tree is a data structure representing how animation clips get
+    aggregated or blended together as the function of properties on the blend
+    tree nodes. The currently supported set of blend tree nodes are:
+
+    \list
+    \li Qt3DAnimation::QClipBlendValue
+    \li Qt3DAnimation::QLerpClipBlend
+    \li Qt3DAnimation::QAdditiveClipBlend
+    \endlist
+
+    The source animation clip inputs are specified as leaf nodes in the blend
+    tree using instances of the Qt3DAnimation::QClipBlendValue class. These
+    animation clips can be combined in a large number of ways. For now the Qt3D
+    Animation module provides linear interpolation (LERP) and additive blend
+    operations. More blend node types will be added over time. These are
+    expected to include at least a generalised LERP node and a barycentric LERP
+    node.
+
+    As an example consider the following blend tree:
+
+    \badcode
+        Clip0----
+                |
+                Lerp Node----
+                |           |
+        Clip1----           Additive Node
+                            |
+                    Clip2----
+    \endcode
+
+    Let's assume that \c Clip0 represents a walk animation cycle with a
+    duration of 3 seconds and that \c Clip1 is a run animation cycle with a
+    duration of 2 seconds. These are both inputs (and dependencies) of the \c
+    Lerp blend node. The result of evaluating the \c Lerp node depends upon the
+    \c blendFactor property of the \c Lerp node. This could be bound to the
+    speed of a humanoid character entity for example. As the speed of the
+    character increases the animation gradually cross-fades from the walk
+    animation in \c Clip0 to the run animation in \c Clip1.
+
+    Furthermore, let's assume that \c Clip2 represents some variation animation
+    that can be added on (waving arms or shaking head for e.g.). The amount of
+    this additive clip that is added can be controlled by the \c additiveFactor
+    property on the \c Additive blend node.
+
+    When evaluating a blend tree, normalized time (or phase) is used so that
+    clips of different durations can be blended together without problems. For
+    example, even though the walk and run animation clips are of different
+    lengths, as long as they are created by the animator such that the
+    foot-falls line up at the same phase these can be nicely interpolated.
+
+    The implication of this is that the duration of the blended clip is
+    actually a function of the blend factors of the nodes in the tree.
+    Considering only the \c Lerp node in the above example, when the blend
+    factor of the \c Lerp node is 0, only the walk animation in Clip0 is used
+    resulting in a duration of 3 seconds. With a blend factor of 1 the
+    resulting duration will be 2 seconds. For intermediate blend factors, the
+    duration will be linearly interpolated between 3 and 2 seconds.
+
+    By definining your own blend trees, you have complete control over how to
+    combine your collection of input animation clips. The blend tree can be
+    configured by the properties on the blend nodes. Note also that the
+    properties on the blend nodes themselves are just standard properties, so
+    these could in turn be driven by other animations if desired.
+
+    \section1 Reference
+    \list
+    \li \l {Qt 3D Animation C++ Classes}
+    \li \l {Qt 3D Examples}
+    \endlist
+ */
+
+/*!
+    \namespace Qt3DAnimation
+    \inmodule Qt3DAnimation
+    \ingroup qt3d-namespaces
+
+    \brief Contains classes from the Qt3DAnimation module.
+*/
+
+/*!
+   \qmlmodule Qt3D.Animation 2.0
+   \title Qt 3D Qt3DAnimation QML Types
+   \ingroup qmlmodules
+   \ingroup qt3d-qmlmodules
+
+   \brief Provides Qt 3D QML types for the animation module.
+
+   To import and use the module's QML types, use the following statement:
+
+   \badcode
+   import Qt3D.Animation 2.0
+   \endcode
+*/

@@ -1,0 +1,191 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module ui.mojom;
+
+import "services/ui/public/interfaces/cursor.mojom";
+import "services/ui/public/interfaces/display/display.mojom";
+import "services/ui/public/interfaces/event_matcher.mojom";
+import "services/ui/public/interfaces/window_manager_constants.mojom";
+import "services/ui/public/interfaces/window_tree_constants.mojom";
+import "ui/events/mojo/event.mojom";
+import "ui/gfx/geometry/mojo/geometry.mojom";
+
+// WindowManager is used when a WindowTreeClient attempts to modify
+// a property of the embed root. When this happens WindowTree calls the
+// appropriate function on WindowManager. For example, if a
+// WindowTreeClient calls SetWindowBounds() on its embed root, WindowTree
+// calls WmSetBounds(). WindowManager can then decide if it wants to
+// change the bounds or not.
+//
+// This interface is only used as an associated interface and is associated
+// with WindowTreeClient, further WindowTree requests this interface from
+// WindowTreeClient supplied at the time the WindowTreeHost is created.
+interface WindowManager {
+  // Whether the window is always on top. Type: bool.
+  const string kAlwaysOnTop_Property = "prop:always_on_top";
+  // Disables the window manager from handling immersive fullscreen for the
+  // window. This is typically done if the client wants to handle immersive
+  // themselves. Type: bool.
+  const string kDisableImmersive_Property = "prop:disable_immersive";
+  // Used to explicitly control whether a window appears in the most recently
+  // used list of windows. Type: bool.
+  const string kExcludeFromMru_Property = "prop:exclude_from_mru";
+  // Initial bounds to create the window at. If empty the WindowManager decides
+  // the initial bounds.
+  const string kInitialBounds_Property = "prop:initial_bounds";
+  // The window manager will place the window in this container when the window
+  // is created. If not set a container is selected based on the window type.
+  // Type: int
+  const string kInitialContainerId_Property = "prop:initial_container_id";
+  // The id of the display (display::Display::id()) to create the window on.
+  // Type: int64.
+  const string kInitialDisplayId_Property = "prop:initial_display_id";
+  // Internal window name. Useful for debugging. Type: mojom::String
+  const string kName_Property = "prop:name";
+  // The window's preferred size as defined by its content. Type: gfx::Size.
+  const string kPreferredSize_Property = "prop:preferred-size";
+  // If true the window manager renders the title area (including frame
+  // decorations) of the parent window in this window. This is only checked
+  // at the time the window is added to its parent, which must be a top level
+  // window (created by way of WindowTree::NewTopLevelWindow()). Type: bool.
+  const string kRendererParentTitleArea_Property =
+      "render-parent-non-client-area";
+  // The window's resize behavior. Type: ResizeBehavior.
+  const string kResizeBehavior_Property = "prop:resize-behavior";
+  // Bounds the window is restored to. Type: gfx::Rect.
+  const string kRestoreBounds_Property = "prop:restore-bounds";
+  // Shadow style for the window. Type: mojom::ShadowStyle.
+  const string kShadowStyle_Property = "prop:shadow-style";
+  // The image resource ID to be used as the shelf item's icon. Type: int
+  const string kShelfIconResourceId_Property = "prop:shelf-icon-resource-id";
+  // The ID of the shelf item corresponding to this window. Type: int
+  const string kShelfId_Property = "prop:shelf-id";
+  // The type of item to be shown on the shelf for this window. Type: int
+  // A few ash::ShelfItemType values are supported; TYPE_UNKNOWN means no item.
+  const string kShelfItemType_Property = "prop:shelf-item-type";
+  // The window's show state. Type: ShowState.
+  const string kShowState_Property = "prop:show-state";
+  // The window bounds as set by user input. Type: gfx::Rect.
+  const string kUserSetBounds_Property = "prop:user-set-bounds";
+  // The window's app icon. Type: SkBitmap
+  const string kWindowAppIcon_Property = "prop:window-app-icon";
+  // The window type. Type: mojom::WindowType
+  const string kWindowType_Property = "prop:window-type";
+  // The window's title. Type: mojom::String
+  const string kWindowTitle_Property = "prop:window-title";
+  // A flag controlling the window's presence on the mash shelf. Type: bool
+  const string kWindowIgnoredByShelf_Property = "prop:window-ignored-by-shelf";
+  // The application ID (eg. 'mojo:foo'). Type: mojom::String
+  const string kAppID_Property = "prop:app-id";
+  // Specifies that the system default caption and icon should not be rendered,
+  // and the client area should be equivalent to the window area. Type: bool
+  const string kRemoveStandardFrame_Property = "prop:remove-standard-frame";
+
+  // Called immediately when the WindowManager is obtained.
+  OnConnect(uint16 client_id);
+
+  // Called when a new display is added. |root| gives the root window specific
+  // to this WindowManager for |display|.
+  WmNewDisplayAdded(display.mojom.Display display,
+                    WindowData root,
+                    bool parent_drawn);
+
+  // Called when a display is removed. The root of the specified display is
+  // still valid. It is expected the client calls DeleteWindow() shortly after
+  // this with the root.
+  WmDisplayRemoved(int64 display_id);
+
+  // Called when a display is modified. The root of the specified display will
+  // be resized by the WindowServer after this.
+  WmDisplayModified(display.mojom.Display display);
+
+  // When the WindowManager completes a request it must call back to
+  // WindowManagerClient::WmResponse().
+  WmSetBounds(uint32 change_id, uint32 window_id, gfx.mojom.Rect bounds);
+  WmSetProperty(uint32 change_id,
+                uint32 window_id,
+                string name,
+                array<uint8>? value);
+
+  // Asks the WindowManager to create a new window.
+  // |requesting_client_id| is the id of the client issuing the request. This
+  // allows the window manager to track top level windows by client.
+  WmCreateTopLevelWindow(uint32 change_id,
+                         uint16 requesting_client_id,
+                         map<string, array<uint8>> properties);
+
+  // A WindowTreeClient is considered "janky" by Mus when it stops ACK'ing input
+  // events within a reasonable timeframe. When a client enters or exits this
+  // state, Mus will tell the window manager about it so that the window manager
+  // can update the UI for the janky windows.
+  WmClientJankinessChanged(uint16 client_id, bool janky);
+
+  // Asks the WindowManager to interactively move the window. This will return
+  // whether this completed successfully or not through the client's
+  // OnWmMoveLoopCompleted().
+  WmPerformMoveLoop(uint32 change_id, uint32 window_id,
+                    MoveLoopSource source,
+                    gfx.mojom.Point cursor_location);
+
+  // Asks the WindowManager to cancel any outstanding move loop on |change_id|.
+  WmCancelMoveLoop(uint32 change_id);
+
+  // An accelerator registered via AddAccelerator() has been triggered. If
+  // |ack_id| is non-zero the accelerator matches a PRE_TARGET and must be
+  // acknowledged by WindowManagerClient::OnAcceleratorAck().
+  OnAccelerator(uint32 ack_id, uint32 accelerator_id, ui.mojom.Event event);
+};
+
+// This interface is only used as an associated interface and is associated
+// with WindowTree.
+interface WindowManagerClient {
+  // Enables (or disables) child windows of |window_id| to be activated.
+  AddActivationParent(uint32 window_id);
+  RemoveActivationParent(uint32 window_id);
+
+  ActivateNextWindow();
+
+  // Sets the underlay surface offset for the specified window and additional
+  // hit area. The underlay surface is drawn at the bounds of the window minus
+  // the offset. The hit area is extended from the bounds of the window by
+  // |hit_area|.
+  SetUnderlaySurfaceOffsetAndExtendedHitArea(uint32 window_id,
+                                             int32 x_offset,
+                                             int32 y_offset,
+                                             gfx.mojom.Insets hit_area);
+
+  // Add and remove accelerators. When accelerators are registered the
+  // WindowManager receives the event via OnAccelerator() rather than the
+  // target window. The id is defined by the client and can be used to more
+  // easily identify the accelerator's action. If an accelerator with the same
+  // id or the same matcher already exists, then the accelerator is not added.
+  // Accelerator ids 1 << 31 and above are reserved for internal use.
+  //
+  // See WindowTree for details on event dispatch.
+  AddAccelerator(uint32 id, EventMatcher matcher) => (bool success);
+  RemoveAccelerator(uint32 id);
+
+  // The window manager has completed a request with the specific change id.
+  WmResponse(uint32 change_id, bool response);
+
+  // Calls WindowTreeClient::RequestClose() on the embedded app at the
+  // specified window.
+  WmRequestClose(uint32 window_id);
+
+  // Sets the frame decoration constants of the display the window manager is
+  // associated with.
+  WmSetFrameDecorationValues(FrameDecorationValues values);
+
+  // Sets the cursor that the non-client areas of the window should use.
+  WmSetNonClientCursor(uint32 window_id, Cursor cursor_id);
+
+  // Response from WmCreateTopLevelWindow() informing the client of the id for
+  // the new window.
+  OnWmCreatedTopLevelWindow(uint32 change_id, uint32 window_id);
+
+  // See description in WindowManager::OnAccelerator(). |ack_id| is the value
+  // that was passed to OnAccelerator().
+  OnAcceleratorAck(uint32 ack_id, EventResult event_result);
+};

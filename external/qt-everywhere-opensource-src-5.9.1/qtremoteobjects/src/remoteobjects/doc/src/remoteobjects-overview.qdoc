@@ -1,0 +1,361 @@
+/****************************************************************************
+**
+** Copyright (C) 2017 Ford Motor Company
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+\page qtremoteobjects-gettingstarted.html
+\title Overview Qt Remote Objects
+\brief Introduction to using Qt Remote Objects.
+\ingroup overviews
+
+
+\section1 Introduction
+
+The \e {Qt Remote Objects} (QtRO) module provides an easy way to share Qt APIs
+between processes and devices. A data channel between processes and devices is
+required for this to work. Therefore, the first thing you need in QtRO is a
+QRemoteObjectNode. In QtRO, a node is an endpoint for communication. Each
+participant in a remote objects network, be it a process or a device, needs
+its own node. QtRO is a peer-to-peer network, with connected nodes being the
+links in the network.
+
+Nodes, by themselves, don’t provide much use. The value comes from adding
+QObject classes to a node for sharing. Any peer node can then request a
+copy/instance of the shared object from the node that shares it (called the
+\e {host node}). Unlike when using normal class instances (with independent
+properties and signal emissions), the idea in QtRO is to synchronize the
+changes of the shared object to all of the copies. With a few exceptions, the
+copies have the exact same Qt API as the original object, and are intended to
+be used exactly as if the original object were available. In QtRO, the
+original object is called the \l {Source}. It is a fully implemented C++
+class, with whatever business logic is needed to provide the desired
+functionality. Copies of this object are called \l {Replica}s. You don’t need
+to write any C++ code for a replica; instead, you simply request an
+instance from a node. You still need some code to use it, such as connecting
+signals to your own slots, but you don’t need to implement the internal
+behavior – that was already done in the source object.
+
+Because the source can be in a different process or even on a different
+device, there are concerns in QtRO that you won’t run into when developing
+without Inter-Process Communication (IPC). Specifically, what happens if the
+process or device isn’t there? This is where the additions to the \l Replica
+API come in. There is an \l {QRemoteObjectReplica::}{initialized()} signal
+that is emitted once the replica has received the \l {Source}{source} state
+from the QtRO network. There is also an \l {QRemoteObjectReplica::}
+{isReplicaValid} property and a \l {QRemoteObjectReplica::}{stateChanged()}
+signal to alert you if the connection is lost.
+
+Objects shared over QtRO use the links (conduits) between nodes for all
+communication. If you intend to share a QObject, you must create a \e {host
+node} with a URL other nodes can connect to. You can also use the QtRO \l
+{Registry} to facilitate connections, but your node’s sharing \l {Source}
+{sources} still need to be a Host Node. Each shared object is given a name
+(a QString), used for identifying it on the QtRO network.
+
+See the \l {Qt Remote Objects} {Overview} for a more detailed description, or
+use the following examples to get started with QtRO.
+
+\section1 Implementation
+
+To illustrate the use of remote objects, on the source side we need to:
+
+\list 1
+    \li Create the \l {Source} object that will be replicated to other nodes
+       (with or without using \l repc, the Qt Remote Objects Compiler).
+    \li (Optional) Create the \l {Registry}. If not used, direct connections
+        are required.
+    \li Create a host node so the source object can be shared.
+    \li Call the node's \l {QRemoteObjectHostBase::}{enableRemoting()}
+        function to share the source object.
+\endlist
+
+And on the replica side:
+
+\list 1
+    \li (Optional) Use \l repc to generate a \l {Replica} header for your
+        project.
+    \li Create the node that will connect with the \l {Source} host node.
+    \li Call the node's \l {QRemoteObjectNode::}{acquire()} function to create
+        a pointer to a replica.
+\endlist
+
+The examples below will show both \l {repc}-compiled static objects and
+dynamic source objects. The examples will also show direct connections as
+well as connections using a \l {Registry} between nodes.
+
+\target qtro-example1
+\section1 Example 1: Direct Connection Using a Static Source
+
+In this example, the source object is a simple binary switch that will
+toggle its state based on a timer. When the state changes, a signal is
+emitted by the source which QtRO propagates to all replicas. As the replica
+will have the same properties, signals and slots as were exposed from the
+source object, any slots connected to the replica's signal will be called when
+the replica receives the signal. The client process then echoes back the
+received switch state to the source by emitting its own signal which is
+connected to a slot on the replica.
+
+\list 1
+\li \b {Create a source object}
+
+To create this \l Source object, we first create the definition file,
+\c simpleswitch.rep. This file describes the properties and methods for the
+object and is input to the \l {repc} utility which is part of Qt Remote
+Objects. Only the interfaces that need to be exposed to \l {Replica}
+objects are defined in this file.
+
+\c simpleswitch.rep
+\snippet doc_src_simpleswitch.cpp simpleSwitch_rep
+
+Above,
+\list
+    \li \c currState holds the current state of the switch, and
+    \li \c server_slot() allows us to interact with the \l {Source} - it
+        will be connected to the \c echoSwitchState(bool newstate) signal.
+\endlist
+
+For \l {repc} to process this file, add the following line to the \c .pro
+file:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_repsource_example1
+
+The \c REPC_SOURCE variable is only relevant for the Qt Remote Object
+module, so you need to add it to your project as well:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_remoteobjectsadd_example1
+
+\l {repc} creates the header \c rep_SimpleSwitch_source.h in your specified
+build directory. Refer to the \l {Source} section for more details about this
+file.
+
+Repc creates three helper classes for use with QtRO. For this example, we
+will use the most basic: \c SimpleSwitchSimpleSource. It is an abstract
+class, defined in \c rep_SimpleSwitch_source.h. We derive from it to
+define our SimpleSwitch implementation class as shown below:
+
+\c simpleswitch.h
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_serverheader_example1
+
+Above,
+\list
+    \li \c stateChangeTimer is a QTimer that is used to toggle the state of
+        our SimpleSwitch,
+    \li \c timeout_slot() is connected to the timeout() signal of
+        \c stateChangeTimer,
+    \li \c server_slot(), which is called on the source (automatically
+        via QtRO) whenever any replica calls their version of the slot,
+        outputs the received value, and
+    \li \c currStateChanged(bool) signal, defined in \l {repc}-generated
+        \c rep_SimpleSwitch_source.h, is emitted whenever currState
+        toggles. In this example, we ignore the signal on the source side,
+        and handle it later on the replica side.
+\endlist
+
+The definition of our \c SwitchState class is shown below:
+
+\c simpleswitch.cpp
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_serversource_example1
+
+\li \b {Create a registry}
+
+Because this example involves using a direct connection between nodes,
+step 2 for \l {Registry} creation is omitted.
+
+\li \b {Create a host node}
+
+The host node is created as shown below:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_serverhostnode_example1
+
+\li \b {Host source object and remoting}
+
+The following statements instantiate the \l {Source} object and pass it to
+the host to enable "remoting", that is, making the object visible to the QtRO
+network:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_enableremoting_example1
+
+The contents of \c main.cpp file that implements the above steps are shown
+below:
+
+\c main.cpp
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_servermaincpp_example1
+
+Compile and run this (source side) project. The output (without any replicas
+created) should look as shown below with the switch state toggling between \c
+true and \c false every two seconds.
+
+\image DirectConnectServerOutput.png "Example 1: Server output"
+
+Next are the steps for creating the replica side of the network, which in this
+example gets the state of switch from the \l {Source} and echoes it back.
+\endlist
+
+\section2 Replica Code
+
+\list 1
+\li \b {Use repc to add a replica to your project}
+
+The same API definition file as was used on the source side,
+\c SimpleSwitch.rep, is used for creating a \l {Replica} header file using
+the \l {repc} utility. Include the following line in your client side \c .pro
+file, specifying a \c .rep file input:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_clientrep_example1
+
+The \l {repc} tool generates a \c rep_SimpleSwitch_replica.h file in the build
+directory. Refer to \l {Replica} section for more details about this file.
+
+\li \b {Create a node to connect with the source's host node}
+
+The following code instantiates the second node on the network and connects it
+with the source host node:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_clientremotenode_example1
+
+\li \b {Call node's \l {QRemoteObjectNode::}{acquire()} to create a pointer
+    to a replica}
+
+First, a replica is instantiated:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_clientacquirereplica_example1
+
+Note that \l {QRemoteObjectNode::}{acquire()} returns a pointer to the
+replica. However, it does not manage the pointer lifetime. This example uses
+the recommended process of wrapping the returned pointer in a QSharedPointer
+or QScopedPointer to ensure the pointer is properly deleted.
+
+\c main.cpp implements above steps and instantiates our object:
+
+\c main.cpp
+\snippet doc_src_simpleswitch.cpp simpleSwitch_clientmain_example1
+
+Complete declaration and definition of the \c Client class:
+
+\c client.h
+\snippet doc_src_simpleswitch.cpp simpleSwitch_clientheader_example1
+
+\c client.cpp
+\snippet doc_src_simpleswitch.cpp simpleSwitch_clientcpp_example1
+
+Compiling and executing this example together with the source-side example
+generates the following output:
+
+\image DirectConnectClientServerOutput.png "Direct Connect Server Client Communication output"
+\endlist
+
+\target qtro-example2
+\section1 Example 2: Direct Connection with a Dynamic Replica
+
+A dynamic replica is initially created as a "bare" QObject - that is, it has
+no properties, signals or slots. QtRO returns the API for the object during
+initialization (after the connection to the source is made), thus the API is
+added to the object at runtime. Dynamic replicas are good when a replica is
+intended to be used in QML.
+
+There are no changes to source side as a dynamic \l Replica only impacts
+how the requestor node acquires the replica. The source-side code shown
+in \l {qtro-example1}{Example 1} will be used.
+
+\list 1
+    \li Add replica generation to project.
+
+        Because the replica is dynamically acquired, no \c .rep file is
+        required unlike in \l {qtro-example1}{Example 1}.
+
+    \li Create the remote node and connect it with the source host node.
+
+        The code for this step is unchanged from \l {qtro-example1}{Example 1}.
+        \snippet doc_src_simpleswitch.cpp simpleSwitch_dynamicclientnode_example2
+
+    \li Acquire a replica of the remote source object.
+
+        In \c main.cpp, we use a QSharedPointer to hold a replica of the
+        remote object, and then instantiate a replica requestor object:
+
+        \snippet doc_src_simpleswitch.cpp simpleSwitch_dynamicclientmaincpp_example2
+\endlist
+
+Below is the complete declaration and definition of the requestor class
+(\c DynamicClient in this example):
+
+\c dynamicclient.h
+\snippet doc_src_simpleswitch.cpp simpleSwitch_dynamicclientheader_example2
+
+\c dynamicclient.cpp
+\snippet doc_src_simpleswitch.cpp simpleSwitch_dynamicclientcpp_example2
+
+When executed together with the source-side example, the output is identical
+to \l {qtro-example1}{Example 1}.
+
+\target qtro-example3
+\section1 Example 3: Remote Nodes using a Registry
+
+This example will illustrate the use of \l {Registry} for building the node
+topology. For only two nodes, the benefits of using the Registry are minimal.
+With a registry, instead of using a QUrl to create a direct connection between
+two nodes, you use a different QUrl to point both the host and replica nodes to
+the registry. As the network grows, using a registry means that all nodes only
+need to connect to the registry via a single QUrl. With direct connections,
+nodes would have to maintain a list of \l {QUrl}s for each node they link to.
+
+\section2 Source Code
+
+The \c simpleswitch.h and \c simpleswitch.cpp sources from \l {qtro-example1}
+{Example} can be used without modification. The difference is in the way a host
+node is created and connected to the \l {Registry}:
+
+\c main.cpp
+\snippet doc_src_simpleswitch.cpp simpleSwitch_registrymaincpp_example3
+
+\section2 Replica Code
+
+Requestor object used for this example is the dynamic replica client
+discussed in \l {qtro-example2}{Example 2}.
+
+The only modification is in \c main.cpp: a \l {Registry} node is created
+to acquire a \l {Replica}:
+
+\snippet doc_src_simpleswitch.cpp simpleSwitch_registrydynamicclientmaincpp_example3
+
+When executed together with the source-side example, the output is identical
+to \l {qtro-example1}{Example 1}.
+*/

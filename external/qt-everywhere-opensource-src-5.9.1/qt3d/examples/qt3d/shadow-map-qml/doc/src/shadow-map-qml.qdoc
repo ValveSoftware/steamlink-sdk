@@ -1,0 +1,276 @@
+/****************************************************************************
+**
+** Copyright (C) 2015 Klaralvdalens Datakonsult AB (KDAB).
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: https://www.gnu.org/licenses/fdl-1.3.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example shadow-map-qml
+    \title Qt 3D: Shadow Map QML Example
+    \ingroup qt3d-examples-qml
+
+    \brief A Qt 3D QML application that illustrates how to render a scene in Qt 3D
+    with shadows.
+
+    \image shadowmapping-qt3d.png
+
+    \e {Qt 3D Shadow Map} illustrates how to configure the renderer in order to
+    accommodate custom rendering techniques. The example application displays a
+    self-shadowed plane and trefoil knot.
+
+    We implement \l{Shadow Mapping}{shadow mapping} using a two pass rendering.
+    In the first pass, we generate the shadow information. In the second pass,
+    we generate the scene using the forward rendering technique with Phong
+    shading, while at the same time using the information gathered in the first
+    pass to draw the shadows.
+
+    The entire rendering is configured using QML, but it is possible to use C++
+    to achieve the very same result.
+
+    \include examples-run.qdocinc
+
+    \section1 Setting Up the Scene
+
+    We set up the entire scene in the \e main.qml file.
+
+    To be able to use the types in the Q3D and Q3D Renderer modules, we must
+    import the modules:
+
+    \quotefromfile shadow-map-qml/main.qml
+    \skipto import Qt3D.Core
+    \printuntil Render 2.0
+
+    The first entities we create are a \l Camera, which represents the camera
+    used for the final rendering, and a \l Configuration, which allows us to
+    control this camera using the keyboard or the mouse:
+
+    \printuntil }
+    \printuntil }
+
+    We then create a Light custom entity, which represents our light. It is a
+    directional spotlight, placed somewhere above the plane and looking down at
+    the scene’s origin:
+
+    \printuntil }
+
+    This light entity is used by our custom frame graph, ShadowMapFrameGraph,
+    and our rendering effect, AdsEffect, whose instances are created just after
+    the light:
+
+    \printuntil ]
+    \printuntil }
+
+    Last, we create three entities for the meshes in the scene: a trefoil knot,
+    a toy plane, and a ground plane. They aggregate a mesh, a transformation,
+    and a material that uses the AdsEffect. The toy plane and the trefoil knot
+    transformations are animated:
+
+    \printuntil /^\}/
+
+    \section1 Specifying the Light
+
+    We specify the Light custom entity in \e ShadowMapLight.qml.
+
+    Again, we import the necessary modules:
+
+    \quotefromfile shadow-map-qml/ShadowMapLight.qml
+    \skipto import Qt3D
+    \printuntil Qt3D.Render
+
+    We then use an \l Entity type as the root element of the custom QML type.
+    The light is a directional spotlight that exposes as properties a position,
+    intensity, and a 4×4 transformation matrix:
+
+    \printuntil matrix4x4
+
+    In the first rendering pass, we use the light as a camera, and therefore we
+    use a \l Camera entity within the light and expose it as a property:
+
+    \printuntil /^\}/
+
+    \section1 Configuring the Framegraph
+
+    In Qt 3D, the frame graph is the data-driven configuration for the rendering.
+    We implement the frame graph in the \e ShadowMapFrameGraph.qml file.
+
+    In addition to the Qt 3D and Qt 3D Render modules, we also import the
+    Qt Quick module:
+
+    \quotefromfile shadow-map-qml/ShadowMapFrameGraph.qml
+    \skipto import QtQuick
+    \printuntil Render 2.0
+
+    The code defines a \l RenderSettings node that has a tree of nodes as the
+    active frame graph:
+
+    \badcode
+    RenderSettings {
+        activeFrameGraph: Viewport {...}
+    }
+    \endcode
+
+    Any path from the leaves of this tree to the root is a viable frame graph
+    configuration. Filter entities can enable or disable such paths, and
+    selector entities can alter the configuration.
+
+    In our case, the tree looks like this:
+
+    \badcode
+    Viewport
+        RenderSurfaceSelector
+            RenderPassFilter
+                RenderTargetSelector
+                    ClearBuffers
+                        CameraSelector
+            RenderPassFilter
+                ClearBuffers
+                    CameraSelector
+    \endcode
+
+    So we have two paths from the topmost \l Viewport entity. Each path
+    corresponds to a pass, or phase, of the shadow map technique. The paths are
+    enabled and disabled using a RenderPassFilter, a node that can filter
+    depending on arbitrary values defined in a given render pass. In this
+    example, it is a string:
+
+    \skipto RenderPassFilter
+    \printuntil ]
+
+    The actual passes are not defined within the frame graph. Instead the
+    available passes are declared in the Materials used in the scene graph. The
+    frame graph is only used to select which passes are used when rendering.
+
+    \section1 Generating the Shadow Map
+
+    In the shadow map generation pass, we must render to an offscreen surface
+    (Framebuffer Object) which has a depth texture attachment. In Qt 3D, it is
+    represented by the RenderTarget entity, which has a number of attachments.
+
+    In this example, we need only a depth attachment. We define it as a
+    RenderAttachment entity using the RenderAttachment.DepthAttachment \c type
+    that stores the depth and a Texture2D entity that actually configures the
+    exture storage used to store the depth information:
+
+    \printuntil ]
+    \printuntil }
+
+    Moreover, in this first pass, we must render using the light’s camera.
+    Therefore, we have a CameraSelector entity that sets the camera to the one
+    exported by the Light:
+
+    \skipto CameraSelector
+    \printuntil }
+
+    The second pass is more straightforward, because we simply render to the
+    screen using the main camera:
+
+    \skipto RenderPassFilter
+    \printuntil }
+    \printuntil }
+    \printuntil }
+    \printuntil }
+
+    \section1 Using Effects
+
+    The bulk of the magic happens in the \e AdsEffect.qml file, where our main
+    \l Effect is defined. It implements the Ambient, Diffuse and Specular
+    (ADS) Lighting Model using Phong shading with the addition of shadow mapping.
+
+    An effect contains the implementation of a particular rendering strategy. In
+    this example, shadow mapping using two passes:
+
+    \quotefromfile shadow-map-qml/AdsEffect.qml
+    \skipto Effect
+    \printuntil Light
+
+    The \c parameters list defines some default values for the effect. The
+    values will get mapped to shader program uniform variables, so that in the
+    shaders we can access their values. In this example, we expose some information from
+    the Light entity (position, intensity, view or projection matrix defined by
+    the internal camera) and the shadow map texture exposed by the frame graph:
+
+    \skipto parameters:
+    \printuntil ]
+
+    It is possible to put such parameters all the way down, from a \l Material,
+    to its \l Effect, to one of the effect’s \l {Technique}{Techniques} and a
+    \l RenderPass within a \l Technique. This allows a \l Material instance to
+    override defaults in an \l Effect, \l Technique or \l RenderPass.
+
+    To adapt the implementation to different hardware or OpenGL versions, we
+    could use one or more \l Technique elements. In this example, only one
+    technique is provided, targeting OpenGL 3.2 Core, or later:
+
+    \quotefromfile shadow-map-qml/AdsEffect.qml
+    \skipto techniques:
+    \printuntil }
+
+    Inside the technique, we finally have the definition of our two rendering
+    passes. We \e tag each pass with a \l FilterKey object, matching the ones
+    we specified in the frame graph configuration, so that each pass will have
+    different rendering settings:
+
+    \printuntil ]
+
+    The first pass is the shadow map generation. We load a suitable set of GLSL
+    shaders, which are actually extremely simple. They do only MVP (Model, View,
+    Projection) to bring meshes from their model space into clip space (and,
+    remember, in this first pass, the light is the camera). The fragment shader
+    is totally empty, because there is no color to be generated, and the depth
+    will be automatically captured for us by OpenGL:
+
+    \printuntil }
+
+    In this first pass, we also set some custom OpenGL state in the form of a
+    polygon offset and depth testing mode:
+
+    \printuntil ]
+
+    \section1 Rendering Using Phong Shading
+
+    The second pass is a normal forward rendering using Phong shading. The code
+    in the effect entity is extremely simple. We simply configure some
+    parameters and load a pair of shaders which will be used when drawing.
+
+    The first part of the shadow mapping happens in the vertex shader defined in
+    \e ads.vert file, where we output towards the fragment shader the
+    coordinates of each vertex in light space:
+
+    \quotefromfile shadow-map-qml/shaders/ads.vert
+    \skipto mat4(
+    \skipto positionInLightSpace
+    \printuntil ;
+
+    Actually, the coordinates get adjusted a little to allow us to easily sample
+    the shadow map texture.
+
+    The second part happens in the fragment shader defined in the \e ads.frag
+    file, where we sample the shadow map. If the currently processed fragment is
+    behind the one closest to the light, then the current fragment is in shadow
+    (and only gets ambient contribution). Otherwise, it gets full Phong shading:
+
+    \quotefromfile shadow-map-qml/shaders/ads.frag
+    \skipto main
+    \printuntil }
+*/

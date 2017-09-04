@@ -1,0 +1,117 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+source_set("settings") {
+  visibility = [
+    "//blimp/client/app:*",  # TODO(nyquist): Remove this. See crbug/651964.
+    "//blimp/client/core/*",
+  ]
+
+  sources = [
+    "blimp_settings_delegate.h",
+    "settings.cc",
+    "settings.h",
+    "settings_feature.cc",
+    "settings_feature.h",
+    "settings_observer.h",
+    "settings_prefs.cc",
+    "settings_prefs.h",
+    "user_agent.cc",
+    "user_agent.h",
+  ]
+
+  deps = [
+    "//blimp/client/core/switches",
+    "//blimp/common",
+    "//components/prefs",
+    "//net",
+  ]
+
+  public_deps = [
+    "//base",
+    "//blimp/net",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/blimp_settings_android.cc",
+      "android/blimp_settings_android.h",
+      "android/settings_android.cc",
+      "android/settings_android.h",
+      "android/settings_observer_proxy.cc",
+      "android/settings_observer_proxy.h",
+    ]
+
+    deps += [
+      ":settings_jni_headers",
+      "//blimp/client/core/session",
+      "//blimp/common",
+    ]
+  }
+}
+
+source_set("unit_tests") {
+  visibility = [ "//blimp/client/core:unit_tests" ]
+
+  testonly = true
+
+  sources = [
+    "settings_unittest.cc",
+  ]
+
+  deps = [
+    ":settings",
+    "//base",
+    "//blimp/client/core/switches:switches",
+    "//components/prefs:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+if (is_android) {
+  android_library("settings_java") {
+    visibility = [
+      "//blimp/client/app:*",  # TODO(nyquist): Remove this. See crbug/651964.
+      "//blimp/client/core/*",
+    ]
+
+    java_files = [
+      "android/java/src/org/chromium/blimp/core/settings/AboutBlimpPreferences.java",
+      "android/java/src/org/chromium/blimp/core/settings/BlimpPreferencesDelegate.java",
+      "android/java/src/org/chromium/blimp/core/settings/EmptySettingsObserver.java",
+      "android/java/src/org/chromium/blimp/core/settings/Settings.java",
+      "android/java/src/org/chromium/blimp/core/settings/SettingsObserver.java",
+      "android/java/src/org/chromium/blimp/core/settings/SettingsObserverProxy.java",
+    ]
+
+    # TODO(xingliu): Clean resources files in the future. http://crbug.com/630687.
+    deps = [
+      "//base:base_java",
+      "//blimp/client/core/common:common_java",
+      "//blimp/client/core/resources:java_resources",
+      "//blimp/client/public:public_headers_java",
+      "//components/signin/core/browser/android:java",
+      "//components/sync/android:sync_java",
+      "//third_party/android_tools:android_support_v7_appcompat_java",
+    ]
+  }
+
+  generate_jni("settings_jni_headers") {
+    visibility = [ ":*" ]
+
+    sources = [
+      "android/java/src/org/chromium/blimp/core/settings/AboutBlimpPreferences.java",
+      "android/java/src/org/chromium/blimp/core/settings/Settings.java",
+      "android/java/src/org/chromium/blimp/core/settings/SettingsObserverProxy.java",
+    ]
+
+    jni_package = "blimp/client/core/settings"
+  }
+}

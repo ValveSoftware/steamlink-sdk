@@ -1,0 +1,74 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+source_set("feedback") {
+  visibility = [ "//blimp/client/core/*" ]
+
+  sources = [
+    "blimp_feedback_data.cc",
+    "blimp_feedback_data.h",
+  ]
+
+  deps = [
+    "//base",
+    "//blimp/client/core/contents",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/blimp_feedback_data_android.cc",
+      "android/blimp_feedback_data_android.h",
+    ]
+
+    deps += [ ":feedback_jni_headers" ]
+  }
+}
+
+source_set("unit_tests") {
+  visibility = [ "//blimp/client/core:unit_tests" ]
+
+  testonly = true
+
+  sources = [
+    "blimp_feedback_data_unittest.cc",
+  ]
+
+  deps = [
+    ":feedback",
+    "//base",
+    "//blimp/client/core/compositor",
+    "//blimp/client/core/contents",
+    "//blimp/client/test/compositor",
+    "//skia",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+if (is_android) {
+  android_library("feedback_java") {
+    visibility = [ "//blimp/client/core/*" ]
+
+    java_files = [ "android/java/src/org/chromium/blimp/core/feedback/BlimpFeedbackData.java" ]
+
+    deps = [
+      "//base:base_java",
+    ]
+  }
+
+  generate_jni("feedback_jni_headers") {
+    visibility = [ ":*" ]
+
+    sources = [
+      "android/java/src/org/chromium/blimp/core/feedback/BlimpFeedbackData.java",
+    ]
+
+    jni_package = "blimp/client/core"
+  }
+}

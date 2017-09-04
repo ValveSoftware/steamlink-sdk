@@ -1,0 +1,186 @@
+/****************************************************************************
+**
+** Copyright (C) 2017 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the documentation of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:FDL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Free Documentation License Usage
+** Alternatively, this file may be used under the terms of the GNU Free
+** Documentation License version 1.3 as published by the Free Software
+** Foundation and appearing in the file included in the packaging of
+** this file. Please review the following information to ensure
+** the GNU Free Documentation License version 1.3 requirements
+** will be met: http://www.gnu.org/copyleft/fdl.html.
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \example webenginewidgets/videoplayer
+    \title WebEngine Widgets Video Player Example
+    \ingroup webengine-widgetexamples
+    \brief Displays full screen video using \l QWebEngineView
+
+    \image videoplayer-example.png
+
+    \e {Video Player} demonstrates how to support full screen playback of HTML5
+    video using \l QWebEngineView.
+
+    \l {https://fullscreen.spec.whatwg.org/}{The Fullscreen API} is a
+    cross-browser Javascript API that enables a web page to request that one of
+    its HTML elements be made to occupy the user's entire screen. It is
+    commonly used for full screen video playback via the \c <video> element, but
+    can in principle be used to display any HTML content in full screen mode. Qt
+    WebEngine supports this API, however it is disabled by default. This example
+    shows the steps needed to switch it on, including:
+
+    \list
+        \li Enabling it in \l QWebEngineSettings.
+        \li Handling the \l QWebEnginePage::fullScreenRequested signal by creating
+            a new full screen window.
+        \li Displaying a notification popup to ensure that the user is aware
+            that something is being displayed full screen.
+    \endlist
+
+    \include examples-run.qdocinc
+
+    \section1 Overview
+
+    Once started, the example program will create a normal (non-fullscreen)
+    window with a \l QWebEngineView showing an embedded YouTube video player.
+    You can then click on the full screen toggle button (bottom-right corner) to
+    enter full screen mode. This should also display a centered notification
+    overlay informing you that you can exit full screen mode by pressing the
+    escape key.
+
+    Implementation-wise entering full screen mode entails creating a new full
+    screen window with a separate \l QWebEngineView instance and migrating the
+    \l QWebEnginePage from the normal window's \l QWebEngineView to this new \l
+    QWebEngineView. Exiting full screen mode reverses this migration.
+
+    The example code is divided between three classes, \c MainWindow, \c
+    FullScreenWindow, and \c FullScreenNotification. The classes \c MainWindow
+    and \c FullScreenWindow are each responsible for managing one top-level
+    window, while \c FullScreenNotification is responsible for styling and
+    animating the notification box. A \c MainWindow is created on startup and
+    lives for the entire program runtime, while a new \c FullScreenWindow is
+    created every time full screen mode is entered.
+
+    \section1 MainWindow Class Declaration
+
+    A \c MainWindow is a \l QMainWindow with a \l QWebEngineView as the central
+    widget:
+
+    \quotefromfile webenginewidgets/videoplayer/mainwindow.h
+    \skipto #include
+    \printuntil /^\}/
+
+    \section1 MainWindow Class Definition
+
+    In the constructor we start by setting up the \l QWebEngineView as the
+    central widget:
+
+    \quotefromfile webenginewidgets/videoplayer/mainwindow.cpp
+    \skipto MainWindow::MainWindow
+    \printuntil setCentralWidget
+
+    We then configure Qt WebEngine to advertise support for the Fullscreen API:
+
+    \printline QWebEngineSettings
+
+    Without this line the full screen toggle button would be disabled (grayed
+    out) as the Javascript running on the page can detect that our browser
+    does not support full screen mode.
+
+    Next we connect the \c fullScreenRequested signal to our slot:
+
+    \printuntil &MainWindow::fullScreenRequested
+
+    This signal is emitted whenever the Javascript on the page wants to enter or
+    exit full screen mode. Without handling this signal (but still keeping the
+    \c FullScreenSupportEnabled attribute as \c true) the toggle button will be
+    enabled but clicking on it will have no effect as Javascript's full screen
+    request will be denied.
+
+    Finally, we load some HTML (see
+    \l{webenginewidgets/videoplayer/data/index.html}{index.html} included with
+    the example) into our \l QWebEngineView:
+
+    \printline load
+
+    The second part of \c MainWindow is handling the full screen requests:
+
+    \skipto MainWindow::fullScreenRequested
+    \printuntil /^\}/
+
+    We create a new \c FullScreenWindow when entering full screen mode, and
+    delete it when exiting.
+
+    \section1 FullScreenWindow Class Declaration
+
+    A \c FullScreenWindow is a \l QWidget containing a \l QWebEngineView and a
+    \c FullScreenNotification.
+
+    \quotefromfile webenginewidgets/videoplayer/fullscreenwindow.h
+    \skipto #include
+    \printuntil /^\}/
+
+    \section1 FullScreenWindow Class Definition
+
+    The constructor is responsible for hiding the normal window (while saving
+    its geometry) and showing the new \c FullScreenWindow instead:
+
+    \quotefromfile webenginewidgets/videoplayer/fullscreenwindow.cpp
+    \skipto FullScreenWindow::FullScreenWindow
+    \printuntil /^\}/
+
+    The call to \l QWebEngineView::setPage will move the web page from the \c
+    MainWindow's view to \c FullScreenWindow's view.
+
+    In the destructor we use the same method to move the page back, after which
+    we restore the main window's geometry and visibility:
+
+    \skipto FullScreenWindow::~FullScreenWindow
+    \printuntil /^\}/
+
+    We override \l QWidget::resizeEvent to do manual layout, keeping the \l
+    QWebEngineView maximized, and the \c FullScreenNotification centered within
+    the window:
+
+    \skipto FullScreenWindow::resizeEvent
+    \printuntil /^\}/
+
+    \section1 FullScreenNotification Class Declaration
+
+    A \c FullScreenNotification is just a \l QLabel with some styling and
+    animation:
+
+    \quotefromfile webenginewidgets/videoplayer/fullscreennotification.h
+    \skipto #include
+    \printuntil /^\}/
+
+    \section1 FullScreenWindow Class Definition
+
+    In the constructor we configure the QLabel and set up a delayed fade-out
+    animation using \l {The Animation Framework}:
+
+    \quotefromfile webenginewidgets/videoplayer/fullscreennotification.cpp
+    \skipto FullScreenNotification::FullScreenNotification
+    \printuntil /^\}/
+
+    The custom signal \c shown, which we use to trigger the animation, is
+    emitted from the \c showEvent method:
+
+    \skipto FullScreenNotification::showEvent
+    \printuntil /^\}/
+*/

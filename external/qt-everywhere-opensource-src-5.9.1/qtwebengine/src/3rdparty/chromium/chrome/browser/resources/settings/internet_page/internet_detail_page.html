@@ -1,0 +1,244 @@
+<link rel="import" href="chrome://resources/cr_elements/cr_expand_button/cr_expand_button.html">
+<link rel="import" href="chrome://resources/cr_elements/network/cr_network_icon.html">
+<link rel="import" href="chrome://resources/cr_elements/network/cr_onc_types.html">
+<link rel="import" href="chrome://resources/cr_elements/policy/cr_policy_network_behavior.html">
+<link rel="import" href="chrome://resources/cr_elements/policy/cr_policy_network_indicator.html">
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/classes/iron-flex-layout.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="/prefs/prefs.html">
+<link rel="import" href="/route.html">
+<link rel="import" href="internet_shared_css.html">
+<link rel="import" href="network_apnlist.html">
+<link rel="import" href="network_ip_config.html">
+<link rel="import" href="network_nameservers.html">
+<link rel="import" href="network_property_list.html">
+<link rel="import" href="network_proxy.html">
+<link rel="import" href="network_siminfo.html">
+
+<dom-module id="settings-internet-detail-page">
+  <template>
+    <style include="internet-shared">
+      :host {
+        padding-bottom: 40px;
+      }
+
+      cr-network-icon {
+        -webkit-margin-end: 15px;
+        height: 32px;
+        margin-top: -4px;  /* Align better with text */
+        width: 32px;
+      }
+
+      cr-policy-network-indicator {
+        -webkit-margin-start: 10px;
+      }
+
+      iron-collapse {
+        margin: 10px 0;
+      }
+
+      /* Use <span> for subtitles so as not to interfere with
+       * settings-box:first-of-type. */
+      span.subtitle {
+        font-weight: 700;
+        padding: 20px;
+      }
+
+      .advanced {
+        font-weight: 700;
+      }
+
+      .indented {
+        -webkit-margin-start: var(--settings-box-row-padding);
+      }
+
+      .settings-box.stretch {
+        align-items: stretch;
+      }
+
+      .settings-box:first-of-type {
+        border-top: none;
+      }
+
+      #buttonDiv paper-button {
+        margin: 10px 0;
+      }
+
+      #networkState {
+        /* TODO(stevenjb): Finalize font-size / style for this. */
+        font-size: 125%;
+        font-weight: 500;
+      }
+
+      #networkState[connected] {
+        color: var(--google-green-500);
+      }
+
+      #proxyDiv {
+        max-width: 500px;
+      }
+    </style>
+    <!-- Title section: Icon + name + connection state. -->
+    <div class="settings-box first">
+      <div class="start layout horizontal center">
+        <cr-network-icon network-state="[[networkProperties]]">
+        </cr-network-icon>
+        <div id="networkState"
+            connected$="[[isConnectedState_(networkProperties)]]">
+          [[getStateText_(networkProperties)]]
+        </div>
+      </div>
+      <div id="buttonDiv" class="layout horizontal center">
+        <paper-button class="secondary-button" on-tap="onForgetTap_"
+            hidden$="[[!showForget_(networkProperties)]]">
+          $i18n{networkButtonForget}
+        </paper-button>
+        <paper-button class="secondary-button" on-tap="onViewAccountTap_"
+            hidden$="[[!showViewAccount_(networkProperties)]]">
+          $i18n{networkButtonViewAccount}
+        </paper-button>
+        <paper-button class="secondary-button" on-tap="onActivateTap_"
+            hidden$="[[!showActivate_(networkProperties)]]">
+          $i18n{networkButtonActivate}
+        </paper-button>
+        <paper-button class="secondary-button" on-tap="onConfigureTap_"
+            hidden$="[[!showConfigure_(networkProperties)]]">
+          $i18n{networkButtonConfigure}
+        </paper-button>
+        <paper-button class="primary-button" on-tap="onConnectTap_"
+            hidden$="[[!showConnect_(networkProperties)]]"
+            disabled="[[!enableConnect_(networkProperties, defaultNetwork)]]">
+          $i18n{networkButtonConnect}
+        </paper-button>
+        <paper-button class="primary-button" on-tap="onDisconnectTap_"
+            hidden$="[[!showDisconnect_(networkProperties)]]">
+          $i18n{networkButtonDisconnect}
+        </paper-button>
+      </div>
+    </div>
+
+    <!-- Shared. -->
+    <div class="settings-box continuation"
+        hidden$="[[!showShared_(networkProperties)]]">
+      $i18n{networkShared}
+    </div>
+    <!-- Top level properties -->
+    <div class="layout vertical">
+      <!-- Prefer this network. -->
+      <template is="dom-if" if="[[showPreferNetwork_(networkProperties))]]">
+        <div class="settings-box">
+          <paper-checkbox checked="{{preferNetwork_}}"
+              disabled="[[isNetworkPolicyEnforced(
+                  networkProperties.Priority)]]">
+            $i18n{networkPrefer}
+          </paper-checkbox>
+          <cr-policy-network-indicator
+              property="[[networkProperties.Priority]]">
+          </cr-policy-network-indicator>
+        </div>
+      </template>
+      <!-- Autoconnect. -->
+      <template is="dom-if" if="[[showAutoConnect_(networkProperties)]]">
+        <div class="settings-box">
+          <paper-checkbox checked="{{autoConnect_}}">
+            $i18n{networkAutoConnect}
+          </paper-checkbox>
+          <cr-policy-network-indicator
+              property="[[getManagedAutoConnect_(networkProperties)]]">
+          </cr-policy-network-indicator>
+        </div>
+      </template>
+      <!-- SIM Info (Cellular only). -->
+      <template is="dom-if" if="[[showCellularSim_(networkProperties)]]">
+        <div class="settings-box single-column stretch">
+          <network-siminfo
+              editable on-siminfo-change="onNetworkPropertyChange_"
+              network-properties="[[networkProperties]]"
+              networking-private="[[networkingPrivate]]">
+          </network-siminfo>
+        </div>
+      </template>
+      <!-- IP Address. -->
+      <template is="dom-if" if="[[IPAddress_]]">
+        <div class="settings-box two-line single-column stretch">
+          <div>$i18n{networkIPAddress}</div>
+          <div class="secondary">[[IPAddress_]]</div>
+        </div>
+      </template>
+      <!-- Properties to always show if present. -->
+      <template is="dom-if" if="[[hasInfoFields_(networkProperties)]]">
+        <div class="settings-box single-column stretch">
+          <network-property-list fields="[[getInfoFields_(networkProperties)]]"
+              property-dict="[[networkProperties]]">
+          </network-property-list>
+        </div>
+      </template>
+    </div>
+
+    <!-- Advanced toggle. -->
+    <div class="settings-box" actionable on-tap="toggleAdvancedExpanded_"
+        hidden$="[[!showAdvanced_(networkProperties)]]">
+      <div class="advanced flex">$i18n{networkSectionAdvanced}</div>
+      <cr-expand-button id="expandButton" expanded="{{advancedExpanded_}}"
+          alt="$i18n{networkSectionAdvancedExpandA11yLabel}">
+      </cr-expand-button>
+    </div>
+
+    <!-- Advanced section -->
+    <iron-collapse opened="[[advancedExpanded_]]">
+      <div class="layout vertical indented">
+        <div class="settings-box single-column stretch"
+            hidden$="[[!hasAdvancedOrDeviceFields_(networkProperties)]]">
+          <!-- Advanced properties -->
+          <network-property-list
+              hidden$="[[!hasAdvancedFields_(networkProperties)]]"
+              fields="[[getAdvancedFields_(networkProperties)]]"
+              property-dict="[[networkProperties]]">
+          </network-property-list>
+          <!-- Device properties -->
+          <network-property-list
+              hidden$="[[!hasDeviceFields_(networkProperties)]]"
+              fields="[[getDeviceFields_(networkProperties)]]"
+              property-dict="[[networkProperties]]">
+          </network-property-list>
+        </div>
+
+        <!-- Network sub-section title -->
+        <div class="layout vertical"
+            hidden$="[[!hasNetworkSection_(networkProperties)]]">
+          <span class="subtitle">$i18n{networkSectionNetwork}</span>
+        </div>
+
+        <!-- APN -->
+        <template is="dom-if"
+            if="[[isType_(NetworkType_.CELLULAR, networkProperties)]]">
+          <network-apnlist editable on-apn-change="onNetworkPropertyChange_"
+              network-properties="[[networkProperties]]">
+          </network-apnlist>
+        </template>
+          
+        <!-- IP Config, Nameservers, Proxy -->
+        <template is="dom-if"
+            if="[[isRememberedOrConnected_(networkProperties)]]">
+          <network-ip-config editable on-ip-change="onIPConfigChange_"
+              network-properties="[[networkProperties]]">
+          </network-ip-config>
+          <network-nameservers editable
+              on-nameservers-change="onIPConfigChange_"
+              network-properties="[[networkProperties]]">
+          </network-nameservers>
+          <span class="subtitle">$i18n{networkSectionProxy}</span>
+          <network-proxy editable prefs="{{prefs}}"
+              on-proxy-change="onProxyChange_"
+              network-properties="[[networkProperties]]">
+          </network-proxy>
+        </template>
+      </div>
+    </iron-collapse>
+  </template>
+  <script src="internet_detail_page.js"></script>
+</dom-module>

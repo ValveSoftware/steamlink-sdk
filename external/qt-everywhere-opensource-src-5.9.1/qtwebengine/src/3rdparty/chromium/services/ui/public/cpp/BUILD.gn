@@ -1,0 +1,164 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+
+# This is the public target. It contains only the public headers. The
+# implementation (and private haders) are in 'internal'.
+source_set("cpp") {
+  sources = [
+    "context_provider.h",
+    "gpu_service.h",
+    "input_event_handler.h",
+    "mojo_gpu_memory_buffer_manager.h",
+    "property_type_converters.h",
+    "raster_thread_helper.h",
+    "scoped_window_ptr.h",
+    "surface_id_handler.h",
+    "window.h",
+    "window_compositor_frame_sink.h",
+    "window_manager_delegate.h",
+    "window_observer.h",
+    "window_property.h",
+    "window_tracker.h",
+    "window_tree_client.h",
+    "window_tree_client_delegate.h",
+    "window_tree_client_observer.h",
+    "window_tree_host_factory.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//cc",
+    "//cc/surfaces",
+    "//cc/surfaces:surface_id",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//gpu/command_buffer/common",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//services/service_manager/public/interfaces",
+    "//services/ui/common:mus_common",
+    "//services/ui/public/interfaces",
+  ]
+
+  deps = [
+    ":internal",
+    ":internal_or_test",
+    "//gpu/command_buffer/client:gles2_cmd_helper",
+    "//gpu/command_buffer/client:gles2_interface",
+    "//gpu/ipc/client",
+    "//services/service_manager/public/cpp",
+    "//services/ui/public/interfaces",
+    "//ui/display",
+    "//ui/events",
+    "//ui/gfx/geometry",
+  ]
+
+  data_deps = [
+    "//services/ui",
+  ]
+
+  if (use_qt) {
+    data_deps -= [
+      "//services/ui",
+    ]
+  }
+
+  defines = [ "GL_GLEXT_PROTOTYPES" ]
+
+  allow_circular_includes_from = [
+    ":internal",
+    ":internal_or_test",
+  ]
+}
+
+# This target is for use internally and by tests.
+source_set("internal_or_test") {
+  visibility = [
+    "./*",
+    "//services/ui/ws:mus_ws_unittests",
+    "//ui/views/mus:views_mus_unittests",
+  ]
+
+  sources = [
+    "window_private.h",
+  ]
+
+  deps = [
+    "//base",
+    "//mojo/public/cpp/bindings",
+  ]
+}
+
+source_set("internal") {
+  # This target is an implementation detail and is intended only to be used by
+  # the 'cpp' target.
+  visibility = [
+    ":cpp",
+    "//services/ui/demo:lib",
+  ]
+
+  sources = [
+    "context_provider.cc",
+    "gles2_context.cc",
+    "gles2_context.h",
+    "gpu_service.cc",
+    "in_flight_change.cc",
+    "in_flight_change.h",
+    "mojo_buffer_backing.cc",
+    "mojo_buffer_backing.h",
+    "mojo_gpu_memory_buffer_manager.cc",
+    "property_type_converters.cc",
+    "raster_thread_helper.cc",
+    "scoped_window_ptr.cc",
+    "window.cc",
+    "window_compositor_frame_sink.cc",
+    "window_manager_delegate.cc",
+    "window_observer.cc",
+    "window_private.cc",
+    "window_tree_client.cc",
+    "window_tree_client_delegate.cc",
+    "window_tree_host_factory.cc",
+  ]
+
+  deps = [
+    ":internal_or_test",
+    "//base",
+    "//cc",
+    "//cc/surfaces",
+    "//cc/surfaces:surface_id",
+    "//gpu/command_buffer/client",
+    "//gpu/command_buffer/client:gles2_cmd_helper",
+    "//gpu/command_buffer/client:gles2_implementation",
+    "//gpu/command_buffer/client:gles2_interface",
+    "//gpu/command_buffer/common",
+    "//gpu/ipc/client",
+    "//mojo/public/cpp/bindings",
+    "//mojo/public/cpp/system",
+    "//services/service_manager/public/cpp",
+    "//services/service_manager/public/interfaces",
+    "//services/ui/common:mus_common",
+    "//services/ui/public/interfaces",
+    "//ui/display",
+    "//ui/events",
+    "//ui/gfx/geometry",
+  ]
+
+  data_deps = [
+    "//services/ui",
+  ]
+
+  defines = [ "GL_GLEXT_PROTOTYPES" ]
+
+  if (use_qt) {
+    data_deps -= [
+      "//services/ui",
+    ]
+  }
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone" ]
+  }
+}

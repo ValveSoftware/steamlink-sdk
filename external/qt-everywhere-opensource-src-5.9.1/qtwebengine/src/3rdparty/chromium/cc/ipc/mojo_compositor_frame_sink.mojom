@@ -1,0 +1,57 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module cc.mojom;
+
+import "cc/ipc/begin_frame_args.mojom";
+import "cc/ipc/compositor_frame.mojom";
+import "cc/ipc/frame_sink_id.mojom";
+import "cc/ipc/returned_resource.mojom";
+
+// A MojoCompositorFrameSink is an interface for receiving CompositorFrame
+// structs. A CompositorFrame contains the complete output meant for display.
+// Each time a client has a graphical update, and receives an OnBeginFrame, it
+// is responsible for creating a CompositorFrame to update its portion of the
+// screen.
+interface MojoCompositorFrameSink {
+  // Lets the display compositor know that the client wishes to receive the next
+  // BeginFrame event.
+  SetNeedsBeginFrame(bool needs_begin_frame);
+
+  // Submits a CompositorFrame to the display compositor that will be presented
+  // to screen the next time frames from all CompositorFrameSinks are aggregated
+  // to produce a display CompositorFrame.
+  // For successful swaps, the implementation must call
+  // DidReceiveCompositorFrameAck() asynchronously when the frame has been
+  // processed in order to unthrottle the next frame.
+  SubmitCompositorFrame(cc.mojom.CompositorFrame frame);
+
+  // TODO(fsamuel): ReadbackBitmap API would be useful here.
+};
+
+interface MojoCompositorFrameSinkClient {
+  // Notification that the previous CompositorFrame given to
+  // SubmitCompositorFrame() has been processed and that another frame
+  // can be submitted. This provides backpressure from the display compositor
+  // so that frames are submitted only at the rate it can handle them.
+  // TODO(fsamuel): This method ought not be necessary with unified BeginFrame.
+  // However, there's a fair amount of cleanup and refactoring necessary to get
+  // rid of it.
+  DidReceiveCompositorFrameAck();
+
+  // Notification for the client to generate a CompositorFrame.
+  OnBeginFrame(BeginFrameArgs args);
+
+  // Returns resources sent to SubmitCompositorFrame to be reused or freed.
+  ReclaimResources(ReturnedResourceArray resources);
+};
+
+// MojoCompositorFrameSinkPrivate is used by the display compositor host to set
+// up BeginFrameSource hierarchies.  This API lives in SurfaceManager but is
+// called from here in order to ensure that hierarchy registration does not race
+// CompositorFrameSink creation.
+interface MojoCompositorFrameSinkPrivate {
+  AddChildFrameSink(FrameSinkId child_frame_sink_id);
+  RemoveChildFrameSink(FrameSinkId child_frame_sink_id);
+};

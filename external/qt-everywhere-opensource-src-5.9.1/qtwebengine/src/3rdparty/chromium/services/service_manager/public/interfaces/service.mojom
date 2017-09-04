@@ -1,0 +1,70 @@
+// Copyright 2014 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module service_manager.mojom;
+
+import "services/service_manager/public/interfaces/connector.mojom";
+import "services/service_manager/public/interfaces/interface_provider.mojom";
+import "services/service_manager/public/interfaces/interface_provider_spec.mojom";
+import "services/service_manager/public/interfaces/service_control.mojom";
+
+// Metadata describing an instance of a service.
+struct ServiceInfo {
+  // The service's identity.
+  Identity identity;
+
+  // The service's interface provider specs, from its manifest.
+  map<string, InterfaceProviderSpec> interface_provider_specs;
+};
+
+// Implemented by any service which is known to the Service Manager, for which
+// instances may be tracked. It allows the implementor to receive lifecycle
+// events and service inbound connection attempts.
+interface Service {
+  // Called by the service manager once an instance for this service has been
+  // created. This method will be called exactly once before any other method is
+  // called.
+  //
+  // Parameters:
+  //
+  //  identity
+  //    The identity of this instance in the service manager. Includes:
+  //    * The resolved name used in the connection request that resulted in this
+  //      instance being initialized.
+  //    * The user associated with this instance in the service manager. This
+  //      will never be kInheritUserID.
+  //    * The instance group this instance belongs to.
+  //
+  // Response parameters:
+  //
+  //  connector_request
+  //    An optional Connector request for the service manager to bind, allowing
+  //    the initialized client to connect to others.
+  //
+  //  control_request
+  //    An optional associated ServiceControl request.
+  //
+  OnStart(ServiceInfo info) => (Connector&? connector_request,
+                                associated ServiceControl&? control_request);
+
+  // Called when another service attempts to open a connection to this
+  // service. A service implements this method to complete the exchange
+  // of interface implementations with the remote service. See also
+  // documentation in service_manager.mojom for Connect(). The service
+  // originating the request is referred to as the "source" and the one
+  // receiving the "target".
+  //
+  // The Service must respond to acknowledge receipt of the request.
+  //
+  // Parameters:
+  //
+  //  source_info
+  //    Contains the source identity and interface provider specs.
+  //
+  //  interfaces
+  //    A request for an InterfaceProvider by which the source service may
+  //    seek to bind interface implementations exported by the target.
+  //
+  OnConnect(ServiceInfo source_info, InterfaceProvider&? interfaces) => ();
+};

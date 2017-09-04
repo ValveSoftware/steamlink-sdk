@@ -1,0 +1,154 @@
+{
+    "version": 1,
+    "kind": "file",
+    "id": "D.Qt3DClass",
+    "category": "O.C++",
+    "trDescription": "Creates a Qt3D class consisting of a C++ header, source file and private header for a new component that you can add to a C++ project.",
+    "trDisplayName": "Qt3D Class",
+    "trDisplayCategory": "C++",
+    "icon": "../../global/genericfilewizard.png",
+    "enabled": "%{JS: [ %{Plugins} ].indexOf('CppEditor') >= 0}",
+
+    "options":
+    [
+        { "key": "TargetPath", "value": "%{Path}" },
+        { "key": "HdrPath", "value": "%{Path}/%{HdrFileName}" },
+        { "key": "PrivateHdrPath", "value": "%{Path}/%{PrivateHdrFileName}" },
+        { "key": "SrcPath", "value": "%{Path}/%{SrcFileName}" },
+        { "key": "CN", "value": "%{JS: Cpp.className('%{Class}')}" },
+        { "key": "Base", "value": "%{JS: ( '%{BaseCB}' === '' ) ? '%{BaseEdit}' : '%{BaseCB}'}" },
+        { "key": "isQObject", "value": "%{JS: [ 'QNode', 'QComponent', 'QEntity'].indexOf('%{Base}') >= 0 }" },
+        { "key": "GUARD", "value": "%{JS: Cpp.classToHeaderGuard('%{Class}', '%{JS: Util.preferredSuffix('text/x-c++hdr')}')}" },
+        { "key": "PRIVATEGUARD", "value": "%{JS: Cpp.classToHeaderGuard('%{Class}' + '_P', '%{JS: Util.preferredSuffix('text/x-c++hdr')}')}" },
+        { "key": "SharedDataInit", "value": "%{JS: ('%{IncludeQSharedData}') ? 'data(new %{CN}Data)' : '' }" },
+        { "key": "IncludeQNode", "value": "%{JS: '%{BaseCB}' === 'QNode'}" },
+        { "key": "IncludeQComponent", "value": "%{JS: '%{BaseCB}' === 'QComponent'}" },
+        { "key": "IncludeQEntity", "value": "%{JS: '%{BaseCB}' === 'QEntity'}" },
+        { "key": "IncludeQBackendNode", "value": "%{JS: '%{BaseCB}' === 'QBackendNode'}" }
+    ],
+
+    "pages":
+    [
+        {
+            "trDisplayName": "Define Qt3D Class",
+            "trShortTitle": "Details",
+            "typeId": "Fields",
+            "data" :
+            [
+                {
+                    "name": "Class",
+                    "trDisplayName": "Class name:",
+                    "mandatory": true,
+                    "type": "LineEdit",
+                    "data": { "validator": "(?:(?:[a-zA-Z_][a-zA-Z_0-9]*::)+[a-zA-Z_][a-zA-Z_0-9]*|)" }
+                },
+                {
+                    "name": "BaseCB",
+                    "trDisplayName": "Base class:",
+                    "type": "ComboBox",
+                    "data":
+                    {
+                        "items": [ { "trKey": "<Custom>", "value": "" },
+                                   "QNode", "QComponent", "QEntity", "QBackendNode" ]
+                    }
+                },
+                {
+                    "name": "BaseEdit",
+                    "type": "LineEdit",
+                    "enabled": "%{JS: '%{BaseCB}' === ''}",
+                    "mandatory": false,
+                    "data":
+                    {
+                        "trText": "%{BaseCB}",
+                        "trDisabledText": "%{BaseCB}"
+                    }
+                },
+
+                {
+                    "name": "Sp1",
+                    "type": "Spacer",
+                    "data": { "factor": 2 }
+                },
+                {
+                    "name": "HdrFileName",
+                    "type": "LineEdit",
+                    "trDisplayName": "Header file:",
+                    "mandatory": false,
+                    "enabled": "%{JS: '%{BaseCB}' !== 'QBackendNode'}",
+                    "data": { "trText": "%{JS: Cpp.classToFileName('%{Class}', '%{JS: Util.preferredSuffix('text/x-c++hdr')}')}" }
+                },
+                {
+                    "name": "PrivateHdrFileName",
+                    "type": "LineEdit",
+                    "trDisplayName": "Private header file:",
+                    "mandatory": true,
+                    "data": { "trText": "%{JS: Cpp.classToFileName('%{Class}' + '_p', '%{JS: Util.preferredSuffix('text/x-c++hdr')}')}" }
+                },
+                {
+                    "name": "SrcFileName",
+                    "type": "LineEdit",
+                    "trDisplayName": "Source file:",
+                    "mandatory": true,
+                    "data": { "trText": "%{JS: Cpp.classToFileName('%{Class}', '%{JS: Util.preferredSuffix('text/x-c++src')}')}" }
+                },
+                {
+                    "name": "Path",
+                    "type": "PathChooser",
+                    "trDisplayName": "Path:",
+                    "mandatory": true,
+                    "data":
+                    {
+                        "kind": "existingDirectory",
+                        "basePath": "%{InitialPath}",
+                        "path": "%{InitialPath}"
+                    }
+                }
+            ]
+        },
+        {
+            "trDisplayName": "Project Management",
+            "trShortTitle": "Summary",
+            "typeId": "Summary"
+        }
+    ],
+
+    "generators":
+    [
+        {
+            "typeId": "File",
+            "data":
+            [
+                {
+                    "source": "file.h",
+                    "target": "%{HdrPath}",
+                    "condition": "%{JS: '%{Base}' !== 'QBackendNode'}",
+                    "openInEditor": true
+                },
+                {
+                    "source": "file_p.h",
+                    "target": "%{PrivateHdrPath}",
+                    "condition": "%{JS: '%{Base}' !== 'QBackendNode'}",
+                    "openInEditor": true
+                },
+                {
+                    "source": "file.cpp",
+                    "target": "%{SrcPath}",
+                    "condition": "%{JS: '%{Base}' !== 'QBackendNode'}",
+                    "openInEditor": true
+                },
+                {
+                    "source": "backendnode.cpp",
+                    "target": "%{SrcPath}",
+                    "condition": "%{JS: '%{Base}' === 'QBackendNode'}",
+                    "openInEditor": true
+                },
+                {
+                    "source": "backendnode_p.h",
+                    "target": "%{PrivateHdrPath}",
+                    "condition": "%{JS: '%{Base}' === 'QBackendNode'}",
+                    "openInEditor": true
+                }
+            ]
+        }
+    ]
+}

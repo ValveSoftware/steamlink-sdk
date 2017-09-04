@@ -10,7 +10,7 @@ if [ ! -d $MARVELL_ROOTFS ]; then
 fi
 
 # Set up Qt environment
-QT_VERSION=5.8.0
+QT_VERSION=5.9.1
 QT_HOST_PREFIX=$MARVELL_SDK_PATH/external/qt-everywhere-opensource-src-$QT_VERSION/build/host
 QT_HOST_BINS=$QT_HOST_PREFIX/bin
 cat <<__EOF__ >$QT_HOST_BINS/qt.conf

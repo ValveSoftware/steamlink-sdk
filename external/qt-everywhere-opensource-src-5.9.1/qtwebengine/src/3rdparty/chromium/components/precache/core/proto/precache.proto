@@ -1,0 +1,112 @@
+// Copyright 2013 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+package precache;
+
+// Chrome requires this.
+option optimize_for = LITE_RUNTIME;
+
+// Information about a cacheable resource to be precached.
+message PrecacheResource {
+  // The URL of the resource. This field must always be present.
+  optional string url = 1;
+
+  // The tophost this resource corresponds to.
+  optional string top_host_name = 2;
+
+  // How important this resource is for the host. It ranges from 0.0 to 1.0.
+  // Higher values mean more important.
+  optional double weight_ratio = 3;
+};
+
+message PrecacheManifestId {
+  optional int64 id = 1;
+};
+
+// A manifest of cacheable resources to be precached for a specific host.
+message PrecacheManifest {
+  // List of resources that we predict that the user will need if they are
+  // likely to fetch the host.
+  repeated PrecacheResource resource = 1;
+
+  // Experiments running on this manifest.
+  optional PrecacheExperiments experiments = 2;
+
+  // Identifier for the manifest sent by the server.
+  optional PrecacheManifestId id = 3;
+};
+
+message PrecacheExperiments {
+  // A mapping between experiment groups and the resources that should be
+  // considered for the experiment.
+  map<fixed32, PrecacheResourceSelection> resources_by_experiment_group = 1;
+};
+
+message PrecacheResourceSelection {
+  // Select the resources as a std::bitset over the resources listed in the
+  // manifest.
+  //
+  // The bitset should be loaded as:
+  //   std::bitset selection(resource_selection.bitset());
+  // Then manifest.resource(i) is selected for the experiment iff
+  // selection.test(i).
+  //
+  // A missing bitset means that the experiment applies to all the resources.
+  optional fixed64 bitset = 1 [default = 0xFFFFFFFFFFFFFFFF];
+};
+
+message PrecacheConfigurationSettings {
+  // The maximum rank of the user's most visited hosts to consider precaching
+  // resources for, starting from 1. For example, a value of 10 means that only
+  // hosts that are in the user's top 10 most visited hosts will be considered
+  // as starting URLs for resource precaching. This is specified by the server
+  // for testing purposes, so that it's easy to adjust how aggressively
+  // resources are precached.
+  // Values that are zero or lower indicate that none of the user's top sites
+  // will be used for precaching.
+  optional int64 top_sites_count = 1 [default = 100];
+
+  // List of additional hosts that resources will be precached for.
+  // These are hosts that the server predicts that the user will visit, as a
+  // result of server-side analytics.
+  repeated string forced_site = 2;
+
+  // The number of resources to fetch for each site. Only the top
+  // |top_resources_count| URLs from each manifest are fetched.
+  optional int32 top_resources_count = 3 [default = 100];
+
+  // The maximum number of bytes to download per resource. Downloads of
+  // resources larger than this will be cancelled. This max applies only to new
+  // downloads; cached resources are not capped.
+  optional uint64 max_bytes_per_resource = 4 [default = 500000 /* 500 KB */];
+
+  // The maximum number of bytes per precache run. While precaching, the total
+  // number of bytes used for resources is tallied -- this includes new
+  // downloads as well as cached resources. After this limit is reached, no
+  // other resources will be downloaded.
+  optional uint64 max_bytes_total = 5 [default = 10000000 /* 10 MB */];
+
+  // The maximum number of bytes that can be fetched by precache on a single
+  // day. After this limit is reached, no more resources will be downloaded,
+  // until the quota gets replenished the next day.
+  optional uint64 daily_quota_total = 6 [default = 40000000 /* 40 MB */];
+
+  // The number of resources to fetch per precache run. Only the first
+  // |total_resources_count| resource URLs are fetched.
+  optional uint32 total_resources_count = 7 [default = 999999];
+
+  // The minimum visit-adjusted weight for which a resource will be downloaded.
+  optional double min_weight = 8 [default = 0];
+
+  // Whether to sort resources by weight, descending, before fetching. This
+  // affects the fetcher's behavior with respect to max_bytes_total and
+  // total_resources_count.
+  optional bool global_ranking = 9 [default = false];
+
+  // If true, resource fetches are only made over the network for a given URL if
+  // an existing cache entry exists and has revalidation headers.
+  optional bool revalidation_only = 10 [default = false];
+};

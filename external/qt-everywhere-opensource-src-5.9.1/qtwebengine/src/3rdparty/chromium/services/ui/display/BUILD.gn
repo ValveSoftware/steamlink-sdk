@@ -1,0 +1,62 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//testing/test.gni")
+
+source_set("display") {
+  sources = [
+    "platform_screen.cc",
+    "platform_screen.h",
+    "platform_screen_delegate.h",
+    "viewport_metrics.cc",
+    "viewport_metrics.h",
+  ]
+
+  deps = [
+    "//base",
+    "//services/service_manager/public/cpp",
+    "//ui/display",
+    "//ui/gfx",
+  ]
+
+  if (use_ozone && is_chromeos) {
+    sources += [
+      "platform_screen_ozone.cc",
+      "platform_screen_ozone.h",
+    ]
+
+    deps += [
+      "//services/ui/public/interfaces/display",
+      "//skia",
+      "//ui/ozone",
+    ]
+  } else {
+    sources += [
+      "platform_screen_stub.cc",
+      "platform_screen_stub.h",
+    ]
+  }
+}
+
+if (use_ozone && is_chromeos) {
+  test("display_service_unittests") {
+    sources = [
+      "platform_screen_ozone_unittests.cc",
+    ]
+
+    deps = [
+      ":display",
+      "//base",
+      "//base/test:run_all_unittests",
+      "//base/test:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+      "//ui/display",
+      "//ui/gfx",
+      "//ui/gfx:test_support",
+      "//ui/ozone",
+    ]
+  }
+}

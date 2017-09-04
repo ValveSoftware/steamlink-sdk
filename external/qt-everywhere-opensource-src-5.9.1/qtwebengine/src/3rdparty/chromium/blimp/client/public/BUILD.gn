@@ -1,0 +1,108 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+# Only //chrome should ever depend on this. Code in //blimp/client/* should
+# instead use //blimp/client/public:public_headers directly. This target
+# differs from :public_headers by pulling in the appropriate implementation
+# as well as the headers.
+group("public") {
+  visibility = [ "//chrome/*" ]
+
+  deps = [
+    ":public_headers",
+    "//blimp/client/core:core_shim",
+  ]
+}
+
+# All code in //blimp/client/* should depend on this target instead of
+# //blimp/client/public to ensure there are no circular dependencies or
+# duplicate symbols regardless of whether enable_blimp_client is set or not.
+source_set("public_headers") {
+  visibility = [
+    "//blimp/client/*",
+    "//blimp/test/*",
+  ]
+
+  sources = [
+    "blimp_client_context.h",
+    "blimp_client_context_delegate.h",
+    "compositor/compositor_dependencies.h",
+    "contents/blimp_contents.h",
+    "contents/blimp_contents_observer.cc",
+    "contents/blimp_contents_observer.h",
+    "contents/blimp_contents_view.h",
+    "contents/blimp_navigation_controller.h",
+    "resources/blimp_strings.h",
+    "session/assignment.cc",
+    "session/assignment.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//cc/surfaces:surface_id",
+    "//components/keyed_service/core",
+    "//components/prefs:prefs",
+    "//net",
+    "//ui/gfx:native_widget_types",
+    "//url",
+  ]
+
+  if (is_android) {
+    sources += [ "android/blimp_jni_registrar.h" ]
+  }
+}
+
+if (is_android) {
+  # Only //chrome should ever depend on this. Code in //blimp/client/* should
+  # instead use //blimp/client/public:public_headers_java directly. This target
+  # differs from :public_headers_java by pulling in the appropriate
+  # implementation as well as the headers.
+  java_group("public_java") {
+    visibility = [ "//chrome/*" ]
+
+    deps = [
+      ":public_headers_java",
+      "//blimp/client/core:core_shim_java",
+    ]
+  }
+
+  # All code in //blimp/client/* should depend on this target instead of
+  # //blimp/client/public:public_java to ensure there are no circular
+  # dependencies or duplicate files regardless of whether enable_blimp_client is
+  # set or not.
+  android_library("public_headers_java") {
+    visibility = [ "//blimp/client/*" ]
+
+    java_files = [
+      "android/java/src/org/chromium/blimp_public/contents/BlimpContents.java",
+      "android/java/src/org/chromium/blimp_public/contents/BlimpContentsObserver.java",
+      "android/java/src/org/chromium/blimp_public/contents/BlimpNavigationController.java",
+      "android/java/src/org/chromium/blimp_public/contents/EmptyBlimpContentsObserver.java",
+      "android/java/src/org/chromium/blimp_public/BlimpClientContext.java",
+      "android/java/src/org/chromium/blimp_public/BlimpClientContextDelegate.java",
+    ]
+
+    deps = [
+      "//third_party/android_tools:android_support_annotations_java",
+      "//ui/android:ui_java",
+    ]
+
+    # The enums are added here for convenience for embedders, so they can still
+    # only depend on :public_java.
+    srcjar_deps = [ ":public_headers_java_enums_srcjar" ]
+  }
+
+  java_cpp_enum("public_headers_java_enums_srcjar") {
+    visibility = [ ":*" ]
+
+    sources = [
+      "session/assignment.h",
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/features.gni")
+
+if (is_android) {
+  import("//build/config/android/rules.gni")  # For generate_jni().
+}
+
+component("time_zone_monitor") {
+  sources = [
+    "android/time_zone_monitor_jni_registrar.cc",
+    "android/time_zone_monitor_jni_registrar.h",
+    "time_zone_monitor.cc",
+    "time_zone_monitor.h",
+    "time_zone_monitor_android.cc",
+    "time_zone_monitor_android.h",
+    "time_zone_monitor_chromeos.cc",
+    "time_zone_monitor_export.h",
+    "time_zone_monitor_linux.cc",
+    "time_zone_monitor_mac.mm",
+    "time_zone_monitor_win.cc",
+  ]
+
+  defines = [ "DEVICE_TIME_ZONE_MONITOR_IMPLEMENTATION" ]
+
+  deps = [
+    "//base",
+    "//mojo/public/cpp/bindings",
+    "//third_party/icu",
+  ]
+
+  public_deps = [
+    "//device/time_zone_monitor/public/interfaces",
+  ]
+
+  if (is_android) {
+    deps += [ ":time_zone_monitor_jni_headers" ]
+  }
+
+  if (is_win) {
+    deps += [ "//ui/gfx" ]
+  }
+
+  if (is_chromeos) {
+    deps += [ "//chromeos" ]
+  }
+
+  if (is_mac) {
+    libs = [ "Foundation.framework" ]
+  }
+}
+
+if (is_android) {
+  generate_jni("time_zone_monitor_jni_headers") {
+    sources = [
+      "android/java/src/org/chromium/device/time_zone_monitor/TimeZoneMonitor.java",
+    ]
+    jni_package = "time_zone_monitor"
+  }
+
+  android_library("java") {
+    java_files = [ "android/java/src/org/chromium/device/time_zone_monitor/TimeZoneMonitor.java" ]
+    deps = [
+      "//base:base_java",
+    ]
+  }
+}

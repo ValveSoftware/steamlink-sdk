@@ -1,0 +1,32 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module blimp.engine.mojom;
+
+// Exposes BlobChannel data producer methods to the renderer processes.
+// The renderer can use this service to push bulk data such as images to
+// the client.
+interface BlobChannel {
+  // Gets the list of cached BlobIDs and their replication status in the
+  // browser process' BlobCache. The replication status is represented
+  // as a boolean which, when true, indicates that the blob has been
+  // sent to the client.
+  // TODO(kmarshall): Add a delegate receiver to process cache invalidation
+  // events from the browser as they occur.
+  GetCachedBlobIds() => (map<string, bool> cache_state);
+
+  // Stores the blob |id| in the BlobCache.
+  // Because the IPC channel is a shared resource and payloads can be quite
+  // large, we use shared memory to reduce channel contention and associated
+  // latency with other components/features.
+  //
+  // The buffer is released when the callee discards the handle for |data|.
+  PutBlob(string id, handle<shared_buffer> data, uint32 size);
+
+  // Requests that the BlobChannel push the blob |id| over the wire.
+  // The request will be ignored if the BlobChannel knows that
+  // the client already has the data.
+  DeliverBlob(string id);
+};
+

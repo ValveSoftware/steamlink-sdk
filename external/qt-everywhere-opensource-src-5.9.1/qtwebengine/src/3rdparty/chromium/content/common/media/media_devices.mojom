@@ -1,0 +1,55 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module mojom;
+
+import "url/mojo/origin.mojom";
+
+[Native]
+enum MediaDeviceType;
+
+[Native]
+struct MediaDeviceInfo;
+
+// This object lives in the browser and is responsible for processing device
+// enumeration requests and managing subscriptions for device-change
+// notifications.
+interface MediaDevicesDispatcherHost {
+  // The reply always contains NUM_MEDIA_DEVICE_TYPES elements.
+  // The result is indexed by device type as defined in 
+  // content/common/media/media_devices.h.
+  EnumerateDevices(bool request_audio_input,
+                   bool request_video_input,
+                   bool request_audio_output,
+                   url.mojom.Origin security_origin)
+                       => (array<array<MediaDeviceInfo>> enumeration);
+
+  // Creates a subscription for device-change notifications for the calling
+  // frame/security origin. It is the responsibility of the caller to send
+  // |subscription_id| values that are unique per device type.
+  // Requests to create a subscription with an ID that already exists for type
+  // |type| are invalid and result in a renderer crash.
+  SubscribeDeviceChangeNotifications(MediaDeviceType type,
+                                     uint32 subscription_id,
+                                     url.mojom.Origin security_origin);
+
+  // Removes a subscription to device-change notifications for the calling
+  // frame. The caller is responsible for sending |subscription_id| values that
+  // that refer to existing subscriptions for type |type|. Requests to remove
+  // a nonexisting subscription with are invalid and result in a renderer crash.
+  UnsubscribeDeviceChangeNotifications(MediaDeviceType type,
+                                       uint32 subscription_id);
+};
+
+// This object lives in the renderer process and is used by the browser process
+// to pass device-change notifications to the renderer.
+interface MediaDevicesListener {
+  // Called to notify a change in the set of devices of type |type| for
+  // subscription |subscription_id|. |device_infos| contains the new list of
+  // devices of type |type|, with device and group IDs obfuscated according to
+  // the subscription's security origin.
+  OnDevicesChanged(MediaDeviceType type,
+                   uint32 subscription_id,
+                   array<MediaDeviceInfo> device_infos);
+};

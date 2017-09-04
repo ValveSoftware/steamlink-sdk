@@ -1,0 +1,52 @@
+{% filter format_blink_cpp_source_code %}
+
+{% include 'copyright_block.txt' %}
+
+#ifndef {{cpp_class}}_h
+#define {{cpp_class}}_h
+
+{% for filename in header_includes %}
+#include "{{filename}}"
+{% endfor %}
+
+namespace blink {
+
+class ScriptState;
+{% for forward_declaration in forward_declarations %}
+class {{forward_declaration}};
+{% endfor %}
+
+class {{exported}}{{cpp_class}} final : public GarbageCollectedFinalized<{{cpp_class}}>, public TraceWrapperBase {
+ public:
+  static {{cpp_class}}* create(ScriptState* scriptState, v8::Local<v8::Function> callback)  {
+    return new {{cpp_class}}(scriptState, callback);
+  }
+
+  ~{{cpp_class}}() = default;
+
+  DECLARE_TRACE();
+  DECLARE_TRACE_WRAPPERS();
+
+  bool call({{argument_declarations | join(', ')}});
+
+  v8::Local<v8::Function> v8Value(v8::Isolate* isolate) {
+    return m_callback.newLocal(isolate);
+  }
+
+  void setWrapperReference(v8::Isolate* isolate, const v8::Persistent<v8::Object>& wrapper) {
+    DCHECK(!m_callback.isEmpty());
+    m_callback.setReference(wrapper, isolate);
+  }
+
+ private:
+  {{cpp_class}}(ScriptState*, v8::Local<v8::Function>);
+
+  RefPtr<ScriptState> m_scriptState;
+  TraceWrapperV8Reference<v8::Function> m_callback;
+};
+
+}  // namespace blink
+
+#endif  // {{cpp_class}}_h
+
+{% endfilter %}{# format_blink_cpp_source_code #}

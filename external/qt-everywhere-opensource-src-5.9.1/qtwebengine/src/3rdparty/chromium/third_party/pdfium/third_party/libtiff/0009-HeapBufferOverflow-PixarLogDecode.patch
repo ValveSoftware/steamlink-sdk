@@ -1,0 +1,33 @@
+diff --git a/third_party/libtiff/tif_pixarlog.c b/third_party/libtiff/tif_pixarlog.c
+index b93b4c7..0674fa4 100644
+--- a/third_party/libtiff/tif_pixarlog.c
++++ b/third_party/libtiff/tif_pixarlog.c
+@@ -457,6 +457,7 @@ horizontalAccumulate8abgr(uint16 *wp, int n, int stride, unsigned char *op,
+ typedef	struct {
+ 	TIFFPredictorState	predict;
+ 	z_stream		stream;
++	tmsize_t		tbuf_size; /* only set/used on reading for now */
+ 	uint16			*tbuf; 
+ 	uint16			stride;
+ 	int			state;
+@@ -692,6 +693,7 @@ PixarLogSetupDecode(TIFF* tif)
+ 	sp->tbuf = (uint16 *) _TIFFmalloc(tbuf_size);
+ 	if (sp->tbuf == NULL)
+ 		return (0);
++	sp->tbuf_size = tbuf_size;
+ 	if (sp->user_datafmt == PIXARLOGDATAFMT_UNKNOWN)
+ 		sp->user_datafmt = PixarLogGuessDataFmt(td);
+ 	if (sp->user_datafmt == PIXARLOGDATAFMT_UNKNOWN) {
+@@ -781,6 +783,12 @@ PixarLogDecode(TIFF* tif, uint8* op, tmsize_t occ, uint16 s)
+ 		TIFFErrorExt(tif->tif_clientdata, module, "ZLib cannot deal with buffers this size");
+ 		return (0);
+ 	}
++	/* Check that we will not fill more than what was allocated */
++	if ((tmsize_t)sp->stream.avail_out > sp->tbuf_size)
++	{
++		TIFFErrorExt(tif->tif_clientdata, module, "sp->stream.avail_out > sp->tbuf_size");
++		return (0);
++	}
+ 	do {
+ 		int state = inflate(&sp->stream, Z_PARTIAL_FLUSH);
+ 		if (state == Z_STREAM_END) {

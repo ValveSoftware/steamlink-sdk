@@ -1,0 +1,70 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//third_party/WebKit/Source/bindings/modules/v8/generated.gni")
+import("//third_party/WebKit/Source/bindings/scripts/scripts.gni")
+import("//third_party/WebKit/Source/modules/modules.gni")
+import("//third_party/WebKit/Source/modules/modules_idl_files.gni")
+
+visibility = [ "//third_party/WebKit/*" ]
+
+group("bindings_modules_generated") {
+  public_deps = [
+    ":bindings_modules_impl_generated",
+    ":bindings_modules_v8_generated_init_partial",
+    ":generate_bindings_modules_v8_interfaces",
+    ":generate_bindings_modules_v8_partial_interfaces",
+  ]
+}
+
+idl_compiler("generate_bindings_modules_v8_interfaces") {
+  sources = modules_definition_idl_files
+  output_dir = bindings_modules_v8_output_dir
+  output_name_suffix = ""
+  target_component = "modules"
+}
+
+idl_impl("bindings_modules_impl_generated") {
+  sources = modules_dictionary_idl_files
+  outputs = bindings_modules_generated_union_type_files +
+            generated_modules_dictionary_files +
+            generated_modules_callback_function_files
+  output_dir = bindings_modules_v8_output_dir
+  target_component = "modules"
+}
+
+idl_compiler("generate_bindings_modules_v8_partial_interfaces") {
+  sources = core_idl_with_modules_dependency_files +
+            webcore_testing_idl_with_modules_dependency_files
+  output_dir = bindings_modules_v8_output_dir
+  output_name_suffix = "Partial"
+  target_component = "modules"
+}
+
+action("bindings_modules_v8_generated_init_partial") {
+  script = "$bindings_scripts_dir/generate_init_partial_interfaces.py"
+
+  inputs = [
+    "$bindings_modules_output_dir/InterfacesInfoOverall.pickle",
+  ]
+  outputs = [
+    bindings_modules_generated_init_partial_interfaces_file,
+  ]
+
+  # Put the IDL file list in a response file to avoid command-line limits.
+  response_file_contents =
+      rebase_path(core_idl_with_modules_dependency_files, root_build_dir)
+
+  args = [
+    "--idl-files-list",
+    "{{response_file_name}}",
+    "--output",
+    rebase_path(bindings_modules_generated_init_partial_interfaces_file,
+                root_build_dir),
+  ]
+
+  deps = [
+    "//third_party/WebKit/Source/bindings/modules:interfaces_info",
+  ]
+}

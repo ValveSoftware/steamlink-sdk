@@ -1,0 +1,105 @@
+<link rel="import" href="chrome://resources/cr_elements/cr_scrollable_behavior.html">
+<link rel="import" href="chrome://resources/cr_elements/policy/cr_policy_pref_indicator.html">
+<link rel="import" href="chrome://resources/html/i18n_behavior.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/classes/iron-flex-layout.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-list/iron-list.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/neon-animation/neon-animatable.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-button/paper-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="/icons.html">
+<link rel="import" href="/settings_page/settings_animated_pages.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="bluetooth_device_dialog.html">
+<link rel="import" href="bluetooth_device_list_item.html">
+
+<dom-module id="settings-bluetooth-page">
+  <template>
+    <style include="settings-shared">
+      cr-expand-button {
+        -webkit-margin-end: 10px;
+      }
+
+      #deviceList {
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .no-devices {
+        min-height: var(--settings-row-min-height);
+      }
+
+      settings-bluetooth-add-device-dialog,
+      settings-bluetooth-pair-device-dialog {
+        height: 400px;
+        padding: 0;
+        width: 500px;
+      }
+    </style>
+    <settings-animated-pages id="pages" section="bluetooth">
+      <neon-animatable route-path="default">
+        <div class="settings-box first">
+          <iron-icon icon="settings:bluetooth"></iron-icon>
+          <span class="middle">$i18n{bluetoothEnable}</span>
+          <cr-expand-button id="expandListButton"
+              alt="$i18n{bluetoothExpandA11yLabel}"
+              hidden$="[[!bluetoothEnabled]]"
+              expanded="{{deviceListExpanded}}">
+          </cr-expand-button>
+          <paper-toggle-button id="enableBluetooth"
+              checked="{{bluetoothEnabled}}"
+              disabled="[[!adapterState.available]]"
+              on-change="onBluetoothEnabledChange_">
+          </paper-toggle-button>
+          <cr-policy-pref-indicator
+              pref="[[prefs.cros.device.allow_bluetooth]]"
+              hidden="[[prefs.cros.device.allow_bluetooth.value]]">
+          </cr-policy-pref-indicator>
+        </div>
+        <iron-collapse opened="[[canShowDeviceList_(bluetoothEnabled,
+                                                    deviceListExpanded)]]">
+          <div id="deviceList" class="list-frame vertical-list"
+              on-device-event="onDeviceEvent_">
+            <div id="container" class="layout vertical" scrollable>
+              <iron-list items="[[getPairedOrConnecting_(deviceList.*)]]"
+                  selection-enabled selected-item="{{selectedItem}}"
+                  scroll-target="container">
+                <template>
+                  <bluetooth-device-list-item device="[[item]]"
+                      tabindex$="[[tabIndex]]">
+                  </bluetooth-device-list-item>
+                </template>
+              </iron-list>
+            </div>
+            <div class="no-devices layout horizontal center"
+                hidden$="[[haveDevices_(deviceList.*)]]">
+              $i18n{bluetoothNoDevices}
+            </div>
+          </div>
+          <div class="settings-box" hidden$="[[!bluetoothEnabled]]">
+            <paper-button class="primary-button" on-tap="onAddDeviceTap_">
+              $i18n{bluetoothAddDevice}
+            </paper-button>
+          </div>
+        </iron-collapse>
+      </neon-animatable>
+    </settings-animated-pages>
+
+    <template is="dom-if" if="[[deviceListExpanded]]">
+      <bluetooth-device-dialog id="deviceDialog"
+          adapter-state="[[adapterState]]"
+          device-list="[[deviceList]]"
+          dialog-id="[[dialogId]]"
+          on-close="onDialogClosed_"
+          error-message="[[errorMessage]]"
+          on-device-event="onDeviceEvent_"
+          on-response="onResponse_"
+          pairing-device="[[pairingDevice]]"
+          pairing-event="[[pairingEvent]]">
+      </bluetooth-device-dialog>
+    </template>
+
+  </template>
+  <script src="bluetooth_page.js"></script>
+</dom-module>

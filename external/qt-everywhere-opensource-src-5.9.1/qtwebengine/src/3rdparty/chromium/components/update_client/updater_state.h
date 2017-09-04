@@ -1,0 +1,68 @@
+// Copyright (c) 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#ifndef COMPONENTS_UPDATE_CLIENT_UPDATER_STATE_H_
+#define COMPONENTS_UPDATE_CLIENT_UPDATER_STATE_H_
+
+#include <map>
+#include <memory>
+#include <string>
+
+#include "base/gtest_prod_util.h"
+#include "base/time/time.h"
+#include "base/version.h"
+
+namespace update_client {
+
+class UpdaterState {
+ public:
+  using Attributes = std::map<std::string, std::string>;
+
+  static const char kDomainJoined[];
+
+  // Returns a map of items representing the state of an updater. These items
+  // can be serialized as XML attributes in the request building.
+  // |is_machine| is true for per-system installs of Chrome. Returns nullptr on
+  // the platforms and builds where this feature is not supported.
+  static std::unique_ptr<Attributes> GetState(bool is_machine);
+
+  ~UpdaterState();
+
+ private:
+  FRIEND_TEST_ALL_PREFIXES(UpdaterStateTest, Serialize);
+
+  explicit UpdaterState(bool is_machine);
+
+  // This function is best-effort. It updates the class members with
+  // the relevant values that could be retrieved.
+  void ReadState();
+
+  // Builds the map of state attributes by serializing this object state.
+  Attributes BuildAttributes() const;
+
+  static std::string GetUpdaterName();
+  static base::Version GetUpdaterVersion(bool is_machine);
+  static bool IsAutoupdateCheckEnabled();
+  static bool IsJoinedToDomain();
+  static base::Time GetUpdaterLastStartedAU(bool is_machine);
+  static base::Time GetUpdaterLastChecked(bool is_machine);
+  static base::Time GetUpdaterTimeValue(bool is_machine,
+                                        const wchar_t* value_name);
+  static int GetUpdatePolicy();
+
+  static std::string NormalizeTimeDelta(const base::TimeDelta& delta);
+
+  bool is_machine_ = false;
+  std::string updater_name_;
+  base::Version updater_version_;
+  base::Time last_autoupdate_started_;
+  base::Time last_checked_;
+  bool is_joined_to_domain_ = false;
+  bool is_autoupdate_check_enabled_ = false;
+  int update_policy_ = 0;
+};
+
+}  // namespace update_client
+
+#endif  // COMPONENTS_UPDATE_CLIENT_UPDATER_STATE_H_

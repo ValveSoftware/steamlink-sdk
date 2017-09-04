@@ -1,0 +1,155 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/android/config.gni")
+import("//build/config/arm.gni")
+import("//build/config/ui.gni")
+import("//media/media_options.gni")
+
+# These should compile on non-android platforms too.
+source_set("anywhere") {
+  sources = [
+    "media_codec_bridge.cc",
+    "media_codec_bridge.h",
+    "media_codec_direction.h",
+    "media_codec_loop.cc",
+    "media_codec_loop.h",
+  ]
+  configs += [
+    "//media:media_config",
+    "//media:media_implementation",
+  ]
+  deps = [
+    "//media:media_features",
+    "//media:shared_memory_support",
+    "//ui/gl",
+    "//url",
+  ]
+}
+
+# These should compile on non-android platforms too.
+source_set("anywhere_unit_tests") {
+  testonly = true
+  sources = [
+    "media_codec_loop_unittest.cc",
+    "mock_media_codec_bridge.cc",
+    "mock_media_codec_bridge.h",
+  ]
+  configs += [
+    "//media:media_config",
+    "//media:media_implementation",
+  ]
+  deps = [
+    ":anywhere",
+    "//media/base:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
+
+if (is_android) {
+  import("//build/config/android/rules.gni")
+
+  source_set("android") {
+    sources = [
+      "android_cdm_factory.cc",
+      "android_cdm_factory.h",
+      "media_client_android.cc",
+      "media_client_android.h",
+      "media_codec_util.cc",
+      "media_codec_util.h",
+      "media_drm_bridge.cc",
+      "media_drm_bridge.h",
+      "media_drm_bridge_cdm_context.cc",
+      "media_drm_bridge_cdm_context.h",
+      "media_drm_bridge_delegate.cc",
+      "media_drm_bridge_delegate.h",
+      "media_jni_registrar.cc",
+      "media_jni_registrar.h",
+      "media_player_android.cc",
+      "media_player_android.h",
+      "media_player_bridge.cc",
+      "media_player_bridge.h",
+      "media_player_listener.cc",
+      "media_player_listener.h",
+      "media_player_manager.h",
+      "media_resource_getter.cc",
+      "media_resource_getter.h",
+      "media_server_crash_listener.cc",
+      "media_server_crash_listener.h",
+      "media_service_throttler.cc",
+      "media_service_throttler.h",
+      "media_url_interceptor.h",
+      "sdk_media_codec_bridge.cc",
+      "sdk_media_codec_bridge.h",
+      "stream_texture_wrapper.h",
+    ]
+    configs += [
+      "//media:media_config",
+      "//media:media_implementation",
+    ]
+    deps = [
+      ":media_jni_headers",
+      "//media:media_features",
+      "//media:shared_memory_support",
+      "//third_party/widevine/cdm:headers",
+      "//ui/gl",
+      "//url",
+    ]
+    public_deps = [
+      ":anywhere",
+    ]
+  }
+
+  source_set("unit_tests") {
+    testonly = true
+    sources = [
+      "media_drm_bridge_unittest.cc",
+      "media_player_bridge_unittest.cc",
+      "media_service_throttler_unittest.cc",
+      "sdk_media_codec_bridge_unittest.cc",
+    ]
+
+    deps = [
+      ":android",
+      "//media/base:test_support",
+      "//testing/gmock",
+      "//testing/gtest",
+      "//third_party/widevine/cdm:headers",
+    ]
+    configs += [ "//media:media_config" ]
+  }
+
+  generate_jni("media_jni_headers") {
+    sources = [
+      "java/src/org/chromium/media/AudioManagerAndroid.java",
+      "java/src/org/chromium/media/AudioRecordInput.java",
+      "java/src/org/chromium/media/MediaCodecBridge.java",
+      "java/src/org/chromium/media/MediaCodecUtil.java",
+      "java/src/org/chromium/media/MediaDrmBridge.java",
+      "java/src/org/chromium/media/MediaPlayerBridge.java",
+      "java/src/org/chromium/media/MediaPlayerListener.java",
+      "java/src/org/chromium/media/MediaServerCrashListener.java",
+    ]
+    jni_package = "media"
+  }
+
+  android_library("media_java") {
+    deps = [
+      "//base:base_java",
+      "//content/public/android:content_java_resources",
+    ]
+
+    java_files = [
+      "java/src/org/chromium/media/AudioManagerAndroid.java",
+      "java/src/org/chromium/media/AudioRecordInput.java",
+      "java/src/org/chromium/media/MediaCodecBridge.java",
+      "java/src/org/chromium/media/MediaCodecUtil.java",
+      "java/src/org/chromium/media/MediaDrmBridge.java",
+      "java/src/org/chromium/media/MediaPlayerBridge.java",
+      "java/src/org/chromium/media/MediaPlayerListener.java",
+      "java/src/org/chromium/media/MediaServerCrashListener.java",
+    ]
+  }
+}

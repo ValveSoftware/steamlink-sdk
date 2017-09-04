@@ -1,0 +1,1231 @@
+/*
+ * Copyright (C) 2012 Google Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ * notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ * copyright notice, this list of conditions and the following disclaimer
+ * in the documentation and/or other materials provided with the
+ * distribution.
+ *     * Neither the name of Google Inc. nor the names of its
+ * contributors may be used to endorse or promote products derived from
+ * this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/**
+ * @implements {Common.ContentProvider}
+ * @unrestricted
+ */
+SDK.NetworkRequest = class extends SDK.SDKObject {
+  /**
+   * @param {!Protocol.Network.RequestId} requestId
+   * @param {!SDK.Target} target
+   * @param {string} url
+   * @param {string} documentURL
+   * @param {!Protocol.Page.FrameId} frameId
+   * @param {!Protocol.Network.LoaderId} loaderId
+   * @param {?Protocol.Network.Initiator} initiator
+   */
+  constructor(target, requestId, url, documentURL, frameId, loaderId, initiator) {
+    super(target);
+
+    this._networkLog = /** @type {!SDK.NetworkLog} */ (SDK.NetworkLog.fromTarget(target));
+    this._networkManager = /** @type {!SDK.NetworkManager} */ (SDK.NetworkManager.fromTarget(target));
+    this._requestId = requestId;
+    this.url = url;
+    this._documentURL = documentURL;
+    this._frameId = frameId;
+    this._loaderId = loaderId;
+    /** @type {?Protocol.Network.Initiator} */
+    this._initiator = initiator;
+    this._issueTime = -1;
+    this._startTime = -1;
+    this._endTime = -1;
+    /** @type {!Protocol.Network.BlockedReason|undefined} */
+    this._blockedReason = undefined;
+
+    this.statusCode = 0;
+    this.statusText = '';
+    this.requestMethod = '';
+    this.requestTime = 0;
+    this.protocol = '';
+    /** @type {!Protocol.Network.RequestMixedContentType} */
+    this.mixedContentType = Protocol.Network.RequestMixedContentType.None;
+
+    /** @type {?Protocol.Network.ResourcePriority} */
+    this._initialPriority = null;
+    /** @type {?Protocol.Network.ResourcePriority} */
+    this._currentPriority = null;
+
+    /** @type {!Common.ResourceType} */
+    this._resourceType = Common.resourceTypes.Other;
+    this._contentEncoded = false;
+    this._pendingContentCallbacks = [];
+    /** @type {!Array.<!SDK.NetworkRequest.WebSocketFrame>} */
+    this._frames = [];
+    /** @type {!Array.<!SDK.NetworkRequest.EventSourceMessage>} */
+    this._eventSourceMessages = [];
+
+    this._responseHeaderValues = {};
+
+    this._remoteAddress = '';
+
+    /** @type {!Protocol.Security.SecurityState} */
+    this._securityState = Protocol.Security.SecurityState.Unknown;
+    /** @type {?Protocol.Network.SecurityDetails} */
+    this._securityDetails = null;
+
+    /** @type {string} */
+    this.connectionId = '0';
+  }
+
+  /**
+   * @param {!SDK.NetworkRequest} other
+   * @return {number}
+   */
+  indentityCompare(other) {
+    if (this._requestId > other._requestId)
+      return 1;
+    if (this._requestId < other._requestId)
+      return -1;
+    return 0;
+  }
+
+  /**
+   * @return {!Protocol.Network.RequestId}
+   */
+  get requestId() {
+    return this._requestId;
+  }
+
+  /**
+   * @param {!Protocol.Network.RequestId} requestId
+   */
+  set requestId(requestId) {
+    this._requestId = requestId;
+  }
+
+  /**
+   * @return {string}
+   */
+  get url() {
+    return this._url;
+  }
+
+  /**
+   * @param {string} x
+   */
+  set url(x) {
+    if (this._url === x)
+      return;
+
+    this._url = x;
+    this._parsedURL = new Common.ParsedURL(x);
+    delete this._queryString;
+    delete this._parsedQueryParameters;
+    delete this._name;
+    delete this._path;
+  }
+
+  /**
+   * @return {string}
+   */
+  get documentURL() {
+    return this._documentURL;
+  }
+
+  get parsedURL() {
+    return this._parsedURL;
+  }
+
+  /**
+   * @return {!Protocol.Page.FrameId}
+   */
+  get frameId() {
+    return this._frameId;
+  }
+
+  /**
+   * @return {!Protocol.Network.LoaderId}
+   */
+  get loaderId() {
+    return this._loaderId;
+  }
+
+  /**
+   * @param {string} ip
+   * @param {number} port
+   */
+  setRemoteAddress(ip, port) {
+    this._remoteAddress = ip + ':' + port;
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.RemoteAddressChanged, this);
+  }
+
+  /**
+   * @return {string}
+   */
+  remoteAddress() {
+    return this._remoteAddress;
+  }
+
+  /**
+   * @return {!Protocol.Security.SecurityState}
+   */
+  securityState() {
+    return this._securityState;
+  }
+
+  /**
+   * @param {!Protocol.Security.SecurityState} securityState
+   */
+  setSecurityState(securityState) {
+    this._securityState = securityState;
+  }
+
+  /**
+   * @return {?Protocol.Network.SecurityDetails}
+   */
+  securityDetails() {
+    return this._securityDetails;
+  }
+
+  /**
+   * @param {!Protocol.Network.SecurityDetails} securityDetails
+   */
+  setSecurityDetails(securityDetails) {
+    this._securityDetails = securityDetails;
+  }
+
+  /**
+   * @return {number}
+   */
+  get startTime() {
+    return this._startTime || -1;
+  }
+
+  /**
+   * @param {number} monotonicTime
+   * @param {number} wallTime
+   */
+  setIssueTime(monotonicTime, wallTime) {
+    this._issueTime = monotonicTime;
+    this._wallIssueTime = wallTime;
+    this._startTime = monotonicTime;
+  }
+
+  /**
+   * @return {number}
+   */
+  issueTime() {
+    return this._issueTime;
+  }
+
+  /**
+   * @param {number} monotonicTime
+   * @return {number}
+   */
+  pseudoWallTime(monotonicTime) {
+    return this._wallIssueTime ? this._wallIssueTime - this._issueTime + monotonicTime : monotonicTime;
+  }
+
+  /**
+   * @return {number}
+   */
+  get responseReceivedTime() {
+    return this._responseReceivedTime || -1;
+  }
+
+  /**
+   * @param {number} x
+   */
+  set responseReceivedTime(x) {
+    this._responseReceivedTime = x;
+  }
+
+  /**
+   * @return {number}
+   */
+  get endTime() {
+    return this._endTime || -1;
+  }
+
+  /**
+   * @param {number} x
+   */
+  set endTime(x) {
+    if (this.timing && this.timing.requestTime) {
+      // Check against accurate responseReceivedTime.
+      this._endTime = Math.max(x, this.responseReceivedTime);
+    } else {
+      // Prefer endTime since it might be from the network stack.
+      this._endTime = x;
+      if (this._responseReceivedTime > x)
+        this._responseReceivedTime = x;
+    }
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.TimingChanged, this);
+  }
+
+  /**
+   * @return {number}
+   */
+  get duration() {
+    if (this._endTime === -1 || this._startTime === -1)
+      return -1;
+    return this._endTime - this._startTime;
+  }
+
+  /**
+   * @return {number}
+   */
+  get latency() {
+    if (this._responseReceivedTime === -1 || this._startTime === -1)
+      return -1;
+    return this._responseReceivedTime - this._startTime;
+  }
+
+  /**
+   * @return {number}
+   */
+  get resourceSize() {
+    return this._resourceSize || 0;
+  }
+
+  /**
+   * @param {number} x
+   */
+  set resourceSize(x) {
+    this._resourceSize = x;
+  }
+
+  /**
+   * @return {number}
+   */
+  get transferSize() {
+    return this._transferSize || 0;
+  }
+
+  /**
+   * @param {number} x
+   */
+  increaseTransferSize(x) {
+    this._transferSize = (this._transferSize || 0) + x;
+  }
+
+  /**
+   * @param {number} x
+   */
+  setTransferSize(x) {
+    this._transferSize = x;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  get finished() {
+    return this._finished;
+  }
+
+  /**
+   * @param {boolean} x
+   */
+  set finished(x) {
+    if (this._finished === x)
+      return;
+
+    this._finished = x;
+
+    if (x) {
+      this.dispatchEventToListeners(SDK.NetworkRequest.Events.FinishedLoading, this);
+      if (this._pendingContentCallbacks.length)
+        this._innerRequestContent();
+    }
+  }
+
+  /**
+   * @return {boolean}
+   */
+  get failed() {
+    return this._failed;
+  }
+
+  /**
+   * @param {boolean} x
+   */
+  set failed(x) {
+    this._failed = x;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  get canceled() {
+    return this._canceled;
+  }
+
+  /**
+   * @param {boolean} x
+   */
+  set canceled(x) {
+    this._canceled = x;
+  }
+
+  /**
+   * @return {!Protocol.Network.BlockedReason|undefined}
+   */
+  blockedReason() {
+    return this._blockedReason;
+  }
+
+  /**
+   * @param {!Protocol.Network.BlockedReason} reason
+   */
+  setBlockedReason(reason) {
+    this._blockedReason = reason;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  wasBlocked() {
+    return !!this._blockedReason;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  cached() {
+    return (!!this._fromMemoryCache || !!this._fromDiskCache) && !this._transferSize;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  cachedInMemory() {
+    return !!this._fromMemoryCache && !this._transferSize;
+  }
+
+  setFromMemoryCache() {
+    this._fromMemoryCache = true;
+    delete this._timing;
+  }
+
+  setFromDiskCache() {
+    this._fromDiskCache = true;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  get fetchedViaServiceWorker() {
+    return this._fetchedViaServiceWorker;
+  }
+
+  /**
+   * @param {boolean} x
+   */
+  set fetchedViaServiceWorker(x) {
+    this._fetchedViaServiceWorker = x;
+  }
+
+  /**
+   * @return {!Protocol.Network.ResourceTiming|undefined}
+   */
+  get timing() {
+    return this._timing;
+  }
+
+  /**
+   * @param {!Protocol.Network.ResourceTiming|undefined} x
+   */
+  set timing(x) {
+    if (x && !this._fromMemoryCache) {
+      // Take startTime and responseReceivedTime from timing data for better accuracy.
+      // Timing's requestTime is a baseline in seconds, rest of the numbers there are ticks in millis.
+      this._startTime = x.requestTime;
+      this._responseReceivedTime = x.requestTime + x.receiveHeadersEnd / 1000.0;
+
+      this._timing = x;
+      this.dispatchEventToListeners(SDK.NetworkRequest.Events.TimingChanged, this);
+    }
+  }
+
+  /**
+   * @return {string}
+   */
+  get mimeType() {
+    return this._mimeType;
+  }
+
+  /**
+   * @param {string} x
+   */
+  set mimeType(x) {
+    this._mimeType = x;
+  }
+
+  /**
+   * @return {string}
+   */
+  get displayName() {
+    return this._parsedURL.displayName;
+  }
+
+  /**
+   * @return {string}
+   */
+  name() {
+    if (this._name)
+      return this._name;
+    this._parseNameAndPathFromURL();
+    return this._name;
+  }
+
+  /**
+   * @return {string}
+   */
+  path() {
+    if (this._path)
+      return this._path;
+    this._parseNameAndPathFromURL();
+    return this._path;
+  }
+
+  _parseNameAndPathFromURL() {
+    if (this._parsedURL.isDataURL()) {
+      this._name = this._parsedURL.dataURLDisplayName();
+      this._path = '';
+    } else if (this._parsedURL.isAboutBlank()) {
+      this._name = this._parsedURL.url;
+      this._path = '';
+    } else {
+      this._path = this._parsedURL.host + this._parsedURL.folderPathComponents;
+
+      var inspectedURL = this.target().inspectedURL().asParsedURL();
+      this._path = this._path.trimURL(inspectedURL ? inspectedURL.host : '');
+      if (this._parsedURL.lastPathComponent || this._parsedURL.queryParams) {
+        this._name =
+            this._parsedURL.lastPathComponent + (this._parsedURL.queryParams ? '?' + this._parsedURL.queryParams : '');
+      } else if (this._parsedURL.folderPathComponents) {
+        this._name =
+            this._parsedURL.folderPathComponents.substring(this._parsedURL.folderPathComponents.lastIndexOf('/') + 1) +
+            '/';
+        this._path = this._path.substring(0, this._path.lastIndexOf('/'));
+      } else {
+        this._name = this._parsedURL.host;
+        this._path = '';
+      }
+    }
+  }
+
+  /**
+   * @return {string}
+   */
+  get folder() {
+    var path = this._parsedURL.path;
+    var indexOfQuery = path.indexOf('?');
+    if (indexOfQuery !== -1)
+      path = path.substring(0, indexOfQuery);
+    var lastSlashIndex = path.lastIndexOf('/');
+    return lastSlashIndex !== -1 ? path.substring(0, lastSlashIndex) : '';
+  }
+
+  /**
+   * @return {!Common.ResourceType}
+   */
+  resourceType() {
+    return this._resourceType;
+  }
+
+  /**
+   * @param {!Common.ResourceType} resourceType
+   */
+  setResourceType(resourceType) {
+    this._resourceType = resourceType;
+  }
+
+  /**
+   * @return {string}
+   */
+  get domain() {
+    return this._parsedURL.host;
+  }
+
+  /**
+   * @return {string}
+   */
+  get scheme() {
+    return this._parsedURL.scheme;
+  }
+
+  /**
+   * @return {?SDK.NetworkRequest}
+   */
+  get redirectSource() {
+    if (this.redirects && this.redirects.length > 0)
+      return this.redirects[this.redirects.length - 1];
+    return this._redirectSource;
+  }
+
+  /**
+   * @param {?SDK.NetworkRequest} x
+   */
+  set redirectSource(x) {
+    this._redirectSource = x;
+    delete this._initiatorInfo;
+  }
+
+  /**
+   * @return {!Array.<!SDK.NetworkRequest.NameValue>}
+   */
+  requestHeaders() {
+    return this._requestHeaders || [];
+  }
+
+  /**
+   * @param {!Array.<!SDK.NetworkRequest.NameValue>} headers
+   */
+  setRequestHeaders(headers) {
+    this._requestHeaders = headers;
+    delete this._requestCookies;
+
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.RequestHeadersChanged);
+  }
+
+  /**
+   * @return {string|undefined}
+   */
+  requestHeadersText() {
+    return this._requestHeadersText;
+  }
+
+  /**
+   * @param {string} text
+   */
+  setRequestHeadersText(text) {
+    this._requestHeadersText = text;
+
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.RequestHeadersChanged);
+  }
+
+  /**
+   * @param {string} headerName
+   * @return {string|undefined}
+   */
+  requestHeaderValue(headerName) {
+    return this._headerValue(this.requestHeaders(), headerName);
+  }
+
+  /**
+   * @return {!Array.<!SDK.Cookie>}
+   */
+  get requestCookies() {
+    if (!this._requestCookies)
+      this._requestCookies = SDK.CookieParser.parseCookie(this.target(), this.requestHeaderValue('Cookie'));
+    return this._requestCookies;
+  }
+
+  /**
+   * @return {string|undefined}
+   */
+  get requestFormData() {
+    return this._requestFormData;
+  }
+
+  /**
+   * @param {string|undefined} x
+   */
+  set requestFormData(x) {
+    this._requestFormData = x;
+    delete this._parsedFormParameters;
+  }
+
+  /**
+   * @return {string}
+   */
+  requestHttpVersion() {
+    var headersText = this.requestHeadersText();
+    if (!headersText)
+      return this.requestHeaderValue('version') || this.requestHeaderValue(':version') || 'unknown';
+    var firstLine = headersText.split(/\r\n/)[0];
+    var match = firstLine.match(/(HTTP\/\d+\.\d+)$/);
+    return match ? match[1] : 'HTTP/0.9';
+  }
+
+  /**
+   * @return {!Array.<!SDK.NetworkRequest.NameValue>}
+   */
+  get responseHeaders() {
+    return this._responseHeaders || [];
+  }
+
+  /**
+   * @param {!Array.<!SDK.NetworkRequest.NameValue>} x
+   */
+  set responseHeaders(x) {
+    this._responseHeaders = x;
+    delete this._sortedResponseHeaders;
+    delete this._serverTimings;
+    delete this._responseCookies;
+    this._responseHeaderValues = {};
+
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.ResponseHeadersChanged);
+  }
+
+  /**
+   * @return {string}
+   */
+  get responseHeadersText() {
+    return this._responseHeadersText;
+  }
+
+  /**
+   * @param {string} x
+   */
+  set responseHeadersText(x) {
+    this._responseHeadersText = x;
+
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.ResponseHeadersChanged);
+  }
+
+  /**
+   * @return {!Array.<!SDK.NetworkRequest.NameValue>}
+   */
+  get sortedResponseHeaders() {
+    if (this._sortedResponseHeaders !== undefined)
+      return this._sortedResponseHeaders;
+
+    this._sortedResponseHeaders = this.responseHeaders.slice();
+    this._sortedResponseHeaders.sort(function(a, b) {
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return this._sortedResponseHeaders;
+  }
+
+  /**
+   * @param {string} headerName
+   * @return {string|undefined}
+   */
+  responseHeaderValue(headerName) {
+    var value = this._responseHeaderValues[headerName];
+    if (value === undefined) {
+      value = this._headerValue(this.responseHeaders, headerName);
+      this._responseHeaderValues[headerName] = (value !== undefined) ? value : null;
+    }
+    return (value !== null) ? value : undefined;
+  }
+
+  /**
+   * @return {!Array.<!SDK.Cookie>}
+   */
+  get responseCookies() {
+    if (!this._responseCookies)
+      this._responseCookies = SDK.CookieParser.parseSetCookie(this.target(), this.responseHeaderValue('Set-Cookie'));
+    return this._responseCookies;
+  }
+
+  /**
+   * @return {string|undefined}
+   */
+  responseLastModified() {
+    return this.responseHeaderValue('last-modified');
+  }
+
+  /**
+   * @return {?Array.<!SDK.ServerTiming>}
+   */
+  get serverTimings() {
+    if (typeof this._serverTimings === 'undefined')
+      this._serverTimings = SDK.ServerTiming.parseHeaders(this.responseHeaders);
+    return this._serverTimings;
+  }
+
+  /**
+   * @return {?string}
+   */
+  queryString() {
+    if (this._queryString !== undefined)
+      return this._queryString;
+
+    var queryString = null;
+    var url = this.url;
+    var questionMarkPosition = url.indexOf('?');
+    if (questionMarkPosition !== -1) {
+      queryString = url.substring(questionMarkPosition + 1);
+      var hashSignPosition = queryString.indexOf('#');
+      if (hashSignPosition !== -1)
+        queryString = queryString.substring(0, hashSignPosition);
+    }
+    this._queryString = queryString;
+    return this._queryString;
+  }
+
+  /**
+   * @return {?Array.<!SDK.NetworkRequest.NameValue>}
+   */
+  get queryParameters() {
+    if (this._parsedQueryParameters)
+      return this._parsedQueryParameters;
+    var queryString = this.queryString();
+    if (!queryString)
+      return null;
+    this._parsedQueryParameters = this._parseParameters(queryString);
+    return this._parsedQueryParameters;
+  }
+
+  /**
+   * @return {?Array.<!SDK.NetworkRequest.NameValue>}
+   */
+  get formParameters() {
+    if (this._parsedFormParameters)
+      return this._parsedFormParameters;
+    if (!this.requestFormData)
+      return null;
+    var requestContentType = this.requestContentType();
+    if (!requestContentType || !requestContentType.match(/^application\/x-www-form-urlencoded\s*(;.*)?$/i))
+      return null;
+    this._parsedFormParameters = this._parseParameters(this.requestFormData);
+    return this._parsedFormParameters;
+  }
+
+  /**
+   * @return {string}
+   */
+  responseHttpVersion() {
+    var headersText = this._responseHeadersText;
+    if (!headersText)
+      return this.responseHeaderValue('version') || this.responseHeaderValue(':version') || 'unknown';
+    var firstLine = headersText.split(/\r\n/)[0];
+    var match = firstLine.match(/^(HTTP\/\d+\.\d+)/);
+    return match ? match[1] : 'HTTP/0.9';
+  }
+
+  /**
+   * @param {string} queryString
+   * @return {!Array.<!SDK.NetworkRequest.NameValue>}
+   */
+  _parseParameters(queryString) {
+    function parseNameValue(pair) {
+      var position = pair.indexOf('=');
+      if (position === -1)
+        return {name: pair, value: ''};
+      else
+        return {name: pair.substring(0, position), value: pair.substring(position + 1)};
+    }
+    return queryString.split('&').map(parseNameValue);
+  }
+
+  /**
+   * @param {!Array.<!SDK.NetworkRequest.NameValue>} headers
+   * @param {string} headerName
+   * @return {string|undefined}
+   */
+  _headerValue(headers, headerName) {
+    headerName = headerName.toLowerCase();
+
+    var values = [];
+    for (var i = 0; i < headers.length; ++i) {
+      if (headers[i].name.toLowerCase() === headerName)
+        values.push(headers[i].value);
+    }
+    if (!values.length)
+      return undefined;
+    // Set-Cookie values should be separated by '\n', not comma, otherwise cookies could not be parsed.
+    if (headerName === 'set-cookie')
+      return values.join('\n');
+    return values.join(', ');
+  }
+
+  /**
+   * @return {?string|undefined}
+   */
+  get content() {
+    return this._content;
+  }
+
+  /**
+   * @return {?Protocol.Error|undefined}
+   */
+  contentError() {
+    return this._contentError;
+  }
+
+  /**
+   * @return {boolean}
+   */
+  get contentEncoded() {
+    return this._contentEncoded;
+  }
+
+  /**
+   * @override
+   * @return {string}
+   */
+  contentURL() {
+    return this._url;
+  }
+
+  /**
+   * @override
+   * @return {!Common.ResourceType}
+   */
+  contentType() {
+    return this._resourceType;
+  }
+
+  /**
+   * @override
+   * @return {!Promise<?string>}
+   */
+  requestContent() {
+    // We do not support content retrieval for WebSockets at the moment.
+    // Since WebSockets are potentially long-living, fail requests immediately
+    // to prevent caller blocking until resource is marked as finished.
+    if (this._resourceType === Common.resourceTypes.WebSocket)
+      return Promise.resolve(/** @type {?string} */ (null));
+    if (typeof this._content !== 'undefined')
+      return Promise.resolve(/** @type {?string} */ (this.content || null));
+    var callback;
+    var promise = new Promise(fulfill => callback = fulfill);
+    this._pendingContentCallbacks.push(callback);
+    if (this.finished)
+      this._innerRequestContent();
+    return promise;
+  }
+
+  /**
+   * @override
+   * @param {string} query
+   * @param {boolean} caseSensitive
+   * @param {boolean} isRegex
+   * @param {function(!Array.<!Common.ContentProvider.SearchMatch>)} callback
+   */
+  searchInContent(query, caseSensitive, isRegex, callback) {
+    callback([]);
+  }
+
+  /**
+   * @return {boolean}
+   */
+  isHttpFamily() {
+    return !!this.url.match(/^https?:/i);
+  }
+
+  /**
+   * @return {string|undefined}
+   */
+  requestContentType() {
+    return this.requestHeaderValue('Content-Type');
+  }
+
+  /**
+   * @return {boolean}
+   */
+  hasErrorStatusCode() {
+    return this.statusCode >= 400;
+  }
+
+  /**
+   * @param {!Protocol.Network.ResourcePriority} priority
+   */
+  setInitialPriority(priority) {
+    this._initialPriority = priority;
+  }
+
+  /**
+   * @return {?Protocol.Network.ResourcePriority}
+   */
+  initialPriority() {
+    return this._initialPriority;
+  }
+
+  /**
+   * @param {!Protocol.Network.ResourcePriority} priority
+   */
+  setPriority(priority) {
+    this._currentPriority = priority;
+  }
+
+  /**
+   * @return {?Protocol.Network.ResourcePriority}
+   */
+  priority() {
+    return this._currentPriority || this._initialPriority || null;
+  }
+
+  /**
+   * @param {!Element} image
+   */
+  populateImageSource(image) {
+    /**
+     * @param {?string} content
+     * @this {SDK.NetworkRequest}
+     */
+    function onResourceContent(content) {
+      var imageSrc = Common.ContentProvider.contentAsDataURL(content, this._mimeType, true);
+      if (imageSrc === null)
+        imageSrc = this._url;
+      image.src = imageSrc;
+    }
+
+    this.requestContent().then(onResourceContent.bind(this));
+  }
+
+  /**
+   * @return {?string}
+   */
+  asDataURL() {
+    var content = this._content;
+    var charset = null;
+    if (!this._contentEncoded) {
+      content = content.toBase64();
+      charset = 'utf-8';
+    }
+    return Common.ContentProvider.contentAsDataURL(content, this.mimeType, true, charset);
+  }
+
+  _innerRequestContent() {
+    if (this._contentRequested)
+      return;
+    this._contentRequested = true;
+
+    /**
+     * @param {?Protocol.Error} error
+     * @param {string} content
+     * @param {boolean} contentEncoded
+     * @this {SDK.NetworkRequest}
+     */
+    function onResourceContent(error, content, contentEncoded) {
+      this._content = error ? null : content;
+      this._contentError = error;
+      this._contentEncoded = contentEncoded;
+      var callbacks = this._pendingContentCallbacks.slice();
+      for (var i = 0; i < callbacks.length; ++i)
+        callbacks[i](this._content);
+      this._pendingContentCallbacks.length = 0;
+      delete this._contentRequested;
+    }
+    this.target().networkAgent().getResponseBody(this._requestId, onResourceContent.bind(this));
+  }
+
+  /**
+   * @return {?Protocol.Network.Initiator}
+   */
+  initiator() {
+    return this._initiator;
+  }
+
+  /**
+   * @return {!{type: !SDK.NetworkRequest.InitiatorType, url: string, lineNumber: number, columnNumber: number, scriptId: ?string}}
+   */
+  initiatorInfo() {
+    if (this._initiatorInfo)
+      return this._initiatorInfo;
+
+    var type = SDK.NetworkRequest.InitiatorType.Other;
+    var url = '';
+    var lineNumber = -Infinity;
+    var columnNumber = -Infinity;
+    var scriptId = null;
+    var initiator = this._initiator;
+
+    if (this.redirectSource) {
+      type = SDK.NetworkRequest.InitiatorType.Redirect;
+      url = this.redirectSource.url;
+    } else if (initiator) {
+      if (initiator.type === Protocol.Network.InitiatorType.Parser) {
+        type = SDK.NetworkRequest.InitiatorType.Parser;
+        url = initiator.url ? initiator.url : url;
+        lineNumber = initiator.lineNumber ? initiator.lineNumber : lineNumber;
+      } else if (initiator.type === Protocol.Network.InitiatorType.Script) {
+        for (var stack = initiator.stack; stack; stack = stack.parent) {
+          var topFrame = stack.callFrames.length ? stack.callFrames[0] : null;
+          if (!topFrame)
+            continue;
+          type = SDK.NetworkRequest.InitiatorType.Script;
+          url = topFrame.url || Common.UIString('<anonymous>');
+          lineNumber = topFrame.lineNumber;
+          columnNumber = topFrame.columnNumber;
+          scriptId = topFrame.scriptId;
+          break;
+        }
+      }
+    }
+
+    this._initiatorInfo =
+        {type: type, url: url, lineNumber: lineNumber, columnNumber: columnNumber, scriptId: scriptId};
+    return this._initiatorInfo;
+  }
+
+  /**
+   * @return {?SDK.NetworkRequest}
+   */
+  initiatorRequest() {
+    if (this._initiatorRequest === undefined)
+      this._initiatorRequest = this._networkLog.requestForURL(this.initiatorInfo().url);
+    return this._initiatorRequest;
+  }
+
+  /**
+   * @return {!SDK.NetworkRequest.InitiatorGraph}
+   */
+  initiatorGraph() {
+    var initiated = new Set();
+    var requests = this._networkLog.requests();
+    for (var request of requests) {
+      var localInitiators = request._initiatorChain();
+      if (localInitiators.has(this))
+        initiated.add(request);
+    }
+    return {initiators: this._initiatorChain(), initiated: initiated};
+  }
+
+  /**
+   * @return {!Set<!SDK.NetworkRequest>}
+   */
+  _initiatorChain() {
+    if (this._initiatorChainCache)
+      return this._initiatorChainCache;
+    this._initiatorChainCache = new Set();
+    var request = this;
+    while (request) {
+      this._initiatorChainCache.add(request);
+      request = request.initiatorRequest();
+    }
+    return this._initiatorChainCache;
+  }
+
+  /**
+   * @return {!Array.<!SDK.NetworkRequest.WebSocketFrame>}
+   */
+  frames() {
+    return this._frames;
+  }
+
+  /**
+   * @param {string} errorMessage
+   * @param {number} time
+   */
+  addFrameError(errorMessage, time) {
+    this._addFrame({
+      type: SDK.NetworkRequest.WebSocketFrameType.Error,
+      text: errorMessage,
+      time: this.pseudoWallTime(time),
+      opCode: -1,
+      mask: false
+    });
+  }
+
+  /**
+   * @param {!Protocol.Network.WebSocketFrame} response
+   * @param {number} time
+   * @param {boolean} sent
+   */
+  addFrame(response, time, sent) {
+    var type = sent ? SDK.NetworkRequest.WebSocketFrameType.Send : SDK.NetworkRequest.WebSocketFrameType.Receive;
+    this._addFrame({
+      type: type,
+      text: response.payloadData,
+      time: this.pseudoWallTime(time),
+      opCode: response.opcode,
+      mask: response.mask
+    });
+  }
+
+  /**
+   * @param {!SDK.NetworkRequest.WebSocketFrame} frame
+   */
+  _addFrame(frame) {
+    this._frames.push(frame);
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.WebsocketFrameAdded, frame);
+  }
+
+  /**
+   * @return {!Array.<!SDK.NetworkRequest.EventSourceMessage>}
+   */
+  eventSourceMessages() {
+    return this._eventSourceMessages;
+  }
+
+  /**
+   * @param {number} time
+   * @param {string} eventName
+   * @param {string} eventId
+   * @param {string} data
+   */
+  addEventSourceMessage(time, eventName, eventId, data) {
+    var message = {time: this.pseudoWallTime(time), eventName: eventName, eventId: eventId, data: data};
+    this._eventSourceMessages.push(message);
+    this.dispatchEventToListeners(SDK.NetworkRequest.Events.EventSourceMessageAdded, message);
+  }
+
+  replayXHR() {
+    this.target().networkAgent().replayXHR(this.requestId);
+  }
+
+  /**
+   * @return {!SDK.NetworkLog}
+   */
+  networkLog() {
+    return this._networkLog;
+  }
+
+  /**
+   * @return {!SDK.NetworkManager}
+   */
+  networkManager() {
+    return this._networkManager;
+  }
+};
+
+/** @enum {symbol} */
+SDK.NetworkRequest.Events = {
+  FinishedLoading: Symbol('FinishedLoading'),
+  TimingChanged: Symbol('TimingChanged'),
+  RemoteAddressChanged: Symbol('RemoteAddressChanged'),
+  RequestHeadersChanged: Symbol('RequestHeadersChanged'),
+  ResponseHeadersChanged: Symbol('ResponseHeadersChanged'),
+  WebsocketFrameAdded: Symbol('WebsocketFrameAdded'),
+  EventSourceMessageAdded: Symbol('EventSourceMessageAdded')
+};
+
+/** @enum {string} */
+SDK.NetworkRequest.InitiatorType = {
+  Other: 'other',
+  Parser: 'parser',
+  Redirect: 'redirect',
+  Script: 'script'
+};
+
+/** @typedef {!{name: string, value: string}} */
+SDK.NetworkRequest.NameValue;
+
+/** @enum {string} */
+SDK.NetworkRequest.WebSocketFrameType = {
+  Send: 'send',
+  Receive: 'receive',
+  Error: 'error'
+};
+
+/** @typedef {!{type: SDK.NetworkRequest.WebSocketFrameType, time: number, text: string, opCode: number, mask: boolean}} */
+SDK.NetworkRequest.WebSocketFrame;
+
+/** @typedef {!{time: number, eventName: string, eventId: string, data: string}} */
+SDK.NetworkRequest.EventSourceMessage;
+
+/** @typedef {!{initiators: !Set<!SDK.NetworkRequest>, initiated: !Set<!SDK.NetworkRequest>}} */
+SDK.NetworkRequest.InitiatorGraph;

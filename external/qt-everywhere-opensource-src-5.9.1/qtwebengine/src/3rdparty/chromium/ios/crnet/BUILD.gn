@@ -1,0 +1,133 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/buildflag_header.gni")
+import("//build/config/ios/rules.gni")
+import("//build/config/mac/symbols.gni")
+import("//build/mac/tweak_info_plist.gni")
+import("//build/util/version.gni")
+import("//testing/test.gni")
+import("//url/features.gni")
+
+assert(!is_component_build, "CrNet requires static library build.")
+
+source_set("crnet_sources") {
+  deps = [
+    "//base:base",
+    "//components/metrics:metrics",
+    "//components/metrics/proto:proto",
+    "//components/prefs:prefs",
+    "//ios/net",
+    "//ios/web:user_agent",
+    "//net",
+    "//url",
+    "//url:url_features",
+  ]
+
+  sources = [
+    "CrNet.h",
+    "CrNet.mm",
+    "crnet_environment.h",
+    "crnet_environment.mm",
+    "sdch_owner_pref_storage.cc",
+    "sdch_owner_pref_storage.h",
+  ]
+
+  if (!use_platform_icu_alternatives) {
+    deps += [ "//base:i18n" ]
+  }
+}
+
+# Tweak |info_plist| with current version and revision.
+tweak_info_plist("tweak_crnet_plist") {
+  info_plist = "Info.plist"
+}
+
+bundle_data("crnet_framework_resources") {
+  # This bundle contains "Accept-Languages" header values for known locales.
+  # TODO(mef): These strings should be auto-generated from chrome's .xtb
+  # files, not hardcoded.
+  sources = [
+    "Resources/Localization/am.lproj",
+    "Resources/Localization/ar.lproj",
+    "Resources/Localization/bg.lproj",
+    "Resources/Localization/bn.lproj",
+    "Resources/Localization/ca.lproj",
+    "Resources/Localization/cs.lproj",
+    "Resources/Localization/da.lproj",
+    "Resources/Localization/de.lproj",
+    "Resources/Localization/el.lproj",
+    "Resources/Localization/en-GB.lproj",
+    "Resources/Localization/en.lproj",
+    "Resources/Localization/es-419.lproj",
+    "Resources/Localization/es.lproj",
+    "Resources/Localization/fa.lproj",
+    "Resources/Localization/fi.lproj",
+    "Resources/Localization/fil.lproj",
+    "Resources/Localization/fr.lproj",
+    "Resources/Localization/gu.lproj",
+    "Resources/Localization/he.lproj",
+    "Resources/Localization/hi.lproj",
+    "Resources/Localization/hr.lproj",
+    "Resources/Localization/hu.lproj",
+    "Resources/Localization/id.lproj",
+    "Resources/Localization/it.lproj",
+    "Resources/Localization/ja.lproj",
+    "Resources/Localization/kn.lproj",
+    "Resources/Localization/ko.lproj",
+    "Resources/Localization/lt.lproj",
+    "Resources/Localization/lv.lproj",
+    "Resources/Localization/ml.lproj",
+    "Resources/Localization/mr.lproj",
+    "Resources/Localization/ms.lproj",
+    "Resources/Localization/nb.lproj",
+    "Resources/Localization/nl.lproj",
+    "Resources/Localization/pl.lproj",
+    "Resources/Localization/pt-BR.lproj",
+    "Resources/Localization/pt-PT.lproj",
+    "Resources/Localization/pt.lproj",
+    "Resources/Localization/ro.lproj",
+    "Resources/Localization/ru.lproj",
+    "Resources/Localization/sk.lproj",
+    "Resources/Localization/sl.lproj",
+    "Resources/Localization/sr.lproj",
+    "Resources/Localization/sv.lproj",
+    "Resources/Localization/sw.lproj",
+    "Resources/Localization/ta.lproj",
+    "Resources/Localization/te.lproj",
+    "Resources/Localization/th.lproj",
+    "Resources/Localization/tr.lproj",
+    "Resources/Localization/uk.lproj",
+    "Resources/Localization/vi.lproj",
+    "Resources/Localization/zh-Hans.lproj",
+    "Resources/Localization/zh-Hant.lproj",
+    "Resources/Localization/zh.lproj",
+  ]
+  outputs = [
+    "{{bundle_resources_dir}}/crnet_resources.bundle/{{source_file_part}}",
+  ]
+}
+
+ios_framework_bundle("crnet_framework") {
+  output_name = "CrNet"
+  info_plist_target = ":tweak_crnet_plist"
+
+  deps = [
+    ":crnet_framework_resources",
+    ":crnet_sources",
+    "//base",
+    "//net:net",
+  ]
+
+  libs = [ "UIKit.Framework" ]
+
+  public_headers = [ "CrNet.h" ]
+
+  sources = [
+    "CrNet.h",
+  ]
+
+  configs -= [ "//build/config/compiler:default_symbols" ]
+  configs += [ "//build/config/compiler:symbols" ]
+}

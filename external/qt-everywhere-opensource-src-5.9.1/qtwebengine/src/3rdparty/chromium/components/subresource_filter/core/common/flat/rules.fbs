@@ -1,0 +1,117 @@
+namespace subresource_filter.flat;
+
+// Corresponds to subresource_filter::proto::UrlPatternType.
+enum UrlPatternType : ubyte {
+  SUBSTRING,
+  WILDCARDED,
+  REGEXP,
+}
+
+// Corresponds to subresource_filter::proto::AnchorType.
+enum AnchorType : ubyte {
+  NONE,
+  BOUNDARY,
+  SUBDOMAIN,
+}
+
+// URL rule matching options. These correspond to multiple fields of
+// subresource_filter::proto::UrlRule, but here, they are represented as flags
+// of the same bitmask to allow for compact storage.
+enum OptionFlag : ubyte (bit_flags) {
+  IS_WHITELIST,
+  APPLIES_TO_FIRST_PARTY,
+  APPLIES_TO_THIRD_PARTY,
+  IS_MATCH_CASE,
+}
+
+// The flat representation of a single URL rule. For more details regarding the
+// fields please see the comments to subresource_filter::proto::UrlRule.
+table UrlRule {
+  // Rule matching options, a bitmask consisting of OptionFlags.
+  options : ubyte;
+
+  // A bitmask of element types, same as proto::UrlRule::element_types. Enables
+  // all element types except POPUP by default.
+  element_types : ushort = 2047;
+
+  // A bitmask of activation types, same as proto::UrlRule::activation_types.
+  // Disables all activation types by default.
+  activation_types : ubyte = 0;
+
+  // Use SUBSTRING as default, since it's the most used pattern type. Same as
+  // the corresponding proto::UrlRule::url_pattern_type.
+  url_pattern_type : UrlPatternType = SUBSTRING;
+
+  // Use NONE as default, since most of the rules are not anchored.
+  anchor_left : AnchorType = NONE;
+  anchor_right : AnchorType = NONE;
+
+  // The list of domains to be included/excluded from the filter's affected set.
+  // If a particular string in the list starts with '~' then the respective
+  // domain is excluded, otherwise included.
+  domains : [string];
+
+  // A URL pattern in the format defined by |url_pattern_type|.
+  url_pattern : string;
+
+  // The compound Knuth-Morris-Pratt failure function corresponding to
+  // |url_pattern|. Used for SUBSTRING and WILDCARDED URL patterns only.
+  //
+  // The |url_pattern| is split into subpatterns separated by a '*' wildcard.
+  // Then for each subpattern a failure function of the KMP algorithm is built,
+  // with the caveat that if some subpattern contains at least one '^'
+  // placeholder, all the separator characters in this subpattern are
+  // considered equivalent, and the failure function subarray is prefixed with
+  // the value 1.
+  //
+  // The failure functions of subpatterns are stored sequentially in the
+  // |failure_function| array. Some subpatterns, however, will not have a
+  // corresponding failure function, e.g. the first subpattern if the rule's
+  // |anchor_left| is BOUNDARY.
+  failure_function : [ubyte];
+}
+
+// Contains an N-gram (acting as a key in a hash table) and a list of URL rules
+// associated with that N-gram.
+table NGramToRules {
+  // A string consisting of N (up to 8) non-special characters, which are stored
+  // in the lowest N non-zero bytes, lower bytes corresponding to later symbols.
+  ngram : ulong;
+
+  // The list of rules containing |ngram| as a substring of their URL pattern.
+  rule_list : [UrlRule];
+}
+
+// A data structure used to select only a handful of URL rule candidates that
+// need to be matched against a certain resource URL.
+table UrlPatternIndex {
+  // The N of an N-gram index. Note: |n| should be between 1 and 8.
+  n : uint;
+
+  // A hash table with open addressing. The keys of the table are N-grams.
+  ngram_index : [NGramToRules];
+
+  // The slot that is pointed to by all empty slots of |ngram_index| hash table.
+  // Note: This is a workaround needed because null offsets are not allowed as
+  // elements of FlatBuffer arrays.
+  ngram_index_empty_slot : NGramToRules;
+
+  // A list storing the rules that doesn't contain any valid N-grams in their
+  // URL patterns. Contains all the REGEXP rules as well.
+  // TODO(pkalinnikov): Think about better implementation for the fallback
+  // index. Possibly make it a hash map and maybe merge it with the N-gram
+  // index, since we can treat any sequence of characters shorter than N as an
+  // N-gram with zero bytes used for padding.
+  fallback_rules : [UrlRule];
+}
+
+// The top-level data structure used to store URL rules.
+table IndexedRuleset {
+  // The index of all blacklist URL rules.
+  blacklist_index : UrlPatternIndex;
+
+  // The index of all whitelist URL rules.
+  whitelist_index : UrlPatternIndex;
+}
+
+root_type IndexedRuleset;

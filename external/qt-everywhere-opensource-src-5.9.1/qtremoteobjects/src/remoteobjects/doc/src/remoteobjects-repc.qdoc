@@ -1,0 +1,354 @@
+/****************************************************************************
+**
+** Copyright (C) 2017 Ford Motor Company
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
+**
+** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
+**
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+
+/*!
+    \externalpage https://en.wikipedia.org/wiki/Domain-specific_language
+    \title Domain Specific Language (DSL)
+*/
+
+/*!
+\page qtremoteobjects-repc.html
+\title Qt Remote Objects Compiler
+\brief The Qt Remote Objects Compiler creates \l {Source} and \l {Replica} header files
+\ingroup overviews
+\keyword repc
+
+    \section1 REPC Overview
+
+    The \underline {Rep}lica \underline {C}ompiler (repc) generates QObject
+    header files based on an API definition file. The file (called a "rep"
+    file) uses a specific (text) syntax to describe the API. By convention,
+    these files are given a .rep file extension, short for Replica. When these
+    files are processed by repc, repc generates both \l {Source} and \l
+    {Replica} header files.
+
+    The Qt Remote Objects module also includes qmake macros (\l REPC_SOURCE, \l
+    REPC_REPLICA) that can be added to your project file to automatically run
+    repc, and add the resulting files to the list of files processed by
+    \l{moc}{Meta Object Compiler} during the build process, making use of Qt
+    Remote Objects in your projects simple.
+
+    While Qt Remote Objects supports sharing QObjects over the network (using
+    enableRemoting on the Source side and acquireDynamic on the Replica side),
+    there are a couple of advantages to letting repc define your objects. First
+    of all, while \l {QRemoteObjectDynamicReplica} {DynamicReplicas} are
+    useful, they are more cumbersome to work with. The API is not known until
+    the object is initialized, and using the API from C++ requires string
+    lookups through QMetaObject's methods. Secondly, having the interface known
+    at compile time finds any issues at compile vs. at runtime. Thirdly, the rep
+    format supports default values, which can be handy if you are unable to
+    ensure the Source is available when the Replica is instantiated.
+
+    See the documentation \l {Source} {Sources here} for information on using
+    the generated files in your code. Here we will focus on the repc format and
+    options.
+
+    \section1 The rep file format
+
+    The rep file format is a simple \l {Domain Specific Language (DSL)} for
+    describing an interface supported over Qt Remote Objects (QtRO). Since QtRO
+    is an object based system, these interfaces are defined by APIs available
+    through objects, that is, classes with properties, signals, and slots.
+
+    \section2 The class type
+
+    Each class defined in a rep file becomes a QObject in the generated header
+    files, with the described API generated for you.
+
+    To define a class use the \c class keyword, followed by the name you
+    want for your type, and then enclose your API in brackets like so
+    \code
+        class MyType
+        {
+            //PROP/SIGNAL/SLOT/ENUM declarations to define your API
+        };
+    \endcode
+
+    \section3 PROP
+
+    Q_PROPERTY elements are created by using the PROP keyword in the rep
+    file. The syntax is the \c PROP keyword followed by the definition enclosed
+    in quotes, where the definition is the type, the name, and (optionally) a
+    default value or attributes.
+    \code
+        PROP(bool simpleBool)                // boolean named simpleBool
+        PROP(bool defaultFalseBool=false)    // boolean named defaultFalseBool, with false
+                                             // as the default value
+
+        PROP(int lifeUniverseEverything=42)  // int value that defaults to 42
+        PROP(QByteArray myBinaryInfo)        // Qt types are fine, may need #include
+                                             // additional headers in your rep file
+
+        PROP(QString name CONSTANT)          // Property with the CONSTANT attribute
+        PROP(QString setable READWRITE)      // Property with the READWRITE attribute
+                                             // note: Properties default to READPUSH
+                                             // (see description below)
+
+        PROP(SomeOtherType myCustomType)     // Custom types work. Needs #include for the
+                                             // appropriate header for your type, make
+                                             // sure your type is known to the metabject
+                                             // system, and make sure it supports Queued
+                                             // Connections (see Q_DECLARE_METATYPE and
+                                             // qRegisterMetaType)
+    \endcode
+    More information about creating custom types can be found \l {Creating
+    Custom Qt Types} {here}.
+
+    By default, properties will have getters and a "push" Slot defined, as well
+    as a notify signal emitted when the value is changed. Qt Remote Objects
+    requires the notify signal on the Source object to trigger sending updates
+    to the attached Replicas. In earlier versions of QtRO, properties defaulted
+    to being read/write, that is, having getters and setters. However, due to the
+    asynchronous nature of QtRO, this led to unintuitive behavior at times.
+    Setting the READWRITE attribute on the PROP will provide the old (getter
+    and setter) behavior.
+    \code
+        // In .rep file, old (setter) behavior
+        PROP(int myVal READWRITE)             // Old behavior with setMyVal(int myVal) method
+
+        // In code...  Assume myVal is initially set to 0 in Source
+        int originalValue = rep->myVal();     // Will be 0
+        rep->setMyVal(10);                    // Call setter, expecting a blocking/
+                                              // non-asynchronous return
+
+        if (rep->myVal() == 10) ...           // Test will usually fail
+    \endcode
+
+    If it is necessary to block until the value is changed, something like the
+    following is necessary.
+    \code
+        // In .rep file, old (setter) behavior
+        PROP(int myVal READWRITE)             // Old behavior with setMyVal(int myVal) method
+
+        // In code...  Assume myVal is initially set to 0 in Source
+        bool originalValue = rep->myVal();    // Will be 0
+
+        // We can wait for the change using \l QSignalSpy
+        QSignalSpy spy(rep, SIGNAL(myValChanged(int)));
+
+        rep->setMyVal(10);                    // Call setter, expecting a blocking/
+                                              // non-asynchronous return
+
+        spy.wait();                           // spy.wait() blocks until changed signal
+                                              // is received
+        if (rep->myVal() == 10) ...           // Test will succeed assuming
+                                              // 1. Source object is connected
+                                              // 2. Nobody else (Source or other Replica)
+                                              //    sets the myVal to something else (race
+                                              //    condition)
+        // Rather than use QSignalSpy, the event-driven practice would be to connect the
+        // myValChanged notify signal to a Slot that responds to the changes.
+    \endcode
+
+    QtRO now defaults to READPUSH, which provides an automatically generated
+    Slot for requesting a property change.
+    \code
+        // In .rep file, defaults to READPUSH
+        PROP(bool myVal)                      // No setMyVal(int myVal) on Replica, has
+                                              // pushMyVal(int myVal) instead
+
+        // In code...  Assume myVal is initially set to 0 in Source
+        bool originalValue = rep->myVal();    // Will be 0
+
+        // We can wait for the change using \l QSignalSpy
+        QSignalSpy spy(rep, SIGNAL(myValChanged(int)));
+
+        rep->pushMyVal(10);                   // Call push method, no expectation that change
+                                              // is applied upon method completion.
+
+        // Some way of waiting for change to be received by the Replica is still necessary,
+        // but hopefully not a surprise with the new pushMyVal() Slot.
+        spy.wait();                           // spy.wait() blocks until changed signal
+                                              // is received
+        if (rep->myVal() == 10) ...           // Test will succeed assuming
+                                              // 1. Source object is connected
+                                              // 2. Nobody else (Source or other Replica)
+                                              //    set the myVal to something else (race
+                                              //    condition)
+    \endcode
+
+    You can also use the \c CONSTANT, \c READONLY, \c PERSISTED, \c READWRITE,
+    or \c READPUSH keywords in the PROP declaration, which affects how this is
+    implemented.  READPUSH is the default value if no value used.
+
+    \code
+        PROP(int lifeUniverseEverything=42 CONSTANT)
+        PROP(QString name READONLY)
+    \endcode
+
+    Please note there are some subtleties here. A CONSTANT PROP has a
+    Q_PROPERTY declared as CONSTANT on the SOURCE side. However, replicas
+    cannot know the correct value until they are initialized, which means the
+    property value has to be allowed to change during initialization. For
+    READONLY, the Source will have neither a setter nor a push slot, and the
+    replica side will not have a push slot generated. Adding the PERSISTED
+    trait to a PROP will have the PROP use the \l QRemoteObjectPersistedStore
+    instance set on a Node (if any) to save/restore PROP values.
+
+    \sa QRemoteObjectPersistedStore
+
+    \section3 SIGNAL
+
+    \l [DOC QtCore] {Signals} {Signal} methods are created by using the SIGNAL keyword in the rep file.
+
+    Usage is to declare \c SIGNAL followed by the desired signature wrapped in
+    parentheses. The void return value should be skipped.
+
+    \code
+        SIGNAL(test())
+        SIGNAL(test(QString foo, int bar))
+        SIGNAL(test(QMap<QString,int> foo))
+        SIGNAL(test(const QString &foo))
+        SIGNAL(test(QString &foo))
+    \endcode
+
+    Just like in Qt \l {Qt::ConnectionType} {queued connections}, parameters in signals that are
+    references will be copied when being passed to replicas.
+
+    \section3 SLOT
+
+    \l [DOC QtCore] {Slots} {Slot} methods are created by using the SLOT keyword in the rep file.
+
+    Usage is to declare \c SLOT followed by the desired signature wrapped in
+    parentheses. The return value can be included in the declaration. If the
+    return value is skipped, void will be used in the generated files.
+
+    \code
+        SLOT(test())
+        SLOT(void test(QString foo, int bar))
+        SLOT(test(QMap<QString,int> foo))
+        SLOT(test(QMap<QString,int> foo, QMap<QString,int> bar))
+        SLOT(test(QMap<QList<QString>,int> foo))
+        SLOT(test(const QString &foo))
+        SLOT(test(QString &foo))
+        SLOT(test(const QMap<QList<QString>,int> &foo))
+        SLOT(test(const QString &foo, int bar))
+    \endcode
+
+    Just like in Qt \l {Qt::ConnectionType} {queued connections} and QtRO
+    SIGNALS, parameters in slots that are references will be copied when being
+    passed to Replicas.
+
+    \section3 ENUM
+
+    Enumerations (which use a combination of C++ enum and Qt's Q_ENUM in QtRO)
+    are described using the ENUM keyword.
+
+    \code
+        ENUM MyEnum {Foo}
+        ENUM MyEnum {Foo, Bar}
+        ENUM MyEnum {Foo, Bar = -1}
+        ENUM MyEnum {Foo=-1, Bar}
+        ENUM MyEnum {Foo=0xf, Bar}
+        ENUM MyEnum {Foo=1, Bar=3, Bas=5}
+    \endcode
+
+    Related topics: \l {The ENUM type}, \l {USE_ENUM keyword}
+
+    \section2 The POD type
+
+    Plain Old Data (POD) is a term to describe a simple data collection, along
+    the lines of a C++ struct. For example, if you have an API for a phonebook,
+    you may want to use the concept of an "address" in its interface (where
+    address might include street, city, state, country, and postal code). You
+    can use the POD keyword to define objects like this, which can then be used
+    by in PROP/SIGNAL/SLOT definitions in your class definitions.
+
+    Usage is to declare \c POD followed by the name for the generated type,
+    followed by type and name pairs separated by commas, where the type/name
+    pairs are wrapped in parentheses.
+
+    \code
+        POD Foo(int bar)
+        POD Foo(int bar, double bas)
+        POD Foo(QMap<QString,int> bar)
+        POD Foo(QList<QString> bar)
+        POD Foo(QMap<QString,int> bar, QMap<double,int> bas)
+    \endcode
+
+    A full example would look like this
+    \code
+        POD Foo(QList<QString> bar)
+        class MyType
+        {
+            SIGNAL(sendCustom(Foo foo));
+        };
+    \endcode
+
+    The code generated by repc creates a Q_GADGET class for each POD, with
+    corresponding Q_PROPERTY members for each type defined for the POD.
+
+    \section2 The ENUM type
+
+    It is often easier and cleaner to define an ENUM inside a class (see \l ENUM),
+    but if you need a standalone enum type, using the ENUM keyword outside of a
+    class definition can be helpful. This will generate a new class in your
+    header files that handles marshalling, etc.. The syntax is identical to \l
+    ENUM, with the exception that the declaration in this case is not contained
+    in a \c class declaration.
+
+    Related topics: \l {ENUM}, \l {USE_ENUM keyword}
+
+    \section2 USE_ENUM keyword
+
+    The USE_ENUM keyword was implemented before autogeneration via the ENUM
+    keyword was added. It is kept for backwards compatibility.
+
+    Related topics: \l {ENUM}, \l {The ENUM type}
+
+    \section2 Directives
+
+    The rep file defines an interface, but interfaces often require external
+    elements. In order to support this, repc will include any (single line)
+    directives at the top of the generated files. This allows you to, for
+    instance, use #include or #define directives that support the logic or
+    datatypes needed.
+
+    The repc tool currently only everything from the "#" symbol to the
+    end-of-line and adds that to the generated files. So multi-line
+    #if/#else/#endif statements and multi-line macros are not supported.
+
+    \section1 Project file macros
+    \section2 REPC_REPLICA
+    ...
+    \section2 REPC_SOURCE
+    ...
+    \section2 QOBJECT_REPLICA
+    ...
+*/

@@ -1,0 +1,119 @@
+/****************************************************************************
+**
+** Copyright (C) 2014 Ford Motor Company
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL21$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 or version 3 as published by the Free
+** Software Foundation and appearing in the file LICENSE.LGPLv21 and
+** LICENSE.LGPLv3 included in the packaging of this file. Please review the
+** following information to ensure the GNU Lesser General Public License
+** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+**
+** As a special exception, The Qt Company gives you certain additional
+** rights. These rights are described in The Qt Company LGPL Exception
+** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtremoteobjects-source.html
+\title Qt Remote Objects Source
+\brief Introduction to using Source
+\target Source
+\section1 Source objects
+
+A Remote Object Source is the QObject that is responsible for the
+implementation of the exposed API.
+
+At a high level, you have a choice of using a QObject type directly as a source
+or defining the desired API in a .rep template for use with the \l {repc}
+compiler.
+
+If you already have a fully defined QObject, it can become a Source simply by
+passing it to \l {QRemoteObjectHostBase::enableRemoting()}. This lets other
+processes/devices create a \l {Replica} of the object to interact with (see \l
+{Remote Object Interaction}). You can then instantiate \l {QRemoteObjectDynamicReplica}s
+of your object, or use the \l {QOBJECT_REPLICA} macro in your project file,
+which will use \l {repc} to create a header file describing the Replica for
+use in that process/on that device (and provides compile-time checks).
+
+Letting \l {repc} generate a \l {Source} header file for your project (using
+the \l {REPC_SOURCE} macro) provides three options of implementing the desired
+API. If your class name was Foo, the options would be the following (and see \l
+{The rep file format} for help in creating a rep file)
+
+\list
+\li \l {TypeSimpleSource} {FooSimpleSource} inheritance
+\li \l {TypeSource} {FooSource} inheritance
+\li \l {TypeAPI} {FooSourceAPI} usage with your own QObject
+\endlist
+
+\target TypeSimpleSource
+There is a <Type>SimpleSource class defined in the header, which provides
+basic getter/setter methods for each property and implements data members of
+the correct property type in the header. Here "<Type>" represents the class
+name from the .rep file, so if your class is of type "MyType" in the .rep file,
+there will be a MyTypeSimpleSource class declared in the produced header file.
+This is a fast way to get started using the API. To use this class, you need to
+inherit from this class and implement any defined slots (which are pure virtual
+in the generated header file). Whatever logic is needed to manage the
+exposed properties and define when Signals need to be emitted would be added to
+the overriding class as well.
+
+\target TypeSource
+If you need to hide the implementation details, you can use the <Type>Source
+class instead, which is the 2nd class declared in the same resulting header
+file. This class definition does not provide data members, and makes the
+getter/setter functions pure virtual as well. You have more flexibility in how
+you implement the class, although you need to write more code. This defines the
+API for both the source and replica side from a single .rep template file.
+
+\target TypeAPI
+Finally, there is the <Type>SourceAPI class generated in the header. This is a
+templated class, for use specifically by the templated version of \l
+{QRemoteObjectHostBase::enableRemoting()} function overload, which allows you to
+use any QObject that supports the desired API as the source. You will get
+compile-time warnings if the class does not provide the correct API, and using
+this class allows you to hide or convert properties or signal/slot parameters.
+
+\note The QObject API is \b never exposed. For instance, while a \l
+{Replica} will have a destroyed signal, the destroyed signal of the source is
+not propagated. The \l {Source} and each \l {Replica} are unique QObjects with
+their own connections. The API that is exposed is defined by the .rep template
+used by \l {repc}, or in the case of raw QObjects, all API elements defined in
+the inheritance chain from a specific ancestor. Unless you define
+Q_CLASSINFO("RemoteObject Type") in an ancestor, the QObject's parent is used.
+If Q_CLASSINFO("RemoteObject Type") is used, that class's API is the lowest
+level of API used.
+
+\section1 Identifying Sources
+
+Since more than one \l {Source} can be shared by a host node, each \l
+{Source} requires a name. All \l {repc} generated headers include a way for the
+node to determine the class name (Q_CLASSINFO for replica/simplesource/source
+types, or a static name() function for the SourceAPI type). If you pass your
+own QObject type to \l {QRemoteObjectHostBase::enableRemoting()}, the name will
+be determined using the following logic:
+\list
+    \li If the object or any of its ancestors has Q_CLASSINFO of type
+        "RemoteObject Type" defined, the provided name will be used.
+    \li Otherwise, the QObject's objectName (if set) will be
+        used. \li If neither is available, the call to
+        \l {QRemoteObjectHostBase::enableRemoting()} will fail, returning False.
+\endlist
+*/

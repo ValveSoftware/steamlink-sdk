@@ -1,0 +1,59 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+//
+// Over-the-wire message definitions used for the Helium synchronization
+// protocol.
+
+syntax = "proto3";
+
+option optimize_for = LITE_RUNTIME;
+
+package blimp.proto;
+
+// Vector clock that is used to get the partial order of changes.
+// This class is the proto definition of
+// //blimp/net/helium/version_vector.h
+message VersionVectorMessage {
+  uint64 local_revision = 1;
+  uint64 remote_revision = 2;
+}
+
+// Sample proto for test purposes.
+message TestChangesetMessage {
+  int32 value1 = 1;
+  int32 value2 = 2;
+}
+
+// A union of serializable Changeset types. There will be one for each Helium
+// Object that requires serialization.
+message ChangesetMessage {
+  oneof payload {
+    // Sample message for the test
+    TestChangesetMessage test = 1;
+  };
+}
+
+// Message that encapsulates a change for a helium object. It contains
+// information required to restore the object from the time specified in |from|
+// until |to|.
+//
+// This is the main object that will be sent in the Helium transport
+message HeliumMessage {
+  // Identifies the local revision that this changeset applies to (relative
+  // to the sender), and the remote revision that the local side most recently
+  // received (i.e. an ACK, in effect).
+  VersionVectorMessage from = 1;
+
+  // Provides the local view of the vector-clock following application of
+  // the changeset. This allows a single changeset to collate changes across
+  // several revisions, following a break in connectivity, rather than simply
+  // re-transmitting the lost changesets.
+  VersionVectorMessage to = 2;
+
+  // Identifies the Object to which this changeset applies.
+  uint32 object_id = 3;
+
+  // The changeset that contain the actual changes.
+  ChangesetMessage change = 4;
+}

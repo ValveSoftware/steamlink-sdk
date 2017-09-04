@@ -1,0 +1,169 @@
+# Copyright 2014 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+static_library("client") {
+  # Disabled the source filters because there are _mac files that need to
+  # be compiled on all platforms.
+  set_sources_assignment_filter([])
+
+  sources = [
+    "audio_consumer.h",
+    "audio_player.cc",
+    "audio_player.h",
+    "chromoting_client.cc",
+    "chromoting_client.h",
+    "client_context.cc",
+    "client_context.h",
+    "client_status_logger.cc",
+    "client_status_logger.h",
+    "client_telemetry_logger.cc",
+    "client_telemetry_logger.h",
+    "client_user_interface.h",
+    "cursor_shape_stub_proxy.cc",
+    "cursor_shape_stub_proxy.h",
+    "dual_buffer_frame_consumer.cc",
+    "dual_buffer_frame_consumer.h",
+    "empty_cursor_filter.cc",
+    "empty_cursor_filter.h",
+    "key_event_mapper.cc",
+    "key_event_mapper.h",
+    "normalizing_input_filter_cros.cc",
+    "normalizing_input_filter_cros.h",
+    "normalizing_input_filter_mac.cc",
+    "normalizing_input_filter_mac.h",
+    "normalizing_input_filter_win.cc",
+    "normalizing_input_filter_win.h",
+    "queued_task_poster.cc",
+    "queued_task_poster.h",
+    "server_log_entry_client.cc",
+    "server_log_entry_client.h",
+    "software_video_renderer.cc",
+    "software_video_renderer.h",
+    "touch_input_scaler.cc",
+    "touch_input_scaler.h",
+  ]
+  set_sources_assignment_filter(sources_assignment_filter)
+
+  configs += [
+    "//build/config/compiler:wexit_time_destructors",
+    "//remoting/build/config:version",
+    "//remoting/build/config:enable_webrtc_remoting_client",
+  ]
+
+  deps = [
+    "//remoting/base",
+    "//remoting/codec",
+    "//remoting/protocol",
+    "//third_party/libyuv",
+    "//third_party/webrtc/modules/desktop_capture:primitives",
+  ]
+
+  if (is_nacl) {
+    sources -= [
+      "client_status_logger.cc",
+      "client_telemetry_logger.cc",
+      "server_log_entry_client.cc",
+    ]
+  } else {
+    sources += [
+      "chromoting_client_runtime.cc",
+      "chromoting_client_runtime.h",
+    ]
+  }
+}
+
+source_set("opengl_renderer") {
+  sources = [
+    "gl_canvas.cc",
+    "gl_canvas.h",
+    "gl_cursor.cc",
+    "gl_cursor.h",
+    "gl_cursor_feedback.cc",
+    "gl_cursor_feedback.h",
+    "gl_cursor_feedback_texture.cc",
+    "gl_cursor_feedback_texture.h",
+    "gl_desktop.cc",
+    "gl_desktop.h",
+    "gl_helpers.cc",
+    "gl_helpers.h",
+    "gl_math.cc",
+    "gl_math.h",
+    "gl_render_layer.cc",
+    "gl_render_layer.h",
+    "gl_renderer.cc",
+    "gl_renderer.h",
+  ]
+
+  deps = [
+    "//remoting/proto",
+    "//third_party/libyuv",
+    "//third_party/webrtc/base:rtc_base",
+  ]
+
+  configs += [ "//third_party/khronos:khronos_headers" ]
+
+  if (is_linux) {
+    libs = [ "GL" ]
+  }
+
+  if (is_mac) {
+    libs = [ "OpenGL.framework" ]
+  }
+
+  if (is_ios) {
+    libs = [
+      "GLKit.framework",
+      "OpenGLES.framework",
+    ]
+  }
+
+  if (is_win) {
+    deps += [ "//third_party/angle:libGLESv2" ]
+  }
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  # Disabled the source filters because there are _mac files that need to
+  # be compiled on all platforms.
+  set_sources_assignment_filter([])
+  sources = [
+    "audio_player_unittest.cc",
+    "chromoting_client_runtime_unittest.cc",
+    "client_status_logger_unittest.cc",
+    "client_telemetry_logger_unittest.cc",
+    "dual_buffer_frame_consumer_unittest.cc",
+    "empty_cursor_filter_unittest.cc",
+    "key_event_mapper_unittest.cc",
+    "normalizing_input_filter_cros_unittest.cc",
+    "normalizing_input_filter_mac_unittest.cc",
+    "normalizing_input_filter_win_unittest.cc",
+    "queued_task_poster_unittest.cc",
+    "server_log_entry_client_unittest.cc",
+    "software_video_renderer_unittest.cc",
+    "touch_input_scaler_unittest.cc",
+  ]
+  set_sources_assignment_filter(sources_assignment_filter)
+
+  configs += [
+    "//remoting/build/config:version",
+    "//remoting/build/config:enable_webrtc_remoting_client",
+  ]
+
+  deps = [
+    ":client",
+    "//remoting/proto",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/webrtc/base:rtc_base",
+  ]
+
+  if (!is_win) {
+    # Windows clang builder fails to link the test binary with ANGLE GLESv2.
+    # crbug.com/642027
+    sources += [ "gl_renderer_unittest.cc" ]
+    deps += [ ":opengl_renderer" ]
+  }
+}

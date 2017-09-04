@@ -1,0 +1,277 @@
+<link rel="import" href="chrome://resources/html/assert.html">
+<link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/neon-animation/neon-animatable.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-checkbox/paper-checkbox.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_action_menu/cr_action_menu.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_expand_button/cr_expand_button.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="/languages_page/add_languages_dialog.html">
+<link rel="import" href="/languages_page/languages.html">
+<link rel="import" href="/lifetime_browser_proxy.html">
+<link rel="import" href="/route.html">
+<link rel="import" href="/settings_page/settings_animated_pages.html">
+<link rel="import" href="/settings_page/settings_subpage.html">
+<link rel="import" href="/settings_shared_css.html">
+
+<if expr="not is_macosx">
+<link rel="import" href="edit_dictionary_page.html">
+</if>
+
+<if expr="chromeos">
+<link rel="import" href="chrome://resources/html/chromeos/ui_account_tweaks.html">
+<link rel="import" href="/languages_page/manage_input_methods_page.html">
+</if>
+
+<dom-module id="settings-languages-page">
+  <template>
+    <style include="settings-shared">
+      #languagesCollapse .list-item.selected {
+        min-height: var(--settings-row-two-line-min-height);
+      }
+
+      .explain-selected {
+        color: var(--google-green-700);
+        font-weight: initial;
+        margin-top: 4px;
+      }
+
+      dialog[is='cr-action-menu'].complex .dropdown-item {
+        min-height: 36px;
+      }
+
+      dialog[is='cr-action-menu']:not(.complex) hr {
+        display: none;
+      }
+
+      dialog[is='cr-action-menu'].complex hr {
+        /* Override user-agent border and margin. */
+        border: none;
+        /* TODO(michaelpg): Update to whatever variable is used for the darker,
+         * full-width separators: crbug.com/649547. */
+        border-top: var(--settings-separator-line);
+        margin: 6px 0 0 0;
+      }
+
+      paper-checkbox.dropdown-item {
+        --checkbox-margin-start: 0;
+      }
+
+      #uiLanguageItem:focus,
+      #offerTranslations:focus {
+        background-color: transparent;
+      }
+    </style>
+    <settings-languages languages="{{languages}}" prefs="{{prefs}}"
+        language-helper="{{languageHelper}}">
+    </settings-languages>
+    <settings-animated-pages id="pages" section="languages">
+      <neon-animatable route-path="default">
+        <div class="settings-box first two-line">
+          <div class="start">
+            <div>$i18n{languagesListTitle}</div>
+            <div class="secondary">
+              [[getProspectiveUILanguageName_(
+                    languages, prefs.intl.app_locale.value)]]
+            </div>
+          </div>
+          <cr-expand-button expanded="{{languagesOpened_}}"
+              alt="$i18n{languagesExpandA11yLabel}">
+          </cr-expand-button>
+        </div>
+        <iron-collapse id="languagesCollapse" opened="[[languagesOpened_]]">
+          <div class="list-frame vertical-list">
+            <span class="list-item"
+                hidden="[[isHelpTextHidden_(languages.enabled.*)]]">
+              <span>$i18n{orderLanguagesInstructions}</span>
+              <a href="$i18n{languagesLearnMoreURL}" target="_blank">
+                $i18n{learnMore}
+              </a>
+            </span>
+            <template is="dom-repeat" items="[[languages.enabled]]">
+              <div class$="list-item [[getLanguageItemClass_(
+                  item.language.code, prefs.intl.app_locale.value,
+                  item.language.supportsUI)]]">
+                <div class="start">
+                  <div title="[[item.language.nativeDisplayName]]">
+                    [[item.language.displayName]]
+                  </div>
+<if expr="chromeos or is_win">
+                  <div class="explain-selected"
+                      hidden="[[!isProspectiveUILanguage_(
+                          item.language.code, prefs.intl.app_locale.value)]]">
+                    $i18n{isDisplayedInThisLanguage}
+                  </div>
+</if>
+                </div>
+<if expr="chromeos or is_win">
+                <template is="dom-if" if="[[isRestartRequired_(
+                        item.language.code, prefs.intl.app_locale.value)]]">
+                  <paper-button on-tap="onRestartTap_">
+                    $i18n{restart}
+                  </paper-button>
+                </template>
+</if>
+                <paper-icon-button id="more-[[item.language.code]]"
+                    icon="cr:more-vert" on-tap="onDotsTap_">
+                </paper-icon-button>
+              </div>
+            </template>
+            <div class="list-item list-button" on-tap="onAddLanguagesTap_">
+              $i18n{addLanguages}
+            </div>
+          </div>
+        </iron-collapse>
+<if expr="chromeos">
+        <div id="manage-input-methods-subpage-trigger"
+              class="settings-box two-line">
+          <div class="start">
+            <div>$i18n{inputMethodsListTitle}</div>
+            <div class="secondary">
+              [[getInputMethodName_(languages.inputMethods.currentId)]]
+            </div>
+          </div>
+          <cr-expand-button expanded="{{inputMethodsOpened_}}"
+              alt="$i18n{inputMethodsExpandA11yLabel}">
+          </cr-expand-button>
+        </div>
+        <iron-collapse id="inputMethodsCollapse"
+            opened="[[inputMethodsOpened_]]">
+          <div class="list-frame vertical-list">
+            <template is="dom-repeat"
+                items="[[languages.inputMethods.enabled]]">
+              <div class$="list-item [[getInputMethodItemClass_(
+                      item.id, languages.inputMethods.currentId)]]"
+                  on-tap="onInputMethodTap_" actionable>
+                <div class="start">
+                  <div>[[item.displayName]]</div>
+                  <div class="explain-selected"
+                      hidden="[[!isCurrentInputMethod_(
+                          item.id, languages.inputMethods.currentId)]]">
+                    $i18n{inputMethodEnabled}
+                  </div>
+                </div>
+                <paper-icon-button icon="cr:settings"
+                    on-tap="onInputMethodOptionsTap_"
+                    hidden="[[!item.hasOptionsPage]]">
+                </paper-icon-button>
+              </div>
+            </template>
+            <div class="list-item list-button"
+                on-tap="onManageInputMethodsTap_">
+              $i18n{manageInputMethods}
+            </div>
+          </div>
+        </iron-collapse>
+</if>
+<if expr="not is_macosx">
+        <div id="spellcheck-subpage-trigger" class="settings-box two-line">
+          <div class="start">
+            <div>$i18n{spellCheckListTitle}</div>
+            <div class="secondary">
+              [[getSpellCheckSecondaryText_(languages.enabled.*)]]
+            </div>
+          </div>
+          <cr-expand-button expanded="{{spellCheckOpened_}}"
+              alt="$i18n{spellCheckExpandA11yLabel}">
+          </cr-expand-button>
+        </div>
+        <iron-collapse id="spellCheckCollapse" opened="[[spellCheckOpened_]]">
+          <div class="list-frame vertical-list">
+            <template is="dom-repeat" items="[[languages.enabled]]">
+              <div class="list-item">
+                <paper-checkbox
+                    checked="[[item.spellCheckEnabled]]"
+                    on-change="onSpellCheckChange_"
+                    disabled$="[[!item.language.supportsSpellcheck]]">
+                  [[item.language.displayName]]
+                </paper-checkbox>
+              </label>
+            </template>
+            <div class="list-item list-button" on-tap="onEditDictionaryTap_">
+              $i18n{manageSpellCheck}
+            </div>
+          </div>
+        </iron-collapse>
+</if>
+        <template is="cr-lazy-render" id="menu">
+          <dialog is="cr-action-menu"
+              class$="[[getMenuClass_(prefs.translate.enabled.value)]]">
+<if expr="chromeos or is_win">
+            <paper-checkbox id="uiLanguageItem" class="dropdown-item"
+                checked="[[isProspectiveUILanguage_(
+                    detailLanguage_.language.code,
+                    prefs.intl.app_locale.value)]]"
+                on-change="onUILanguageChange_"
+                disabled="[[disableUILanguageCheckbox_(
+                    detailLanguage_, prefs.intl.app_locale.value)]]">
+                $i18n{displayInThisLanguage}
+            </paper-checkbox>
+</if>
+            <paper-checkbox id="offerTranslations" class="dropdown-item"
+                checked="[[detailLanguage_.translateEnabled]]"
+                on-change="onTranslateCheckboxChange_"
+                hidden="[[!prefs.translate.enabled.value]]"
+                disabled="[[disableTranslateCheckbox_(
+                    detailLanguage_.language, languages.translateTarget)]]">
+              $i18n{offerToTranslateInThisLanguage}
+            </paper-checkbox>
+            <hr>
+            <button class="dropdown-item" role="menuitem"
+                on-tap="onMoveToTopTap_"
+                hidden="[[isFirstLanguage_(
+                    detailLanguage_, languages.enabled.*)]]">
+              $i18n{moveToTop}
+            </button>
+            <button class="dropdown-item" role="menuitem"
+                on-tap="onMoveUpTap_"
+                hidden="[[isFirstOrSecondLanguage_(
+                    detailLanguage_, languages.enabled.*)]]">
+              $i18n{moveUp}
+            </button>
+            <button class="dropdown-item" role="menuitem"
+                on-tap="onMoveDownTap_"
+                hidden="[[isLastLanguage_(
+                    detailLanguage_, languages.enabled.*)]]">
+              $i18n{moveDown}
+            </button>
+            <button class="dropdown-item" role="menuitem"
+                on-tap="onRemoveLanguageTap_"
+                hidden="[[!detailLanguage_.removable]]">
+              $i18n{removeLanguage}
+            </button>
+          </dialog>
+        </template>
+      </neon-animatable>
+<if expr="chromeos">
+      <template is="dom-if" route-path="/inputMethods">
+        <settings-subpage
+            associated-control="[[$$('#manage-input-methods-subpage-trigger')]]"
+            page-title="$i18n{manageInputMethodsPageTitle}">
+          <settings-manage-input-methods-page languages="{{languages}}"
+              language-helper="[[languageHelper]]">
+          </settings-manage-input-methods-page>
+        </settings-subpage>
+      </template>
+</if>
+<if expr="not is_macosx">
+      <template is="dom-if" route-path="/editDictionary">
+        <settings-subpage
+            associated-control="[[$$('#spellcheck-subpage-trigger')]]"
+            page-title="$i18n{editDictionaryPageTitle}">
+          <settings-edit-dictionary-page></settings-edit-dictionary-page>
+        </settings-subpage>
+      </template>
+</if>
+    </settings-animated-pages>
+    <template is="dom-if" if="[[showAddLanguagesDialog_]]" restamp>
+      <settings-add-languages-dialog languages="{{languages}}"
+          language-helper="[[languageHelper]]">
+      </settings-add-languages-dialog>
+    </template>
+  </template>
+  <script src="languages_page.js"></script>
+</dom-module>

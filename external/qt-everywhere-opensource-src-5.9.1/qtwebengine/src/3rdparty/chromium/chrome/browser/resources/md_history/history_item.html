@@ -1,0 +1,258 @@
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/html/cr/ui/focus_row.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-icon/iron-icon.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-styles/shadow.html">
+<link rel="import" href="chrome://resources/html/icon.html">
+<link rel="import" href="chrome://resources/html/util.html">
+<link rel="import" href="chrome://history/browser_service.html">
+<link rel="import" href="chrome://history/constants.html">
+<link rel="import" href="chrome://history/searched_label.html">
+<link rel="import" href="chrome://history/shared_style.html">
+
+<!-- Lazy loaded: paper-icon-button-light. -->
+
+<dom-module id="history-item">
+  <template>
+    <style include="shared-style">
+      :host {
+        --checked-color: rgb(68, 136, 255);
+        display: block;
+        outline: none;
+        pointer-events: none;
+      }
+
+      /** Unresolved paper-icon-button-light styles. */
+      button {
+        background: none;
+        border: none;
+        outline: none;
+        padding: 0;
+      }
+
+      :host(:not([embedded])) #main-container {
+        position: relative;
+      }
+
+      :host([is-card-end]) #main-container {
+        margin-bottom: var(--card-padding-between);
+      }
+
+      :host([is-card-start][is-card-end]) #main-container {
+        border-radius: 2px;
+      }
+
+      #date-accessed {
+        display: none;
+      }
+
+      :host([is-card-start]) #date-accessed {
+        display: block;
+      }
+
+      #item-container {
+        align-items: center;
+        display: flex;
+        min-height: var(--item-height);
+        pointer-events: auto;
+      }
+
+      :host([is-card-start]) #item-container {
+        padding-top: var(--card-first-last-item-padding);
+      }
+
+      :host([is-card-end]) #item-container {
+        padding-bottom: var(--card-first-last-item-padding);
+      }
+
+      #title-and-domain {
+        align-items: center;
+        display: flex;
+        flex: 1;
+        height: var(--item-height);
+        overflow: hidden;
+      }
+
+      #checkbox {
+        -webkit-margin-end: 6px;
+        -webkit-margin-start: 10px;
+        height: 40px;
+        width: 40px;
+      }
+
+      :host([selected]) #checkbox {
+        color: var(--checked-color);
+      }
+
+      #checkmark {
+        border: 2px solid var(--secondary-text-color);
+        border-radius: 2px;
+        height: 12px;
+        margin: 12px;
+        width: 12px;
+      }
+
+      #checkmark::after {
+        border-color: inherit;
+        border-style: solid;
+        border-width: 0 2px 2px 0;
+        content: '';
+        display: block;
+        height: 70%;
+        transform: scale(0) rotate(45deg);
+        transform-origin: 97% 86%;
+        width: 36%;
+      }
+
+      :host-context([dir='rtl']) #checkmark::after {
+        transform-origin: 50% 14%;
+      }
+
+      :host([selected]) #checkmark {
+        background: var(--checked-color);
+        border-color: var(--checked-color);
+      }
+
+      :host([selected]) #checkmark::after {
+        border-color: white;
+        transform: scale(1) rotate(45deg);
+        /* Only animate when showing checkmark. */
+        transition: transform 140ms ease-out;
+      }
+
+      #time-accessed {
+        color: #646464;
+        min-width: 96px;
+      }
+
+      #domain {
+        -webkit-margin-start: 16px;
+        color: var(--secondary-text-color);
+        flex-shrink: 0;
+      }
+
+      #menu-button {
+        -webkit-margin-end: 12px;
+      }
+
+      #star-container {
+        -webkit-margin-end: 4px;
+        -webkit-margin-start: 12px;
+        width: 32px;
+      }
+
+      #bookmark-star {
+        color: var(--checked-color);
+        height: 32px;
+        width: 32px;
+      }
+
+      #bookmark-star iron-icon {
+        height: 16px;
+        width: 16px;
+      }
+
+      #time-gap-separator {
+        -webkit-border-start: 1px solid #888;
+        -webkit-margin-start: 77px;
+        height: 15px;
+      }
+
+      #background-clip {
+        /* Prevent artifacts when zoomed by overlapping the next item. */
+        bottom: -0.4px;
+        clip: rect(auto 999px auto -5px); /* Clip the top and bottom edges. */
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
+        z-index: -1;
+      }
+
+      :host([is-card-end]) #background-clip {
+        bottom: 0;
+        clip: rect(auto 999px 500px -5px); /* Clip the top edge. */
+      }
+
+      #background {
+        @apply(--shadow-elevation-2dp);
+        background: #fff;
+        bottom: 0;
+        left: 0;
+        position: absolute;
+        right: 0;
+        top: 0;
+      }
+
+      :host([embedded]) #background {
+        display: none;
+      }
+
+      :host(:not([is-card-start])) #background {
+        top: -5px; /* Draw the box shadow up the full edge of the background. */
+      }
+
+      :host([is-card-start]) #background {
+        border-radius: 2px 2px 0 0;
+      }
+
+      :host([is-card-end]) #background {
+        border-radius: 0 0 2px 2px;
+      }
+
+      :host([is-card-start][is-card-end]) #background {
+        border-radius: 2px;
+      }
+    </style>
+
+    <div id="main-container">
+      <div id="background-clip">
+        <div id="background"></div>
+      </div>
+      <div id="date-accessed" class="card-title">
+        [[cardTitle_(numberOfItems, item.dateRelativeDay, searchTerm)]]
+      </div>
+      <div id="item-container"
+          on-mousedown="onItemMousedown_"
+          on-click="onItemClick_">
+        <button is="paper-icon-button-light" id="checkbox"
+            disabled="[[selectionNotAllowed_()]]"
+            role="checkbox"
+            aria-checked$="[[getAriaChecked_(selected)]]"
+            aria-label$="[[getEntrySummary_(item)]]">
+          <div id="checkmark"></div>
+        </button>
+        <span id="time-accessed" on-mouseover="addTimeTitle_">
+          [[item.readableTimestamp]]
+        </span>
+        <div class="website-icon" id="icon"></div>
+        <div id="title-and-domain">
+          <a href="[[item.url]]" id="title" class="website-title"
+              title="[[item.title]]" on-click="onLinkClick_"
+              on-contextmenu="onLinkRightClick_">
+            <history-searched-label title="[[item.title]]"
+                search-term="[[searchTerm]]"></history-searched-label>
+          </a>
+          <span id="domain">[[item.domain]]</span>
+        </div>
+        <div id="star-container">
+          <template is="dom-if" if="[[item.starred]]">
+            <button is="paper-icon-button-light" id="bookmark-star"
+                title="$i18n{removeBookmark}" on-click="onRemoveBookmarkTap_">
+              <iron-icon icon="cr:star"></iron-icon>
+            </button>
+          </template>
+        </div>
+        <button is="paper-icon-button-light" id="menu-button"
+            class="more-vert-button" title="$i18n{moreActionsButton}"
+            on-click="onMenuButtonTap_">
+          <div></div>
+          <div></div>
+          <div></div>
+        </button>
+      </div>
+      <div id="time-gap-separator" hidden="[[!hasTimeGap]]"></div>
+    </div>
+  </template>
+  <script src="chrome://history/history_item.js"></script>
+</dom-module>

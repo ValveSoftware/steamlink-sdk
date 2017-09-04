@@ -1,0 +1,66 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ui.gni")
+import("//services/service_manager/public/service_manifest.gni")
+import("//testing/test.gni")
+
+source_set("gpu") {
+  output_name = "mus_gpu"
+
+  sources = [
+    "gpu_main.cc",
+    "gpu_main.h",
+    "gpu_service_internal.cc",
+    "gpu_service_internal.h",
+  ]
+
+  defines = [ "NOTIMPLEMENTED_POLICY=5" ]
+
+  deps = [
+    "//gpu/ipc/common",
+    "//gpu/ipc/service",
+    "//ipc",
+    "//media/gpu/ipc/service",
+    "//mojo/public/cpp/system",
+    "//services/service_manager/public/cpp",
+    "//services/ui/common:mus_common",
+    "//services/ui/gpu/interfaces",
+    "//services/ui/public/interfaces",
+    "//ui/gfx:memory_buffer",
+    "//ui/gl/init",
+  ]
+
+  if (use_ozone) {
+    deps += [ "//ui/ozone:ozone" ]
+  }
+}
+
+group("tests") {
+  testonly = true
+  deps = [
+    ":mus_gpu_unittests",
+  ]
+}
+
+test("mus_gpu_unittests") {
+  deps = [
+    ":gpu",
+    "//base",
+    "//ipc",
+    "//services/ui/common:run_all_service_tests",
+    "//testing/gtest",
+    "//ui/gfx:memory_buffer",
+    "//ui/gfx/geometry",
+  ]
+
+  data_deps = [
+    ":mus_gpu_unittests_app_manifest",
+  ]
+}
+
+service_manifest("mus_gpu_unittests_app_manifest") {
+  name = "mus_gpu_unittests_app"
+  source = "mus_gpu_unittests_app_manifest.json"
+}

@@ -19,6 +19,11 @@
 */
 #include "hello.h"
 
+#define SHOW_WEB_URL	"http://www.valvesoftware.com"
+#ifdef SHOW_WEB_URL
+#include <QWebEngineView>
+#endif
+
 
 //--------------------------------------------------------------------------------------------------
 // CHelloWidget constructor
@@ -33,9 +38,11 @@ CHelloWidget::CHelloWidget()
 	pLabel->setAlignment( Qt::AlignCenter );
 	pLayout->addWidget( pLabel );
 
+#ifdef SHOW_WEB_URL
 	QWebEngineView *pWebView = new QWebEngineView;
-	pWebView->setUrl( QUrl( "http://www.valvesoftware.com/" ) );
+	pWebView->setUrl( QUrl( SHOW_WEB_URL ) );
 	pLayout->addWidget( pWebView );
+#endif
 
 	m_pButton = new QPushButton;
 	m_pButton->setText( tr( "Quit" ) );

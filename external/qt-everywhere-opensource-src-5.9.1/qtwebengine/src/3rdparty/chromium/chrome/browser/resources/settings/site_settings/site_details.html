@@ -1,0 +1,123 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_dialog/cr_dialog.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-flex-layout/iron-flex-layout.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="/route.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="/site_settings/constants.html">
+<link rel="import" href="/site_settings/site_details_permission.html">
+<link rel="import" href="/site_settings/site_settings_behavior.html">
+<link rel="import" href="/site_settings/website_usage_private_api.html">
+
+<dom-module id="site-details">
+  <template>
+    <style include="settings-shared">
+      .favicon-image {
+        margin: 2px;
+      }
+
+      #storage {
+        -webkit-padding-end: 0;
+      }
+    </style>
+    <!-- Confirm Delete dialog -->
+    <dialog is="cr-dialog" id="confirmDeleteDialog">
+      <div class="title">$i18n{siteSettingsSiteRemoveDialogTitle}</div>
+      <div class="body">[[confirmationDeleteMsg_]]</div>
+      <div class="button-container">
+        <paper-button class="cancel-button" on-tap="onCloseDialog_">
+          $i18n{cancel}
+        </paper-button>
+        <paper-button class="action-button" on-tap="onClearStorage_">
+          $i18n{siteSettingsSiteClearAll}
+        </paper-button>
+      </div>
+    </dialog>
+
+    <div class="settings-box first">
+      <div class="favicon-image"
+          style$="[[computeSiteIcon(site.originForDisplay)]]">
+      </div>
+      <div class="middle">[[site.originForDisplay]]</div>
+    </div>
+    <div id="usage" hidden$="[[!storedData_]]">
+      <div class="settings-box first">
+        <h2>$i18n{siteSettingsUsage}</h2>
+      </div>
+      <div class="list-frame">
+        <paper-item id="storage" hidden$="[[!storedData_]]">
+          <div class="flex">[[storedData_]]</div>
+          <paper-icon-button icon="cr:delete"
+              on-tap="onConfirmClearStorage_"
+              alt="$i18n{siteSettingsDelete}"></paper-icon-button>
+        </paper-item>
+      </div>
+    </div>
+    <div class="settings-box first">
+      <h2>$i18n{siteSettingsPermissions}</h2>
+    </div>
+    <div class="list-frame">
+      <site-details-permission category="{{ContentSettingsTypes.COOKIES}}"
+          icon="settings:cookie" id="cookies" label="$i18n{siteSettingsCookies}"
+          site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.GEOLOCATION}}"
+          icon="settings:location-on" id="geolocation"
+          label="$i18n{siteSettingsLocation}" site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.CAMERA}}"
+          icon="settings:videocam" id="camera"
+          label="$i18n{siteSettingsCamera}" site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.MIC}}"
+          icon="settings:mic" id="mic"
+          label="$i18n{siteSettingsMic}" site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.NOTIFICATIONS}}"
+          icon="settings:notifications" id="notification"
+          label="$i18n{siteSettingsNotifications}" site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.JAVASCRIPT}}"
+          icon="settings:input" id="javascript"
+          label="$i18n{siteSettingsJavascript}" site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.PLUGINS}}"
+          icon="cr:extension" id="plugins" label="$i18n{siteSettingsFlash}"
+          site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.POPUPS}}"
+          icon="cr:open-in-new" id="popups" label="$i18n{siteSettingsPopups}"
+          site="[[site]]">
+      </site-details-permission>
+      <site-details-permission
+          category="{{ContentSettingsTypes.BACKGROUND_SYNC}}"
+          icon="settings:sync" id="backgroundSync"
+          label="$i18n{siteSettingsBackgroundSync}" site="[[site]]">
+      </site-details-permission>
+      <site-details-permission category="{{ContentSettingsTypes.KEYGEN}}"
+          icon="settings:code" id="keygen"label="$i18n{siteSettingsKeygen}"
+          site="[[site]]">
+      </site-details-permission>
+      <site-details-permission
+          category="{{ContentSettingsTypes.AUTOMATIC_DOWNLOADS}}"
+          icon="cr:file-download" id="automaticDownloads"
+          label="$i18n{siteSettingsAutomaticDownloads}" site="[[site]]">
+      </site-details-permission>
+      <site-details-permission
+          category="{{ContentSettingsTypes.UNSANDBOXED_PLUGINS}}"
+          icon="cr:extension" id="unsandboxedPlugins"
+          label="$i18n{siteSettingsUnsandboxedPlugins}" site="[[site]]">
+      </site-details-permission>
+
+      <div on-tap="onClearAndReset_" raised class="list-item list-button">
+        $i18n{siteSettingsClearAndReset}
+      </div>
+    </div>
+    <website-usage-private-api id="usageApi"
+        website-data-usage="{{storedData_}}"
+        website-storage-type="{{storageType_}}">
+    </website-usage-private-api>
+  </template>
+  <script src="site_details.js"></script>
+</dom-module>

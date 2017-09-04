@@ -1,0 +1,530 @@
+{% from 'utilities.cpp.tmpl' import declare_enum_validation_variable, v8_value_to_local_cpp_value %}
+
+{##############################################################################}
+{% macro attribute_getter(attribute, world_suffix) %}
+static void {{attribute.name}}AttributeGetter{{world_suffix}}(
+{%- if attribute.is_data_type_property %}
+const v8::PropertyCallbackInfo<v8::Value>& info
+{%- else %}
+const v8::FunctionCallbackInfo<v8::Value>& info
+{%- endif %}) {
+  {% filter format_remove_duplicates(['ExceptionState exceptionState']) %}
+  {% set define_exception_state -%}
+  ExceptionState exceptionState(info.GetIsolate(), ExceptionState::GetterContext, "{{interface_name}}", "{{attribute.name}}");
+  {%- endset %}
+
+  {% if attribute.is_lenient_this %}
+  // [LenientThis]
+  // Make sure that info.Holder() really points to an instance if [LenientThis].
+  if (!{{v8_class}}::hasInstance(info.Holder(), info.GetIsolate()))
+    return; // Return silently because of [LenientThis].
+  {% endif %}
+
+  {% if not attribute.is_static %}
+  v8::Local<v8::Object> holder = info.Holder();
+  {% endif %}
+
+  {% if attribute.is_save_same_object %}
+  // [SaveSameObject]
+  {% set same_object_private_key = interface_name + attribute.name[0]|capitalize + attribute.name[1:] %}
+  // If you see a compile error that
+  //   V8PrivateProperty::getSameObject{{same_object_private_key}}
+  // is not defined, then you need to register your attribute at
+  // V8_PRIVATE_PROPERTY_FOR_EACH defined in V8PrivateProperty.h as
+  //   X(SameObject, {{same_object_private_key}})
+  auto privateSameObject = V8PrivateProperty::getSameObject{{same_object_private_key}}(info.GetIsolate());
+  {
+    v8::Local<v8::Value> v8Value = privateSameObject.get(info.GetIsolate()->GetCurrentContext(), holder);
+    if (!v8Value.IsEmpty()) {
+      v8SetReturnValue(info, v8Value);
+      return;
+    }
+  }
+  {% endif %}
+
+  {% if not attribute.is_static %}
+  {{cpp_class}}* impl = {{v8_class}}::toImpl(holder);
+  {% endif %}
+
+  {% if attribute.cached_attribute_validation_method %}
+  // [CachedAttribute]
+  v8::Local<v8::String> propertyName = v8AtomicString(info.GetIsolate(), "{{attribute.name}}");
+  if (!impl->{{attribute.cached_attribute_validation_method}}()) {
+    v8::Local<v8::Value> v8Value = V8HiddenValue::getHiddenValue(ScriptState::forFunctionObject(info), holder, propertyName);
+    if (!v8Value.IsEmpty() && !v8Value->IsUndefined()) {
+      v8SetReturnValue(info, v8Value);
+      return;
+    }
+  }
+  {% endif %}
+
+  {% if attribute.is_check_security_for_receiver and not attribute.is_data_type_property %}
+  // Perform a security check for the receiver object.
+  {{define_exception_state}}
+  if (!BindingSecurity::shouldAllowAccessTo(currentDOMWindow(info.GetIsolate()), impl, exceptionState)) {
+    v8SetReturnValueNull(info);
+    return;
+  }
+  {% endif %}
+
+  {% if attribute.is_check_security_for_return_value %}
+  // Perform a security check for the returned object.
+  {{define_exception_state}}
+  if (!BindingSecurity::shouldAllowAccessTo(currentDOMWindow(info.GetIsolate()), {{attribute.cpp_value}}, exceptionState)) {
+    v8SetReturnValueNull(info);
+    return;
+  }
+  {% endif %}
+
+  {% if attribute.is_call_with_execution_context %}
+  ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
+  {% endif %}
+  {% if attribute.is_call_with_script_state %}
+  {% if attribute.is_static %}
+  ScriptState* scriptState = ScriptState::forFunctionObject(info);
+  {% else %}
+  ScriptState* scriptState = ScriptState::forReceiverObject(info);
+  {% endif %}
+  {% endif %}
+  {% if attribute.is_getter_raises_exception %}
+  {{define_exception_state}}
+  {% endif %}
+  {% if attribute.is_explicit_nullable %}
+  bool isNull = false;
+  {% endif %}
+
+  {% if attribute.is_implemented_in_private_script %}
+  {{attribute.cpp_type}} result{{attribute.cpp_type_initializer}};
+  if (!{{attribute.cpp_value_original}})
+    return;
+  {% elif attribute.cpp_value_original %}
+  {{attribute.cpp_type}} {{attribute.cpp_value}}({{attribute.cpp_value_original}});
+  {% endif %}
+
+  {% if attribute.use_output_parameter_for_result %}
+  {{attribute.cpp_type}} result;
+  {{attribute.cpp_value}};
+  {% endif %}
+
+  {% if attribute.is_getter_raises_exception %}
+  if (UNLIKELY(exceptionState.hadException()))
+    return;
+  {% endif %}
+
+  {% if attribute.reflect_only %}
+  {{release_only_check(attribute.reflect_only, attribute.reflect_missing,
+                       attribute.reflect_invalid, attribute.reflect_empty,
+                       attribute.cpp_value)
+      | indent(2)}}
+  {% endif %}
+
+  {% if attribute.cached_attribute_validation_method %}
+  // [CachedAttribute]
+  v8::Local<v8::Value> v8Value({{attribute.cpp_value_to_v8_value}});
+  V8HiddenValue::setHiddenValue(ScriptState::forFunctionObject(info), holder, propertyName, v8Value);
+  {% endif %}
+
+  {% if attribute.is_explicit_nullable %}
+  if (isNull) {
+    v8SetReturnValueNull(info);
+    return;
+  }
+  {% endif %}
+
+  {% if attribute.is_keep_alive_for_gc %}
+  // Keep the wrapper object for the return value alive as long as |this|
+  // object is alive in order to save creation time of the wrapper object.
+  if ({{attribute.cpp_value}} && DOMDataStore::setReturnValue{{world_suffix}}(info.GetReturnValue(), {{attribute.cpp_value}}))
+    return;
+  v8::Local<v8::Value> v8Value(toV8({{attribute.cpp_value}}, holder, info.GetIsolate()));
+  const char kKeepAliveKey[] = "KeepAlive#{{interface_name}}#{{attribute.name}}";
+  V8HiddenValue::setHiddenValue(ScriptState::current(info.GetIsolate()), holder, v8AtomicString(info.GetIsolate(), StringView(kKeepAliveKey, sizeof kKeepAliveKey)), v8Value);
+  {% endif %}
+
+  {% if world_suffix %}
+  {{attribute.v8_set_return_value_for_main_world}};
+  {% else %}
+  {{attribute.v8_set_return_value}};
+  {% endif %}
+
+  {% if attribute.is_save_same_object %}
+  // [SaveSameObject]
+  privateSameObject.set(info.GetIsolate()->GetCurrentContext(), holder, info.GetReturnValue().Get());
+  {% endif %}
+  {% endfilter %}{# format_remove_duplicates #}
+}
+{% endmacro %}
+
+
+{######################################}
+{% macro release_only_check(reflect_only_values, reflect_missing,
+                            reflect_invalid, reflect_empty, cpp_value) %}
+{# Attribute is limited to only known values: check that the attribute value is
+   one of those. If not, set it to the empty string.
+   http://www.whatwg.org/specs/web-apps/current-work/#limited-to-only-known-values #}
+{% if reflect_empty %}
+if ({{cpp_value}}.isNull()) {
+{% if reflect_missing %}
+  {{cpp_value}} = "{{reflect_missing}}";
+{% else %}
+  ;
+{% endif %}
+} else if ({{cpp_value}}.isEmpty()) {
+  {{cpp_value}} = "{{reflect_empty}}";
+{% else %}
+if ({{cpp_value}}.isEmpty()) {
+{# FIXME: should use [ReflectEmpty] instead; need to change IDL files #}
+{% if reflect_missing %}
+  {{cpp_value}} = "{{reflect_missing}}";
+{% else %}
+  ;
+{% endif %}
+{% endif %}
+{% for value in reflect_only_values %}
+} else if (equalIgnoringASCIICase({{cpp_value}}, "{{value}}")) {
+  {{cpp_value}} = "{{value}}";
+{% endfor %}
+} else {
+  {{cpp_value}} = "{{reflect_invalid}}";
+}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro attribute_getter_callback(attribute, world_suffix) %}
+void {{attribute.name}}AttributeGetterCallback{{world_suffix}}(
+{%- if attribute.is_data_type_property %}
+v8::Local<v8::Name>, const v8::PropertyCallbackInfo<v8::Value>& info
+{%- else %}
+const v8::FunctionCallbackInfo<v8::Value>& info
+{%- endif %}) {
+  {% if attribute.deprecate_as %}
+  Deprecation::countDeprecationIfNotPrivateScript(info.GetIsolate(), currentExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
+  {% endif %}
+
+  {% if attribute.measure_as %}
+  UseCounter::countIfNotPrivateScript(info.GetIsolate(), currentExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as('AttributeGetter')}});
+  {% endif %}
+
+  {% if world_suffix in attribute.activity_logging_world_list_for_getter %}
+  {% if attribute.is_static %}
+  ScriptState* scriptState = ScriptState::forFunctionObject(info);
+  {% else %}
+  ScriptState* scriptState = ScriptState::forReceiverObject(info);
+  {% endif %}
+  V8PerContextData* contextData = scriptState->perContextData();
+  if (
+  {%- if attribute.activity_logging_world_check -%}
+      scriptState->world().isIsolatedWorld() && {# one space at the end #}
+  {%- endif -%}
+      contextData && contextData->activityLogger()) {
+    contextData->activityLogger()->logGetter("{{interface_name}}.{{attribute.name}}");
+  }
+  {% endif %}
+
+  {% if attribute.has_custom_getter %}
+  {{v8_class}}::{{attribute.name}}AttributeGetterCustom(info);
+  {% else %}
+  {{cpp_class_or_partial}}V8Internal::{{attribute.name}}AttributeGetter{{world_suffix}}(info);
+  {% endif %}
+}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro attribute_cache_property_callback(attribute) %}
+static v8::Local<v8::Private> {{attribute.name}}CachedAccessorCallback(v8::Isolate* isolate)
+{
+    return V8PrivateProperty::get{{attribute.cached_accessor_name}}(isolate).getPrivate();
+}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro constructor_getter_callback(attribute, world_suffix) %}
+void {{attribute.name}}ConstructorGetterCallback{{world_suffix}}(v8::Local<v8::Name> property, const v8::PropertyCallbackInfo<v8::Value>& info) {
+  {% if attribute.deprecate_as %}
+  Deprecation::countDeprecationIfNotPrivateScript(info.GetIsolate(), currentExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
+  {% endif %}
+
+  {% if attribute.measure_as %}
+  UseCounter::countIfNotPrivateScript(info.GetIsolate(), currentExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as('ConstructorGetter')}});
+  {% endif %}
+
+  v8ConstructorAttributeGetter(property, info);
+}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro attribute_setter(attribute, world_suffix) %}
+static void {{attribute.name}}AttributeSetter{{world_suffix}}(
+{%- if attribute.is_data_type_property %}
+v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info
+{%- else %}
+v8::Local<v8::Value> v8Value, const v8::FunctionCallbackInfo<v8::Value>& info
+{%- endif %}) {
+  {% filter format_remove_duplicates(['ExceptionState exceptionState']) %}
+  {% set define_exception_state -%}
+  ExceptionState exceptionState(info.GetIsolate(), ExceptionState::SetterContext, "{{interface_name}}", "{{attribute.name}}");
+  {%- endset %}
+
+  {% if attribute.is_lenient_this %}
+  // [LenientThis]
+  // Make sure that info.Holder() really points to an instance if [LenientThis].
+  if (!{{v8_class}}::hasInstance(info.Holder(), info.GetIsolate()))
+    return; // Return silently because of [LenientThis].
+  {% endif %}
+
+  {% if not attribute.is_static and not attribute.is_replaceable %}
+  v8::Local<v8::Object> holder = info.Holder();
+  {% if attribute.is_put_forwards %}
+  {{cpp_class}}* proxyImpl = {{v8_class}}::toImpl(holder);
+  {{attribute.cpp_type}} impl = WTF::getPtr(proxyImpl->{{attribute.name}}());
+  if (!impl)
+    return;
+  {% else %}
+  {{cpp_class}}* impl = {{v8_class}}::toImpl(holder);
+  {% endif %}
+  {% endif %}
+
+  {% if attribute.is_check_security_for_receiver and not attribute.is_data_type_property %}
+  // Perform a security check for the receiver object.
+  {{define_exception_state}}
+  if (!BindingSecurity::shouldAllowAccessTo(currentDOMWindow(info.GetIsolate()), impl, exceptionState)) {
+    v8SetReturnValue(info, v8Value);
+    return;
+  }
+  {% endif %}
+
+  {% if attribute.is_check_security_for_return_value %}
+#error Attribute setter with the security check for the return value is not supported.  Since the return value is the given value to be set, it\'s meaningless to perform the security check for the return value.
+  {% endif %}
+
+  {% if attribute.is_custom_element_callbacks or
+        (attribute.is_reflect and not (attribute.idl_type == 'DOMString' and is_node)) %}
+  // Skip on compact node DOMString getters.
+  V0CustomElementProcessingStack::CallbackDeliveryScope deliveryScope;
+  {% endif %}
+
+  {% if attribute.has_setter_exception_state %}
+  {{define_exception_state}}
+  {% endif %}
+
+  // Prepare the value to be set.
+  {% if attribute.idl_type == 'EventHandler' %}
+  {% if not is_node %}
+  moveEventListenerToNewWrapper(info.GetIsolate(), holder, {{attribute.event_handler_getter_expression}}, v8Value, {{v8_class}}::eventListenerCacheIndex);
+  {% endif %}
+  {% else %}{# not EventHandler #}
+  {{v8_value_to_local_cpp_value(attribute) | indent(2)}}
+  {% endif %}
+
+  {% if attribute.has_type_checking_interface %}
+  // Type check per: http://heycam.github.io/webidl/#es-interface
+  if (!cppValue{% if attribute.is_nullable %} && !isUndefinedOrNull(v8Value){% endif %}) {
+    exceptionState.throwTypeError("The provided value is not of type '{{attribute.idl_type}}'.");
+    return;
+  }
+  {% endif %}
+
+  {% if attribute.enum_values %}
+  // Type check per: http://heycam.github.io/webidl/#dfn-attribute-setter
+  // Returns undefined without setting the value if the value is invalid.
+  TrackExceptionState trackExceptionState;
+  {{declare_enum_validation_variable(attribute.enum_values) | indent(2)}}
+  if (!isValidEnum(cppValue, validValues, WTF_ARRAY_LENGTH(validValues), "{{attribute.enum_type}}", trackExceptionState)) {
+    currentExecutionContext(info.GetIsolate())->addConsoleMessage(ConsoleMessage::create(JSMessageSource, WarningMessageLevel, trackExceptionState.message()));
+    return;
+  }
+  {% endif %}
+
+  {% if attribute.is_call_with_execution_context or attribute.is_setter_call_with_execution_context %}
+  ExecutionContext* executionContext = currentExecutionContext(info.GetIsolate());
+  {% endif %}
+
+  {% if attribute.is_call_with_script_state %}
+  {% if attribute.is_static %}
+  ScriptState* scriptState = ScriptState::forFunctionObject(info);
+  {% else %}
+  ScriptState* scriptState = ScriptState::forReceiverObject(info);
+  {% endif %}
+  {% endif %}
+
+  {% if attribute.is_replaceable %}
+  v8::Local<v8::String> propertyName = v8AtomicString(info.GetIsolate(), "{{attribute.name}}");
+  {% endif %}
+  {{attribute.cpp_setter}};
+
+  {% if attribute.cached_attribute_validation_method %}
+  // [CachedAttribute]
+  // Invalidate the cached value.
+  V8HiddenValue::deleteHiddenValue(ScriptState::forFunctionObject(info), holder, v8AtomicString(info.GetIsolate(), "{{attribute.name}}"));
+  {% endif %}
+}
+{% endfilter %}{# format_remove_duplicates #}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro attribute_setter_callback(attribute, world_suffix) %}
+void {{attribute.name}}AttributeSetterCallback{{world_suffix}}(
+{%- if attribute.is_data_type_property %}
+v8::Local<v8::Name>, v8::Local<v8::Value> v8Value, const v8::PropertyCallbackInfo<void>& info
+{%- else %}
+const v8::FunctionCallbackInfo<v8::Value>& info
+{%- endif %}) {
+  {% if not attribute.is_data_type_property %}
+  v8::Local<v8::Value> v8Value = info[0];
+  {% endif %}
+
+  {% if attribute.deprecate_as %}
+  Deprecation::countDeprecationIfNotPrivateScript(info.GetIsolate(), currentExecutionContext(info.GetIsolate()), UseCounter::{{attribute.deprecate_as}});
+  {% endif %}
+
+  {% if attribute.measure_as %}
+  UseCounter::countIfNotPrivateScript(info.GetIsolate(), currentExecutionContext(info.GetIsolate()), UseCounter::{{attribute.measure_as('AttributeSetter')}});
+  {% endif %}
+
+  {% if world_suffix in attribute.activity_logging_world_list_for_setter %}
+  {% if attribute.is_static %}
+  ScriptState* scriptState = ScriptState::forFunctionObject(info);
+  {% else %}
+  ScriptState* scriptState = ScriptState::forReceiverObject(info);
+  {% endif %}
+  V8PerContextData* contextData = scriptState->perContextData();
+  if (
+  {%- if attribute.activity_logging_world_check -%}
+      scriptState->world().isIsolatedWorld() && {# one space at the end #}
+  {%- endif -%}
+      contextData && contextData->activityLogger()) {
+    contextData->activityLogger()->logSetter("{{interface_name}}.{{attribute.name}}", v8Value);
+  }
+  {% endif %}
+
+  {% if attribute.is_ce_reactions %}
+  CEReactionsScope ceReactionsScope;
+  {% endif %}
+
+  {% if attribute.is_custom_element_callbacks or attribute.is_reflect %}
+  V0CustomElementProcessingStack::CallbackDeliveryScope deliveryScope;
+  {% endif %}
+
+  {% if attribute.has_custom_setter %}
+  {{v8_class}}::{{attribute.name}}AttributeSetterCustom(v8Value, info);
+  {% else %}
+  {{cpp_class_or_partial}}V8Internal::{{attribute.name}}AttributeSetter{{world_suffix}}(v8Value, info);
+  {% endif %}
+}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro attribute_getter_implemented_in_private_script(attribute) %}
+bool {{v8_class}}::PrivateScript::{{attribute.name}}AttributeGetter(LocalFrame* frame, {{cpp_class}}* holderImpl, {{attribute.cpp_type}}* result) {
+  if (!frame)
+    return false;
+  v8::HandleScope handleScope(toIsolate(frame));
+  ScriptForbiddenScope::AllowUserAgentScript script;
+  ScriptState* scriptState = ScriptState::forWorld(frame, DOMWrapperWorld::privateScriptIsolatedWorld());
+  if (!scriptState)
+    return false;
+  ScriptState* scriptStateInUserScript = ScriptState::forMainWorld(frame);
+  if (!scriptStateInUserScript)
+    return false;
+
+  ScriptState::Scope scope(scriptState);
+  v8::Local<v8::Value> holder = toV8(holderImpl, scriptState->context()->Global(), scriptState->isolate());
+  ExceptionState exceptionState(ExceptionState::GetterContext, "{{attribute.name}}", "{{cpp_class}}", scriptState->context()->Global(), scriptState->isolate());
+  v8::Local<v8::Value> v8Value = PrivateScriptRunner::runDOMAttributeGetter(scriptState, scriptStateInUserScript, "{{cpp_class}}", "{{attribute.name}}", holder);
+  if (v8Value.IsEmpty())
+    return false;
+  {{v8_value_to_local_cpp_value(attribute.private_script_v8_value_to_local_cpp_value) | indent(2)}}
+  CHECK(!exceptionState.hadException());
+  *result = cppValue;
+  return true;
+}
+{% endmacro %}
+
+
+{% macro attribute_setter_implemented_in_private_script(attribute) %}
+bool {{v8_class}}::PrivateScript::{{attribute.name}}AttributeSetter(LocalFrame* frame, {{cpp_class}}* holderImpl, {{attribute.argument_cpp_type}} cppValue) {
+  if (!frame)
+    return false;
+  v8::HandleScope handleScope(toIsolate(frame));
+  ScriptForbiddenScope::AllowUserAgentScript script;
+  ScriptState* scriptState = ScriptState::forWorld(frame, DOMWrapperWorld::privateScriptIsolatedWorld());
+  if (!scriptState)
+    return false;
+  ScriptState* scriptStateInUserScript = ScriptState::forMainWorld(frame);
+  if (!scriptStateInUserScript)
+    return false;
+
+  ScriptState::Scope scope(scriptState);
+  v8::Local<v8::Value> holder = toV8(holderImpl, scriptState->context()->Global(), scriptState->isolate());
+  ExceptionState exceptionState(ExceptionState::SetterContext, "{{attribute.name}}", "{{cpp_class}}", scriptState->context()->Global(), scriptState->isolate());
+  return PrivateScriptRunner::runDOMAttributeSetter(scriptState, scriptStateInUserScript, "{{cpp_class}}", "{{attribute.name}}", holder, {{attribute.private_script_cpp_value_to_v8_value}});
+}
+{% endmacro %}
+
+
+{##############################################################################}
+{% macro attribute_configuration(attribute) %}
+{% from 'utilities.cpp.tmpl' import property_location %}
+{% if attribute.constructor_type %}
+{% set getter_callback =
+       '%sV8Internal::%sConstructorGetterCallback' % (cpp_class_or_partial, attribute.name)
+       if attribute.needs_constructor_getter_callback else
+       'v8ConstructorAttributeGetter' %}
+{% set setter_callback = '0' %}
+{% else %}{# regular attributes #}
+{% set getter_callback = '%sV8Internal::%sAttributeGetterCallback' %
+           (cpp_class_or_partial, attribute.name) %}
+{% set setter_callback = '%sV8Internal::%sAttributeSetterCallback' %
+           (cpp_class_or_partial, attribute.name)
+       if attribute.has_setter else '0' %}
+{% endif %}
+{% set getter_callback_for_main_world =
+       '%sForMainWorld' % getter_callback
+       if attribute.is_per_world_bindings else '0' %}
+{% set setter_callback_for_main_world =
+       '%sForMainWorld' % setter_callback
+       if attribute.is_per_world_bindings and attribute.has_setter else '0' %}
+{% set wrapper_type_info =
+       'const_cast<WrapperTypeInfo*>(&V8%s::wrapperTypeInfo)' %
+           attribute.constructor_type
+       if attribute.constructor_type else '0' %}
+{% if attribute.is_data_type_property %}
+{% set access_control = 'static_cast<v8::AccessControl>(%s)' %
+                        ' | '.join(attribute.access_control_list) %}
+{% else %}
+{% set access_control = 'v8::DEFAULT' %}
+{% endif %}
+{% set property_attribute = 'static_cast<v8::PropertyAttribute>(%s)' %
+                            ' | '.join(attribute.property_attributes) %}
+{% set only_exposed_to_private_script =
+       'V8DOMConfiguration::OnlyExposedToPrivateScript'
+       if attribute.only_exposed_to_private_script else
+       'V8DOMConfiguration::ExposedToAllScripts' %}
+{% set cached_accessor_callback =
+       '%sV8Internal::%sCachedAccessorCallback' % (cpp_class_or_partial, attribute.name)
+       if attribute.is_cached_accessor else
+       'nullptr' %}
+{% set holder_check = 'V8DOMConfiguration::DoNotCheckHolder'
+       if attribute.is_lenient_this else 'V8DOMConfiguration::CheckHolder' %}
+{% set attribute_configuration_list = [
+       '"%s"' % attribute.name,
+       getter_callback,
+       setter_callback,
+       getter_callback_for_main_world,
+       setter_callback_for_main_world,
+       cached_accessor_callback,
+       wrapper_type_info,
+       access_control,
+       property_attribute,
+       only_exposed_to_private_script,
+       property_location(attribute),
+       holder_check,
+   ] %}
+{{'{'}}{{attribute_configuration_list | join(', ')}}{{'}'}}
+{%- endmacro %}

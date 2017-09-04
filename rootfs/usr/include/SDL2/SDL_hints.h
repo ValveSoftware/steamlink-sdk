@@ -222,6 +222,12 @@ extern "C" {
 #define SDL_HINT_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN    "SDL_WINDOW_FRAME_USABLE_WHILE_CURSOR_HIDDEN"
 
 /**
+ * \brief A variable to specify custom icon resource id from RC file on Windows platform 
+ */
+#define SDL_HINT_WINDOWS_INTRESOURCE_ICON       "SDL_WINDOWS_INTRESOURCE_ICON"
+#define SDL_HINT_WINDOWS_INTRESOURCE_ICON_SMALL "SDL_WINDOWS_INTRESOURCE_ICON_SMALL"
+
+/**
  *  \brief  A variable controlling whether the windows message loop is processed by SDL 
  *
  *  This variable can be set to the following values:
@@ -274,6 +280,17 @@ extern "C" {
  *  By default SDL will ignore mouse clicks that activate a window
  */
 #define SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH "SDL_MOUSE_FOCUS_CLICKTHROUGH"
+
+/**
+ *  \brief  A variable controlling whether touch events should generate synthetic mouse events
+ *
+ *  This variable can be set to the following values:
+ *    "0"       - Touch events will not generate mouse events
+ *    "1"       - Touch events will generate mouse events
+ *
+ *  By default SDL will generate mouse events for touch events
+ */
+#define SDL_HINT_TOUCH_MOUSE_EVENTS    "SDL_TOUCH_MOUSE_EVENTS"
 
 /**
  *  \brief Minimize your SDL_Window if it loses key focus when in fullscreen mode. Defaults to true.
@@ -348,7 +365,6 @@ extern "C" {
  */
 #define SDL_HINT_ACCELEROMETER_AS_JOYSTICK "SDL_ACCELEROMETER_AS_JOYSTICK"
 
-
 /**
  *  \brief  A variable that lets you disable the detection and use of Xinput gamepad devices
  *
@@ -357,7 +373,6 @@ extern "C" {
  *    "1"       - Enable XInput detection (the default)
  */
 #define SDL_HINT_XINPUT_ENABLED "SDL_XINPUT_ENABLED"
-
 
 /**
  *  \brief  A variable that causes SDL to use the old axis and button mapping for XInput devices.
@@ -368,9 +383,8 @@ extern "C" {
  */
 #define SDL_HINT_XINPUT_USE_OLD_JOYSTICK_MAPPING "SDL_XINPUT_USE_OLD_JOYSTICK_MAPPING"
 
-
 /**
- *  \brief  A variable that lets you manually hint extra gamecontroller db entries
+ *  \brief  A variable that lets you manually hint extra gamecontroller db entries.
  *
  *  The variable should be newline delimited rows of gamecontroller config data, see SDL_gamecontroller.h
  *
@@ -379,6 +393,31 @@ extern "C" {
  */
 #define SDL_HINT_GAMECONTROLLERCONFIG "SDL_GAMECONTROLLERCONFIG"
 
+/**
+ *  \brief  A variable containing a list of devices to skip when scanning for game controllers.
+ *
+ *  The format of the string is a comma separated list of USB VID/PID pairs
+ *  in hexadecimal form, e.g.
+ *
+ *      0xAAAA/0xBBBB,0xCCCC/0xDDDD
+ *
+ *  The variable can also take the form of @file, in which case the named
+ *  file will be loaded and interpreted as the value of the variable.
+ */
+#define SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES "SDL_GAMECONTROLLER_IGNORE_DEVICES"
+
+/**
+ *  \brief  If set, all devices will be skipped when scanning for game controllers except for the ones listed in this variable.
+ *
+ *  The format of the string is a comma separated list of USB VID/PID pairs
+ *  in hexadecimal form, e.g.
+ *
+ *      0xAAAA/0xBBBB,0xCCCC/0xDDDD
+ *
+ *  The variable can also take the form of @file, in which case the named
+ *  file will be loaded and interpreted as the value of the variable.
+ */
+#define SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT"
 
 /**
  *  \brief  A variable that lets you enable joystick (and gamecontroller) events even when your app is in the background.
@@ -392,7 +431,6 @@ extern "C" {
  *  The default value is "0".  This hint may be set at any time.
  */
 #define SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS "SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS"
-
 
 /**
  *  \brief  A variable that controls whether Steam Controllers should be exposed using the SDL joystick and game controller APIs
@@ -415,7 +453,6 @@ extern "C" {
  *    "1"       - allow topmost
  */
 #define SDL_HINT_ALLOW_TOPMOST "SDL_ALLOW_TOPMOST"
-
 
 /**
  *  \brief A variable that controls the timer resolution, in milliseconds.
@@ -878,7 +915,7 @@ extern DECLSPEC SDL_bool SDLCALL SDL_GetHintBoolean(const char *name, SDL_bool d
 /**
  * \brief type definition of the hint callback function.
  */
-typedef void (*SDL_HintCallback)(void *userdata, const char *name, const char *oldValue, const char *newValue);
+typedef void (SDLCALL *SDL_HintCallback)(void *userdata, const char *name, const char *oldValue, const char *newValue);
 
 /**
  *  \brief Add a function to watch a particular hint

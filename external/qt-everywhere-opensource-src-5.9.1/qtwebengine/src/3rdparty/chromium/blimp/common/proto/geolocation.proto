@@ -1,0 +1,59 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto2";
+
+option optimize_for = LITE_RUNTIME;
+
+import "common.proto";
+
+package blimp;
+
+message GeolocationErrorMessage {
+  enum ErrorCode {
+    PERMISSION_DENIED = 1;
+    POSITION_UNAVAILABLE = 2;
+    TIMEOUT = 3;
+  }
+
+  optional ErrorCode error_code = 1;
+  optional string error_message = 2;
+}
+
+message GeolocationCoordinatesMessage {
+  optional double latitude = 1;
+  optional double longitude = 2;
+  optional double altitude = 3;
+  optional double accuracy = 4;
+  optional double altitude_accuracy = 5;
+  optional double heading = 6;
+  optional double speed = 7;
+}
+
+message GeolocationSetInterestLevelMessage {
+  // These values represent the various listening states the server can have.
+  // A Level containing an accuracy level indicates that the server is
+  // waiting for either high or low accuracy position updates from the client.
+  // If a NO_INTEREST level is sent, the server is no longer listening
+  // for updates.
+  enum Level {
+    NO_INTEREST = 0;
+    HIGH_ACCURACY = 1;
+    LOW_ACCURACY = 2;
+  }
+
+  optional Level level = 1;
+}
+
+message GeolocationMessage {
+  oneof type {
+    // Server => Client types.
+    GeolocationSetInterestLevelMessage set_interest_level = 1;
+    EmptyMessage request_refresh = 2;
+
+    // Client => Server types.
+    GeolocationCoordinatesMessage coordinates = 3;
+    GeolocationErrorMessage error = 4;
+  }
+}

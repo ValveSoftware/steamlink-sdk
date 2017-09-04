@@ -1255,10 +1255,6 @@ static int xpad_open(struct input_dev *dev)
 
 	xpad->is_open = 1;
 
-	if (xpad->xtype == XTYPE_XBOXONE || xpad->xtype == XTYPE_XBOXONE_ELITE) {
-		return xpad_init_xbox_one_controller(xpad);
-	}
-
 	return 0;
 }
 
@@ -1623,10 +1619,17 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
 		if (error)
 			goto fail4;
 	} else {
+		if (xpad->xtype == XTYPE_XBOXONE || xpad->xtype == XTYPE_XBOXONE_ELITE) {
+			error = xpad_init_xbox_one_controller(xpad);
+			if (error)
+				goto fail4;
+		}
+
 		xpad->pad_present = 1;
 		error = xpad_init_input(xpad);
 		if (error)
 			goto fail4;
+
 	}
 
 	return 0;

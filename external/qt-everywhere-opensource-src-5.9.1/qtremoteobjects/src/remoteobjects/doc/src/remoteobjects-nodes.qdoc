@@ -1,0 +1,95 @@
+/****************************************************************************
+**
+** Copyright (C) 2014 Ford Motor Company
+** Contact: https://www.qt.io/licensing/
+**
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
+**
+** $QT_BEGIN_LICENSE:LGPL21$
+** Commercial License Usage
+** Licensees holding valid commercial Qt licenses may use this file in
+** accordance with the commercial license agreement provided with the
+** Software or, alternatively, in accordance with the terms contained in
+** a written agreement between you and The Qt Company. For licensing terms
+** and conditions see http://www.qt.io/terms-conditions. For further
+** information use the contact form at http://www.qt.io/contact-us.
+**
+** GNU Lesser General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU Lesser
+** General Public License version 2.1 or version 3 as published by the Free
+** Software Foundation and appearing in the file LICENSE.LGPLv21 and
+** LICENSE.LGPLv3 included in the packaging of this file. Please review the
+** following information to ensure the GNU Lesser General Public License
+** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
+** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+**
+** As a special exception, The Qt Company gives you certain additional
+** rights. These rights are described in The Qt Company LGPL Exception
+** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+**
+** $QT_END_LICENSE$
+**
+****************************************************************************/
+/*!
+\page qtremoteobjects-node.html
+\title Qt Remote Objects Nodes
+\brief Describes how Qt Remote Objects Nodes pass data between nodes.
+\section1 Nodes
+
+QRemoteObjectNodes (let's shorten the name to Node for now) are what enables
+the passing of information between processes. All of the QtRO functionality is
+enabled by a small number of distinct packets passing the necessary data
+between nodes.
+
+Each process that participates in QtRO's IPC will instantiate a Node-based type
+(QRemoteObjectNode, QRemoteObjectHost, or QRemoteObjectRegistryHost). The
+latter types of Nodes provide additional functionality. Both QRemoteObjectHost
+and QRemoteObjectRegistryHost support the \l {QRemoteObjectHostBase::}{enableRemoting()}
+(and the corresponding \l {QRemoteObjectHostBase::}{disableRemoting()}) methods,
+which are the key methods to expose \l Source objects to the network. In order
+to use the \l Registry functionality, there should be one QRemoteObjectRegistryHost
+on the network.
+All other nodes can then pass the RegistryHost's URL to the Node's \e registryAddress
+constructor parameter, or pass the URL to the \l {QRemoteObjectNode::}{setRegistryUrl()}
+method.
+
+QtRO works as a peer-to-peer network. That is, in order to \l
+{QRemoteObjectNode::acquire()}{acquire()} a valid \l {Replica}, the \l
+{Replica} node needs a connection to the node that hosts its \l {Source}. A
+host node is a node that allows other nodes to connect to it, which is
+accomplished by giving hosts unique addresses (the address is provided to the
+QRemoteObjectHost constructor or set by the setHostUrl method). The node that a
+\l {Replica} is requested from must establish the connection to the host node
+in order to initialize the \l {Replica} and keep it up to date.
+
+\section1 Connecting Nodes using QtRO URLs
+
+Host Nodes use custom URLs to simplify connections. While the list will likely
+be extended, QtRO currently supports two types of connections. A "tcp"
+connection (using the standard tcp/ip protocol) supports connections between
+devices as well as between processes on the same device. The 2nd option is a
+"local" connection - which can have less overhead, depending on the underlying
+OS features - but does not support connectivity between devices.
+
+When using a local connection, a unique name must be used. For tcp connections,
+a unique address and port number combination much be used.
+
+There is currently no \l {http://www.zeroconf.org/} {zeroconf} facility
+included in QtRO. All processes or devices must therefore know beforehand how to
+connect to each other. A \l {QRemoteObjectRegistry} (see below) can be used to
+simplify the connection process for a network with multiple Host Nodes.
+
+Connection types are summarized in the following table.
+    \table 90%
+    \header \li URL  \li Host Node           \li Connecting Node
+    \row    \li \l {QUrl}("local:replica")   \li \l {QLocalServer}("replica") \li \l {QLocalSocket}("replica")
+    \row    \li \l {QUrl}("tcp://192.168.1.1:9999")   \li \l {QTcpServer}("192.168.1.1",9999) \li \l {QTcpSocket}("192.168.1.1",9999)
+    \endtable
+
+Nodes have a couple of \l {QRemoteObjectHostBase::enableRemoting()}
+{enableRemoting()} methods that are used to share objects on the network (this
+will produce an error if the Node is not a Host Node however). Other
+processes/devices that want to interact with a shared object use one of the \l
+{QRemoteObjectNode::acquire()} {node's acquire()} methods to instantiate a
+replica.
+*/

@@ -1,0 +1,196 @@
+%YAML 1.2
+--- |
+  # GRPC Chromium BUILD.gn file.
+  # This file has been automatically generated from a template file.
+  # Please look at the templates directory instead.
+  # This file can be regenerated from the template by running
+  # tools/buildgen/generate_projects.sh
+  if (is_android) {
+    import("//build/config/android/config.gni")
+    import("//build/config/android/rules.gni")
+  }
+  
+  config("grpc_config") {
+    include_dirs = [
+      ".",
+      "include/",
+    ]
+
+    defines = [
+      "GRPC_USE_PROTO_LITE",
+      # TODO(xyzzyz): the <condition_variable> header in libstdc++-4.6 we're using
+      # in Chromium has a bug, which causes a compilation error on Clang.
+      # Therefore, we need to make gRPC not use standard library threading
+      # support.
+      # https://crbug.com/593874
+      "GRPC_CXX0X_NO_THREAD",
+    ]
+    
+    cflags_c = [
+      "-std=c99"
+    ]
+    
+    if (is_android) {
+      libs = [ "log" ] # For __android_log_write
+    }  
+  }
+
+  <%!
+  def get_deps(target_dict):
+    deps = []
+    if target_dict.get("secure", False):
+      deps = [
+        "//third_party/boringssl",
+      ]
+
+    if target_dict.get("build", None) == "protoc":
+      deps.append("//third_party/protobuf:protoc_lib")
+
+    name = target_dict.get("name", None)
+    if name in ("grpc++_unsecure", "grpc++", "grpc++_codegen_lib"):
+      deps.append("//third_party/protobuf:protobuf_lite")
+    elif name in ("grpc", "grpc_unsecure"):
+      deps.append("//third_party/zlib")
+
+    for d in target_dict.get("deps", []):
+      # TODO(xyzzyz): grpc++_unsecure mistakenly depends on both grpc and
+      # grpc_unsecure. Remove when it's fixed.
+      # See https://github.com/grpc/grpc/issues/7739
+      if name == "grpc++_unsecure" and d == "grpc":
+        # Ignore.
+        continue
+
+      if d.startswith(("//", ":")):
+        deps.append(d)
+      else:
+        deps.append(":%s" % d)
+    return deps
+
+  def get_extra_configs(target_dict):
+    if target_dict.get("name", "") == "grpc_cpp_plugin":
+      return ["//third_party/protobuf:protobuf_config"]
+    return []
+
+  def uses_nanopb_or_protofull(f):
+    return (f.startswith("third_party/nanopb")
+            or "census" in f
+            or "grpclb" in f)
+
+  def wanted_lib(lib):
+    wanted_libs = ("gpr", "grpc", "grpc_unsecure", "grpc++", "grpc++_unsecure",
+                   "grpc_cronet", "grpc_plugin_support")
+    return lib.build in ("all", "protoc") and lib.get("name", "") in wanted_libs
+
+  def wanted_binary(tgt):
+    wanted_binaries = ("grpc_cpp_plugin",)
+    return tgt.build == "protoc" and tgt.get("name", "") in wanted_binaries
+
+  def only_on_host_toolchain(tgt):
+    return tgt.get("name", "") in ("grpc_plugin_support", "grpc_cpp_plugin")
+
+  def contains_wrap_memcpy(srcs):
+    for src in srcs:
+      if 'wrap_memcpy' in src:
+        return True
+    return False
+
+  def get_wrap_memcpy(srcs):
+    return [s for s in srcs if "wrap_memcpy" in s]
+  %>
+
+  % for lib in libs:
+  % if wanted_lib(lib):
+  % if only_on_host_toolchain(lib):
+  # Only compile the plugin for the host architecture.
+  if (current_toolchain == host_toolchain) {
+  ${cc_library(lib)}
+  }
+  % else:
+  ${cc_library(lib)}
+  % endif
+  % endif
+  % endfor
+
+
+  % for tgt in targets:
+  % if wanted_binary(tgt):
+  % if only_on_host_toolchain(tgt):
+  # Only compile the plugin for the host architecture.
+  if (current_toolchain == host_toolchain) {
+  ${cc_binary(tgt)}
+  }
+  % else:
+  ${cc_binary(tgt)}
+  % endif
+  % endif
+  % endfor
+
+  <%def name="cc_library(lib)">
+  <%
+    lib_hdrs = lib.get("headers", [])
+    hdrs = [h for h in lib_hdrs if not uses_nanopb_or_protofull(h)]
+    srcs = [s for s in lib.src if not uses_nanopb_or_protofull(s)]
+  %>
+  source_set("${lib.name}") {
+    sources = [
+  % for hdr in lib.get("public_headers", []):
+      "${hdr}",
+  % endfor
+  % for hdr in hdrs:
+      "${hdr}",
+  % endfor
+  % for src in srcs:
+      "${src}",
+  % endfor
+    ]
+  % if contains_wrap_memcpy(srcs):
+    if (is_android) {
+      # gRPC memcpy wrapping logic isn't Android-friendly.
+      # See https://crbug.com/661171
+      sources -= [
+  % for src in get_wrap_memcpy(srcs):
+        "${src}",
+  % endfor
+      ]
+    }
+  % endif
+    deps = [
+  % for dep in get_deps(lib):
+      "${dep}",
+  % endfor
+    ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [
+      "//build/config/compiler:no_chromium_code",
+  % for config in get_extra_configs(lib):
+      "${config}",
+  % endfor
+    ]
+    public_configs = [
+      ":grpc_config",
+    ]
+  }
+  </%def>
+
+  <%def name="cc_binary(tgt)">
+  executable("${tgt.name}") {
+    sources = [
+  % for src in tgt.src:
+      "${src}",
+  % endfor
+    ]
+    deps = [
+  % for dep in get_deps(tgt):
+      "${dep}",
+  % endfor
+    ]
+    configs -= [ "//build/config/compiler:chromium_code" ]
+    configs += [
+      "//build/config/compiler:no_chromium_code",
+  % for config in get_extra_configs(tgt):
+      "${config}",
+  % endfor
+    ]
+    public_configs = [ ":grpc_config" ]
+  }
+  </%def>

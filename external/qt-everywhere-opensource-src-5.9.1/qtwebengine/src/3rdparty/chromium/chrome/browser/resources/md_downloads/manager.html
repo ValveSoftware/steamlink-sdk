@@ -1,0 +1,112 @@
+<link rel="import" href="chrome://resources/html/cr.html">
+<link rel="import" href="chrome://resources/html/cr/ui.html">
+<link rel="import" href="chrome://resources/html/cr/ui/command.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/html/util.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-list/iron-list.html">
+<link rel="import" href="chrome://downloads/action_service.html">
+<link rel="import" href="chrome://downloads/constants.html">
+<link rel="import" href="chrome://downloads/i18n_setup.html">
+<link rel="import" href="chrome://downloads/item.html">
+<link rel="import" href="chrome://downloads/toolbar.html">
+<link rel="stylesheet" href="chrome://resources/css/md_colors.css">
+
+<dom-module id="downloads-manager">
+  <template>
+    <style>
+      :host {
+        display: flex;
+        flex: 1 0;
+        flex-direction: column;
+        height: 100%;
+        z-index: 0;
+      }
+
+      [hidden] {
+        display: none !important;
+      }
+
+      @media screen and (max-width: 1024px) {
+        :host {
+          flex-basis: calc(
+              var(--downloads-card-width) + 2 * var(--downloads-card-margin));
+        }
+      }
+
+      #toolbar {
+        position: relative;
+        z-index: 1;
+      }
+
+      #toolbar::after {
+        box-shadow: inset 0 5px 6px -3px rgba(0, 0, 0, 0.4);
+        content: '';
+        display: block;
+        height: 6px;
+        opacity: 0;
+        position: absolute;
+        top: 100%;
+        transition: opacity 500ms;
+        width: 100%;
+      }
+
+      :host([has-shadow_]) #toolbar::after {
+        opacity: 1;
+      }
+
+      #downloads-list {
+        /* TODO(dbeam): we're not setting scrollTarget explicitly, yet
+         * style="overflow: auto" is still being set by <iron-list>'s JS. Weird.
+         */
+        overflow-y: overlay !important;
+      }
+
+      #no-downloads,
+      #downloads-list {
+        flex: 1;
+      }
+
+      :host([loading]) #no-downloads,
+      :host([loading]) #downloads-list {
+        display: none;
+      }
+
+      #no-downloads {
+        align-items: center;
+        color: #b4b4b4;
+        display: flex;
+        font-size: 123.1%;
+        font-weight: 500;
+        justify-content: center;
+        /* To avoid overlapping with the header, we need this min-height
+         * until bug 596743 is fixed. */
+        min-height: min-content;
+      }
+
+      #no-downloads .illustration {
+        background: -webkit-image-set(
+            url(chrome://downloads/1x/no_downloads.png) 1x,
+            url(chrome://downloads/2x/no_downloads.png) 2x)
+            no-repeat center center;
+        height: 144px;  /* Matches natural image height. */
+        margin-bottom: 32px;
+      }
+    </style>
+
+    <downloads-toolbar id="toolbar" spinner-active="{{spinnerActive_}}">
+    </downloads-toolbar>
+    <iron-list id="downloads-list" items="{{items_}}"
+        hidden="[[!hasDownloads_]]">
+      <template>
+        <downloads-item data="[[item]]"></downloads-item>
+      </template>
+    </iron-list>
+    <div id="no-downloads" hidden="[[hasDownloads_]]">
+      <div>
+        <div class="illustration"></div>
+        <span>[[noDownloadsText_(inSearchMode_)]]</span>
+      </div>
+    </div>
+  </template>
+  <script src="chrome://downloads/manager.js"></script>
+</dom-module>

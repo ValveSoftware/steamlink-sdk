@@ -1,0 +1,114 @@
+<link rel="import" href="chrome://resources/cr_elements/cr_expand_button/cr_expand_button.html">
+<link rel="import" href="chrome://resources/cr_elements/icons.html">
+<link rel="import" href="chrome://resources/cr_elements/network/cr_network_list.html">
+<link rel="import" href="chrome://resources/cr_elements/network/cr_network_list_item.html">
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-a11y-keys-behavior/iron-a11y-keys-behavior.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-collapse/iron-collapse.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-spinner/paper-spinner.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-toggle-button/paper-toggle-button.html">
+<link rel="import" href="/settings_shared_css.html">
+<link rel="import" href="network_siminfo.html">
+
+<dom-module name="network-summary-item">
+  <template>
+    <style include="settings-shared">
+      paper-spinner {
+        height: 20px;
+        margin: 0 var(--settings-box-row-padding);
+        width: 20px;
+      }
+
+      network-siminfo {
+        padding: 0 var(--settings-box-row-padding);
+      }
+
+      .button-row {
+        align-items: center;
+        display: flex;
+        min-height: var(--settings-row-min-height);
+      }
+
+      #buttons {
+        align-items: center;
+      }
+
+      #details {
+        align-items: center;
+        display: flex;
+        flex: auto;
+      }
+
+      #details[no-flex] {
+        flex: none;
+      }
+
+      #deviceEnabledButton {
+        -webkit-margin-start: 10px;
+      }
+
+      #networkList {
+        margin: 5px 0 10px;
+        max-height: 400px;
+      }
+    </style>
+    <div class="settings-box two-line">
+      <div id="details" selectable
+          no-flex$="[[showSimInfo_(deviceState)]]"
+          on-tap="onDetailsTap_" tabindex$="[[getTabIndex_(deviceState)]]">
+        <cr-network-list-item item="[[activeNetworkState]]">
+        </cr-network-list-item>
+        <paper-spinner active="[[scanningIsActive_(deviceState, expanded_)]]"
+            hidden$="[[!scanningIsVisible_(deviceState)]]">
+        </paper-spinner>
+      </div>
+
+      <template is="dom-if" if="[[showSimInfo_(deviceState)]]">
+        <network-siminfo editable class="flex"
+            network-properties="[[getCellularState_(deviceState)]]"
+            networking-private="[[networkingPrivate]]">
+        </network-siminfo>
+      </template>
+
+      <div>
+        <div id="buttons" class="layout horizontal">
+          <template is="dom-if"
+              if="[[showDetailsIsVisible_(deviceState, networkStateList)]]">
+            <paper-icon-button icon="cr:settings" on-tap="onShowDetailsTap_">
+            </paper-icon-button>
+          </template>
+          <template is="dom-if"
+              if="[[expandIsVisible_(deviceState, networkStateList)]]">
+            <cr-expand-button id="expandListButton" expanded="{{expanded_}}">
+            </cr-expand-button>
+          </template>
+          <template is="dom-if" if="[[enableIsVisible_(deviceState)]]">
+            <paper-toggle-button  id="deviceEnabledButton"
+                checked="[[deviceIsEnabled_(deviceState)]]"
+                on-tap="onDeviceEnabledTap_">
+            </paper-toggle-button>
+          </template>
+        </div>
+      </div>
+    </div>
+    <template is="dom-if"
+        if="[[networksDomIfIsTrue_(expanded_, wasExpanded_)]]">
+      <iron-collapse
+          opened="[[networksIronCollapseIsOpened_(expanded_, wasExpanded_)]]">
+        <div class="list-frame">
+          <cr-network-list id="networkList" max-height="[[maxHeight]]"
+              networks="[[networkStateList]]" show-buttons>
+          </cr-network-list>
+          <template is="dom-if"
+              if="[[knownNetworksIsVisible_(activeNetworkState)]]">
+            <div class="button-row" actionable on-tap="onKnownNetworksTap_">
+              <a is="action-link">$i18n{knownNetworksButton}</a>
+            </div>
+          </template>
+        </div>
+      </iron-collapse>
+    </template>
+  </template>
+  <script src="network_summary_item.js"></script>
+</dom-module>

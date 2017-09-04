@@ -1,0 +1,80 @@
+// Copyright 2016 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+module ash.mojom;
+
+import "skia/public/interfaces/bitmap.mojom";
+
+// These values match ash::ShelfAlignment.
+enum ShelfAlignment { BOTTOM, LEFT, RIGHT, BOTTOM_LOCKED, };
+
+// These values match ash::ShelfAutoHideBehavior.
+enum ShelfAutoHideBehavior { ALWAYS, NEVER, HIDDEN, };
+
+// The Shelf controller allows clients (eg. Chrome) to control the ash shelf.
+interface ShelfController {
+  // Observers are immediately notified of the current shelf states when added.
+  AddObserver(associated ShelfObserver observer);
+
+  // Set the shelf alignment and auto-hide behavior. See WmShelf for details.
+  SetAlignment(ShelfAlignment alignment, int64 display_id);
+  SetAutoHideBehavior(ShelfAutoHideBehavior auto_hide, int64 display_id);
+
+  // Pin and unpin items on the shelf, or update shelf item images.
+  PinItem(ShelfItem item, associated ShelfItemDelegate delegate);
+  UnpinItem(string app_id);
+  SetItemImage(string app_id, skia.mojom.Bitmap image);
+};
+
+// ShelfObserver is notified on shelf changes; used to persist profile settings.
+interface ShelfObserver {
+  OnShelfCreated(int64 display_id);
+  OnAlignmentChanged(ShelfAlignment alignment, int64 display_id);
+  OnAutoHideBehaviorChanged(ShelfAutoHideBehavior auto_hide, int64 display_id);
+};
+
+// ShelfItemDelegate handles command execution and observes shelf item changes.
+interface ShelfItemDelegate {
+  // Called when a pinned shelf item is invoked without an open window.
+  LaunchItem();
+
+  // Called on invocation of a shelf item's context menu command.
+  ExecuteCommand(uint32 command_id, int32 event_flags);
+
+  // Called when a shelf item is pinned or unpinned.
+  ItemPinned();
+  ItemUnpinned();
+
+  // Called when a pinned shelf item is reordered.
+  // |order| is the index of the item on the shelf.
+  ItemReordered(uint32 order);
+};
+
+// ContextMenuItems may be used to supplement ash shelf item context menus.
+struct ContextMenuItem {
+  enum Type { ITEM, CHECK, RADIO, SEPARATOR, SUBMENU };
+
+  Type type;
+  uint32 command_id;
+  string? label;
+  array<ContextMenuItem>? submenu;
+  bool enabled;
+  bool checked;
+  uint32 radio_group_id;
+};
+
+// ShelfItem contains the basic fields needed to pin shortcut items.
+struct ShelfItem {
+  // An app id, used to correlate windows and shortcuts (eg. 'mojo:foo').
+  string app_id;
+
+  // A app title, used for tooltips, etc. (eg. 'Foo Application').
+  string app_title;
+
+  // An icon image Bitmap, shown on the shelf.
+  skia.mojom.Bitmap image;
+
+  // Additional context menu items (eg. 'New Incognito Window').
+  array<ContextMenuItem>? context_menu_items;
+};

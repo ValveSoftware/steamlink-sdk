@@ -1,0 +1,192 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+source_set("contents") {
+  visibility = [
+    "//blimp/client/app:*",  # TODO(nyquist): Remove this. See crbug/651964.
+    "//blimp/client/core/*",
+  ]
+
+  sources = [
+    "blimp_contents_impl.cc",
+    "blimp_contents_impl.h",
+    "blimp_contents_manager.cc",
+    "blimp_contents_manager.h",
+    "blimp_contents_view_impl.cc",
+    "blimp_contents_view_impl.h",
+    "blimp_navigation_controller_delegate.h",
+    "blimp_navigation_controller_impl.cc",
+    "blimp_navigation_controller_impl.h",
+    "ime_feature.cc",
+    "ime_feature.h",
+    "navigation_feature.cc",
+    "navigation_feature.h",
+    "tab_control_feature.cc",
+    "tab_control_feature.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//blimp/client/core/compositor",
+    "//blimp/client/core/render_widget",
+    "//blimp/client/public:public_headers",
+    "//blimp/net",
+    "//net:net",
+    "//ui/base/ime:text_input_types",
+    "//ui/gfx:native_widget_types",
+    "//ui/gfx/geometry:geometry",
+    "//url",
+  ]
+
+  deps = [
+    "//blimp/common",
+    "//components/url_formatter",
+    "//skia",
+  ]
+
+  if (is_android) {
+    sources += [
+      "android/blimp_contents_impl_android.cc",
+      "android/blimp_contents_impl_android.h",
+      "android/blimp_contents_jni_registrar.cc",
+      "android/blimp_contents_jni_registrar.h",
+      "android/blimp_contents_observer_proxy.cc",
+      "android/blimp_contents_observer_proxy.h",
+      "android/blimp_navigation_controller_impl_android.cc",
+      "android/blimp_navigation_controller_impl_android.h",
+      "android/blimp_view.cc",
+      "android/blimp_view.h",
+      "android/ime_helper_dialog.cc",
+      "android/ime_helper_dialog.h",
+      "blimp_contents_view_impl_android.cc",
+      "blimp_contents_view_impl_android.h",
+    ]
+
+    public_deps += [ "//ui/android" ]
+
+    deps += [
+      ":jni_headers",
+      "//cc",
+      "//ui/android",
+      "//ui/events:events",
+    ]
+  } else {
+    sources += [
+      "blimp_contents_view_impl_aura.cc",
+      "blimp_contents_view_impl_aura.h",
+    ]
+  }
+}
+
+source_set("test_support") {
+  visibility = [
+    "//blimp/engine:browser_tests",  # TODO(nyquist): Remove this. See crbug/653789.
+    "//blimp/client/core/contents:unit_tests",
+  ]
+
+  testonly = true
+
+  sources = [
+    "fake_navigation_feature.cc",
+    "fake_navigation_feature.h",
+    "mock_ime_feature_delegate.cc",
+    "mock_ime_feature_delegate.h",
+    "mock_navigation_feature_delegate.cc",
+    "mock_navigation_feature_delegate.h",
+  ]
+
+  deps = [
+    "//base",
+    "//skia",
+    "//url",
+  ]
+
+  public_deps = [
+    ":contents",
+    "//testing/gmock",
+  ]
+}
+
+source_set("unit_tests") {
+  visibility = [ "//blimp/client/core:unit_tests" ]
+
+  testonly = true
+
+  sources = [
+    "blimp_contents_impl_unittest.cc",
+    "blimp_contents_manager_unittest.cc",
+    "blimp_contents_observer_unittest.cc",
+    "blimp_navigation_controller_impl_unittest.cc",
+    "ime_feature_unittest.cc",
+    "navigation_feature_unittest.cc",
+    "tab_control_feature_unittest.cc",
+  ]
+
+  deps = [
+    ":contents",
+    ":test_support",
+    "//base",
+    "//blimp/client/public:public_headers",
+    "//blimp/client/test",
+    "//blimp/common",
+    "//blimp/net:test_support",
+    "//net",
+    "//net:test_support",
+    "//testing/gtest",
+    "//ui/gfx:native_widget_types",
+    "//ui/gfx:test_support",
+    "//ui/gfx/geometry:geometry",
+    "//url",
+  ]
+
+  if (is_android) {
+    deps += [ "//ui/android" ]
+  }
+}
+
+if (is_android) {
+  android_library("contents_java") {
+    visibility = [
+      "//blimp/client/app:*",  # TODO(nyquist): Remove this. See crbug/651964.
+      "//blimp/client/core/*",
+    ]
+
+    java_files = [
+      "android/java/src/org/chromium/blimp/core/contents/BlimpContentsImpl.java",
+      "android/java/src/org/chromium/blimp/core/contents/BlimpContentsObserverProxy.java",
+      "android/java/src/org/chromium/blimp/core/contents/BlimpNavigationControllerImpl.java",
+      "android/java/src/org/chromium/blimp/core/contents/BlimpView.java",
+      "android/java/src/org/chromium/blimp/core/contents/input/ImeEditText.java",
+      "android/java/src/org/chromium/blimp/core/contents/input/ImeHelperDialog.java",
+      "android/java/src/org/chromium/blimp/core/contents/input/WebInputConfirmationPanel.java",
+    ]
+
+    deps = [
+      "//base:base_java",
+      "//blimp/client/core/resources:java_resources",
+      "//blimp/client/public:public_headers_java",
+      "//third_party/android_tools:android_support_v7_appcompat_java",
+      "//ui/android:ui_java",
+    ]
+  }
+
+  generate_jni("jni_headers") {
+    visibility = [ ":*" ]
+
+    sources = [
+      "android/java/src/org/chromium/blimp/core/contents/BlimpContentsImpl.java",
+      "android/java/src/org/chromium/blimp/core/contents/BlimpContentsObserverProxy.java",
+      "android/java/src/org/chromium/blimp/core/contents/BlimpNavigationControllerImpl.java",
+      "android/java/src/org/chromium/blimp/core/contents/BlimpView.java",
+      "android/java/src/org/chromium/blimp/core/contents/input/ImeHelperDialog.java",
+    ]
+
+    jni_package = "blimp/client/core/contents"
+  }
+}

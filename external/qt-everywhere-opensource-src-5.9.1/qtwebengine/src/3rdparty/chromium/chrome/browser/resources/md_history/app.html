@@ -1,0 +1,153 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/html/cr/ui.html">
+<link rel="import" href="chrome://resources/html/cr/ui/command.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-media-query/iron-media-query.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-pages/iron-pages.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-scroll-target-behavior/iron-scroll-target-behavior.html">
+<link rel="import" href="chrome://history/history_toolbar.html">
+<link rel="import" href="chrome://history/list_container.html">
+<link rel="import" href="chrome://history/router.html">
+<link rel="import" href="chrome://history/shared_style.html">
+<link rel="import" href="chrome://history/side_bar.html">
+<link rel="stylesheet" href="chrome://resources/css/md_colors.css">
+
+<!-- Lazy loaded: history-synced-device-manager, app-drawer. -->
+
+<dom-module id="history-app">
+  <template>
+    <style include="shared-style">
+      :host {
+        display: block;
+        height: 100%;
+        overflow: hidden;
+        z-index: 0;
+      }
+
+      history-toolbar {
+        background: var(--md-toolbar-color);
+        z-index: 2;
+      }
+
+      /* Sizing this with flex causes slow load performance, see
+       * crbug.com/618153. TODO(dbeam): is this still an issue? */
+      #main-container {
+        height: calc(100% - var(--toolbar-height));
+        position: relative;
+        z-index: 1;
+      }
+
+      :host([grouped_]) #main-container {
+        height: calc(100% - var(--toolbar-grouped-height));
+      }
+
+      #content-side-bar {
+        float: left;
+      }
+
+      :host-context([dir='rtl']) #content-side-bar {
+        float: right;
+      }
+
+      #content,
+      #content > * {
+        height: 100%;
+      }
+
+      #drawer:unresolved {
+        display: none;
+      }
+
+      #drawer {
+        z-index: 3;
+      }
+
+      #drawer-header {
+        align-items: center;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        box-sizing: border-box;
+        display: flex;
+        height: var(--toolbar-height);
+      }
+
+      h1 {
+        -webkit-padding-start: 24px;
+        color: rgb(66, 66, 66);
+        font-size: 123%;
+        font-weight: 400;
+      }
+
+      #drop-shadow {
+        box-shadow: inset 0 5px 6px -3px rgba(0, 0, 0, 0.4);
+        height: 6px;
+        left: 0;
+        opacity: 0;
+        pointer-events: none;
+        position: absolute;
+        right: 0;
+        top: 0;
+        transition: opacity 500ms;
+      }
+
+      :host([toolbar-shadow_]) #drop-shadow {
+        opacity: 1;
+      }
+    </style>
+    <history-router selected-page="{{selectedPage_}}"
+        query-state="{{queryState_}}">
+    </history-router>
+    <history-toolbar id="toolbar"
+        spinner-active="[[shouldShowSpinner_(queryState_.querying,
+                                             queryState_.incremental,
+                                             queryState_.searchTerm)]]"
+        is-grouped-mode="{{grouped_}}"
+        grouped-range="{{queryState_.range}}"
+        search-term="{{queryState_.searchTerm}}"
+        query-start-time="[[queryResult_.info.queryStartTime]]"
+        query-end-time="[[queryResult_.info.queryEndTime]]"
+        has-drawer="[[hasDrawer_]]"
+        show-sync-notice="[[showSyncNotice_(hasSyncedResults, selectedPage_)]]"
+        show-menu-promo="[[showMenuPromo_]]">
+    </history-toolbar>
+
+    <div id="main-container">
+      <history-side-bar id="content-side-bar" selected-page="{{selectedPage_}}"
+          show-footer="[[showSidebarFooter]]"
+          hidden$="[[hasDrawer_]]">
+      </history-side-bar>
+      <iron-pages id="content" attr-for-selected="path"
+          fallback-selection="history"
+          selected="[[getSelectedPage_(selectedPage_, items)]]"
+          items="{{items}}">
+        <history-list-container id="history" query-state="{{queryState_}}"
+            query-result="[[queryResult_]]" grouped="[[grouped_]]"
+            grouped-range="{{queryState_.range}}" path="history">
+        </history-list-container>
+        <template is="dom-if" if="[[syncedTabsSelected_(selectedPage_)]]">
+          <history-synced-device-manager id="synced-devices"
+              session-list="[[queryResult_.sessionList]]"
+              search-term="[[queryState_.searchTerm]]"
+              sign-in-state="[[isUserSignedIn_]]"
+              path="syncedTabs">
+          </history-synced-device-manager>
+        </template>
+      </iron-pages>
+      <div id="drop-shadow"></div>
+    </div>
+
+    <template is="dom-if" if="[[hasDrawer_]]">
+      <app-drawer id="drawer" swipe-open align="start" tabindex="0">
+        <div id="drawer-header">
+          <h1>$i18n{title}</h1>
+        </div>
+        <history-side-bar id="drawer-side-bar" selected-page="{{selectedPage_}}"
+            show-footer="[[showSidebarFooter]]" drawer>
+        </history-side-bar>
+      </app-drawer>
+    </template>
+
+    <iron-media-query query="(max-width: 1023px)"
+        query-matches="{{hasDrawer_}}">
+    </iron-media-query>
+  </template>
+  <script src="chrome://history/app.js"></script>
+</dom-module>

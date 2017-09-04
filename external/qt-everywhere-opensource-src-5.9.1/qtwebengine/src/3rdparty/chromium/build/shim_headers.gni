@@ -1,0 +1,44 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+template("shim_headers") {
+  action_name = "gen_${target_name}"
+  config_name = "${target_name}_config"
+  shim_headers_path = "${root_gen_dir}"
+
+  config(config_name) {
+    include_dirs = [ shim_headers_path ]
+  }
+
+  action(action_name) {
+    script = "//tools/generate_shim_headers/generate_shim_headers.py"
+    args = [
+             "--generate",
+             "--headers-root",
+             rebase_path(invoker.root_path),
+             "--output-directory",
+             rebase_path(shim_headers_path),
+           ]
+    if (defined(invoker.prefix)) {
+      args += [
+                "--prefix",
+                invoker.prefix
+              ]
+    }
+    args += invoker.headers
+
+    output_pattern = "$target_gen_dir/" + invoker.root_path + "/{{source_file_part}}"
+    outputs = process_file_template(invoker.headers,output_pattern)
+
+    input_pattern = "{{source_dir}}/" + invoker.root_path + "/{{source_file_part}}"
+    inputs = process_file_template(invoker.headers, input_pattern)
+  }
+
+  group(target_name) {
+    deps = [
+      ":${action_name}",
+    ]
+    all_dependent_configs = [ ":${config_name}" ]
+  }
+}

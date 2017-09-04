@@ -1,0 +1,162 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-media-query/iron-media-query.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_toolbar/cr_toolbar_search_field.html">
+
+<dom-module id="cr-toolbar">
+  <template>
+    <style>
+      :host {
+        --cr-toolbar-field-width: 580px;
+        --cr-toolbar-height: 56px;
+        color: #fff;
+        display: flex;
+        height: var(--cr-toolbar-height);
+      }
+
+      h1 {
+        -webkit-margin-start: 6px;
+        -webkit-padding-end: 2px;
+        flex: 1;
+        font-size: 123%;
+        font-weight: 400;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+
+      #leftContent {
+        -webkit-padding-start: 18px;
+        align-items: center;
+        box-sizing: border-box;
+        display: flex;
+        position: absolute;
+        transition: opacity 100ms;
+      }
+
+      #menuButton {
+        height: 32px;
+        margin-bottom: 6px;
+        margin-top: 6px;
+        min-width: 32px;
+        padding: 6px;
+        width: 32px;
+      }
+
+      #centeredContent {
+        -webkit-margin-start: var(--cr-toolbar-field-margin, 0);
+        display: flex;
+        flex: 1 1 0;
+        justify-content: center;
+      }
+
+      :host([narrow_]) #centeredContent {
+        -webkit-padding-end: var(--cr-toolbar-field-end-padding, 12px);
+      }
+
+      :host(:not([narrow_])) h1 {
+        @apply(--cr-toolbar-header-wide);
+      }
+
+      :host(:not([narrow_])) #leftContent {
+        /* The amount of space left of the search field:
+           (width of window - width of search field) / 2. */
+        max-width: calc((100% - var(--cr-toolbar-field-width)) / 2);
+        @apply(--cr-toolbar-left-content-wide);
+      }
+
+      :host(:not([narrow_])) #rightContent {
+        @apply(--cr-toolbar-right-content-wide);
+      }
+
+      :host([narrow_]) #centeredContent {
+        justify-content: flex-end;
+      }
+
+      :host([narrow_][showing-search_]) #leftContent {
+        opacity: 0;
+      }
+
+      #menuPromo {
+        -webkit-padding-end: 12px;
+        -webkit-padding-start: 8px;
+        align-items: center;
+        background: #616161;
+        border-radius: 2px;
+        color: white;
+        display: flex;
+        font-size: 92.3%;
+        font-weight: 500;
+        opacity: 0;
+        padding-bottom: 6px;
+        padding-top: 6px;
+        position: absolute;
+        top: var(--cr-toolbar-height);
+        white-space: nowrap;
+        z-index: 2;
+      }
+
+      #menuPromo::before {
+        background: inherit;
+        /* Up arrow. 105% in Y coordinates fixes glitch at 110/125% zoom. */
+        clip-path: polygon(0 105%, 100% 105%, 50% 0);  
+        content: '';
+        display: block;
+        left: 10px;
+        height: 6px;
+        position: absolute;
+        top: -6px;
+        width: 12px;
+      }
+
+      :host-context([dir=rtl]) #menuPromo::before {
+        left: auto;
+        right: 10px;
+      }
+
+      #closePromo {
+        -webkit-appearance: none;
+        -webkit-margin-start: 12px;
+        background: none;
+        border: none;
+        color: inherit;
+        font-size: 20px;  /* Shouldn't change if default font-size changes. */
+        line-height: 20px;
+        padding: 0;
+        width: 20px;
+      }
+    </style>
+    <div id="leftContent">
+      <!-- Note: showing #menuPromo relies on this dom-if being [restamp]. -->
+      <template is="dom-if" if="[[showMenu]]" restamp>
+        <paper-icon-button id="menuButton" icon="cr:menu" on-tap="onMenuTap_"
+            title="[[titleIfNotShowMenuPromo_(menuLabel, showMenuPromo)]]"
+            aria-label$="[[menuLabel]]">
+        </paper-icon-button>
+        <template is="dom-if" if="[[showMenuPromo]]">
+          <div id="menuPromo" role="tooltip">
+            [[menuPromo]]
+            <button id="closePromo" on-tap="onClosePromoTap_"
+                aria-label$="[[closeMenuPromo]]">&#x2715;</button>
+          </paper-tooltip>
+        </template>
+      </template>
+      <h1>[[pageName]]</h1>
+    </div>
+
+    <div id="centeredContent">
+      <cr-toolbar-search-field id="search" narrow="[[narrow_]]"
+          label="[[searchPrompt]]" clear-label="[[clearLabel]]"
+          spinner-active="[[spinnerActive]]"
+          showing-search="{{showingSearch_}}">
+      </cr-toolbar-search-field>
+      <iron-media-query query="(max-width: 900px)" query-matches="{{narrow_}}">
+      </iron-media-query>
+    </div>
+
+    <div id="rightContent">
+      <content select=".more-actions"></content>
+    </div>
+  </template>
+  <script src="cr_toolbar.js"></script>
+</dom-module>

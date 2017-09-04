@@ -1,0 +1,75 @@
+<link rel="import" href="chrome://resources/html/polymer.html">
+<link rel="import" href="chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.html">
+<link rel="import" href="chrome://resources/cr_elements/shared_style_css.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-a11y-announcer/iron-a11y-announcer.html">
+<link rel="import" href="chrome://resources/polymer/v1_0/iron-pages/iron-pages.html">
+<link rel="import" href="chrome://history/browser_service.html">
+<link rel="import" href="chrome://history/history_list.html">
+<link rel="import" href="chrome://history/shared_style.html">
+
+<!-- Lazy loaded: cr-dialog, cr-shared-menu, history-grouped-list, paper-button,
+  paper-item. -->
+
+<dom-module id="history-list-container">
+  <template>
+    <style include="shared-style cr-shared-style">
+      :host {
+        display: block;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #content,
+      #content > * {
+        height: 100%;
+      }
+
+      dialog .body {
+        white-space: pre-wrap;
+      }
+    </style>
+    <iron-pages id="content" attr-for-selected="id"
+        selected="[[selectedPage_]]">
+      <history-list id="infinite-list" querying="[[queryState.querying]]"
+          searched-term="[[queryResult.info.term]]"></history-list>
+      <template is="dom-if" if="[[grouped]]">
+        <history-grouped-list id="grouped-list"
+            range="[[groupedRange]]"
+            query-start-time="[[queryResult.info.queryStartTime]]"
+            query-end-time="[[queryResult.info.queryEndTime]]"
+            searched-term="[[queryResult.info.term]]">
+        </history-grouped-list>
+      </template>
+    </iron-pages>
+
+    <template is="cr-lazy-render" id="dialog">
+      <dialog is="cr-dialog">
+        <div class="title">$i18n{removeSelected}</div>
+        <div class="body">$i18n{deleteWarning}</div>
+        <div class="button-container">
+          <paper-button class="cancel-button" on-tap="onDialogCancelTap_">
+            $i18n{cancel}
+          </paper-button>
+          <paper-button class="action-button" on-tap="onDialogConfirmTap_">
+            $i18n{deleteConfirm}
+          </paper-button>
+        </div>
+      </dialog>
+    </template>
+
+    <template is="cr-lazy-render" id="sharedMenu">
+      <cr-shared-menu>
+        <paper-item id="menuMoreButton" class="menu-item"
+            on-tap="onMoreFromSiteTap_">
+          $i18n{moreFromSite}
+        </paper-item>
+        <paper-item id="menuRemoveButton" class="menu-item"
+            disabled="[[!canDeleteHistory_()]]"
+            on-tap="onRemoveFromHistoryTap_">
+          $i18n{removeFromHistory}
+        </paper-item>
+      </cr-shared-menu>
+    </template>
+  </template>
+  <script src="chrome://history/list_container.js"></script>
+</dom-module>

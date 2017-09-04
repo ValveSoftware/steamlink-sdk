@@ -1,0 +1,79 @@
+# Copyright 2016 The SwiftShader Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+config("swiftshader_config") {
+  if (is_win) {
+    cflags = [
+      "/GS", # Detects some buffer overruns
+      "/Zc:wchar_t",
+      "/D_CRT_SECURE_NO_DEPRECATE",
+      "/DNOMINMAX",
+      "/D_WINDLL",
+      "/EHsc",
+      "/nologo",
+      "/Gd", # Default calling convention
+    ]
+
+    if (is_debug) {
+      cflags += [ "/RTC1" ] # Run-Time Error Checks
+    } else {
+      cflags += [ "/DANGLE_DISABLE_TRACE" ]
+    }
+  } else {
+    cflags = [ "-std=c++11" ]
+
+    if (is_debug) {
+      cflags += [ "-g" ]
+    } else { # Release
+      # All Release builds use function/data sections to make the shared libraries smaller
+      cflags += [
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-fomit-frame-pointer",
+        "-DANGLE_DISABLE_TRACE",
+      ]
+
+      # Choose the right Release architecture
+      if (target_cpu == "x64") {
+        cflags += [ "-march=core2" ]
+      } else { # 32
+        cflags += [ "-march=i686" ]
+      }
+    }
+
+    if (target_cpu == "x64") { # 64 bit version
+      cflags += [
+        "-m64",
+        "-fPIC",
+      ]
+    } else { # 32 bit version
+      cflags += [ "-m32" ]
+    }
+  }
+}
+
+group("swiftshader") {
+  data_deps = [
+    "src/OpenGL/libGLESv2:swiftshader_libGLESv2",
+    "src/OpenGL/libEGL:swiftshader_libEGL",
+  ]
+}
+
+group("swiftshader_tests") {
+  testonly = true
+
+  data_deps = [
+    "tests/unittests:swiftshader_unittests",
+  ]
+}

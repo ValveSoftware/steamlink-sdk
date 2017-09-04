@@ -1,0 +1,118 @@
+# Copyright 2016 The Chromium Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+if (is_android) {
+  import("//build/config/android/config.gni")
+  import("//build/config/android/rules.gni")
+}
+
+import("//blimp/client/core/config.gni")
+
+# This target is here to let //chrome depend on //blimp/client/public
+# and automatically get the correct implementation of //blimp/client/core
+# depending on whether enable_blimp_client is set or not.
+group("core_shim") {
+  visibility = [ "//blimp/client/public" ]
+
+  if (enable_blimp_client) {
+    deps = [
+      ":core",
+    ]
+  } else {
+    deps = [
+      ":dummy_core",
+    ]
+  }
+}
+
+group("core") {
+  visibility = [
+    ":core_shim",
+    "//blimp/client/app:*",  # TODO(nyquist): Remove this. See crbug/651964.
+    "//blimp/client/test",
+    "//blimp/test/*",
+  ]
+
+  deps = [
+    "//blimp/client/core/compositor",
+    "//blimp/client/core/contents",
+    "//blimp/client/core/context",
+    "//blimp/client/core/feedback",
+    "//blimp/client/core/geolocation",
+    "//blimp/client/core/render_widget",
+    "//blimp/client/core/resources",
+    "//blimp/client/core/session",
+    "//blimp/client/core/settings",
+    "//blimp/client/core/switches",
+  ]
+}
+
+group("dummy_core") {
+  visibility = [ ":*" ]
+
+  deps = [
+    "//blimp/client/core/context:dummy",
+    "//blimp/client/core/resources:dummy",
+  ]
+}
+
+group("unit_tests") {
+  testonly = true
+
+  deps = [
+    "//blimp/client/core/compositor:unit_tests",
+    "//blimp/client/core/contents:unit_tests",
+    "//blimp/client/core/context:unit_tests",
+    "//blimp/client/core/feedback:unit_tests",
+    "//blimp/client/core/geolocation:unit_tests",
+    "//blimp/client/core/render_widget:unit_tests",
+    "//blimp/client/core/session:unit_tests",
+    "//blimp/client/core/settings:unit_tests",
+  ]
+}
+
+if (is_android) {
+  # This target is here to let //chrome depend on
+  # //blimp/client/public:public_java and automatically get the correct
+  # implementation of //blimp/client/core depending on whether
+  # enable_blimp_client is set or not.
+  java_group("core_shim_java") {
+    visibility = [ "//blimp/client/public/*" ]
+
+    if (enable_blimp_client) {
+      deps = [
+        ":core_java",
+      ]
+    } else {
+      deps = [
+        ":dummy_core_java",
+      ]
+    }
+  }
+
+  java_group("core_java") {
+    visibility = [
+      ":core_shim_java",
+      "//blimp/client:blimp_unittests_java_deps",
+      "//blimp/client/app:*",  # TODO(nyquist): Remove this. See crbug/651964.
+    ]
+
+    deps = [
+      "//blimp/client/core/contents:contents_java",
+      "//blimp/client/core/context:context_java",
+      "//blimp/client/core/feedback:feedback_java",
+      "//blimp/client/core/settings:settings_java",
+      "//blimp/client/core/switches:switches_java",
+      "//device/geolocation:geolocation_java",
+    ]
+  }
+
+  java_group("dummy_core_java") {
+    visibility = [ ":*" ]
+
+    deps = [
+      "//blimp/client/core/context:dummy_context_java",
+    ]
+  }
+}

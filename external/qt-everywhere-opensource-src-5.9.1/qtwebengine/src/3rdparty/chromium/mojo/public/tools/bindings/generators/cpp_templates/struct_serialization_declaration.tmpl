@@ -1,0 +1,57 @@
+{%- import "struct_macros.tmpl" as struct_macros %}
+{%- set data_view = struct|get_qualified_name_for_kind ~ "DataView" %}
+{%- set data_type = struct|get_qualified_name_for_kind(internal=True) %}
+
+namespace internal {
+
+template <typename MaybeConstUserType>
+struct Serializer<{{data_view}}, MaybeConstUserType> {
+  using UserType = typename std::remove_const<MaybeConstUserType>::type;
+  using Traits = StructTraits<{{data_view}}, UserType>;
+
+  static size_t PrepareToSerialize(MaybeConstUserType& input,
+                                   SerializationContext* context) {
+    if (CallIsNullIfExists<Traits>(input))
+      return 0;
+
+    void* custom_context = CustomContextHelper<Traits>::SetUp(input, context);
+    ALLOW_UNUSED_LOCAL(custom_context);
+
+    {{struct_macros.get_serialized_size(
+          struct, "CallWithContext(Traits::%s, input, custom_context)",
+          "context", True)|indent(2)}}
+    return size;
+  }
+
+  static void Serialize(MaybeConstUserType& input,
+                        Buffer* buffer,
+                        {{data_type}}** output,
+                        SerializationContext* context) {
+    if (CallIsNullIfExists<Traits>(input)) {
+      *output = nullptr;
+      return;
+    }
+
+    void* custom_context = CustomContextHelper<Traits>::GetNext(context);
+
+    {{struct_macros.serialize(
+          struct, struct.name ~ " struct",
+          "CallWithContext(Traits::%s, input, custom_context)", "result",
+          "buffer", "context", True)|indent(2)}}
+    *output = result;
+
+    CustomContextHelper<Traits>::TearDown(input, custom_context);
+  }
+
+  static bool Deserialize({{data_type}}* input,
+                          UserType* output,
+                          SerializationContext* context) {
+    if (!input)
+      return CallSetToNullIfExists<Traits>(output);
+
+    {{data_view}} data_view(input, context);
+    return Traits::Read(data_view, output);
+  }
+};
+
+}  // namespace internal
