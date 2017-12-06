@@ -61,7 +61,7 @@ This is done inside the build script for each example, as needed.
 
 ## Deploying
 
-Put the files in a folder with the app name on a USB drive under `\steamlink\apps`, insert it into the Steam Link and power cycle the device.
+Put the files in a folder with the app name on a FAT32 USB drive under `\steamlink\apps`, insert it into the Steam Link and power cycle the device.
 
 The app will be copied onto the system at boot and can be launched from the menu.
 
@@ -69,7 +69,7 @@ The app will be copied onto the system at boot and can be launched from the menu
 ## SSH Access
 
 You may need to enable ssh access to the Steam Link for advanced debugging.
-You can do this by putting a file called `enable_ssh.txt` on a USB drive under `\steamlink\config\system`, inserting it into the Steam Link and power cycle the device.
+You can do this by putting a file called `enable_ssh.txt` on a FAT32 USB drive under `\steamlink\config\system`, inserting it into the Steam Link and power cycle the device.
 
 The root password is `steamlink123` and should be changed using the `passwd` command the first time you log in.
 
