@@ -71,7 +71,7 @@ The app will be copied onto the system at boot and can be launched from the menu
 You may need to enable ssh access to the Steam Link for advanced debugging.
 You can do this by putting a file called `enable_ssh.txt` on a USB drive under `\steamlink\config\system`, inserting it into the Steam Link and power cycle the device.
 
-The root password is `steamlink123` and should be changed using the `passwd` command the first time you log in.
+The root password is `steamlink` and should be changed using the `passwd` command the first time you log in.
 
 SSH access will remain enabled until a factory reset.
 

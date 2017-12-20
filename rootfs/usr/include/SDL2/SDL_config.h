@@ -51,43 +51,32 @@
 #define HAVE_GCC_ATOMICS 1
 /* #undef HAVE_GCC_SYNC_LOCK_TEST_AND_SET */
 
-/* #undef HAVE_DDRAW_H */
-/* #undef HAVE_DINPUT_H */
-/* #undef HAVE_DSOUND_H */
-/* #undef HAVE_DXGI_H */
-/* #undef HAVE_XINPUT_H */
-/* #undef HAVE_XINPUT_GAMEPAD_EX */
-/* #undef HAVE_XINPUT_STATE_EX */
-
 /* Comment this if you want to build without any C library requirements */
 #define HAVE_LIBC 1
 #if HAVE_LIBC
 
 /* Useful headers */
-#define HAVE_ALLOCA_H 1
-#define HAVE_SYS_TYPES_H 1
-#define HAVE_STDIO_H 1
 #define STDC_HEADERS 1
-#define HAVE_STDLIB_H 1
-#define HAVE_STDARG_H 1
-#define HAVE_MALLOC_H 1
-#define HAVE_MEMORY_H 1
-#define HAVE_STRING_H 1
-#define HAVE_STRINGS_H 1
-#define HAVE_WCHAR_H 1
-#define HAVE_INTTYPES_H 1
-#define HAVE_STDINT_H 1
+#define HAVE_ALLOCA_H 1
 #define HAVE_CTYPE_H 1
-#define HAVE_MATH_H 1
+#define HAVE_FLOAT_H 1
 #define HAVE_ICONV_H 1
+#define HAVE_INTTYPES_H 1
+#define HAVE_LIMITS_H 1
+#define HAVE_MALLOC_H 1
+#define HAVE_MATH_H 1
+#define HAVE_MEMORY_H 1
 #define HAVE_SIGNAL_H 1
-/* #undef HAVE_ALTIVEC_H */
+#define HAVE_STDARG_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_STDIO_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRINGS_H 1
+#define HAVE_STRING_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_WCHAR_H 1
 /* #undef HAVE_PTHREAD_NP_H */
-#define HAVE_LIBUDEV_H 1
-#define HAVE_DBUS_DBUS_H 1
-/* #undef HAVE_IBUS_IBUS_H */
-/* #undef HAVE_FCITX_FRONTEND_H */
-/* #undef HAVE_LIBSAMPLERATE_H */
+/* #undef HAVE_LIBUNWIND_H */
 
 /* C library functions */
 #define HAVE_MALLOC 1
@@ -115,7 +104,6 @@
 #define HAVE_STRLEN 1
 /* #undef HAVE_STRLCPY */
 /* #undef HAVE_STRLCAT */
-#define HAVE_STRDUP 1
 /* #undef HAVE__STRREV */
 /* #undef HAVE__STRUPR */
 /* #undef HAVE__STRLWR */
@@ -191,6 +179,21 @@
 #define HAVE_STDDEF_H 1
 #define HAVE_STDINT_H 1
 #endif /* HAVE_LIBC */
+
+/* #undef HAVE_ALTIVEC_H */
+#define HAVE_LIBUDEV_H 1
+#define HAVE_DBUS_DBUS_H 1
+/* #undef HAVE_IBUS_IBUS_H */
+/* #undef HAVE_FCITX_FRONTEND_H */
+/* #undef HAVE_LIBSAMPLERATE_H */
+
+/* #undef HAVE_DDRAW_H */
+/* #undef HAVE_DINPUT_H */
+/* #undef HAVE_DSOUND_H */
+/* #undef HAVE_DXGI_H */
+/* #undef HAVE_XINPUT_H */
+/* #undef HAVE_XINPUT_GAMEPAD_EX */
+/* #undef HAVE_XINPUT_STATE_EX */
 
 /* SDL internal assertion support */
 /* #undef SDL_DEFAULT_ASSERT_LEVEL */
