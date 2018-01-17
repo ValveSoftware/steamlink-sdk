@@ -1,22 +1,24 @@
-diff -r 7ce6175b5064 Makefile
---- a/Makefile	Mon Aug 01 20:31:30 2016 -0700
-+++ b/Makefile	Mon Dec 19 14:50:32 2016 -0800
-@@ -1,10 +1,12 @@
- # BUILD SETTINGS ###########################################
+diff -r db67cf6eb3ae Makefile
+--- a/Makefile	Fri Apr 14 18:01:46 2017 -0400
++++ b/Makefile	Wed Jan 17 12:45:27 2018 -0800
+@@ -1,5 +1,6 @@
+ # BUILD SETTINGS ###############################################################
  
 +ifeq ($(PLATFORM),)
  ifneq ($(filter Msys Cygwin, $(shell uname -o)), )
      PLATFORM := WIN32
- else
+     TYRIAN_DIR = C:\\TYRIAN
+@@ -7,6 +8,7 @@
      PLATFORM := UNIX
+     TYRIAN_DIR = $(gamesdir)/tyrian
  endif
 +endif
  
- TARGET := opentyrian
- WITH_NETWORK := false
-diff -r 7ce6175b5064 src/joystick.c
---- a/src/joystick.c	Mon Aug 01 20:31:30 2016 -0700
-+++ b/src/joystick.c	Mon Dec 19 14:50:32 2016 -0800
+ WITH_NETWORK := true
+ 
+diff -r db67cf6eb3ae src/joystick.c
+--- a/src/joystick.c	Fri Apr 14 18:01:46 2017 -0400
++++ b/src/joystick.c	Wed Jan 17 12:45:27 2018 -0800
 @@ -262,7 +262,7 @@
  	if (ignore_joystick)
  		return;
@@ -152,9 +154,9 @@ diff -r 7ce6175b5064 src/joystick.c
  	joystick[j].analog = false;
  	joystick[j].sensitivity = 5;
  	joystick[j].threshold = 5;
-diff -r 7ce6175b5064 src/joystick.h
---- a/src/joystick.h	Mon Aug 01 20:31:30 2016 -0700
-+++ b/src/joystick.h	Mon Dec 19 14:50:32 2016 -0800
+diff -r db67cf6eb3ae src/joystick.h
+--- a/src/joystick.h	Fri Apr 14 18:01:46 2017 -0400
++++ b/src/joystick.h	Wed Jan 17 12:45:27 2018 -0800
 @@ -49,6 +49,7 @@
  typedef struct
  {
@@ -163,9 +165,9 @@ diff -r 7ce6175b5064 src/joystick.h
  	
  	Joystick_assignment assignment[10][2]; // 0-3: directions, 4-9: actions
  	
-diff -r 7ce6175b5064 src/loudness.c
---- a/src/loudness.c	Mon Aug 01 20:31:30 2016 -0700
-+++ b/src/loudness.c	Mon Dec 19 14:50:32 2016 -0800
+diff -r db67cf6eb3ae src/loudness.c
+--- a/src/loudness.c	Fri Apr 14 18:01:46 2017 -0400
++++ b/src/loudness.c	Wed Jan 17 12:45:27 2018 -0800
 @@ -46,8 +46,6 @@
  int sound_init_state = false;
  int freq = 11025 * OUTPUT_QUALITY;
@@ -233,10 +235,10 @@ diff -r 7ce6175b5064 src/loudness.c
  }
  
  void deinit_audio( void )
-diff -r 7ce6175b5064 src/video.c
---- a/src/video.c	Mon Aug 01 20:31:30 2016 -0700
-+++ b/src/video.c	Mon Dec 19 14:50:32 2016 -0800
-@@ -58,6 +58,13 @@
+diff -r db67cf6eb3ae src/video.c
+--- a/src/video.c	Fri Apr 14 18:01:46 2017 -0400
++++ b/src/video.c	Wed Jan 17 12:45:27 2018 -0800
+@@ -62,6 +62,13 @@
  
  void init_video( void )
  {
@@ -250,7 +252,7 @@ diff -r 7ce6175b5064 src/video.c
  	if (SDL_WasInit(SDL_INIT_VIDEO))
  		return;
  
-@@ -85,7 +92,7 @@
+@@ -89,7 +96,7 @@
  	// scaler and find the true window size
  	main_window = SDL_CreateWindow("OpenTyrian",
  		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -259,11 +261,19 @@ diff -r 7ce6175b5064 src/video.c
  
  	if (main_window == NULL)
  	{
-@@ -129,6 +136,7 @@
+@@ -194,6 +201,7 @@
  
- 	// Destroy and re-create output texture.
- 	SDL_DestroyTexture(main_window_texture);
-+	//SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
- 	main_window_texture = SDL_CreateTexture(main_window_renderer,
- 		format, SDL_TEXTUREACCESS_STREAMING, scaler_w, scaler_h);
+ void reinit_fullscreen( int new_display )
+ {
++#ifndef TARGET_STEAMLINK
+ 	fullscreen_display = new_display;
  
+ 	if (fullscreen_display >= SDL_GetNumVideoDisplays())
+@@ -218,6 +226,7 @@
+ 			return;
+ 		}
+ 	}
++#endif	// !TARGET_STEAMLINK
+ }
+ 
+ void video_on_win_resize()
