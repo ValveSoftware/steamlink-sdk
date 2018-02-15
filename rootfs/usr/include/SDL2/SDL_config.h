@@ -1,7 +1,7 @@
 /* include/SDL_config.h.  Generated from SDL_config.h.in by configure.  */
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2017 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -136,19 +136,34 @@
 /* #undef HAVE_SNPRINTF */
 #define HAVE_VSNPRINTF 1
 #define HAVE_M_PI /**/
-#define HAVE_ATAN 1
-#define HAVE_ATAN2 1
 #define HAVE_ACOS 1
+#define HAVE_ACOSF 1
 #define HAVE_ASIN 1
+#define HAVE_ASINF 1
+#define HAVE_ATAN 1
+#define HAVE_ATANF 1
+#define HAVE_ATAN2 1
+#define HAVE_ATAN2F 1
 #define HAVE_CEIL 1
+#define HAVE_CEILF 1
 #define HAVE_COPYSIGN 1
+#define HAVE_COPYSIGNF 1
 #define HAVE_COS 1
 #define HAVE_COSF 1
 #define HAVE_FABS 1
+#define HAVE_FABSF 1
 #define HAVE_FLOOR 1
+#define HAVE_FLOORF 1
+#define HAVE_FMOD 1
+#define HAVE_FMODF 1
 #define HAVE_LOG 1
+#define HAVE_LOGF 1
+#define HAVE_LOG10 1
+#define HAVE_LOG10F 1
 /* #undef HAVE_POW */
+#define HAVE_POWF 1
 #define HAVE_SCALBN 1
+#define HAVE_SCALBNF 1
 #define HAVE_SIN 1
 #define HAVE_SINF 1
 #define HAVE_SQRT 1
@@ -181,11 +196,12 @@
 #endif /* HAVE_LIBC */
 
 /* #undef HAVE_ALTIVEC_H */
-#define HAVE_LIBUDEV_H 1
 #define HAVE_DBUS_DBUS_H 1
-/* #undef HAVE_IBUS_IBUS_H */
 /* #undef HAVE_FCITX_FRONTEND_H */
+/* #undef HAVE_IBUS_IBUS_H */
+/* #undef HAVE_IMMINTRIN_H */
 /* #undef HAVE_LIBSAMPLERATE_H */
+#define HAVE_LIBUDEV_H 1
 
 /* #undef HAVE_DDRAW_H */
 /* #undef HAVE_DINPUT_H */
@@ -247,7 +263,6 @@
 /* #undef SDL_AUDIO_DRIVER_SUNAUDIO */
 /* #undef SDL_AUDIO_DRIVER_WASAPI */
 /* #undef SDL_AUDIO_DRIVER_WINMM */
-/* #undef SDL_AUDIO_DRIVER_XAUDIO2 */
 
 /* Enable various input drivers */
 #define SDL_INPUT_LINUXEV 1
@@ -265,6 +280,7 @@
 /* #undef SDL_JOYSTICK_USBHID_MACHINE_JOYSTICK_H */
 /* #undef SDL_JOYSTICK_EMSCRIPTEN */
 /* #undef SDL_HAPTIC_DUMMY */
+/* #undef SDL_HAPTIC_ANDROID */
 #define SDL_HAPTIC_LINUX 1
 /* #undef SDL_HAPTIC_IOKIT */
 /* #undef SDL_HAPTIC_DINPUT */
@@ -342,6 +358,7 @@
 /* #undef SDL_VIDEO_RENDER_OGL_ES */
 #define SDL_VIDEO_RENDER_OGL_ES2 1
 /* #undef SDL_VIDEO_RENDER_DIRECTFB */
+/* #undef SDL_VIDEO_RENDER_METAL */
 
 /* Enable OpenGL support */
 /* #undef SDL_VIDEO_OPENGL */

@@ -368,6 +368,9 @@ int bcm43xx_init(int fd, int def_speed, int speed, struct termios *ti,
 	if (bcm43xx_locate_patch(FIRMWARE_DIR, chip_name, fw_path)) {
 		fprintf(stderr, "Patch not found, continue anyway\n");
 	} else {
+		if (bcm43xx_set_speed(fd, ti, speed))
+			return -1;
+
 		if (bcm43xx_load_firmware(fd, fw_path))
 			return -1;
 
@@ -376,7 +379,6 @@ int bcm43xx_init(int fd, int def_speed, int speed, struct termios *ti,
 			perror("Can't set host baud rate");
 			return -1;
 		}
-		sleep(1);
 
 		if (bcm43xx_reset(fd))
 			return -1;
