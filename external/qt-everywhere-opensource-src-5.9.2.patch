@@ -15,9 +15,12 @@ diff -ruN qt-everywhere-opensource-src-5.9.2.orig/build_android.sh qt-everywhere
 +make && make install
 diff -ruN qt-everywhere-opensource-src-5.9.2.orig/build_common.sh qt-everywhere-opensource-src-5.9.2/build_common.sh
 --- qt-everywhere-opensource-src-5.9.2.orig/build_common.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-opensource-src-5.9.2/build_common.sh	2017-12-20 09:42:33.000000000 -0800
-@@ -0,0 +1,44 @@
-+QT_COMMON_CONFIGURE_FLAGS="-release -opensource -confirm-license -nomake examples -nomake tests \
++++ qt-everywhere-opensource-src-5.9.2/build_common.sh	2018-02-22 14:24:28.000000000 -0800
+@@ -0,0 +1,47 @@
++if [ "$QT_BUILD_TYPE" = "" ]; then
++	QT_BUILD_TYPE="-release"
++fi
++QT_COMMON_CONFIGURE_FLAGS="$QT_BUILD_TYPE -opensource -confirm-license -nomake examples -nomake tests \
 +-skip qt3d \
 +-skip qtactiveqt \
 +-skip qtcanvas3d \
@@ -61,6 +64,16 @@ diff -ruN qt-everywhere-opensource-src-5.9.2.orig/build_common.sh qt-everywhere-
 +-skip qtx11extras \
 +-skip qtxmlpatterns \
 +"
+diff -ruN qt-everywhere-opensource-src-5.9.2.orig/build_ios-debug.sh qt-everywhere-opensource-src-5.9.2/build_ios-debug.sh
+--- qt-everywhere-opensource-src-5.9.2.orig/build_ios-debug.sh	1969-12-31 16:00:00.000000000 -0800
++++ qt-everywhere-opensource-src-5.9.2/build_ios-debug.sh	2018-02-22 14:24:33.000000000 -0800
+@@ -0,0 +1,6 @@
++#!/bin/sh
++
++QT_BUILD_TYPE="-debug"
++. build_common.sh
++./configure $QT_COMMON_CONFIGURE_FLAGS -xplatform macx-ios-clang || exit 1
++make && make install
 diff -ruN qt-everywhere-opensource-src-5.9.2.orig/build_ios.sh qt-everywhere-opensource-src-5.9.2/build_ios.sh
 --- qt-everywhere-opensource-src-5.9.2.orig/build_ios.sh	1969-12-31 16:00:00.000000000 -0800
 +++ qt-everywhere-opensource-src-5.9.2/build_ios.sh	2017-12-20 09:42:20.000000000 -0800
@@ -346,6 +359,40 @@ diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/mkspecs/features/qt.prf
     DEFINES += QT_PLUGIN
  }
  
+diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/mkspecs/features/uikit/default_post.prf qt-everywhere-opensource-src-5.9.2/qtbase/mkspecs/features/uikit/default_post.prf
+--- qt-everywhere-opensource-src-5.9.2.orig/qtbase/mkspecs/features/uikit/default_post.prf	2017-10-02 01:43:38.000000000 -0700
++++ qt-everywhere-opensource-src-5.9.2/qtbase/mkspecs/features/uikit/default_post.prf	2018-02-11 10:11:57.000000000 -0800
+@@ -27,30 +27,6 @@
+     device_family.name = TARGETED_DEVICE_FAMILY
+     device_family.value = $$QMAKE_APPLE_TARGETED_DEVICE_FAMILY
+     QMAKE_MAC_XCODE_SETTINGS += device_family
+-
+-    ios {
+-        # Set up default 4-inch iPhone/iPod launch image so that our apps
+-        # support the full screen resolution of those devices.
+-        qmake_launch_image = Default-568h@2x.png
+-        qmake_copy_image.input = $$QMAKESPEC/$$qmake_launch_image
+-        qmake_copy_image.output = $$OUT_PWD/$${TARGET}.xcodeproj/$$qmake_launch_image
+-        qmake_copy_image.CONFIG = verbatim
+-        QMAKE_SUBSTITUTES += qmake_copy_image
+-        qmake_launch_images.files = $$qmake_copy_image.output
+-        QMAKE_BUNDLE_DATA += qmake_launch_images
+-
+-        lessThan(QMAKE_XCODE_VERSION, "6.0") {
+-            warning("You need to update Xcode to version 6 or newer to fully support iPhone6/6+")
+-        } else {
+-            # Set up default LaunchScreen to support iPhone6/6+
+-            qmake_launch_screen = LaunchScreen.xib
+-            qmake_copy_launch_screen.input = $$QMAKESPEC/$$qmake_launch_screen
+-            qmake_copy_launch_screen.output = $$OUT_PWD/$${TARGET}.xcodeproj/$$qmake_launch_screen
+-            QMAKE_SUBSTITUTES += qmake_copy_launch_screen
+-            qmake_launch_screens.files = $$qmake_copy_launch_screen.output
+-            QMAKE_BUNDLE_DATA += qmake_launch_screens
+-        }
+-    }
+ }
+ 
+ !xcodebuild:equals(TEMPLATE, app):!isEmpty(QMAKE_INFO_PLIST) {
 diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/mkspecs/macx-ios-clang/Info.plist.lib qt-everywhere-opensource-src-5.9.2/qtbase/mkspecs/macx-ios-clang/Info.plist.lib
 --- qt-everywhere-opensource-src-5.9.2.orig/qtbase/mkspecs/macx-ios-clang/Info.plist.lib	2017-10-02 01:43:38.000000000 -0700
 +++ qt-everywhere-opensource-src-5.9.2/qtbase/mkspecs/macx-ios-clang/Info.plist.lib	2017-12-20 09:42:20.000000000 -0800
@@ -396,7 +443,16 @@ diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/corelib/kernel/qcor
      };
 diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/corelib/plugin/qplugin.h qt-everywhere-opensource-src-5.9.2/qtbase/src/corelib/plugin/qplugin.h
 --- qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/corelib/plugin/qplugin.h	2017-10-02 01:43:38.000000000 -0700
-+++ qt-everywhere-opensource-src-5.9.2/qtbase/src/corelib/plugin/qplugin.h	2017-12-20 09:42:20.000000000 -0800
++++ qt-everywhere-opensource-src-5.9.2/qtbase/src/corelib/plugin/qplugin.h	2018-02-22 11:35:02.000000000 -0800
+@@ -96,7 +96,7 @@
+ 
+ 
+ #define Q_IMPORT_PLUGIN(PLUGIN) \
+-        extern const QT_PREPEND_NAMESPACE(QStaticPlugin) qt_static_plugin_##PLUGIN(); \
++        Q_EXTERN_C const QT_PREPEND_NAMESPACE(QStaticPlugin) qt_static_plugin_##PLUGIN(); \
+         class Static##PLUGIN##PluginInstance{ \
+         public: \
+                 Static##PLUGIN##PluginInstance() { \
 @@ -119,7 +119,7 @@
      static QT_PREPEND_NAMESPACE(QObject) *qt_plugin_instance_##PLUGINCLASSNAME() \
      Q_PLUGIN_INSTANCE(PLUGINCLASS) \
@@ -1101,10 +1157,58 @@ diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/plugins/platforms/i
      case FileDialog:
          return new QIOSFileDialog();
          break;
+diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/plugins/platforms/ios/quiview.h qt-everywhere-opensource-src-5.9.2/qtbase/src/plugins/platforms/ios/quiview.h
+--- qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/plugins/platforms/ios/quiview.h	2017-10-02 01:43:38.000000000 -0700
++++ qt-everywhere-opensource-src-5.9.2/qtbase/src/plugins/platforms/ios/quiview.h	2018-02-06 23:01:09.000000000 -0800
+@@ -67,6 +67,9 @@
+ - (id)initWithQIOSWindow:(QT_PREPEND_NAMESPACE(QIOSWindow) *)window;
+ - (void)sendUpdatedExposeEvent;
+ - (BOOL)isActiveWindow;
++#ifdef Q_OS_TVOS
++- (void)swipeGesture:(UISwipeGestureRecognizer *)gesture;
++#endif
+ @end
+ 
+ @interface QUIView (Accessibility)
 diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/plugins/platforms/ios/quiview.mm qt-everywhere-opensource-src-5.9.2/qtbase/src/plugins/platforms/ios/quiview.mm
 --- qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/plugins/platforms/ios/quiview.mm	2017-10-02 01:43:38.000000000 -0700
-+++ qt-everywhere-opensource-src-5.9.2/qtbase/src/plugins/platforms/ios/quiview.mm	2017-12-20 09:42:20.000000000 -0800
-@@ -295,6 +295,9 @@
++++ qt-everywhere-opensource-src-5.9.2/qtbase/src/plugins/platforms/ios/quiview.mm	2018-02-06 23:01:09.000000000 -0800
+@@ -82,6 +82,25 @@
+         if (isQtApplication())
+             self.hidden = YES;
+ 
++#ifdef Q_OS_TVOS
++        // Apple TV Remote touchpad swipe gestures
++        UISwipeGestureRecognizer *swipeUp = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)];
++        swipeUp.direction = UISwipeGestureRecognizerDirectionUp;
++        [self addGestureRecognizer:swipeUp];
++
++        UISwipeGestureRecognizer *swipeDown = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)];
++        swipeDown.direction = UISwipeGestureRecognizerDirectionDown;
++        [self addGestureRecognizer:swipeDown];
++
++        UISwipeGestureRecognizer *swipeLeft = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)];
++        swipeLeft.direction = UISwipeGestureRecognizerDirectionLeft;
++        [self addGestureRecognizer:swipeLeft];
++
++        UISwipeGestureRecognizer *swipeRight = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(swipeGesture:)];
++        swipeRight.direction = UISwipeGestureRecognizerDirectionRight;
++        [self addGestureRecognizer:swipeRight];
++#endif
++
+ #ifndef Q_OS_TVOS
+         self.multipleTouchEnabled = YES;
+ #endif
+@@ -273,7 +292,7 @@
+ 
+ - (BOOL)isActiveWindow
+ {
+-    // Normally this is determined exclusivly by being firstResponder, but
++    // Normally this is determined exclusively by being firstResponder, but
+     // since we employ a separate first responder for text input we need to
+     // handle both cases as this view being the active Qt window.
+ 
+@@ -295,6 +314,9 @@
      [super traitCollectionDidChange: previousTraitCollection];
  
      QTouchDevice *touchDevice = QIOSIntegration::instance()->touchDevice();
@@ -1114,6 +1218,40 @@ diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/plugins/platforms/i
      QTouchDevice::Capabilities touchCapabilities = touchDevice->capabilities();
  
      if (QOperatingSystemVersion::current() >= QOperatingSystemVersion(QOperatingSystemVersion::IOS, 9)) {
+@@ -489,6 +511,33 @@
+         [super pressesEnded:presses withEvent:event];
+ }
+ 
++#ifdef Q_OS_TVOS
++- (void)swipeGesture:(UISwipeGestureRecognizer *)gesture
++{
++    if (gesture.state == UIGestureRecognizerStateEnded) {
++		int key = Qt::Key_unknown;
++		switch (gesture.direction) {
++		case UISwipeGestureRecognizerDirectionUp:
++			key = Qt::Key_Up;
++			break;
++		case UISwipeGestureRecognizerDirectionDown:
++			key = Qt::Key_Down;
++			break;
++		case UISwipeGestureRecognizerDirectionLeft:
++			key = Qt::Key_Left;
++			break;
++		case UISwipeGestureRecognizerDirectionRight:
++			key = Qt::Key_Right;
++			break;
++		default:
++			return;
++        }
++        QWindowSystemInterface::handleKeyEvent<QWindowSystemInterface::SynchronousDelivery>(m_qioswindow->window(), QEvent::KeyPress, key, Qt::NoModifier);
++        QWindowSystemInterface::handleKeyEvent<QWindowSystemInterface::SynchronousDelivery>(m_qioswindow->window(), QEvent::KeyRelease, key, Qt::NoModifier);
++    }
++}
++#endif // Q_OS_TVOS
++
+ - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
+ {
+ #ifndef Q_OS_TVOS
 diff -ruN qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/widgets/dialogs/qdialog.cpp qt-everywhere-opensource-src-5.9.2/qtbase/src/widgets/dialogs/qdialog.cpp
 --- qt-everywhere-opensource-src-5.9.2.orig/qtbase/src/widgets/dialogs/qdialog.cpp	2017-10-02 01:43:38.000000000 -0700
 +++ qt-everywhere-opensource-src-5.9.2/qtbase/src/widgets/dialogs/qdialog.cpp	2017-12-20 09:42:20.000000000 -0800
