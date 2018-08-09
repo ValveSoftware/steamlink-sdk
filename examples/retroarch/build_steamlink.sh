@@ -26,7 +26,7 @@ export PKG_CONF_PATH=pkg-config
 # Download the source
 #
 if [ ! -d "${SRC}" ]; then
-	git clone https://github.com/libretro/RetroArch.git "${SRC}"
+	git clone --single-branch -b "v1.7.2" https://github.com/libretro/RetroArch.git "${SRC}"
 fi
 
 #
