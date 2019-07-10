@@ -16,24 +16,38 @@ export OS=Linux
 export CC="${CROSS}gcc"
 export CPP="${CROSS}cpp"
 export CXX="${CROSS}g++"
-export CFLAGS="--sysroot=$MARVELL_ROOTFS -DLINUX=1 -DEGL_API_FB=1"
-export LDFLAGS="--sysroot=$MARVELL_ROOTFS -static-libgcc -static-libstdc++ -lEGL"
-export INCLUDE_DIRS="-I$MARVELL_ROOTFS/usr/include -I$MARVELL_ROOTFS/usr/include/EGL -I$MARVELL_ROOTFS/usr/include/SDL2 -I${MARVELL_ROOTFS}/include/GLES2 -I$MARVELL_ROOTFS/usr/include/freetype2"
+export CFLAGS="--sysroot=$MARVELL_ROOTFS -DLINUX=1 -DEGL_API_FB=1 -Ofast -fomit-frame-pointer -ffast-math -mfloat-abi=hard -mfpu=neon -I$MARVELL_ROOTFS/usr/include -g"
+export CXXFLAGS="-Ofast -fomit-frame-pointer -ffast-math -march=armv7-a -mfloat-abi=hard -mfpu=neon -I$MARVELL_ROOTFS/usr/include -g"
+export LDFLAGS="--sysroot=$MARVELL_ROOTFS -static-libgcc -static-libstdc++ -lEGL -lasound -ludev -lGLESv2 -lSDL2 -lz"
+export INCLUDE_DIRS="-I$MARVELL_ROOTFS/usr/include -I$MARVELL_ROOTFS/usr/include/EGL -I$MARVELL_ROOTFS/usr/include/alsa -I$MARVELL_ROOTFS/usr/include/SDL2 -I${MARVELL_ROOTFS}/include/GLESv2 -I$MARVELL_ROOTFS/usr/include/freetype2"
 export LIBRARY_DIRS="-L$MARVELL_ROOTFS/usr/lib -L$MARVELL_ROOTFS/lib"
 export PKG_CONF_PATH=pkg-config
 
 #
-# Download the source
+# Download the RetroArch source code
 #
 if [ ! -d "${SRC}" ]; then
 	git clone https://github.com/libretro/RetroArch.git "${SRC}"
 fi
 
 #
+# Download the pre-built cores
+#
+if [ ! -d "cores" ]; then
+	git clone https://github.com/fpscan/Steam-Link-RetroArch-Cores.git "cores"
+fi
+
+# Download the cores info files
+#
+if [ ! -d "info" ]; then
+	git clone https://github.com/fpscan/Steam-Link-RetroArch-Cores-Info.git "info"
+fi
+
 # Build it
 #
 pushd "${SRC}"
-./configure --host=$SOC_BUILD --disable-threads --disable-alsa --disable-pulse --enable-neon --disable-shaderpipeline --enable-opengl --enable-opengles
+./configure --host=$SOC_BUILD --disable-threads --enable-alsa --disable-pulse --enable-neon --enable-shaderpipeline --enable-opengl --enable-opengles --disable-discord --disable-qt
+make clean
 make $MAKE_J || exit 2
 popd
 
@@ -44,21 +58,28 @@ export DESTDIR="${BUILD}/steamlink/apps/retroarch"
 
 # Copy the files to the app directory
 mkdir -p "${DESTDIR}"
-mkdir -p "${DESTDIR}/roms"
-mkdir -p "${DESTDIR}/extra"
+mkdir -p "${DESTDIR}/contents"
+mkdir -p "${DESTDIR}/cores"
+mkdir -p "${DESTDIR}/info"
+mkdir -p "${DESTDIR}/system"
 mkdir -p "${DESTDIR}/.home/.config/retroarch"
 
 cp -v "${SRC}/retroarch" "${DESTDIR}"
 $STRIP "${DESTDIR}/retroarch"
 cp -v "${TOP}/retroarch.cfg" "${DESTDIR}/.home/.config/retroarch/retroarch.cfg"
 
-# You can add some roms for testing
-if [ -d "roms" ]; then
-	cp -v -r roms/* "${DESTDIR}/roms"
+# You can add your contents in here
+if [ -d "contents" ]; then
+	cp -v -r contents/* "${DESTDIR}/contents"
 fi
-# Put the compiled cores or other files in a /extra folder to add them
-if [ -d "extra" ]; then
-	cp -v -r extra/* "${DESTDIR}/extra"
+# info files for cores
+if [ -d "info" ]; then
+	cp -v -r info/* "${DESTDIR}/info"
+fi
+
+# Pre-compiled cores will be added into archive
+if [ -d "cores" ]; then
+	cp -v -r cores/* "${DESTDIR}/cores"
 fi
 
 # Create the table of contents and icon
@@ -67,6 +88,7 @@ name=Retroarch
 icon=icon.png
 run=retroarch
 __EOF__
+
 
 base64 -d >"${DESTDIR}/icon.png" <<__EOF__
 iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAZiS0dE
@@ -129,6 +151,10 @@ rm -rf $name
 popd
 
 # All done!
-echo "Build complete!"
 echo
-echo "Put the steamlink folder onto a USB drive, insert it into your Steam Link, and cycle the power to install."
+echo "Build completed!"
+echo
+echo "Go to steamlink folder then into the apps folder, extract the archived file to USB steamlink/apps/..., put your USB to Steam Link and cycle the power to install."
+echo
+xdg-open https://gist.github.com/fpscan/d7878a94b3d171eb05a9ced268a5f8f0
+
