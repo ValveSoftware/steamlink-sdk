@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2019 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -59,6 +59,9 @@ typedef struct SDL_Finger
 
 /* Used as the device ID for mouse events simulated with touch input */
 #define SDL_TOUCH_MOUSEID ((Uint32)-1)
+
+/* Used as the SDL_TouchID for touch events simulated with mouse input */
+#define SDL_MOUSE_TOUCHID ((Sint64)-1)
 
 
 /* Function prototypes */

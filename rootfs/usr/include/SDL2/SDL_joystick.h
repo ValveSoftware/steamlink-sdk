@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2019 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -400,8 +400,17 @@ extern DECLSPEC SDL_JoystickPowerLevel SDLCALL SDL_JoystickCurrentPowerLevel(SDL
 /*
  *  Enumerate available Steam Controllers
  */
+#if defined(__IPHONEOS__) || defined(__ANDROID__)
+#define HAVE_STEAMCONTROLLERS
+#define USE_STEAMCONTROLLER_HIDAPI
+#elif defined(__LINUX__)
+#define HAVE_STEAMCONTROLLERS
+#define USE_STEAMCONTROLLER_LINUX
+#endif
+#ifdef USE_STEAMCONTROLLER_LINUX
 typedef void (*SDL_SteamControllerEnumCallback)( void *pContext, SDL_JoystickID nJoystickID, int nDevice, int nFD, SDL_bool bWireless, SDL_bool bConnected );
 extern DECLSPEC void SDLCALL SDL_EnumSteamControllers( SDL_SteamControllerEnumCallback callback, void *pContext );
+#endif
 
 /* Ends C function definitions when using C++ */
 #ifdef __cplusplus

@@ -1,7 +1,7 @@
 /* include/SDL_config.h.  Generated from SDL_config.h.in by configure.  */
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2019 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -34,7 +34,7 @@
 
 /* Make sure that this isn't included by Visual C++ */
 #ifdef _MSC_VER
-#error You should run hg revert SDL_config.h 
+#error You should run hg revert SDL_config.h
 #endif
 
 /* C language features */
@@ -190,6 +190,7 @@
 #define HAVE_SEM_TIMEDWAIT 1
 #define HAVE_GETAUXVAL 1
 #define HAVE_POLL 1
+#define HAVE__EXIT 1
 
 #else
 #define HAVE_STDARG_H 1
@@ -210,7 +211,6 @@
 /* #undef HAVE_DSOUND_H */
 /* #undef HAVE_DXGI_H */
 /* #undef HAVE_XINPUT_H */
-/* #undef HAVE_ENDPOINTVOLUME_H */
 /* #undef HAVE_MMDEVICEAPI_H */
 /* #undef HAVE_AUDIOCLIENT_H */
 /* #undef HAVE_XINPUT_GAMEPAD_EX */
@@ -284,7 +284,7 @@
 /* #undef SDL_JOYSTICK_WINMM */
 /* #undef SDL_JOYSTICK_USBHID */
 /* #undef SDL_JOYSTICK_USBHID_MACHINE_JOYSTICK_H */
-/* #undef SDL_JOYSTICK_HIDAPI */
+#define SDL_JOYSTICK_HIDAPI 1
 /* #undef SDL_JOYSTICK_EMSCRIPTEN */
 /* #undef SDL_HAPTIC_DUMMY */
 /* #undef SDL_HAPTIC_ANDROID */
@@ -383,6 +383,9 @@
 /* Enable Vulkan support */
 #define SDL_VIDEO_VULKAN 1
 
+/* Enable Metal support */
+/* #undef SDL_VIDEO_METAL */
+
 /* Enable system power support */
 #define SDL_POWER_LINUX 1
 /* #undef SDL_POWER_WINDOWS */
@@ -405,12 +408,17 @@
 /* Enable assembly routines */
 #define SDL_ASSEMBLY_ROUTINES 1
 /* #undef SDL_ALTIVEC_BLITTERS */
+#define SDL_ARM_SIMD_BLITTERS 1
+#define SDL_ARM_NEON_BLITTERS 1
 
 /* Enable ime support */
 #define SDL_USE_IME 1
 
 /* Enable dynamic udev support */
 #define SDL_UDEV_DYNAMIC "libudev.so.1"
+
+/* Enable dynamic libusb support */
+#define SDL_LIBUSB_DYNAMIC "libusb-1.0.so.0"
 
 /* Enable dynamic libsamplerate support */
 /* #undef SDL_LIBSAMPLERATE_DYNAMIC */

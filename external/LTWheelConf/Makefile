@@ -1,3 +1,4 @@
+CFLAGS := -g -O2
 OBJS=main.o wheelfunctions.o wheels.o
 LIBS=-lusb-1.0
 
