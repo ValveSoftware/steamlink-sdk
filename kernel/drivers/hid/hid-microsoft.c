@@ -287,7 +287,8 @@ static int ms_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	}
 
 #ifdef CONFIG_MICROSOFT_FF
-	if (hdev->product == USB_DEVICE_ID_MS_XBOX_ONE_S_CONTROLLER) {
+	if (hdev->product == USB_DEVICE_ID_MS_XBOX_ONE_S_CONTROLLER ||
+	    hdev->product == USB_DEVICE_ID_MS_XBOX_ONE_ELITE_SERIES_2_CONTROLLER) {
 		ret = ms_initialize_ff(hdev, ms);
 		if (ret) {
 			hid_err(hdev, "could not initialize ff, continuing anyway");
@@ -307,7 +308,8 @@ static void ms_remove(struct hid_device *hdev)
 	hid_hw_stop(hdev);
 
 #ifdef CONFIG_MICROSOFT_FF
-	if (hdev->product == USB_DEVICE_ID_MS_XBOX_ONE_S_CONTROLLER) {
+	if (hdev->product == USB_DEVICE_ID_MS_XBOX_ONE_S_CONTROLLER ||
+	    hdev->product == USB_DEVICE_ID_MS_XBOX_ONE_ELITE_SERIES_2_CONTROLLER) {
 		cancel_work_sync(&ms->ff_worker);
 		if (ms->output_report_dmabuf)
 			kfree(ms->output_report_dmabuf);
@@ -338,6 +340,8 @@ static const struct hid_device_id ms_devices[] = {
 		.driver_data = MS_PRESENTER },
 #ifdef CONFIG_MICROSOFT_FF
 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_ONE_S_CONTROLLER),
+		.driver_data = 0 },
+	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_MICROSOFT, USB_DEVICE_ID_MS_XBOX_ONE_ELITE_SERIES_2_CONTROLLER),
 		.driver_data = 0 },
 #endif
 
