@@ -1,1 +1,1 @@
-xpad.c.modern
+xpad.c.classic
