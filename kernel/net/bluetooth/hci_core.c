@@ -1254,6 +1254,10 @@ static bool hci_persistent_key(struct hci_dev *hdev, struct hci_conn *conn,
 	if (!conn)
 		return true;
 
+	/* BR/EDR key derived using SC from an LE link */
+	if (conn->type == LE_LINK)
+		return true;
+
 	/* Neither local nor remote side had no-bonding as requirement */
 	if (conn->auth_type > 0x01 && conn->remote_auth > 0x01)
 		return true;
@@ -1266,9 +1270,17 @@ static bool hci_persistent_key(struct hci_dev *hdev, struct hci_conn *conn,
 	if (conn->remote_auth == 0x02 || conn->remote_auth == 0x03)
 		return true;
 
+#if 1
+	/* Steam Link:
+	 * Xbox controllers need to persist their keys, but we can't tell what's connected.
+         * FreeBSD and NetBSD persist all keys, so we'll go ahead and do that here.
+	 */
+	return true;
+#else
 	/* If none of the above criteria match, then don't store the key
 	 * persistently */
 	return false;
+#endif
 }
 
 struct smp_ltk *hci_find_ltk(struct hci_dev *hdev, __le16 ediv, u8 rand[8])
