@@ -1,0 +1,244 @@
+diff --git a/controller/controller.cpp b/controller/controller.cpp
+index d2e89f1..24ad978 100644
+--- a/controller/controller.cpp
++++ b/controller/controller.cpp
+@@ -101,8 +101,8 @@ void Controller::feedbackReceived(ff_effect effect, uint16_t gain)
+     }
+ 
+     // Map Linux' magnitudes to rumble power
+-    uint8_t weak = effect.u.rumble.weak_magnitude * gain / 0xffffff;
+-    uint8_t strong = effect.u.rumble.strong_magnitude * gain / 0xffffff;
++    uint8_t weak = (uint32_t)effect.u.rumble.weak_magnitude * gain / 0xffffff;
++    uint8_t strong = (uint32_t)effect.u.rumble.strong_magnitude * gain / 0xffffff;
+ 
+     Log::debug(
+         "Feedback length: %d, delay: %d, direction: %d, weak: %d, strong: %d",
+diff --git a/controller/controller.h b/controller/controller.h
+index 18edeff..8f69aab 100644
+--- a/controller/controller.h
++++ b/controller/controller.h
+@@ -195,7 +195,9 @@ private:
+ 
+     bool acknowledgePacket(const ControllerFrame *packet = nullptr);
+     bool requestSerialNumber();
++public:
+     bool setPowerMode(PowerMode mode);
++private:
+     bool setLedMode(LedModeData data);
+     bool performRumble(RumbleData data);
+ 
+diff --git a/controller/input.cpp b/controller/input.cpp
+index 75f5b4e..41177db 100644
+--- a/controller/input.cpp
++++ b/controller/input.cpp
+@@ -29,6 +29,8 @@
+ 
+ InputDevice::InputDevice()
+ {
++    memset(&setup, 0, sizeof(setup));
++
+     file = open("/dev/uinput", O_RDWR | O_NONBLOCK);
+ 
+     if (file < 0)
+@@ -76,6 +78,7 @@ void InputDevice::addAxis(uint16_t code, int32_t min, int32_t max)
+         throw InputException("Error adding axis code");
+     }
+ 
++#ifdef UI_DEV_SETUP
+     uinput_abs_setup setup = {};
+ 
+     setup.code = code;
+@@ -86,6 +89,10 @@ void InputDevice::addAxis(uint16_t code, int32_t min, int32_t max)
+     {
+         throw InputException("Error setting up axis");
+     }
++#else
++    setup.absmin[code] = min;
++    setup.absmax[code] = max;
++#endif
+ }
+ 
+ void InputDevice::addFeedback(uint16_t code)
+@@ -103,8 +110,6 @@ void InputDevice::create(
+     uint16_t productId,
+     std::string name
+ ) {
+-    uinput_setup setup = {};
+-
+     setup.id.bustype = BUS_USB;
+     setup.id.vendor = vendorId;
+     setup.id.product = productId;
+@@ -112,10 +117,16 @@ void InputDevice::create(
+ 
+     std::copy(name.begin(), name.end(), std::begin(setup.name));
+ 
+-    if (
+-        ioctl(file, UI_DEV_SETUP, &setup) < 0 ||
+-        ioctl(file, UI_DEV_CREATE) < 0
+-    ) {
++#ifdef UI_DEV_SETUP
++    if (ioctl(file, UI_DEV_SETUP, &setup) < 0) {
++        throw InputException("Error setting up device");
++    }
++#else
++    if (write(file, &setup, sizeof(setup)) != sizeof(setup)) {
++        throw InputException("Error setting up device");
++    }
++#endif
++    if (ioctl(file, UI_DEV_CREATE) < 0) {
+         throw InputException("Error creating device");
+     }
+ }
+diff --git a/controller/input.h b/controller/input.h
+index de7b441..6b89d73 100644
+--- a/controller/input.h
++++ b/controller/input.h
+@@ -79,6 +79,11 @@ private:
+     int file, stopPipe;
+     ff_effect effect = {};
+     uint16_t effectGain = 0xffff;
++#ifdef UI_DEV_SETUP
++    uinput_setup setup;
++#else
++    uinput_user_dev setup;
++#endif
+ };
+ 
+ class InputException : public std::runtime_error
+diff --git a/dongle/dongle.cpp b/dongle/dongle.cpp
+index 77fc9b2..9870bc5 100644
+--- a/dongle/dongle.cpp
++++ b/dongle/dongle.cpp
+@@ -20,6 +20,32 @@
+ #include "../utils/log.h"
+ 
+ #include <functional>
++#include <signal.h>
++
++static bool signaledPowerOff;
++
++void handlePowerOffSignal(int)
++{
++    signaledPowerOff = true;
++}
++
++Dongle::Dongle()
++{
++    signal(SIGUSR1, handlePowerOffSignal);
++}
++
++Dongle::~Dongle()
++{
++    signal(SIGUSR1, SIG_DFL);
++}
++
++void Dongle::update()
++{
++    if (signaledPowerOff) {
++        powerOffControllers();
++        signaledPowerOff = false;
++    }
++}
+ 
+ void Dongle::added()
+ {
+@@ -153,5 +179,17 @@ bool Dongle::sendControllerPacket(
+     return true;
+ }
+ 
++void Dongle::powerOffControllers()
++{
++    Log::info("Powering off controllers");
++
++    for (std::unique_ptr<Controller> &controller : controllers)
++    {
++        if (controller) {
++            controller->setPowerMode(POWER_OFF);
++        }
++    }
++}
++
+ DongleException::DongleException(std::string message)
+     : std::runtime_error(message) {}
+diff --git a/dongle/dongle.h b/dongle/dongle.h
+index 84f851d..ffd0d31 100644
+--- a/dongle/dongle.h
++++ b/dongle/dongle.h
+@@ -42,7 +42,12 @@ class Bytes;
+  */
+ class Dongle : public MT76
+ {
++public:
++    Dongle();
++    ~Dongle();
++
+ private:
++    void update() override;
+     void added() override;
+     void removed() override;
+ 
+@@ -56,6 +61,8 @@ private:
+         const Bytes &packet
+     );
+ 
++    void powerOffControllers();
++
+     std::array<std::unique_ptr<Controller>, MT_WCID_COUNT> controllers;
+ };
+ 
+diff --git a/dongle/mt76.cpp b/dongle/mt76.cpp
+index 85b5533..2816354 100644
+--- a/dongle/mt76.cpp
++++ b/dongle/mt76.cpp
+@@ -42,6 +42,8 @@ void MT76::added()
+         // Read while device is connected
+         do
+         {
++            update();
++
+             read = nextBulkPacket(packet);
+ 
+             handleBulkPacket(packet);
+diff --git a/dongle/mt76.h b/dongle/mt76.h
+index a6e032d..f051775 100644
+--- a/dongle/mt76.h
++++ b/dongle/mt76.h
+@@ -1196,6 +1196,7 @@ protected:
+     virtual void removed() override;
+ 
+     /* WLAN client callbacks */
++    virtual void update() = 0;
+     virtual void clientConnected(uint8_t wcid, Bytes address) = 0;
+     virtual void clientDisconnected(uint8_t wcid, Bytes address) = 0;
+     virtual void packetReceived(uint8_t wcid, const Bytes &packet) = 0;
+diff --git a/dongle/usb.cpp b/dongle/usb.cpp
+index f31c5fe..f0bf9b7 100644
+--- a/dongle/usb.cpp
++++ b/dongle/usb.cpp
+@@ -302,7 +302,7 @@ void UsbDeviceManager::handleEvents()
+     {
+         int error = libusb_handle_events_completed(nullptr, nullptr);
+ 
+-        if (error)
++        if (error && error != LIBUSB_ERROR_INTERRUPTED)
+         {
+             libusb_exit(nullptr);
+ 
+diff --git a/utils/log.cpp b/utils/log.cpp
+index d6178ba..ae267f3 100644
+--- a/utils/log.cpp
++++ b/utils/log.cpp
+@@ -55,7 +55,13 @@ namespace Log
+         std::tm localTime = *std::localtime(&time);
+         std::ostringstream stream;
+ 
++#if !defined(__GNUC__) || (__GNUC__ >= 5)
+         stream << std::put_time(&localTime, "%F %T");
++#else
++        char timestr[128];
++        strftime(timestr, sizeof(timestr), "%F %T", &localTime);
++        stream << timestr;
++#endif
+ 
+         std::fprintf(output, "%s %-5s - ", stream.str().c_str(), level.c_str());
+     }

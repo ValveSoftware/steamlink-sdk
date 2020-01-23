@@ -1,1 +1,1 @@
-xpad.c.classic
+xpad.c.minimal
