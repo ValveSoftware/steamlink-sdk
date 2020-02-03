@@ -1,1 +1,0 @@
-SOURCES += process.cpp

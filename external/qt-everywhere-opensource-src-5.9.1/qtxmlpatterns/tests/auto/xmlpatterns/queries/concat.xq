@@ -1,1 +1,0 @@
-concat("abc", "def")

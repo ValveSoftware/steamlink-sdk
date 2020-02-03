@@ -1,1 +1,0 @@
-var myStr = "base file"

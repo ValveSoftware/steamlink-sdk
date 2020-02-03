@@ -1,4 +1,0 @@
-import "../../../../../../Invalid"
-
-Item {
-}

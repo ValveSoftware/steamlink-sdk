@@ -1,1 +1,0 @@
-SOURCES += dialogs.cpp

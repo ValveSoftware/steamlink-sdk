@@ -1,4 +1,0 @@
-// No imports - intentional
-
-Item {
-}

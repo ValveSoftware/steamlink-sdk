@@ -1,1 +1,0 @@
-tokenize("input", "pattern", "INVALID")

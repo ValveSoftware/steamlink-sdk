@@ -1,5 +1,0 @@
-
-function func()
-{
-    isFinite() )
-}

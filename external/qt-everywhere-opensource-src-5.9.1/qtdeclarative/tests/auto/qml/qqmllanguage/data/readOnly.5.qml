@@ -1,3 +1,0 @@
-ReadOnlyType {
-    readOnlyProperty: 13
-}

@@ -1,1 +1,0 @@
-"Can't multiply an xs:string with an xs:integer." * 1

@@ -1,8 +1,0 @@
-function func() {
-    return "World"
-}
-
-WorkerScript.onMessage = function(msg) {
-    WorkerScript.sendMessage(msg + " " + func())
-}
-

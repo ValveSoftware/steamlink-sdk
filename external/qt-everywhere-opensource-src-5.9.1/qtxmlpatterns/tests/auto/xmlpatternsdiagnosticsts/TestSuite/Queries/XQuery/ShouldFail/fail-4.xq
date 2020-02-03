@@ -1,1 +1,0 @@
-"This query is fully valid, and consists of one string literal."

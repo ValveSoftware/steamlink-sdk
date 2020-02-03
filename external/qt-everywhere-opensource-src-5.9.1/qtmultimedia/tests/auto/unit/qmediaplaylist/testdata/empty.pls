@@ -1,2 +1,0 @@
-[playlist]
-NumberOfEntries=100

@@ -1,3 +1,0 @@
-# Lets test how well the proparser can walk the tree of includes...
-
-include(sub/sub.pri)

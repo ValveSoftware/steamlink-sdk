@@ -1,1 +1,0 @@
-"This query yields a type error, XPTY0004." + 1

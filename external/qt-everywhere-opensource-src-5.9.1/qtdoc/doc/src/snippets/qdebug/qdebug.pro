@@ -1,1 +1,0 @@
-SOURCES   = qdebugsnippet.cpp

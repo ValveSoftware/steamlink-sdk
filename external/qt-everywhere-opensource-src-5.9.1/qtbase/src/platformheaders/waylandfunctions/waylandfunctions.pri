@@ -1,1 +1,0 @@
-HEADERS += $$PWD/qwaylandwindowfunctions.h

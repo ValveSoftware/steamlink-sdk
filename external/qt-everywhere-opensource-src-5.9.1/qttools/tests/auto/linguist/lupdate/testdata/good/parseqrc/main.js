@@ -1,1 +1,0 @@
-qsTr("From JavaScript file");
