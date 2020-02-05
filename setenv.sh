@@ -10,8 +10,8 @@ if [ ! -d $MARVELL_ROOTFS ]; then
 fi
 
 # Set up Qt environment
-QT_VERSION=5.9.1
-QT_HOST_PREFIX=$MARVELL_SDK_PATH/external/qt-everywhere-opensource-src-$QT_VERSION/build/host
+QT_VERSION=5.14.1
+QT_HOST_PREFIX=$MARVELL_ROOTFS/usr/local/Qt-$QT_VERSION
 QT_HOST_BINS=$QT_HOST_PREFIX/bin
 cat <<__EOF__ >$QT_HOST_BINS/qt.conf
 [Paths]
@@ -26,6 +26,7 @@ export PATH=$TOOLCHAIN_PATH:$MARVELL_SDK_PATH/bin:$PATH
 
 export CROSS=armv7a-cros-linux-gnueabi-
 export CROSS_COMPILE=${CROSS}
+export LD=${CROSS}ld
 export AS=${CROSS}as
 export CC="${CROSS}gcc --sysroot=$MARVELL_ROOTFS -marm -mfpu=neon -mfloat-abi=hard"
 export CXX="${CROSS}g++ --sysroot=$MARVELL_ROOTFS -marm -mfpu=neon -mfloat-abi=hard"
@@ -57,13 +58,13 @@ steamlink_make_clean() {
 }
 
 steamlink_make() {
-	make $MAKE_J
+	make $MAKE_J "$@"
 }
 
 steamlink_make_install() {
-	DESTDIR=$MARVELL_ROOTFS make install
+	DESTDIR=$MARVELL_ROOTFS make install "$@"
 }
 
 steamlink_make_uninstall() {
-	DESTDIR=$MARVELL_ROOTFS make uninstall
+	DESTDIR=$MARVELL_ROOTFS make uninstall "$@"
 }
