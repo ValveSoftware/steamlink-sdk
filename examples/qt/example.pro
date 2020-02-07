@@ -1,7 +1,7 @@
 CONFIG += marvell
 CONFIG += debug
 
-QT += core gui widgets webenginewidgets
+QT += core gui widgets
 
 QMAKE_CXXFLAGS += -Wno-unused-parameter
 QMAKE_LFLAGS += '-Wl,-rpath,\'/home/steam/lib\''

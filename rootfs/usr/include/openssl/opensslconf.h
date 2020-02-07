@@ -86,8 +86,8 @@
 
 #if !(defined(VMS) || defined(__VMS)) /* VMS uses logical names instead */
 #if defined(HEADER_CRYPTLIB_H) && !defined(OPENSSLDIR)
-#define ENGINESDIR "/home/qwhuang/bg2cd/MRVL/MV88DE3100_SDK/Customization_Data/File_Systems/rootfs_gtb/usr/lib/engines"
-#define OPENSSLDIR "/home/qwhuang/bg2cd/MRVL/MV88DE3100_SDK/Customization_Data/File_Systems/rootfs_gtb/usr/ssl"
+#define ENGINESDIR "/usr/lib/engines"
+#define OPENSSLDIR "/usr/ssl"
 #endif
 #endif
 

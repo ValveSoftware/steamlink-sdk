@@ -17,7 +17,7 @@ export CC="${CROSS}gcc"
 export CPP="${CROSS}cpp"
 export CXX="${CROSS}g++"
 export CFLAGS="--sysroot=$MARVELL_ROOTFS -DLINUX=1 -DEGL_API_FB=1"
-export LDFLAGS="--sysroot=$MARVELL_ROOTFS -static-libgcc -static-libstdc++ -lEGL"
+export LDFLAGS="--sysroot=$MARVELL_ROOTFS $MARVELL_RPATH_LINK_OPTIONS -lEGL -lpthread"
 export INCLUDE_DIRS="-I$MARVELL_ROOTFS/usr/include -I$MARVELL_ROOTFS/usr/include/EGL -I$MARVELL_ROOTFS/usr/include/SDL2 -I${MARVELL_ROOTFS}/include/GLES2 -I$MARVELL_ROOTFS/usr/include/freetype2"
 export LIBRARY_DIRS="-L$MARVELL_ROOTFS/usr/lib -L$MARVELL_ROOTFS/lib"
 export PKG_CONF_PATH=pkg-config
@@ -33,7 +33,7 @@ fi
 # Build it
 #
 pushd "${SRC}"
-./configure --host=$SOC_BUILD --disable-threads --disable-alsa --disable-pulse --enable-neon --disable-shaderpipeline --enable-opengl --enable-opengles
+./configure --host=$SOC_BUILD --disable-threads --disable-alsa --disable-pulse --enable-neon --disable-shaderpipeline --enable-opengles
 make $MAKE_J || exit 2
 popd
 

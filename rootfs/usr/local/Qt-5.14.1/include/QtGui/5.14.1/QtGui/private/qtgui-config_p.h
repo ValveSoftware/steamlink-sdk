@@ -47,7 +47,7 @@
 #define QT_FEATURE_raster_64bit 1
 #define QT_FEATURE_system_harfbuzz -1
 #define QT_FEATURE_system_jpeg 1
-#define QT_FEATURE_system_png -1
+#define QT_FEATURE_system_png 1
 #define QT_FEATURE_system_xcb -1
 #define QT_FEATURE_tslib -1
 #define QT_FEATURE_tuiotouch 1

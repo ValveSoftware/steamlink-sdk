@@ -1,0 +1,376 @@
+// runtime.def -- runtime functions called by generated code.  -*- C++ -*-
+
+// Copyright 2011 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+// Definitions for the Go runtime functions.
+
+// Parameter type helper macros.
+#define ABFT6(T1, T2, T3, T4, T5, T6) \
+  { RFT_ ## T1, RFT_ ## T2, RFT_ ## T3, RFT_ ## T4, RFT_ ## T5, RFT_ ## T6 }
+#define P0()			ABFT6(VOID, VOID, VOID, VOID, VOID, VOID)
+#define P1(T)			ABFT6(T, VOID, VOID, VOID, VOID, VOID)
+#define P2(T1, T2)		ABFT6(T1, T2, VOID, VOID, VOID, VOID)
+#define P3(T1, T2, T3)		ABFT6(T1, T2, T3, VOID, VOID, VOID)
+#define P4(T1, T2, T3, T4)	ABFT6(T1, T2, T3, T4, VOID, VOID)
+#define P5(T1, T2, T3, T4, T5)	ABFT6(T1, T2, T3, T4, T5, VOID)
+#define P6(T1,T2,T3,T4,T5,T6)	ABFT6(T1, T2, T3, T4, T5, T6)
+
+// Result type helper macros.
+#define ABFT2(T1, T2) { RFT_ ## T1, RFT_ ## T2 }
+#define R0()			ABFT2(VOID, VOID)
+#define R1(T)			ABFT2(T, VOID)
+#define R2(T1, T2)		ABFT2(T1, T2)
+
+// Define all the Go runtime functions.  The first parameter is the
+// enum code used to refer to the function.  The second parameter is
+// the name.  The third is the parameter types and the fourth is the
+// result types.
+
+// The standard C memcmp function, used for struct comparisons.
+DEF_GO_RUNTIME(MEMCMP, "__go_memcmp", P3(POINTER, POINTER, UINTPTR), R1(INT))
+
+// Decode a non-ASCII rune from a string.
+DEF_GO_RUNTIME(DECODERUNE, "runtime.decoderune", P2(STRING, INT),
+	       R2(RUNE, INT))
+
+// Concatenate strings.
+DEF_GO_RUNTIME(CONCATSTRINGS, "runtime.concatstrings", P2(POINTER, SLICE),
+	       R1(STRING))
+DEF_GO_RUNTIME(CONCATSTRING2, "runtime.concatstring2",
+	       P2(POINTER, ARRAY2STRING), R1(STRING))
+DEF_GO_RUNTIME(CONCATSTRING3, "runtime.concatstring3",
+	       P2(POINTER, ARRAY3STRING), R1(STRING))
+DEF_GO_RUNTIME(CONCATSTRING4, "runtime.concatstring4",
+	       P2(POINTER, ARRAY4STRING), R1(STRING))
+DEF_GO_RUNTIME(CONCATSTRING5, "runtime.concatstring5",
+	       P2(POINTER, ARRAY5STRING), R1(STRING))
+
+// Compare two strings for equality.
+DEF_GO_RUNTIME(EQSTRING, "runtime.eqstring", P2(STRING, STRING), R1(BOOL))
+
+// Compare two strings.
+DEF_GO_RUNTIME(CMPSTRING, "runtime.cmpstring", P2(STRING, STRING), R1(INT))
+
+// Take a slice of a string.
+DEF_GO_RUNTIME(STRING_SLICE, "__go_string_slice", P3(STRING, INT, INT),
+	       R1(STRING))
+
+// Convert an integer to a string.
+DEF_GO_RUNTIME(INTSTRING, "runtime.intstring", P2(POINTER, INT64), R1(STRING))
+
+// Convert a []byte to a string.
+DEF_GO_RUNTIME(SLICEBYTETOSTRING, "runtime.slicebytetostring",
+	       P2(POINTER, SLICE), R1(STRING))
+
+// Convert a []rune to a string.
+DEF_GO_RUNTIME(SLICERUNETOSTRING, "runtime.slicerunetostring",
+	       P2(POINTER, SLICE), R1(STRING))
+
+// Convert a string to a []byte.
+DEF_GO_RUNTIME(STRINGTOSLICEBYTE, "runtime.stringtoslicebyte",
+	       P2(POINTER, STRING), R1(SLICE))
+
+// Convert a string to a []rune.
+DEF_GO_RUNTIME(STRINGTOSLICERUNE, "runtime.stringtoslicerune",
+	       P2(POINTER, STRING), R1(SLICE))
+
+
+// Complex division.
+DEF_GO_RUNTIME(COMPLEX64_DIV, "__go_complex64_div",
+	       P2(COMPLEX64, COMPLEX64), R1(COMPLEX64))
+DEF_GO_RUNTIME(COMPLEX128_DIV, "__go_complex128_div",
+	       P2(COMPLEX128, COMPLEX128), R1(COMPLEX128))
+
+// Make a slice.
+DEF_GO_RUNTIME(MAKESLICE, "runtime.makeslice", P3(TYPE, INT, INT),
+	       R1(POINTER))
+
+DEF_GO_RUNTIME(MAKESLICE64, "runtime.makeslice64", P3(TYPE, INT64, INT64),
+	       R1(POINTER))
+
+
+// Make a map with a hint and an (optional, unused) map structure.
+DEF_GO_RUNTIME(MAKEMAP, "runtime.makemap", P3(TYPE, INT, POINTER),
+		R1(MAP))
+DEF_GO_RUNTIME(MAKEMAP64, "runtime.makemap64", P3(TYPE, INT64, POINTER),
+		R1(MAP))
+
+// Make a map with no hint, or a small constant hint.
+DEF_GO_RUNTIME(MAKEMAP_SMALL, "runtime.makemap_small", P0(), R1(MAP))
+
+// Build a map from a composite literal.
+DEF_GO_RUNTIME(CONSTRUCT_MAP, "__go_construct_map",
+	       P5(POINTER, UINTPTR, UINTPTR, UINTPTR, POINTER),
+	       R1(MAP))
+
+// Look up a key in a map.
+DEF_GO_RUNTIME(MAPACCESS1, "runtime.mapaccess1", P3(TYPE, MAP, POINTER),
+	       R1(POINTER))
+
+// Look up a key in a map when the value is large.
+DEF_GO_RUNTIME(MAPACCESS1_FAT, "runtime.mapaccess1_fat",
+	       P4(TYPE, MAP, POINTER, POINTER), R1(POINTER))
+
+// Look up a key in a map returning the value and whether it is
+// present.
+DEF_GO_RUNTIME(MAPACCESS2, "runtime.mapaccess2", P3(TYPE, MAP, POINTER),
+	       R2(POINTER, BOOL))
+
+// Look up a key in a map, returning the value and whether it is
+// present, when the value is large.
+DEF_GO_RUNTIME(MAPACCESS2_FAT, "runtime.mapaccess2_fat",
+	       P4(TYPE, MAP, POINTER, POINTER), R2(POINTER, BOOL))
+
+// Assignment to a key in a map.
+DEF_GO_RUNTIME(MAPASSIGN, "runtime.mapassign", P3(TYPE, MAP, POINTER),
+	       R1(POINTER))
+
+// Delete a key from a map.
+DEF_GO_RUNTIME(MAPDELETE, "runtime.mapdelete", P3(TYPE, MAP, POINTER), R0())
+
+// Begin a range over a map.
+DEF_GO_RUNTIME(MAPITERINIT, "runtime.mapiterinit", P3(TYPE, MAP, POINTER),
+	       R0())
+
+// Range over a map, moving to the next map entry.
+DEF_GO_RUNTIME(MAPITERNEXT, "runtime.mapiternext", P1(POINTER), R0())
+
+
+// Make a channel.
+DEF_GO_RUNTIME(MAKECHAN, "runtime.makechan", P2(TYPE, INT), R1(CHAN))
+DEF_GO_RUNTIME(MAKECHAN64, "runtime.makechan64", P2(TYPE, INT64), R1(CHAN))
+
+// Send a value on a channel.
+DEF_GO_RUNTIME(CHANSEND, "runtime.chansend1", P2(CHAN, POINTER), R0())
+
+// Receive a value from a channel.
+DEF_GO_RUNTIME(CHANRECV1, "runtime.chanrecv1", P2(CHAN, POINTER), R0())
+
+// Receive a value from a channel returning whether it is closed.
+DEF_GO_RUNTIME(CHANRECV2, "runtime.chanrecv2", P2(CHAN, POINTER), R1(BOOL))
+
+
+// Run a select, returning the index of the selected clause and
+// whether that channel received a value.
+DEF_GO_RUNTIME(SELECTGO, "runtime.selectgo", P3(POINTER, POINTER, INT),
+	       R2(INT, BOOL))
+
+
+// Panic.
+DEF_GO_RUNTIME(GOPANIC, "runtime.gopanic", P1(EFACE), R0())
+
+// Recover.
+DEF_GO_RUNTIME(GORECOVER, "runtime.gorecover", P0(), R1(EFACE))
+
+// Recover when called directly from defer.
+DEF_GO_RUNTIME(DEFERREDRECOVER, "runtime.deferredrecover", P0(), R1(EFACE))
+
+// Decide whether this function can call recover.
+DEF_GO_RUNTIME(CANRECOVER, "runtime.canrecover", P1(UINTPTR), R1(BOOL))
+
+// Set the return address for defer in a defer thunk.
+DEF_GO_RUNTIME(SETDEFERRETADDR, "runtime.setdeferretaddr", P1(UINTPTR),
+	       R1(BOOL))
+
+// Check for a deferred function in an exception handler.
+DEF_GO_RUNTIME(CHECKDEFER, "runtime.checkdefer", P1(BOOLPTR), R0())
+
+// Run deferred functions.
+DEF_GO_RUNTIME(DEFERRETURN, "runtime.deferreturn", P1(BOOLPTR), R0())
+
+// Panic with a runtime error.
+DEF_GO_RUNTIME(RUNTIME_ERROR, "__go_runtime_error", P1(INT32), R0())
+
+
+// Close.
+DEF_GO_RUNTIME(CLOSE, "runtime.closechan", P1(CHAN), R0())
+
+
+// Copy.
+DEF_GO_RUNTIME(SLICECOPY, "runtime.slicecopy", P3(SLICE, SLICE, UINTPTR),
+	       R1(INT))
+
+// Copy from string.
+DEF_GO_RUNTIME(SLICESTRINGCOPY, "runtime.slicestringcopy", P2(SLICE, STRING),
+	       R1(INT))
+
+// Copy of value containing pointers.
+DEF_GO_RUNTIME(TYPEDSLICECOPY, "runtime.typedslicecopy",
+	       P3(TYPE, SLICE, SLICE), R1(INT))
+
+
+// Grow a slice for append.
+DEF_GO_RUNTIME(GROWSLICE, "runtime.growslice",
+               P5(TYPE, POINTER, INT, INT, INT), R1(SLICE))
+
+
+// Register roots (global variables) for the garbage collector.
+DEF_GO_RUNTIME(REGISTER_GC_ROOTS, "runtime.registerGCRoots", P1(POINTER), R0())
+
+
+// Allocate memory.
+DEF_GO_RUNTIME(NEW, "runtime.newobject", P1(TYPE), R1(POINTER))
+
+// Start a new goroutine.
+DEF_GO_RUNTIME(GO, "__go_go", P2(UINTPTR, POINTER), R1(POINTER))
+
+// Defer a function.
+DEF_GO_RUNTIME(DEFERPROC, "runtime.deferproc", P3(BOOLPTR, UINTPTR, POINTER),
+	       R0())
+
+
+// Convert an empty interface to an empty interface, returning ok.
+DEF_GO_RUNTIME(IFACEE2E2, "runtime.ifaceE2E2", P1(EFACE), R2(EFACE, BOOL))
+
+// Convert a non-empty interface to an empty interface, returning ok.
+DEF_GO_RUNTIME(IFACEI2E2, "runtime.ifaceI2E2", P1(IFACE), R2(EFACE, BOOL))
+
+// Convert an empty interface to a non-empty interface, returning ok.
+DEF_GO_RUNTIME(IFACEE2I2, "runtime.ifaceE2I2", P2(TYPE, EFACE),
+	       R2(IFACE, BOOL))
+
+// Convert a non-empty interface to a non-empty interface, returning ok.
+DEF_GO_RUNTIME(IFACEI2I2, "runtime.ifaceI2I2", P2(TYPE, IFACE),
+	       R2(IFACE, BOOL))
+
+// Convert an empty interface to a pointer type, returning ok.
+DEF_GO_RUNTIME(IFACEE2T2P, "runtime.ifaceE2T2P", P2(TYPE, EFACE),
+	       R2(POINTER, BOOL))
+
+// Convert a non-empty interface to a pointer type, return ok.
+DEF_GO_RUNTIME(IFACEI2T2P, "runtime.ifaceI2T2P", P2(TYPE, IFACE),
+	       R2(POINTER, BOOL))
+
+// Convert an empty interface to a non-pointer type, returning ok.
+DEF_GO_RUNTIME(IFACEE2T2, "runtime.ifaceE2T2", P3(TYPE, EFACE, POINTER),
+	       R1(BOOL))
+
+// Convert a non-empty interface to a non-pointer type, returning ok.
+DEF_GO_RUNTIME(IFACEI2T2, "runtime.ifaceI2T2", P3(TYPE, IFACE, POINTER),
+	       R1(BOOL))
+
+// Return the interface method table for the second type converted to
+// the first type which is a (possibly empty) interface type.  Panics
+// if the second type is nil (indicating a nil interface value) or if
+// the conversion is not possible.  Used for type assertions.  This is
+// like REQUIREITAB, but for type assertions.
+DEF_GO_RUNTIME(ASSERTITAB, "runtime.assertitab", P2(TYPE, TYPE), R1(POINTER))
+
+// Return the interface method table for the second type converted to
+// the first type, which is a non-empty interface type.  Return nil if
+// the second type is nil, indicating a nil interface value.  Panics
+// if the conversion is not possible.  Used for assignments.  This is
+// like ASSERTITAB, but for assignments.
+DEF_GO_RUNTIME(REQUIREITAB, "runtime.requireitab", P2(TYPE, TYPE),
+	       R1(POINTER))
+
+// Check whether an interface type may be converted to a
+// non-interface type.
+DEF_GO_RUNTIME(ASSERTI2T, "runtime.assertI2T", P3(TYPE, TYPE, TYPE), R0())
+
+// Return whether we can convert a type to an interface type.
+DEF_GO_RUNTIME(IFACET2IP, "runtime.ifaceT2Ip", P2(TYPE, TYPE), R1(BOOL))
+
+// Get the type descriptor of an empty interface.
+DEF_GO_RUNTIME(EFACETYPE, "runtime.efacetype", P1(EFACE), R1(TYPE))
+
+// Get the type descriptor of a non-empty interface.
+DEF_GO_RUNTIME(IFACETYPE, "runtime.ifacetype", P1(IFACE), R1(TYPE))
+
+
+// Compare two type descriptors for equality.
+DEF_GO_RUNTIME(IFACETYPEEQ, "runtime.ifacetypeeq", P2(TYPE, TYPE), R1(BOOL))
+
+// Compare two empty interface values.
+DEF_GO_RUNTIME(EFACEEQ, "runtime.efaceeq", P2(EFACE, EFACE), R1(BOOL))
+
+// Compare an empty interface value to a non-interface value.
+DEF_GO_RUNTIME(EFACEVALEQ, "runtime.efacevaleq", P3(EFACE, TYPE, POINTER),
+	       R1(BOOL))
+
+// Compare two non-empty interface values.
+DEF_GO_RUNTIME(IFACEEQ, "runtime.ifaceeq", P2(IFACE, IFACE), R1(BOOL))
+
+// Compare a non-empty interface value to a non-interface value.
+DEF_GO_RUNTIME(IFACEVALEQ, "runtime.ifacevaleq", P3(IFACE, TYPE, POINTER),
+	       R1(BOOL))
+
+// Compare a non-empty interface value to an interface value.
+DEF_GO_RUNTIME(IFACEEFACEEQ, "runtime.ifaceefaceeq", P2(IFACE, EFACE),
+	       R1(BOOL))
+
+
+// Set *dst = src where dst is a pointer to a pointer and src is a pointer.
+DEF_GO_RUNTIME(GCWRITEBARRIER, "runtime.gcWriteBarrier",
+	       P2(POINTER, UINTPTR), R0())
+
+// Set *dst = *src for an arbitrary type.
+DEF_GO_RUNTIME(TYPEDMEMMOVE, "runtime.typedmemmove",
+	       P3(TYPE, POINTER, POINTER), R0())
+
+
+// Lock the printer (for print/println).
+DEF_GO_RUNTIME(PRINTLOCK, "runtime.printlock", P0(), R0())
+
+// Unlock the printer (for print/println).
+DEF_GO_RUNTIME(PRINTUNLOCK, "runtime.printunlock", P0(), R0())
+
+// Print a string (for print/println).
+DEF_GO_RUNTIME(PRINTSTRING, "runtime.printstring", P1(STRING), R0())
+
+// Print a uint64 (for print/println).
+DEF_GO_RUNTIME(PRINTUINT, "runtime.printuint", P1(UINT64), R0())
+
+// Print a int64 (for print/println).
+DEF_GO_RUNTIME(PRINTINT, "runtime.printint", P1(INT64), R0())
+
+// Print a float64 (for print/println).
+DEF_GO_RUNTIME(PRINTFLOAT, "runtime.printfloat", P1(FLOAT64), R0())
+
+// Print a complex128 (for print/println).
+DEF_GO_RUNTIME(PRINTCOMPLEX, "runtime.printcomplex", P1(COMPLEX128), R0())
+
+// Print a bool (for print/println).
+DEF_GO_RUNTIME(PRINTBOOL, "runtime.printbool", P1(BOOL), R0())
+
+// Print a pointer/map/channel/function (for print/println).
+DEF_GO_RUNTIME(PRINTPOINTER, "runtime.printpointer", P1(POINTER), R0())
+
+// Print an empty interface (for print/println).
+DEF_GO_RUNTIME(PRINTEFACE, "runtime.printeface", P1(EFACE), R0())
+
+// Print a non-empty interface (for print/println).
+DEF_GO_RUNTIME(PRINTIFACE, "runtime.printiface", P1(IFACE), R0())
+
+// Print a slice (for print/println).
+DEF_GO_RUNTIME(PRINTSLICE, "runtime.printslice", P1(SLICE), R0())
+
+// Print a space (for println).
+DEF_GO_RUNTIME(PRINTSP, "runtime.printsp", P0(), R0())
+
+// Print a newline (for println).
+DEF_GO_RUNTIME(PRINTNL, "runtime.printnl", P0(), R0())
+
+
+// Used for field tracking for data analysis.
+DEF_GO_RUNTIME(FIELDTRACK, "__go_fieldtrack", P1(POINTER), R0())
+
+
+// Unreachable code.
+DEF_GO_RUNTIME(UNREACHABLE, "__builtin_unreachable", P0(), R0())
+
+// Remove helper macros.
+#undef ABFT6
+#undef ABFT2
+#undef P0
+#undef P1
+#undef P2
+#undef P3
+#undef P4
+#undef P5
+#undef P6
+#undef R0
+#undef R1
+#undef R2

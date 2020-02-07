@@ -87,6 +87,7 @@ cat >"${DESTDIR}/run.sh" <<__EOF__
 #!/bin/sh
 #
 export TIMIDITY_CFG=timidity/timidity.cfg
+export DOOMWADDIR=$(dirname $0)/share/games/doom
 
 games/prboom-plus -width 1280 -height 720
 __EOF__

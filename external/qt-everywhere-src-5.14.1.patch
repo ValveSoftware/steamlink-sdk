@@ -71,12 +71,12 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-rpi/build.sh qt-everywhere-src-5.1
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh qt-everywhere-src-5.14.1/build-steamlink/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-steamlink/build.sh	2020-02-05 09:27:45.686832779 -0800
-@@ -0,0 +1,17 @@
++++ qt-everywhere-src-5.14.1/build-steamlink/build.sh	2020-02-06 17:08:36.218823559 -0800
+@@ -0,0 +1,26 @@
 +#!/bin/bash
 +
 +source ../../../setenv_external.sh
-+unset CC CPP CXX AS LDFLAGS STRIP
++unset CC CPP CXX AS LD LDFLAGS STRIP
 +
 +. ../build_common.sh
 +QT_COMMON_CONFIGURE_FLAGS=$(echo "$QT_COMMON_CONFIGURE_FLAGS" | \
@@ -86,7 +86,16 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh qt-everywhere-s
 +        -e 's,-skip qtquickcontrols ,,' \
 +        -e 's,-skip qtquickcontrols2 ,,' \
 +)
-+../configure $QT_COMMON_CONFIGURE_FLAGS -force-debug-info -qt-harfbuzz -qt-libpng -no-feature-bearermanagement -no-linuxfb -no-glib -device marvell -device-option CROSS_COMPILE=armv7a-cros-linux-gnueabi- -sysroot "${MARVELL_ROOTFS}" || exit 1
++if [ "$BUILD_QT_WEBENGINE" = "1" ]; then
++    QT_COMMON_CONFIGURE_FLAGS=$(echo "$QT_COMMON_CONFIGURE_FLAGS" | \
++        sed \
++            -e 's,-skip qtwebchannel ,,' \
++            -e 's,-skip qtwebengine ,,' \
++            -e 's,-skip qtwebview ,,' \
++    )
++    QT_COMMON_CONFIGURE_FLAGS="$QT_COMMON_CONFIGURE_FLAGS -no-pulseaudio"
++fi
++../configure $QT_COMMON_CONFIGURE_FLAGS -force-debug-info -qt-harfbuzz -no-feature-bearermanagement -no-linuxfb -no-glib -device marvell -device-option CROSS_COMPILE=armv7a-cros-linux-gnueabi- -sysroot "${MARVELL_ROOTFS}" || exit 1
 +
 +steamlink_make || exit 1
 +steamlink_make_install
@@ -101,14 +110,15 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-tvos/build.sh qt-everywhere-src-5.
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build_common.sh qt-everywhere-src-5.14.1/build_common.sh
 --- qt-everywhere-src-5.14.1.orig/build_common.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build_common.sh	2020-02-05 09:27:30.362832780 -0800
-@@ -0,0 +1,43 @@
++++ qt-everywhere-src-5.14.1/build_common.sh	2020-02-06 17:09:10.710823557 -0800
+@@ -0,0 +1,51 @@
 +if [ "$QT_BUILD_TYPE" = "" ]; then
 +	QT_BUILD_TYPE="-release"
 +fi
 +QT_COMMON_CONFIGURE_FLAGS="$QT_BUILD_TYPE -opensource -confirm-license -nomake examples -nomake tests \
 +-skip qt3d \
 +-skip qtactiveqt \
++-skip qtandroidextras \
 +-skip qtcanvas3d \
 +-skip qtcharts \
 +-skip qtconnectivity \
@@ -121,19 +131,26 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build_common.sh qt-everywhere-src-5.14.1
 +-skip qtgraphicaleffects \
 +-skip qtimageformats \
 +-skip qtlocation \
++-skip qtlottie \
 +-skip qtmacextras \
 +-skip qtmultimedia \
 +-skip qtnetworkauth \
++-skip qtpim \
 +-skip qtpurchasing \
++-skip qtqa \
++-skip qtquick3d \
 +-skip qtquickcontrols \
 +-skip qtquickcontrols2 \
++-skip qtquicktimeline \
 +-skip qtremoteobjects \
++-skip qtrepotools \
 +-skip qtscript \
 +-skip qtscxml \
 +-skip qtsensors \
 +-skip qtserialbus \
 +-skip qtserialport \
 +-skip qtspeech \
++-skip qtsystems \
 +-skip qtvirtualkeyboard \
 +-skip qtwayland \
 +-skip qtwebchannel \
@@ -339,8 +356,8 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++
 +QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf	2020-02-05 09:27:30.366832780 -0800
-@@ -0,0 +1,26 @@
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf	2020-02-06 17:11:35.270823545 -0800
+@@ -0,0 +1,25 @@
 +#
 +# qmake configuration for the Marvell BG2CD
 +#
@@ -355,11 +372,10 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++
 +QMAKE_LIBS_OPENGL_ES2  += -lGLESv2 $$QMAKE_LIBS_EGL
 +QMAKE_LIBS_OPENVG      += -lOpenVG $$QMAKE_LIBS_EGL
 +
-+QMAKE_LFLAGS           += -Wl,-rpath-link,$$[QT_SYSROOT]/usr/lib -L$$MARVELL_APPROOT/lib
-+QMAKE_LFLAGS           += -static-libgcc -static-libstdc++
++QMAKE_LFLAGS           += -Wl,-rpath-link,$$[QT_SYSROOT]/lib -Wl,-rpath-link,$$[QT_SYSROOT]/usr/lib -Wl,-rpath-link,$$[QT_SYSROOT]/usr/lib/arm-linux-gnueabihf -L$$MARVELL_APPROOT/lib
 +QMAKE_LFLAGS           += --sysroot=$$[QT_SYSROOT]
 +
-+MARVELL_CFLAGS         = -I$$MARVELL_APPROOT/include -DLINUX -DEGL_API_FB -marm -mfpu=neon
++MARVELL_CFLAGS         = -I$$MARVELL_APPROOT/include -DLINUX -DEGL_API_FB
 +QMAKE_CFLAGS           += $$MARVELL_CFLAGS
 +QMAKE_CXXFLAGS         += $$MARVELL_CFLAGS
 +DISTRO_OPTS            += hard-float
@@ -81720,6 +81736,24 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_zh_CN
 +    </message>
 +</context>
 +</TS>
+diff -ruN qt-everywhere-src-5.14.1.orig/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc qt-everywhere-src-5.14.1/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc
+--- qt-everywhere-src-5.14.1.orig/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc	2020-01-20 02:37:42.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc	2020-02-06 17:12:31.106823540 -0800
+@@ -410,12 +410,12 @@
+ ResultExpr RestrictPtrace() {
+   const Arg<int> request(0);
+   return Switch(request).CASES((
+-#if !defined(__aarch64__)
++#if !defined(__aarch64__) && defined(PTRACE_GET_THREAD_AREA)
+         PTRACE_GETREGS,
+         PTRACE_GETFPREGS,
+         PTRACE_GET_THREAD_AREA,
+ #endif
+-#if defined(__arm__)
++#if defined(__arm__) && defined(PTRACE_GETVFPREGS)
+         PTRACE_GETVFPREGS,
+ #endif
+         PTRACE_GETREGSET,
 diff -ruN qt-everywhere-src-5.14.1.orig/qtwebengine/src/core/api/core_api.pro qt-everywhere-src-5.14.1/qtwebengine/src/core/api/core_api.pro
 --- qt-everywhere-src-5.14.1.orig/qtwebengine/src/core/api/core_api.pro	2020-01-20 03:17:16.000000000 -0800
 +++ qt-everywhere-src-5.14.1/qtwebengine/src/core/api/core_api.pro	2020-02-05 09:27:30.386832780 -0800
