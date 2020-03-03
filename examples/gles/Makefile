@@ -1,8 +1,8 @@
 # Source setenv.sh before running make
 #
 
-CFLAGS := -I$(MARVELL_ROOTFS)/usr/include/SDL2 -DHAVE_OPENGLES2
-LDFLAGS := -lSDL2 -lSDL2_test
+CFLAGS := $(shell sdl2-config --cflags)
+LDFLAGS := $(shell sdl2-config --libs) -lSDL2_test
 
 testgles2: testgles2.o
 	$(CC) -o $@ $< $(LDFLAGS)

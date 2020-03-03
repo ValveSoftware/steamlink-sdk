@@ -1,0 +1,363 @@
+commit 68ba27f780ad4f9eabb8486c1afc8b8cd96223ad
+Author: medusalix <ss7@live.de>
+Date:   Mon Feb 24 22:03:30 2020 +0100
+
+    Fix calibration, improve connection reliability
+
+diff --git a/dongle/mt76.cpp b/dongle/mt76.cpp
+index c7831fe..7f46c78 100644
+--- a/dongle/mt76.cpp
++++ b/dongle/mt76.cpp
+@@ -498,8 +498,7 @@ bool MT76::initRegisters()
+     controlWrite(MT_TX_PIN_CFG, 0x150f0f);
+     controlWrite(MT_TX_SW_CFG0, 0x101001);
+     controlWrite(MT_TX_SW_CFG1, 0x010000);
+-    controlWrite(MT_TXOP_CTRL_CFG, 0x583f);
+-    controlWrite(MT_TX_RTS_CFG, 0x092b20);
++    controlWrite(MT_TXOP_CTRL_CFG, 0x10583f);
+     controlWrite(MT_TX_TIMEOUT_CFG, 0x0a0f90);
+     controlWrite(MT_TX_RETRY_CFG, 0x47d01f0f);
+     controlWrite(MT_CCK_PROT_CFG, 0x03f40003);
+@@ -508,13 +507,10 @@ bool MT76::initRegisters()
+     controlWrite(MT_GF20_PROT_CFG, 0x01742004);
+     controlWrite(MT_GF40_PROT_CFG, 0x03f42084);
+     controlWrite(MT_EXP_ACK_TIME, 0x2c00dc);
+-    controlWrite(MT_TX0_RF_GAIN_ATTEN, 0x22160a00);
++    controlWrite(MT_TX_ALC_CFG_2, 0x22160a00);
+     controlWrite(MT_TX_ALC_CFG_3, 0x22160a76);
+     controlWrite(MT_TX_ALC_CFG_0, 0x3f3f1818);
+     controlWrite(MT_TX_ALC_CFG_4, 0x80000606);
+-    controlWrite(MT_TX_PROT_CFG6, 0xe3f52004);
+-    controlWrite(MT_TX_PROT_CFG7, 0xe3f52084);
+-    controlWrite(MT_TX_PROT_CFG8, 0xe3f52104);
+     controlWrite(MT_PIFS_TX_CFG, 0x060fff);
+     controlWrite(MT_RX_FILTR_CFG, 0x015f9f);
+     controlWrite(MT_LEGACY_BASIC_RATE, 0x017f);
+@@ -535,8 +531,15 @@ bool MT76::initRegisters()
+     controlWrite(MT_FCE_L2_STUFF, 0x03ff0223);
+     controlWrite(MT_TX_RTS_CFG, 0);
+     controlWrite(MT_BEACON_TIME_CFG, 0x0640);
+-    controlWrite(MT_CMB_CTRL, 0x0091a7ff);
+-    controlWrite(MT_BBP(TXBE, 5), 0);
++    controlWrite(MT_EXT_CCA_CFG, 0x0000f0e4);
++    controlWrite(MT_CH_TIME_CFG, 0x0000015f);
++
++    // Calibrate internal crystal oscillator
++    calibrateCrystal();
++
++    // Setup automatic gain control (AGC)
++    controlWrite(MT_BBP(AGC, 8), 0x18365efa);
++    controlWrite(MT_BBP(AGC, 9), 0x18365efa);
+ 
+     // Necessary for reliable WLAN associations
+     controlWrite(MT_RF_BYPASS_0, 0x7f000000);
+@@ -544,18 +547,7 @@ bool MT76::initRegisters()
+     controlWrite(MT_RF_BYPASS_0, 0);
+     controlWrite(MT_RF_SETTING_0, 0);
+ 
+-    // Read crystal calibration from EFUSE
+-    uint32_t calibration = efuseRead(MT_EF_XTAL_CALIB, 3) >> 16;
+-
+-    controlWrite(MT_XO_CTRL5, calibration, MT_VEND_WRITE_CFG);
+-    controlWrite(MT_XO_CTRL6, MT_XO_CTRL6_C2_CTRL, MT_VEND_WRITE_CFG);
+-
+-    // Read MAC address from EFUSE
+-    uint32_t macAddress1 = efuseRead(MT_EF_MAC_ADDR, 1);
+-    uint32_t macAddress2 = efuseRead(MT_EF_MAC_ADDR, 2);
+-
+-    macAddress.append(macAddress1, 4);
+-    macAddress.append(macAddress2, 2);
++    macAddress = efuseRead(MT_EE_MAC_ADDR, 6);
+ 
+     if (!burstWrite(MT_MAC_ADDR_DW0, macAddress))
+     {
+@@ -571,7 +563,85 @@ bool MT76::initRegisters()
+         return false;
+     }
+ 
+-    Log::info("Chip address: %s", Log::formatBytes(macAddress).c_str());
++    uint16_t version = controlRead(MT_ASIC_VERSION) >> 16;
++    Bytes chipId = efuseRead(MT_EE_CHIP_ID, sizeof(uint32_t));
++    uint16_t id = (chipId[1] << 8) | chipId[2];
++
++    Log::debug("ASIC version: %x", version);
++    Log::debug("Chip id: %x", id);
++    Log::info("Wireless address: %s", Log::formatBytes(macAddress).c_str());
++
++    return true;
++}
++
++void MT76::calibrateCrystal()
++{
++    Bytes trim = efuseRead(MT_EE_XTAL_TRIM_2, sizeof(uint32_t));
++    uint16_t value = (trim[3] << 8) | trim[2];
++	int8_t offset = value & 0x7f;
++
++	if ((value & 0xff) == 0xff)
++    {
++		offset = 0;
++    }
++
++	else if (value & 0x80)
++    {
++		offset = -offset;
++    }
++
++	value >>= 8;
++
++	if (value == 0x00 || value == 0xff)
++    {
++		trim = efuseRead(MT_EE_XTAL_TRIM_1, sizeof(uint32_t));
++        value = (trim[3] << 8) | trim[2];
++		value &= 0xff;
++
++		if (value == 0x00 || value == 0xff)
++        {
++			value = 0x14;
++        }
++	}
++
++	value = (value & 0x7f) + offset;
++
++    uint32_t ctrl = controlRead(MT_XO_CTRL5) & ~MT_XO_CTRL5_C2_VAL;
++
++	controlWrite(MT_XO_CTRL5, ctrl | (value << 8), MT_VEND_WRITE_CFG);
++	controlWrite(MT_XO_CTRL6, MT_XO_CTRL6_C2_CTRL, MT_VEND_WRITE_CFG);
++    controlWrite(MT_CMB_CTRL, 0x0091a7ff);
++}
++
++bool MT76::setupChannelCandidates()
++{
++    // List of possible wireless channels
++    // The radio might switch between them
++    // Further information is needed
++    Bytes candidates = {
++        0x01, 0xa5,
++        0x0b, 0x01,
++        0x06, 0x0b,
++        0x24, 0x28,
++        0x2c, 0x30,
++        0x95, 0x99,
++        0x9d, 0xa1
++    };
++    Bytes values;
++
++    // Map channels to 32-bit values
++    for (uint32_t channel : candidates)
++    {
++        values.append(channel);
++    }
++
++    // Send channel candidates
++    if (!initGain(7, values))
++    {
++        Log::error("Failed to send channel candidates");
++
++        return false;
++    }
+ 
+     return true;
+ }
+@@ -687,10 +757,6 @@ bool MT76::loadFirmwarePart(
+ 
+ void MT76::initChip()
+ {
+-    uint16_t version = controlRead(MT_ASIC_VERSION) >> 16;
+-
+-    Log::debug("Chip version: %x", version);
+-
+     // Select RX ring buffer 1
+     // Turn radio on
+     // Load BBP command register
+@@ -702,7 +768,6 @@ void MT76::initChip()
+         throw MT76Exception("Failed to init radio");
+     }
+ 
+-    // Write initial register values
+     if (!initRegisters())
+     {
+         throw MT76Exception("Failed to init registers");
+@@ -710,7 +775,6 @@ void MT76::initChip()
+ 
+     controlWrite(MT_MAC_SYS_CTRL, 0);
+ 
+-    // Calibrate chip
+     if (
+         !calibrate(MCU_CAL_TEMP_SENSOR, 0) ||
+         !calibrate(MCU_CAL_RXDCOC, 1) ||
+@@ -724,23 +788,25 @@ void MT76::initChip()
+         MT_MAC_SYS_CTRL_ENABLE_TX | MT_MAC_SYS_CTRL_ENABLE_RX
+     );
+ 
+-    // Set default channel
+     if (!switchChannel(MT_CHANNEL))
+     {
+         throw MT76Exception("Failed to set channel");
+     }
+ 
+-    // Write MAC address
+     if (!initGain(0, macAddress))
+     {
+         throw MT76Exception("Failed to init gain");
+     }
+ 
+-    // Start beacon transmission
+     if (!writeBeacon())
+     {
+         throw MT76Exception("Failed to write beacon");
+     }
++
++    if (!setupChannelCandidates())
++    {
++        throw MT76Exception("Failed to setup channel candidates");
++    }
+ }
+ 
+ bool MT76::writeBeacon(bool pairing)
+@@ -996,7 +1062,7 @@ bool MT76::sendCommand(McuCommand command, const Bytes &data)
+     return true;
+ }
+ 
+-uint32_t MT76::efuseRead(uint8_t address, uint8_t index)
++Bytes MT76::efuseRead(uint8_t address, uint8_t length)
+ {
+     EfuseControl control = {};
+ 
+@@ -1004,14 +1070,28 @@ uint32_t MT76::efuseRead(uint8_t address, uint8_t index)
+     // Kick-off read
+     control.value = controlRead(MT_EFUSE_CTRL);
+     control.props.mode = 0;
+-    control.props.addressIn = address;
++    control.props.addressIn = address & 0xf0;
+     control.props.kick = 1;
+ 
+     controlWrite(MT_EFUSE_CTRL, control.value);
+ 
+     while (controlRead(MT_EFUSE_CTRL) & MT_EFUSE_CTRL_KICK);
+ 
+-    return controlRead(MT_EFUSE_DATA(index));
++    Bytes data;
++
++    for (uint8_t i = 0; i < length; i += sizeof(uint32_t))
++    {
++        uint8_t offset = i + (address & 0x0c);
++        uint32_t value = controlRead(MT_EFUSE_DATA_BASE + offset);
++        uint8_t remaining = length - i;
++        uint8_t size = remaining < sizeof(uint32_t)
++            ? remaining
++            : sizeof(uint32_t);
++
++        data.append(value, size);
++    }
++
++    return data;
+ }
+ 
+ uint32_t MT76::controlRead(uint16_t address, VendorRequest request)
+diff --git a/dongle/mt76.h b/dongle/mt76.h
+index 76348d2..0ad641f 100644
+--- a/dongle/mt76.h
++++ b/dongle/mt76.h
+@@ -713,6 +713,73 @@
+ #define MT_TEMP_SENSOR 0x1d000
+ #define MT_TEMP_SENSOR_VAL GENMASK(6, 0)
+ 
++#define MT_EE_CHIP_ID 0x000
++#define MT_EE_VERSION 0x002
++#define MT_EE_MAC_ADDR 0x004
++#define MT_EE_PCI_ID 0x00A
++#define MT_EE_ANTENNA 0x022
++#define MT_EE_CFG1_INIT 0x024
++#define MT_EE_NIC_CONF_0 0x034
++#define MT_EE_NIC_CONF_1 0x036
++#define MT_EE_COUNTRY_REGION_5GHZ 0x038
++#define MT_EE_COUNTRY_REGION_2GHZ 0x039
++#define MT_EE_FREQ_OFFSET 0x03a
++#define MT_EE_NIC_CONF_2 0x042
++#define MT_EE_XTAL_TRIM_1 0x03a
++#define MT_EE_XTAL_TRIM_2 0x09e
++#define MT_EE_LNA_GAIN 0x044
++#define MT_EE_RSSI_OFFSET_2G_0 0x046
++#define MT_EE_RSSI_OFFSET_2G_1 0x048
++#define MT_EE_LNA_GAIN_5GHZ_1 0x049
++#define MT_EE_RSSI_OFFSET_5G_0 0x04a
++#define MT_EE_RSSI_OFFSET_5G_1 0x04c
++#define MT_EE_LNA_GAIN_5GHZ_2 0x04d
++#define MT_EE_TX_POWER_DELTA_BW40 0x050
++#define MT_EE_TX_POWER_DELTA_BW80 0x052
++#define MT_EE_TX_POWER_EXT_PA_5G 0x054
++#define MT_EE_TX_POWER_0_START_2G 0x056
++#define MT_EE_TX_POWER_1_START_2G 0x05c
++#define MT_EE_TX_POWER_0_START_5G 0x062
++#define MT_EE_TSSI_SLOPE_2G 0x06e
++#define MT_EE_TX_POWER_0_GRP3_TX_POWER_DELTA 0x074
++#define MT_EE_TX_POWER_0_GRP4_TSSI_SLOPE 0x076
++#define MT_EE_TX_POWER_1_START_5G 0x080
++#define MT_EE_TX_POWER_CCK 0x0a0
++#define MT_EE_TX_POWER_OFDM_2G_6M 0x0a2
++#define MT_EE_TX_POWER_OFDM_2G_24M 0x0a4
++#define MT_EE_TX_POWER_OFDM_5G_6M 0x0b2
++#define MT_EE_TX_POWER_OFDM_5G_24M 0x0b4
++#define MT_EE_TX_POWER_HT_MCS0 0x0a6
++#define MT_EE_TX_POWER_HT_MCS4 0x0a8
++#define MT_EE_TX_POWER_HT_MCS8 0x0aa
++#define MT_EE_TX_POWER_HT_MCS12 0x0ac
++#define MT_EE_TX_POWER_VHT_MCS0 0x0ba
++#define MT_EE_TX_POWER_VHT_MCS4 0x0bc
++#define MT_EE_TX_POWER_VHT_MCS8 0x0be
++#define MT_EE_2G_TARGET_POWER 0x0d0
++#define MT_EE_TEMP_OFFSET 0x0d1
++#define MT_EE_5G_TARGET_POWER 0x0d2
++#define MT_EE_TSSI_BOUND1 0x0d4
++#define MT_EE_TSSI_BOUND2 0x0d6
++#define MT_EE_TSSI_BOUND3 0x0d8
++#define MT_EE_TSSI_BOUND4 0x0da
++#define MT_EE_FREQ_OFFSET_COMPENSATION 0x0db
++#define MT_EE_TSSI_BOUND5 0x0dc
++#define MT_EE_TX_POWER_BYRATE_BASE 0x0de
++#define MT_EE_TSSI_SLOPE_5G 0x0f0
++#define MT_EE_RF_TEMP_COMP_SLOPE_5G 0x0f2
++#define MT_EE_RF_TEMP_COMP_SLOPE_2G 0x0f4
++#define MT_EE_RF_2G_TSSI_OFF_TXPOWER 0x0f6
++#define MT_EE_RF_2G_RX_HIGH_GAIN 0x0f8
++#define MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN 0x0fa
++#define MT_EE_RF_5G_GRP2_3_RX_HIGH_GAIN 0x0fc
++#define MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN 0x0fe
++#define MT_EE_BT_RCAL_RESULT 0x138
++#define MT_EE_BT_VCDL_CALIBRATION 0x13c
++#define MT_EE_BT_PMUCFG 0x13e
++#define MT_EE_USAGE_MAP_START 0x1e0
++#define MT_EE_USAGE_MAP_END 0x1fc
++
+ /* The defines below belong to this project */
+ 
+ // Endpoint numbers for reading and writing
+@@ -736,10 +803,6 @@
+ #define MT_DMA_COMPLETE 0xc0000000
+ #define MT_FW_LOAD_IVB 0x12
+ 
+-// EFUSE offsets
+-#define MT_EF_MAC_ADDR 0x00
+-#define MT_EF_XTAL_CALIB 0x90
+-
+ // Register offset in memory
+ #define MT_REG_OFFSET 0x410000
+ 
+@@ -1220,6 +1283,8 @@ private:
+ 
+     /* Initialization routines */
+     bool initRegisters();
++    void calibrateCrystal();
++    bool setupChannelCandidates();
+     void loadFirmware();
+     bool loadFirmwarePart(
+         uint32_t offset,
+@@ -1238,7 +1303,7 @@ private:
+     bool switchChannel(uint8_t channel);
+     bool initGain(uint32_t index, const Bytes &values);
+     bool setLedMode(uint32_t index);
+-    uint32_t efuseRead(uint8_t address, uint8_t index);
++    Bytes efuseRead(uint8_t address, uint8_t index);
+ 
+     /* USB transfer */
+     uint32_t controlRead(

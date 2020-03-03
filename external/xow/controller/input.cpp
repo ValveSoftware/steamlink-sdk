@@ -69,7 +69,7 @@ void InputDevice::addKey(uint16_t code)
     }
 }
 
-void InputDevice::addAxis(uint16_t code, int32_t min, int32_t max)
+void InputDevice::addAxis(uint16_t code, AxisConfig config)
 {
     if (
         ioctl(file, UI_SET_EVBIT, EV_ABS) < 0 ||
@@ -82,16 +82,20 @@ void InputDevice::addAxis(uint16_t code, int32_t min, int32_t max)
     uinput_abs_setup setup = {};
 
     setup.code = code;
-    setup.absinfo.minimum = min;
-    setup.absinfo.maximum = max;
+    setup.absinfo.minimum = config.minimum;
+    setup.absinfo.maximum = config.maximum;
+    setup.absinfo.fuzz = config.fuzz;
+    setup.absinfo.flat = config.flat;
 
     if (ioctl(file, UI_ABS_SETUP, &setup) < 0)
     {
         throw InputException("Error setting up axis");
     }
 #else
-    setup.absmin[code] = min;
-    setup.absmax[code] = max;
+    setup.absmin[code] = config.minimum;
+    setup.absmax[code] = config.maximum;
+    setup.absfuzz[code] = config.fuzz;
+    setup.absflat[code] = config.flat;
 #endif
 }
 
@@ -150,7 +154,7 @@ void InputDevice::readEvents()
     polls[0].events = POLLIN;
     polls[1].events = POLLIN;
 
-    std::thread([=]() mutable
+    std::thread([this, polls]() mutable
     {
         while (poll(polls, 2, -1) > 0)
         {

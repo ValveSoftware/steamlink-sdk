@@ -28,6 +28,9 @@ extern uint8_t _binary_firmware_bin_end[];
 
 void MT76::added()
 {
+    macAddress.clear();
+    connectedWcids = 0;
+
     loadFirmware();
     initChip();
 
@@ -51,19 +54,21 @@ void MT76::added()
     }).detach();
 }
 
-void MT76::removed()
+void MT76::terminate()
 {
-    macAddress.clear();
-
-    for (Bytes &address : clients)
+    if (!setLedMode(MT_LED_OFF))
     {
-        address.clear();
+        Log::error("Failed to turn off LED");
+    }
+
+    if (!powerMode(RADIO_OFF))
+    {
+        Log::error("Failed to turn off radio");
     }
 }
 
 void MT76::handleWlanPacket(const Bytes &packet)
 {
-    const RxWi *rxWi = packet.toStruct<RxWi>();
     const WlanFrame *wlanFrame = packet.toStruct<WlanFrame>(sizeof(RxWi));
 
     const Bytes source(
@@ -108,31 +113,16 @@ void MT76::handleWlanPacket(const Bytes &packet)
         clientConnected(wcid, source);
     }
 
-    else if (subtype == MT_WLAN_DISASSOC)
+    // Reserved frames are used for different purposes
+    // Most of them are yet to be discovered
+    else if (subtype == MT_WLAN_RESERVED)
     {
-        Log::debug(
-            "Client disassociating: %s",
-            Log::formatBytes(source).c_str()
-        );
-
-        if (!disassociateClient(rxWi->wcid))
-        {
-            Log::error("Failed to disassociate client");
-
-            return;
-        }
-
-        clientDisconnected(rxWi->wcid, source);
-    }
-
-    else if (subtype == MT_WLAN_PAIR)
-    {
-        const PairingFrame *pairingFrame = packet.toStruct<PairingFrame>(
+        const ReservedFrame *frame = packet.toStruct<ReservedFrame>(
             sizeof(RxWi) + sizeof(WlanFrame)
         );
 
-        // Pairing frame 'unknown' is always 0x70, 'type' is 0x01 for pairing
-        if (pairingFrame->type != 0x01)
+        // Type 0x01 is for pairing requests
+        if (frame->type != 0x01)
         {
             return;
         }
@@ -171,6 +161,34 @@ void MT76::handleClientPacket(const Bytes &packet)
     packetReceived(rxWi->wcid, data);
 }
 
+void MT76::handleClientLost(const Bytes &packet)
+{
+    // Invalid packet
+    if (packet.size() < 1)
+    {
+        return;
+    }
+
+    uint8_t wcid = packet[0];
+
+    // Invalid WCID or not connected
+    if (!wcid || !(connectedWcids & BIT(wcid - 1)))
+    {
+        return;
+    }
+
+    Log::debug("Client lost: %d", wcid);
+
+    if (!removeClient(wcid))
+    {
+        Log::error("Failed to remove client");
+
+        return;
+    }
+
+    clientDisconnected(wcid);
+}
+
 void MT76::handleButtonPress()
 {
     // Start sending the 'pairing' beacon
@@ -205,12 +223,16 @@ void MT76::handleBulkPacket(const Bytes &packet)
     if (rxInfo->port == CPU_RX_PORT)
     {
         const RxInfoCommand *info = packet.toStruct<RxInfoCommand>();
+        const Bytes data(packet, sizeof(RxInfoCommand));
 
         if (info->eventType == EVT_PACKET_RX)
         {
-            const Bytes data(packet, sizeof(RxInfoCommand));
-
             handleClientPacket(data);
+        }
+
+        else if (info->eventType == EVT_CLIENT_LOST)
+        {
+            handleClientLost(data);
         }
 
         else if (info->eventType == EVT_BUTTON_PRESS)
@@ -234,27 +256,18 @@ void MT76::handleBulkPacket(const Bytes &packet)
 
 uint8_t MT76::associateClient(Bytes address)
 {
-    auto match = std::find(clients.begin(), clients.end(), address);
+    // Find first available WCID
+    uint16_t freeWcids = static_cast<uint16_t>(~connectedWcids);
+    uint8_t wcid = __builtin_ffs(freeWcids);
 
-    // Clients is not already connected
-    if (match == clients.end())
+    if (!wcid)
     {
-        // Find first unused WCID
-        match = std::find(clients.begin(), clients.end(), Bytes());
+        Log::error("All WCIDs are taken");
 
-        if (match == clients.end())
-        {
-            Log::error("All WCIDs are taken");
-
-            return 0;
-        }
-
-        *match = address;
+        return 0;
     }
 
-    uint8_t wcid = std::distance(clients.begin(), match) + 1;
-
-    Log::debug("Client identifier: %d", wcid);
+    connectedWcids |= BIT(wcid - 1);
 
     TxWi txWi = {};
 
@@ -301,7 +314,7 @@ uint8_t MT76::associateClient(Bytes address)
 
     if (!initGain(1, gain))
     {
-        Log::error("Failed to init association gain");
+        Log::error("Failed to init gain");
 
         return 0;
     }
@@ -323,17 +336,33 @@ uint8_t MT76::associateClient(Bytes address)
     return wcid;
 }
 
-bool MT76::disassociateClient(uint8_t wcid)
+bool MT76::removeClient(uint8_t wcid)
 {
     const Bytes emptyAddress = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    const Bytes gain = {
+        static_cast<uint8_t>(wcid - 1), 0x00, 0x00, 0x00
+    };
 
-    Log::debug("Client identifier: %d", wcid);
+    // Remove WCID from connected clients
+    connectedWcids &= ~BIT(wcid - 1);
 
-    clients[wcid].clear();
+    if (!initGain(2, gain))
+    {
+        Log::error("Failed to reset gain");
+
+        return false;
+    }
 
     if (!burstWrite(MT_WCID_ADDR(wcid), emptyAddress))
     {
         Log::error("Failed to write WCID");
+
+        return false;
+    }
+
+    if (!connectedWcids && !setLedMode(MT_LED_OFF))
+    {
+        Log::error("Failed to set LED mode");
 
         return false;
     }
@@ -343,7 +372,11 @@ bool MT76::disassociateClient(uint8_t wcid)
 
 bool MT76::pairClient(Bytes address)
 {
-    const Bytes data = { 0x70, 0x02, 0x00 };
+    const Bytes data = {
+        0x70, 0x02, 0x00, 0x45,
+        0x55, 0x01, 0x0f, 0x8f,
+        0xff, 0x87, 0x1f
+    };
 
     TxWi txWi = {};
 
@@ -358,7 +391,7 @@ bool MT76::pairClient(Bytes address)
     WlanFrame wlanFrame = {};
 
     wlanFrame.frameControl.type = MT_WLAN_MGMT;
-    wlanFrame.frameControl.subtype = MT_WLAN_PAIR;
+    wlanFrame.frameControl.subtype = MT_WLAN_RESERVED;
 
     address.copy(wlanFrame.destination);
     macAddress.copy(wlanFrame.source);
@@ -377,6 +410,21 @@ bool MT76::pairClient(Bytes address)
         return false;
     }
 
+    // Stop sending the 'pairing' beacon
+    if (!writeBeacon())
+    {
+        Log::error("Failed to write beacon");
+
+        return false;
+    }
+
+    if (!setLedMode(MT_LED_ON))
+    {
+        Log::error("Failed to set LED mode");
+
+        return false;
+    }
+
     return true;
 }
 
@@ -385,7 +433,7 @@ bool MT76::sendWlanPacket(const Bytes &data)
     // Values must be 32-bit aligned
     // 32 zero-bits mark the end
     uint32_t length = data.size();
-    uint8_t padding = length % sizeof(uint32_t);
+    uint8_t padding = sizeof(uint32_t) - length % sizeof(uint32_t);
 
     TxInfoPacket info = {};
 
@@ -452,8 +500,7 @@ bool MT76::initRegisters()
     controlWrite(MT_TX_PIN_CFG, 0x150f0f);
     controlWrite(MT_TX_SW_CFG0, 0x101001);
     controlWrite(MT_TX_SW_CFG1, 0x010000);
-    controlWrite(MT_TXOP_CTRL_CFG, 0x583f);
-    controlWrite(MT_TX_RTS_CFG, 0x092b20);
+    controlWrite(MT_TXOP_CTRL_CFG, 0x10583f);
     controlWrite(MT_TX_TIMEOUT_CFG, 0x0a0f90);
     controlWrite(MT_TX_RETRY_CFG, 0x47d01f0f);
     controlWrite(MT_CCK_PROT_CFG, 0x03f40003);
@@ -462,13 +509,10 @@ bool MT76::initRegisters()
     controlWrite(MT_GF20_PROT_CFG, 0x01742004);
     controlWrite(MT_GF40_PROT_CFG, 0x03f42084);
     controlWrite(MT_EXP_ACK_TIME, 0x2c00dc);
-    controlWrite(MT_TX0_RF_GAIN_ATTEN, 0x22160a00);
+    controlWrite(MT_TX_ALC_CFG_2, 0x22160a00);
     controlWrite(MT_TX_ALC_CFG_3, 0x22160a76);
     controlWrite(MT_TX_ALC_CFG_0, 0x3f3f1818);
     controlWrite(MT_TX_ALC_CFG_4, 0x80000606);
-    controlWrite(MT_TX_PROT_CFG6, 0xe3f52004);
-    controlWrite(MT_TX_PROT_CFG7, 0xe3f52084);
-    controlWrite(MT_TX_PROT_CFG8, 0xe3f52104);
     controlWrite(MT_PIFS_TX_CFG, 0x060fff);
     controlWrite(MT_RX_FILTR_CFG, 0x015f9f);
     controlWrite(MT_LEGACY_BASIC_RATE, 0x017f);
@@ -489,8 +533,15 @@ bool MT76::initRegisters()
     controlWrite(MT_FCE_L2_STUFF, 0x03ff0223);
     controlWrite(MT_TX_RTS_CFG, 0);
     controlWrite(MT_BEACON_TIME_CFG, 0x0640);
-    controlWrite(MT_CMB_CTRL, 0x0091a7ff);
-    controlWrite(MT_BBP(TXBE, 5), 0);
+    controlWrite(MT_EXT_CCA_CFG, 0x0000f0e4);
+    controlWrite(MT_CH_TIME_CFG, 0x0000015f);
+
+    // Calibrate internal crystal oscillator
+    calibrateCrystal();
+
+    // Setup automatic gain control (AGC)
+    controlWrite(MT_BBP(AGC, 8), 0x18365efa);
+    controlWrite(MT_BBP(AGC, 9), 0x18365efa);
 
     // Necessary for reliable WLAN associations
     controlWrite(MT_RF_BYPASS_0, 0x7f000000);
@@ -498,18 +549,7 @@ bool MT76::initRegisters()
     controlWrite(MT_RF_BYPASS_0, 0);
     controlWrite(MT_RF_SETTING_0, 0);
 
-    // Read crystal calibration from EFUSE
-    uint32_t calibration = efuseRead(MT_EF_XTAL_CALIB, 3) >> 16;
-
-    controlWrite(MT_XO_CTRL5, calibration, MT_VEND_WRITE_CFG);
-    controlWrite(MT_XO_CTRL6, MT_XO_CTRL6_C2_CTRL, MT_VEND_WRITE_CFG);
-
-    // Read MAC address from EFUSE
-    uint32_t macAddress1 = efuseRead(MT_EF_MAC_ADDR, 1);
-    uint32_t macAddress2 = efuseRead(MT_EF_MAC_ADDR, 2);
-
-    macAddress.append(macAddress1, 4);
-    macAddress.append(macAddress2, 2);
+    macAddress = efuseRead(MT_EE_MAC_ADDR, 6);
 
     if (!burstWrite(MT_MAC_ADDR_DW0, macAddress))
     {
@@ -525,7 +565,85 @@ bool MT76::initRegisters()
         return false;
     }
 
-    Log::info("Chip address: %s", Log::formatBytes(macAddress).c_str());
+    uint16_t version = controlRead(MT_ASIC_VERSION) >> 16;
+    Bytes chipId = efuseRead(MT_EE_CHIP_ID, sizeof(uint32_t));
+    uint16_t id = (chipId[1] << 8) | chipId[2];
+
+    Log::debug("ASIC version: %x", version);
+    Log::debug("Chip id: %x", id);
+    Log::info("Wireless address: %s", Log::formatBytes(macAddress).c_str());
+
+    return true;
+}
+
+void MT76::calibrateCrystal()
+{
+    Bytes trim = efuseRead(MT_EE_XTAL_TRIM_2, sizeof(uint32_t));
+    uint16_t value = (trim[3] << 8) | trim[2];
+	int8_t offset = value & 0x7f;
+
+	if ((value & 0xff) == 0xff)
+    {
+		offset = 0;
+    }
+
+	else if (value & 0x80)
+    {
+		offset = -offset;
+    }
+
+	value >>= 8;
+
+	if (value == 0x00 || value == 0xff)
+    {
+		trim = efuseRead(MT_EE_XTAL_TRIM_1, sizeof(uint32_t));
+        value = (trim[3] << 8) | trim[2];
+		value &= 0xff;
+
+		if (value == 0x00 || value == 0xff)
+        {
+			value = 0x14;
+        }
+	}
+
+	value = (value & 0x7f) + offset;
+
+    uint32_t ctrl = controlRead(MT_XO_CTRL5) & ~MT_XO_CTRL5_C2_VAL;
+
+	controlWrite(MT_XO_CTRL5, ctrl | (value << 8), MT_VEND_WRITE_CFG);
+	controlWrite(MT_XO_CTRL6, MT_XO_CTRL6_C2_CTRL, MT_VEND_WRITE_CFG);
+    controlWrite(MT_CMB_CTRL, 0x0091a7ff);
+}
+
+bool MT76::setupChannelCandidates()
+{
+    // List of possible wireless channels
+    // The radio might switch between them
+    // Further information is needed
+    Bytes candidates = {
+        0x01, 0xa5,
+        0x0b, 0x01,
+        0x06, 0x0b,
+        0x24, 0x28,
+        0x2c, 0x30,
+        0x95, 0x99,
+        0x9d, 0xa1
+    };
+    Bytes values;
+
+    // Map channels to 32-bit values
+    for (uint32_t channel : candidates)
+    {
+        values.append(channel);
+    }
+
+    // Send channel candidates
+    if (!initGain(7, values))
+    {
+        Log::error("Failed to send channel candidates");
+
+        return false;
+    }
 
     return true;
 }
@@ -534,9 +652,18 @@ void MT76::loadFirmware()
 {
     if (controlRead(MT_FCE_DMA_ADDR, MT_VEND_READ_CFG))
     {
-        Log::debug("Firmware already loaded");
+        Log::debug("Firmware already loaded, resetting...");
 
-        return;
+        uint32_t patch = controlRead(MT_RF_PATCH, MT_VEND_READ_CFG);
+
+        patch &= ~BIT(19);
+
+        // Mandatory for already initialized radios
+        controlWrite(MT_RF_PATCH, patch, MT_VEND_WRITE_CFG);
+        controlWrite(MT_FW_RESET_IVB, 0, MT_VEND_DEV_MODE);
+
+        // Wait for firmware to reset
+        while (controlRead(MT_FCE_DMA_ADDR, MT_VEND_READ_CFG) != 0x80000000);
     }
 
     DmaConfig config = {};
@@ -564,12 +691,13 @@ void MT76::loadFirmware()
     Bytes::Iterator dlmStart = ilmStart + header->ilmLength;
     Bytes::Iterator dlmEnd = dlmStart + header->dlmLength;
 
-    // Upload firmware parts (ILM and DLM)
+    // Upload instruction local memory (ILM)
     if (!loadFirmwarePart(MT_MCU_ILM_OFFSET, ilmStart, dlmStart))
     {
         throw MT76Exception("Failed to write ILM");
     }
 
+    // Upload data local memory (DLM)
     if (!loadFirmwarePart(MT_MCU_DLM_OFFSET, dlmStart, dlmEnd))
     {
         throw MT76Exception("Failed to write DLM");
@@ -631,10 +759,6 @@ bool MT76::loadFirmwarePart(
 
 void MT76::initChip()
 {
-    uint16_t version = controlRead(MT_ASIC_VERSION) >> 16;
-
-    Log::debug("Chip version: %x", version);
-
     // Select RX ring buffer 1
     // Turn radio on
     // Load BBP command register
@@ -646,21 +770,13 @@ void MT76::initChip()
         throw MT76Exception("Failed to init radio");
     }
 
-    // Write initial register values
     if (!initRegisters())
     {
         throw MT76Exception("Failed to init registers");
     }
 
-    // Turn off LED
-    if (!setLedMode(MT_LED_OFF))
-    {
-        throw MT76Exception("Failed to turn off LED");
-    }
-
     controlWrite(MT_MAC_SYS_CTRL, 0);
 
-    // Calibrate chip
     if (
         !calibrate(MCU_CAL_TEMP_SENSOR, 0) ||
         !calibrate(MCU_CAL_RXDCOC, 1) ||
@@ -674,22 +790,24 @@ void MT76::initChip()
         MT_MAC_SYS_CTRL_ENABLE_TX | MT_MAC_SYS_CTRL_ENABLE_RX
     );
 
-    // Set default channel
     if (!switchChannel(MT_CHANNEL))
     {
         throw MT76Exception("Failed to set channel");
     }
 
-    // Write MAC address
     if (!initGain(0, macAddress))
     {
         throw MT76Exception("Failed to init gain");
     }
 
-    // Start beacon transmission
     if (!writeBeacon())
     {
         throw MT76Exception("Failed to write beacon");
+    }
+
+    if (!setupChannelCandidates())
+    {
+        throw MT76Exception("Failed to setup channel candidates");
     }
 }
 
@@ -824,7 +942,7 @@ bool MT76::loadCr(McuCrMode mode)
 
 bool MT76::burstWrite(uint32_t index, const Bytes &values)
 {
-    index += MT_BURST_WRITE;
+    index += MT_REG_OFFSET;
 
     Bytes data;
 
@@ -919,7 +1037,7 @@ bool MT76::sendCommand(McuCommand command, const Bytes &data)
     // Values must be 32-bit aligned
     // 32 zero-bits mark the end
     uint32_t length = data.size();
-    uint8_t padding = length % sizeof(uint32_t);
+    uint8_t padding = sizeof(uint32_t) - length % sizeof(uint32_t);
 
     // We ignore responses, sequence number is always zero
     TxInfoCommand info = {};
@@ -946,7 +1064,7 @@ bool MT76::sendCommand(McuCommand command, const Bytes &data)
     return true;
 }
 
-uint32_t MT76::efuseRead(uint8_t address, uint8_t index)
+Bytes MT76::efuseRead(uint8_t address, uint8_t length)
 {
     EfuseControl control = {};
 
@@ -954,14 +1072,28 @@ uint32_t MT76::efuseRead(uint8_t address, uint8_t index)
     // Kick-off read
     control.value = controlRead(MT_EFUSE_CTRL);
     control.props.mode = 0;
-    control.props.addressIn = address;
+    control.props.addressIn = address & 0xf0;
     control.props.kick = 1;
 
     controlWrite(MT_EFUSE_CTRL, control.value);
 
     while (controlRead(MT_EFUSE_CTRL) & MT_EFUSE_CTRL_KICK);
 
-    return controlRead(MT_EFUSE_DATA(index));
+    Bytes data;
+
+    for (uint8_t i = 0; i < length; i += sizeof(uint32_t))
+    {
+        uint8_t offset = i + (address & 0x0c);
+        uint32_t value = controlRead(MT_EFUSE_DATA_BASE + offset);
+        uint8_t remaining = length - i;
+        uint8_t size = remaining < sizeof(uint32_t)
+            ? remaining
+            : sizeof(uint32_t);
+
+        data.append(value, size);
+    }
+
+    return data;
 }
 
 uint32_t MT76::controlRead(uint16_t address, VendorRequest request)

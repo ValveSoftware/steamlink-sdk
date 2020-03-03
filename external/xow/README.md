@@ -1,8 +1,24 @@
-# xow [![Build Status](https://img.shields.io/travis/com/medusalix/xow)](https://travis-ci.com/medusalix/xow) [![Release](https://img.shields.io/github/v/release/medusalix/xow)](https://github.com/medusalix/xow/releases/latest) [![Donate](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=PLN6F3UGS37DE&lc=US)
+<p align="center">
+    <img src="logo.png" alt="Logo">
+</p>
+
+<p align="center">
+    <a href="https://travis-ci.com/medusalix/xow">
+        <img src="https://img.shields.io/travis/com/medusalix/xow" alt="Build Badge">
+    </a>
+    <a href="https://github.com/medusalix/xow/releases/latest">
+        <img src="https://img.shields.io/github/v/release/medusalix/xow" alt="Release Badge">
+    </a>
+    <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=PLN6F3UGS37DE&lc=US">
+        <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" alt="Donate Button">
+    </a>
+</p>
 
 <p align="center">
   <img src="screenshot.png" alt="Screenshot">
 </p>
+
+## About
 
 xow is a Linux user mode driver for the Xbox One wireless dongle.
 It communicates with the dongle via `libusb` and provides joystick input through the `uinput` kernel module.
@@ -16,33 +32,27 @@ In case of problems, please open an issue with all the relevant details (dongle 
 xow supports both versions of the wireless dongle (slim and bulky one).
 The following Xbox One controllers are currently compatible with the driver:
 
-| Model number | Year | Additional information  | Status       |
-|--------------|------|-------------------------|--------------|
-| 1537         | 2013 | Original controller     | **Broken**   |
-| 1697         | 2015 | Added audio jack        | **Working**  |
-| 1698         | 2015 | Elite controller        | **Working**  |
-| 1708         | 2016 | Bluetooth functionality | **Working**  |
-| ????         | 2019 | Elite controller 2      | **Untested** |
+| Model number | Year | Additional information    | Status       |
+|--------------|------|---------------------------|--------------|
+| 1537         | 2013 | Original controller       | **Working*** |
+| 1697         | 2015 | Added audio jack          | **Working**  |
+| 1698         | 2015 | Elite controller          | **Working**  |
+| 1708         | 2016 | Bluetooth functionality   | **Working**  |
+| 1797         | 2019 | Elite controller series 2 | **Working**  |
 
-## Planned features
-
-#### Make controller's LEDs and power settings accessible
-
-Ideally, other applications should be able to query/set these things.
-
-#### Automatic channel selection
-
-The Windows driver goes through all channels and reads `MT_CH_IDLE` and `MT_CH_BUSY` to select the best one.
-I have not figured out what these values are and how they are used to determine the least noisy channel.
-
-Any **help/suggestions** regarding the planned features is much appreciated.
+*Some controllers (especially model 1537) might not pair on the first try.
+If they refuse to pair after multiple attempts you may have to pair them on Windows.
+The cause of the pairing problems is known but no solution has been found yet.
 
 ## Releases
 
-- [Arch Linux](https://aur.archlinux.org/packages/xow-git)
+- Arch Linux ([master](https://aur.archlinux.org/packages/xow-git), [stable](https://aur.archlinux.org/packages/xow))
+- Debian (coming soon)
+- GamerOS (starting with [version 13](https://github.com/gamer-os/gamer-os/releases/tag/13))
+- Steam Link (starting with [build 747](https://steamcommunity.com/app/353380/discussions/0/1735510154204276395))
 
-Feel free to create prebuilt releases of xow for any package repository you like.
-Ideally, I would like to provide binaries for every major Linux distribution.
+Feel free to create prebuilt releases of xow for any Linux distribution or hardware you like.
+Any issues regarding the packaging should be reported to the respective maintainers.
 
 ## Building
 
@@ -67,6 +77,8 @@ sudo make install
 sudo systemctl enable xow
 sudo systemctl start xow
 ```
+
+**NOTE:** A reboot might be required for xow to work correctly.
 
 **Option 2:** Run xow manually:
 
@@ -93,7 +105,7 @@ The dongle's wireless chip (MT76xx) handles the WLAN connection with individual 
 The packet format follows Microsoft's undisclosed GIP (Game Input Protocol) specification.
 Most of the reverse engineering was done by capturing the communication between the dongle and a Windows PC using [`Wireshark`](https://www.wireshark.org).
 As no datasheets for this chip are publicly available, I have used datasheets of similar wireless radios for assistance.
-Special thanks to the authors of Linux' [`mt76`](https://github.com/torvalds/linux/tree/master/drivers/net/wireless/mediatek/mt76) kernel driver.
+Special thanks to the authors of OpenWrt's [`mt76`](https://github.com/openwrt/mt76) kernel driver.
 It would have been impossible for me to create this driver without `mt76`'s source code.
 If anyone has a greater understanding of the GIP or the weird quirks I had to add to make the driver work (like `initGain`), please contact me.
 

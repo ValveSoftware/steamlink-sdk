@@ -145,7 +145,7 @@
 #define MT_INT_RX_DONE(_n) BIT(_n)
 #define MT_INT_RX_DONE_ALL GENMASK(1, 0)
 #define MT_INT_TX_DONE_ALL GENMASK(13, 4)
-#define MT_INT_TX_DONE(_n) BIT(_n + 4)
+#define MT_INT_TX_DONE(_n) BIT((_n) + 4)
 #define MT_INT_RX_COHERENT BIT(16)
 #define MT_INT_TX_COHERENT BIT(17)
 #define MT_INT_ANY_COHERENT BIT(18)
@@ -188,7 +188,7 @@
 
 #define MT_WMM_TXOP_BASE 0x0220
 #define MT_WMM_TXOP(_n) (MT_WMM_TXOP_BASE + (((_n) / 2) << 2))
-#define MT_WMM_TXOP_SHIFT(_n) ((_n & 1) * 16)
+#define MT_WMM_TXOP_SHIFT(_n) (((_n) & 1) * 16)
 #define MT_WMM_TXOP_MASK GENMASK(15, 0)
 
 #define MT_FCE_DMA_ADDR 0x0230
@@ -270,15 +270,9 @@
 #define MT_LED_S0(_n) (MT_LED_S0_BASE + 8 * (_n))
 #define MT_LED_S1_BASE 0x0780
 #define MT_LED_S1(_n) (MT_LED_S1_BASE + 8 * (_n))
-#define MT_LED_STATUS_OFF_MASK GENMASK(31, 24)
-#define MT_LED_STATUS_OFF(_v) (((_v) << __ffs(MT_LED_STATUS_OFF_MASK)) & \
-    MT_LED_STATUS_OFF_MASK)
-#define MT_LED_STATUS_ON_MASK GENMASK(23, 16)
-#define MT_LED_STATUS_ON(_v) (((_v) << __ffs(MT_LED_STATUS_ON_MASK)) & \
-    MT_LED_STATUS_ON_MASK)
-#define MT_LED_STATUS_DURATION_MASK GENMASK(15, 8)
-#define MT_LED_STATUS_DURATION(_v) (((_v) << __ffs(MT_LED_STATUS_DURATION_MASK)) & \
-    MT_LED_STATUS_DURATION_MASK)
+#define MT_LED_STATUS_OFF GENMASK(31, 24)
+#define MT_LED_STATUS_ON GENMASK(23, 16)
+#define MT_LED_STATUS_DURATION GENMASK(15, 8)
 
 #define MT_FCE_PSE_CTRL 0x0800
 #define MT_FCE_PARAMETERS 0x0804
@@ -505,8 +499,8 @@
 #define MT_PROT_RATE_SGI_OFDM_24 0x2104
 #define MT_PROT_TXOP_ALLOW_ALL GENMASK(25, 20)
 #define MT_PROT_TXOP_ALLOW_BW20 (MT_PROT_TXOP_ALLOW_ALL & \
-    ~MT_PROT_TXOP_ALLOW_MM40 & \
-    ~MT_PROT_TXOP_ALLOW_GF40)
+ ~MT_PROT_TXOP_ALLOW_MM40 & \
+ ~MT_PROT_TXOP_ALLOW_GF40)
 
 #define MT_EXP_ACK_TIME 0x1380
 
@@ -629,7 +623,7 @@
 
 #define MT_TX_AGG_CNT(_id) ((_id) < 8 ? \
     MT_TX_AGG_CNT_BASE0 + ((_id) << 2) : \
-    MT_TX_AGG_CNT_BASE1 + ((_id - 8) << 2))
+    MT_TX_AGG_CNT_BASE1 + (((_id) - 8) << 2))
 
 #define MT_TX_STAT_FIFO_EXT 0x1798
 #define MT_TX_STAT_FIFO_EXT_RETRY GENMASK(7, 0)
@@ -702,22 +696,89 @@
 
 #define MT_SKEY_BASE_0 0xac00
 #define MT_SKEY_BASE_1 0xb400
-#define MT_SKEY_0(_bss, _idx) (MT_SKEY_BASE_0 + (4 * (_bss) + _idx) * 32)
-#define MT_SKEY_1(_bss, _idx) (MT_SKEY_BASE_1 + (4 * ((_bss) & 7) + _idx) * 32)
-#define MT_SKEY(_bss, _idx) ((_bss & 8) ? MT_SKEY_1(_bss, _idx) : MT_SKEY_0(_bss, _idx))
+#define MT_SKEY_0(_bss, _idx) (MT_SKEY_BASE_0 + (4 * (_bss) + (_idx)) * 32)
+#define MT_SKEY_1(_bss, _idx) (MT_SKEY_BASE_1 + (4 * ((_bss) & 7) + (_idx)) * 32)
+#define MT_SKEY(_bss, _idx) (((_bss) & 8) ? MT_SKEY_1(_bss, _idx) : MT_SKEY_0(_bss, _idx))
 
 #define MT_SKEY_MODE_BASE_0 0xb000
 #define MT_SKEY_MODE_BASE_1 0xb3f0
-#define MT_SKEY_MODE_0(_bss) (MT_SKEY_MODE_BASE_0 + ((_bss / 2) << 2))
+#define MT_SKEY_MODE_0(_bss) (MT_SKEY_MODE_BASE_0 + (((_bss) / 2) << 2))
 #define MT_SKEY_MODE_1(_bss) (MT_SKEY_MODE_BASE_1 + ((((_bss) & 7) / 2) << 2))
-#define MT_SKEY_MODE(_bss) ((_bss & 8) ? MT_SKEY_MODE_1(_bss) : MT_SKEY_MODE_0(_bss))
+#define MT_SKEY_MODE(_bss) (((_bss) & 8) ? MT_SKEY_MODE_1(_bss) : MT_SKEY_MODE_0(_bss))
 #define MT_SKEY_MODE_MASK GENMASK(3, 0)
-#define MT_SKEY_MODE_SHIFT(_bss, _idx) (4 * ((_idx) + 4 * (_bss & 1)))
+#define MT_SKEY_MODE_SHIFT(_bss, _idx) (4 * ((_idx) + 4 * ((_bss) & 1)))
 
 #define MT_BEACON_BASE 0xc000
 
 #define MT_TEMP_SENSOR 0x1d000
 #define MT_TEMP_SENSOR_VAL GENMASK(6, 0)
+
+#define MT_EE_CHIP_ID 0x000
+#define MT_EE_VERSION 0x002
+#define MT_EE_MAC_ADDR 0x004
+#define MT_EE_PCI_ID 0x00A
+#define MT_EE_ANTENNA 0x022
+#define MT_EE_CFG1_INIT 0x024
+#define MT_EE_NIC_CONF_0 0x034
+#define MT_EE_NIC_CONF_1 0x036
+#define MT_EE_COUNTRY_REGION_5GHZ 0x038
+#define MT_EE_COUNTRY_REGION_2GHZ 0x039
+#define MT_EE_FREQ_OFFSET 0x03a
+#define MT_EE_NIC_CONF_2 0x042
+#define MT_EE_XTAL_TRIM_1 0x03a
+#define MT_EE_XTAL_TRIM_2 0x09e
+#define MT_EE_LNA_GAIN 0x044
+#define MT_EE_RSSI_OFFSET_2G_0 0x046
+#define MT_EE_RSSI_OFFSET_2G_1 0x048
+#define MT_EE_LNA_GAIN_5GHZ_1 0x049
+#define MT_EE_RSSI_OFFSET_5G_0 0x04a
+#define MT_EE_RSSI_OFFSET_5G_1 0x04c
+#define MT_EE_LNA_GAIN_5GHZ_2 0x04d
+#define MT_EE_TX_POWER_DELTA_BW40 0x050
+#define MT_EE_TX_POWER_DELTA_BW80 0x052
+#define MT_EE_TX_POWER_EXT_PA_5G 0x054
+#define MT_EE_TX_POWER_0_START_2G 0x056
+#define MT_EE_TX_POWER_1_START_2G 0x05c
+#define MT_EE_TX_POWER_0_START_5G 0x062
+#define MT_EE_TSSI_SLOPE_2G 0x06e
+#define MT_EE_TX_POWER_0_GRP3_TX_POWER_DELTA 0x074
+#define MT_EE_TX_POWER_0_GRP4_TSSI_SLOPE 0x076
+#define MT_EE_TX_POWER_1_START_5G 0x080
+#define MT_EE_TX_POWER_CCK 0x0a0
+#define MT_EE_TX_POWER_OFDM_2G_6M 0x0a2
+#define MT_EE_TX_POWER_OFDM_2G_24M 0x0a4
+#define MT_EE_TX_POWER_OFDM_5G_6M 0x0b2
+#define MT_EE_TX_POWER_OFDM_5G_24M 0x0b4
+#define MT_EE_TX_POWER_HT_MCS0 0x0a6
+#define MT_EE_TX_POWER_HT_MCS4 0x0a8
+#define MT_EE_TX_POWER_HT_MCS8 0x0aa
+#define MT_EE_TX_POWER_HT_MCS12 0x0ac
+#define MT_EE_TX_POWER_VHT_MCS0 0x0ba
+#define MT_EE_TX_POWER_VHT_MCS4 0x0bc
+#define MT_EE_TX_POWER_VHT_MCS8 0x0be
+#define MT_EE_2G_TARGET_POWER 0x0d0
+#define MT_EE_TEMP_OFFSET 0x0d1
+#define MT_EE_5G_TARGET_POWER 0x0d2
+#define MT_EE_TSSI_BOUND1 0x0d4
+#define MT_EE_TSSI_BOUND2 0x0d6
+#define MT_EE_TSSI_BOUND3 0x0d8
+#define MT_EE_TSSI_BOUND4 0x0da
+#define MT_EE_FREQ_OFFSET_COMPENSATION 0x0db
+#define MT_EE_TSSI_BOUND5 0x0dc
+#define MT_EE_TX_POWER_BYRATE_BASE 0x0de
+#define MT_EE_TSSI_SLOPE_5G 0x0f0
+#define MT_EE_RF_TEMP_COMP_SLOPE_5G 0x0f2
+#define MT_EE_RF_TEMP_COMP_SLOPE_2G 0x0f4
+#define MT_EE_RF_2G_TSSI_OFF_TXPOWER 0x0f6
+#define MT_EE_RF_2G_RX_HIGH_GAIN 0x0f8
+#define MT_EE_RF_5G_GRP0_1_RX_HIGH_GAIN 0x0fa
+#define MT_EE_RF_5G_GRP2_3_RX_HIGH_GAIN 0x0fc
+#define MT_EE_RF_5G_GRP4_5_RX_HIGH_GAIN 0x0fe
+#define MT_EE_BT_RCAL_RESULT 0x138
+#define MT_EE_BT_VCDL_CALIBRATION 0x13c
+#define MT_EE_BT_PMUCFG 0x13e
+#define MT_EE_USAGE_MAP_START 0x1e0
+#define MT_EE_USAGE_MAP_END 0x1fc
 
 /* The defines below belong to this project */
 
@@ -730,20 +791,20 @@
 // Read/write timeout
 #define MT_TIMEOUT 1000
 
+// Power-on RF patch
+#define MT_RF_PATCH 0x0130
+
 // Firmware defines
-// DLM offset differs from Linux source
+// DLM offset differs from OpenWrt source
+#define MT_FW_RESET_IVB 0x01
 #define MT_MCU_ILM_OFFSET 0x80000
 #define MT_MCU_DLM_OFFSET 0x100000 + 0x10800
 #define MT_FW_CHUNK_SIZE 0x3800
 #define MT_DMA_COMPLETE 0xc0000000
 #define MT_FW_LOAD_IVB 0x12
 
-// EFUSE offsets
-#define MT_EF_MAC_ADDR 0x00
-#define MT_EF_XTAL_CALIB 0x90
-
-// Burst write offset
-#define MT_BURST_WRITE 0x410000
+// Register offset in memory
+#define MT_REG_OFFSET 0x410000
 
 /*
  * The MT76 supports the following channels:
@@ -770,7 +831,7 @@
 #define MT_WLAN_ASSOC_REQ 0x00
 #define MT_WLAN_ASSOC_RESP 0x01
 #define MT_WLAN_DISASSOC 0x0a
-#define MT_WLAN_PAIR 0x07
+#define MT_WLAN_RESERVED 0x07
 #define MT_WLAN_BEACON 0x08
 #define MT_WLAN_QOS_DATA 0x08
 
@@ -882,6 +943,8 @@ enum McuEventType
     EVT_EVENT_DFS_DETECT_RSP,
     // Received a packet from a client
     EVT_PACKET_RX = 0x0c,
+    // Lost connection to a client
+    EVT_CLIENT_LOST = 0x0e,
     // Pressed the dongle's button
     EVT_BUTTON_PRESS = 0x04,
 };
@@ -936,7 +999,7 @@ struct BeaconFrame
     uint16_t ssid;
 } __attribute__((packed));
 
-struct PairingFrame
+struct ReservedFrame
 {
     uint8_t unknown;
     uint8_t type;
@@ -1193,17 +1256,17 @@ class MT76 : public UsbDevice
 {
 protected:
     virtual void added() override;
-    virtual void removed() override;
+    virtual void terminate() override;
 
     /* WLAN client callbacks */
     virtual void update() = 0;
     virtual void clientConnected(uint8_t wcid, Bytes address) = 0;
-    virtual void clientDisconnected(uint8_t wcid, Bytes address) = 0;
+    virtual void clientDisconnected(uint8_t wcid) = 0;
     virtual void packetReceived(uint8_t wcid, const Bytes &packet) = 0;
 
     /* WLAN client operations */
     uint8_t associateClient(Bytes address);
-    bool disassociateClient(uint8_t wcid);
+    bool removeClient(uint8_t wcid);
 
     bool sendCommand(McuCommand command, const Bytes &data);
 
@@ -1213,6 +1276,7 @@ private:
     /* Packet handling and transmission */
     void handleWlanPacket(const Bytes &packet);
     void handleClientPacket(const Bytes &packet);
+    void handleClientLost(const Bytes &packet);
     void handleButtonPress();
     void handleBulkPacket(const Bytes &packet);
     bool pairClient(Bytes address);
@@ -1220,6 +1284,8 @@ private:
 
     /* Initialization routines */
     bool initRegisters();
+    void calibrateCrystal();
+    bool setupChannelCandidates();
     void loadFirmware();
     bool loadFirmwarePart(
         uint32_t offset,
@@ -1238,7 +1304,7 @@ private:
     bool switchChannel(uint8_t channel);
     bool initGain(uint32_t index, const Bytes &values);
     bool setLedMode(uint32_t index);
-    uint32_t efuseRead(uint8_t address, uint8_t index);
+    Bytes efuseRead(uint8_t address, uint8_t index);
 
     /* USB transfer */
     uint32_t controlRead(
@@ -1252,8 +1318,7 @@ private:
     );
 
     FixedBytes<USB_BUFFER_SIZE> buffer, packetBuffer;
-
-    std::array<Bytes, MT_WCID_COUNT> clients;
+    uint16_t connectedWcids = 0;
 };
 
 class MT76Exception : public std::runtime_error

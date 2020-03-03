@@ -414,7 +414,7 @@
 #define SDL_ASSEMBLY_ROUTINES 1
 /* #undef SDL_ALTIVEC_BLITTERS */
 #define SDL_ARM_SIMD_BLITTERS 1
-#define SDL_ARM_NEON_BLITTERS 1
+/* #undef SDL_ARM_NEON_BLITTERS */
 
 /* Enable ime support */
 #define SDL_USE_IME 1

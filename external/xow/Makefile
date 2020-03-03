@@ -2,7 +2,7 @@
 BUILD := DEBUG
 CHANNEL := 1
 #VERSION := $(shell git describe --tags)
-VERSION := v0.2-25-gb58edb4
+VERSION := v0.3-24-gc8a1554
 
 FLAGS := -Wall -Wpedantic -std=c++11 -MMD
 DEBUG_FLAGS := -Og -g -DDEBUG
@@ -33,15 +33,15 @@ xow: $(OBJECTS)
 firmware.o: firmware.bin
 	$(LD) -r -b binary -o $@ $<
 
-xow.service: xow.service.in
-	sed 's|#BINDIR#|$(BINDIR)|' xow.service.in > xow.service
+xow.service: install/service.in
+	sed 's|#BINDIR#|$(BINDIR)|' $< > $@
 
 .PHONY: install
 install: xow xow.service
 	install -D -m 755 xow $(DESTDIR)$(BINDIR)/xow
-	install -D -m 644 xow-udev.rules $(DESTDIR)$(UDEVDIR)/99-xow.rules
-	install -D -m 644 xow-modules.conf $(DESTDIR)$(MODLDIR)/xow-uinput.conf
-	install -D -m 644 xow-modprobe.conf $(DESTDIR)$(MODPDIR)/xow-blacklist.conf
+	install -D -m 644 install/udev.rules $(DESTDIR)$(UDEVDIR)/99-xow.rules
+	install -D -m 644 install/modules.conf $(DESTDIR)$(MODLDIR)/xow-uinput.conf
+	install -D -m 644 install/modprobe.conf $(DESTDIR)$(MODPDIR)/xow-blacklist.conf
 	install -D -m 644 xow.service $(DESTDIR)$(SYSDDIR)/xow.service
 	$(RM) xow.service
 
