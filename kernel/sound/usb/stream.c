@@ -37,6 +37,10 @@
 #include "clock.h"
 #include "stream.h"
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 /*
  * free a substream
  */

@@ -31,7 +31,7 @@ static DEFINE_MUTEX(ll_twsi_mutex);
 
 static galois_twsi_info_t *galois_twsi_info[GALOIS_TWSIBUS_NUM];
 static int twsi_opentime[GALOIS_TWSIBUS_NUM];
-static char twsi_name[10];	/* for other TWSI */
+static char twsi_name[16];	/* for other TWSI */
 static char twsi1_name[10];	/* only for TWSI1 */
 
 static int twsi_irqs[GALOIS_TWSIBUS_NUM];

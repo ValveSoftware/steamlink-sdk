@@ -143,7 +143,7 @@ HRESULT MV_CC_CBufSrv_Release_By_Taskid(MV_CC_Task *cc_task)
 	while (singlenode_checkempty(head)) {
 		first_serverid = singlenode_getfirstnode(head);
 		pSrvInfo_Search.m_ServiceID = first_serverid;
-		MV_CC_CBufSrv_Destroy(&pSrvInfo_Search, cc_task);
+		MV_CC_CBufSrv_Destroy((pMV_CC_DSS_ServiceInfo_CBuf_t)&pSrvInfo_Search, cc_task);
 	}
 
 	return singlenode_exit(head);

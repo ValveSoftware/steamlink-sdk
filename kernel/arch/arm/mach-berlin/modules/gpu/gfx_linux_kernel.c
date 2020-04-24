@@ -336,7 +336,7 @@ static int gpu_suspend(struct platform_device *dev, pm_message_t state)
 
     device = platform_get_drvdata(dev);
 
-    if (gcmIS_ERROR(status))
+    if (!device)
     {
         return -1;
     }
@@ -355,7 +355,7 @@ static int gpu_resume(struct platform_device *dev)
 
     device = platform_get_drvdata(dev);
 
-    if (gcmIS_ERROR(status))
+    if (!device)
     {
         return -1;
     }

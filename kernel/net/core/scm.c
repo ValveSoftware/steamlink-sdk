@@ -38,6 +38,10 @@
 #include <net/scm.h>
 #include <net/cls_cgroup.h>
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 
 /*
  *	Only allow a user to send credentials, that they could set with

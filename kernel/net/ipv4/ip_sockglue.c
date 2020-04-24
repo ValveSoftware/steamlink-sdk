@@ -45,6 +45,10 @@
 #include <linux/errqueue.h>
 #include <asm/uaccess.h>
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 #define IP_CMSG_PKTINFO		1
 #define IP_CMSG_TTL		2
 #define IP_CMSG_TOS		4

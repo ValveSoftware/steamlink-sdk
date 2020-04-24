@@ -50,7 +50,7 @@
 
     typedef union  T32ZspInt2Soc_status
           { UNSG32 u32;
-            struct w32ZspInt2Soc_status;
+            //struct w32ZspInt2Soc_status;
                  } T32ZspInt2Soc_status;
 
 

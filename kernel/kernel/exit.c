@@ -59,6 +59,10 @@
 #include <asm/pgtable.h>
 #include <asm/mmu_context.h>
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 static void exit_mm(struct task_struct * tsk);
 
 static void __unhash_process(struct task_struct *p, bool group_dead)

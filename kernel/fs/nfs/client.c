@@ -1372,7 +1372,7 @@ static int nfs_volume_list_show(struct seq_file *m, void *v)
 {
 	struct nfs_server *server;
 	struct nfs_client *clp;
-	char dev[8], fsid[17];
+	char dev[13], fsid[17];
 	struct nfs_net *nn = net_generic(m->private, nfs_net_id);
 
 	/* display header on line 1 */
@@ -1384,10 +1384,10 @@ static int nfs_volume_list_show(struct seq_file *m, void *v)
 	server = list_entry(v, struct nfs_server, master_link);
 	clp = server->nfs_client;
 
-	snprintf(dev, 8, "%u:%u",
+	snprintf(dev, sizeof(dev), "%u:%u",
 		 MAJOR(server->s_dev), MINOR(server->s_dev));
 
-	snprintf(fsid, 17, "%llx:%llx",
+	snprintf(fsid, sizeof(fsid), "%llx:%llx",
 		 (unsigned long long) server->fsid.major,
 		 (unsigned long long) server->fsid.minor);
 

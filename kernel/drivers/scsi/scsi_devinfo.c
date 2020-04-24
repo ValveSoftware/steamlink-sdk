@@ -510,8 +510,8 @@ static int scsi_dev_info_list_add_str(char *dev_list)
 			strflags = strsep(&next, next_check);
 		if (!model || !strflags) {
 			printk(KERN_ERR "%s: bad dev info string '%s' '%s'"
-			       " '%s'\n", __func__, vendor, model,
-			       strflags);
+			       " '%s'\n", __func__, vendor, model ? model : "(null)",
+			       strflags ? strflags : "(null)");
 			res = -EINVAL;
 		} else
 			res = scsi_dev_info_list_add(0 /* compatible */, vendor,

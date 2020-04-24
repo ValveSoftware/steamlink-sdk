@@ -71,6 +71,10 @@
 
 #include <asm/uaccess.h>
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 /* Uncomment to enable debugging */
 /* #define TUN_DEBUG 1 */
 

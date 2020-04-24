@@ -42,6 +42,10 @@
 
 #include <asm/irq_regs.h>
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 struct remote_function_call {
 	struct task_struct	*p;
 	int			(*func)(void *info);

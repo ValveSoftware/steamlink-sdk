@@ -114,7 +114,7 @@ static int Galois_SM_WDT(unsigned int wdt_instance, unsigned int rst_type, int i
 				break;
 			}
 			BFM_HOST_Bus_Read32((wdt_base+0x08),&counter);       // current counter
-			if(int_mode==0 & counter < 0x10000) break;
+			if(int_mode==0 && counter < 0x10000) break;
 		}
 	// kick dog, pet dog whatever ..
 		BFM_HOST_Bus_Read32((ictl_base+0x18),&raw_status);
@@ -141,7 +141,7 @@ static int Galois_SM_WDT(unsigned int wdt_instance, unsigned int rst_type, int i
 	return iResult;
 }
 
-static galois_soc_watchdog_reset(void)
+static void galois_soc_watchdog_reset(void)
 {
 	Galois_SM_WDT(3, 1, 0);
 	for (;;);

@@ -229,7 +229,7 @@ static void logi_dj_recv_add_djhid_device(struct dj_receiver_dev *djrcv_dev,
 	/* Device index goes from 1 to 6, we need 3 bytes to store the
 	 * semicolon, the index, and a null terminator
 	 */
-	unsigned char tmpstr[3];
+	unsigned char tmpstr[5];
 
 	if (dj_report->report_params[DEVICE_PAIRED_PARAM_SPFUNCTION] &
 	    SPFUNCTION_DEVICE_LIST_EMPTY) {

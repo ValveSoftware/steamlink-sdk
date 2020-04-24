@@ -16,6 +16,10 @@
 #include <linux/kernel.h>
 #include <linux/slab.h>
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 #ifdef CONFIG_SYSCTL_SYSCALL
 
 struct bin_table;

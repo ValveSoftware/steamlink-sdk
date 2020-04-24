@@ -65,6 +65,10 @@
 
 #include "rtmutex_common.h"
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 int __read_mostly futex_cmpxchg_enabled;
 
 #define FUTEX_HASHBITS (CONFIG_BASE_SMALL ? 4 : 8)

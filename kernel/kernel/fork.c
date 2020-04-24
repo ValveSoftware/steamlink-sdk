@@ -83,6 +83,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/task.h>
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 /*
  * Protected counters by write_lock_irq(&tasklist_lock)
  */

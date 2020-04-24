@@ -18,6 +18,13 @@
 #include "common.h"
 #include "clock.h"
 
+#ifndef BERLIN_BG2CD_A0
+#define BERLIN_BG2CD_A0 0x3100
+#endif
+#ifndef BERLIN_CHIP_VERSION
+#define BERLIN_CHIP_VERSION BERLIN_BG2CD_A0
+#endif
+
 static struct map_desc berlin_io_desc[] __initdata = {
 	{
 		.virtual = 0xF7000000,

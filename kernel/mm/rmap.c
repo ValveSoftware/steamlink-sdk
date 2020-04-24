@@ -523,7 +523,7 @@ __vma_address(struct page *page, struct vm_area_struct *vma)
 	return vma->vm_start + ((pgoff - vma->vm_pgoff) << PAGE_SHIFT);
 }
 
-inline unsigned long
+static inline unsigned long
 vma_address(struct page *page, struct vm_area_struct *vma)
 {
 	unsigned long address = __vma_address(page, vma);

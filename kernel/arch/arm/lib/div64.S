@@ -209,3 +209,11 @@ Ldiv0_64:
 
 UNWIND(.fnend)
 ENDPROC(__do_div64)
+
+#if __GNUC__ >= 9
+ENTRY(__aeabi_uldivmod)
+UNWIND(.fnstart)
+	@ Need implementation
+UNWIND(.fnend)
+ENDPROC(__aeabi_uldivmod)
+#endif

@@ -39,6 +39,10 @@
 #include <dma-coherence.h>
 #endif
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 /*
  *  Compatibility
  */

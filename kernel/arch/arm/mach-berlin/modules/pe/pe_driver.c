@@ -412,9 +412,6 @@ static HRESULT PEMsgQ_ReadFinish(PEMsgQ_t *pMsgQ)
 	}
 }
 
-#define	MIN(a, b) (((a) < (b)) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-
 static int PEMsgQ_Dequeue(PEMsgQ_t *pMsgQ, int cnt)
 {
 	INT fullness;

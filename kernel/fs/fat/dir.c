@@ -22,6 +22,10 @@
 #include <linux/kernel.h>
 #include "fat.h"
 
+#if __GNUC__ >= 9
+#pragma GCC optimize ("O0")
+#endif
+
 /*
  * Maximum buffer size of short name.
  * [(MSDOS_NAME + '.') * max one char + nul]
