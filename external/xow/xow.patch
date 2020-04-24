@@ -1,31 +1,17 @@
-diff --git a/controller/controller.h b/controller/controller.h
-index 115d946..87bc53e 100644
---- a/controller/controller.h
-+++ b/controller/controller.h
-@@ -197,7 +197,9 @@ private:
- 
-     bool acknowledgePacket(const ControllerFrame *packet = nullptr);
-     bool requestSerialNumber();
-+public:
-     bool setPowerMode(PowerMode mode);
-+private:
-     bool setLedMode(LedModeData data);
-     bool performRumble(RumbleData data);
- 
 diff --git a/controller/input.cpp b/controller/input.cpp
-index d6868ce..03b411a 100644
+index 9a903a2..291a2fd 100644
 --- a/controller/input.cpp
 +++ b/controller/input.cpp
 @@ -29,6 +29,8 @@
  
- InputDevice::InputDevice()
+ InputDevice::InputDevice(FeedbackReceived feedbackReceived)
  {
 +    memset(&setup, 0, sizeof(setup));
 +
      file = open("/dev/uinput", O_RDWR | O_NONBLOCK);
  
      if (file < 0)
-@@ -76,6 +78,7 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
+@@ -78,6 +80,7 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
          throw InputException("Error adding axis code");
      }
  
@@ -33,7 +19,7 @@ index d6868ce..03b411a 100644
      uinput_abs_setup setup = {};
  
      setup.code = code;
-@@ -88,6 +91,12 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
+@@ -90,6 +93,12 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
      {
          throw InputException("Error setting up axis");
      }
@@ -46,7 +32,7 @@ index d6868ce..03b411a 100644
  }
  
  void InputDevice::addFeedback(uint16_t code)
-@@ -105,8 +114,6 @@ void InputDevice::create(
+@@ -107,8 +116,6 @@ void InputDevice::create(
      uint16_t productId,
      std::string name
  ) {
@@ -55,7 +41,7 @@ index d6868ce..03b411a 100644
      setup.id.bustype = BUS_USB;
      setup.id.vendor = vendorId;
      setup.id.product = productId;
-@@ -114,10 +121,16 @@ void InputDevice::create(
+@@ -116,10 +123,16 @@ void InputDevice::create(
  
      std::copy(name.begin(), name.end(), std::begin(setup.name));
  
@@ -75,15 +61,16 @@ index d6868ce..03b411a 100644
 +    if (ioctl(file, UI_DEV_CREATE) < 0) {
          throw InputException("Error creating device");
      }
- }
+ 
 diff --git a/controller/input.h b/controller/input.h
-index c5dbfac..43d0763 100644
+index 8070839..a3de53a 100644
 --- a/controller/input.h
 +++ b/controller/input.h
-@@ -85,6 +85,11 @@ private:
-     int file, stopPipe;
+@@ -86,6 +86,12 @@ private:
      ff_effect effect = {};
      uint16_t effectGain = 0xffff;
+     FeedbackReceived feedbackReceived;
++
 +#ifdef UI_DEV_SETUP
 +    uinput_setup setup;
 +#else
@@ -93,78 +80,67 @@ index c5dbfac..43d0763 100644
  
  class InputException : public std::runtime_error
 diff --git a/dongle/dongle.cpp b/dongle/dongle.cpp
-index 9753ba4..b431ddf 100644
+index 3628795..e9f516c 100644
 --- a/dongle/dongle.cpp
 +++ b/dongle/dongle.cpp
-@@ -20,6 +20,32 @@
- #include "../utils/log.h"
+@@ -42,13 +42,7 @@ bool Dongle::beforeClose()
  
- #include <functional>
-+#include <signal.h>
-+
-+static bool signaledPowerOff;
-+
-+void handlePowerOffSignal(int)
-+{
-+    signaledPowerOff = true;
-+}
-+
-+Dongle::Dongle()
-+{
-+    signal(SIGUSR1, handlePowerOffSignal);
-+}
-+
-+Dongle::~Dongle()
-+{
-+    signal(SIGUSR1, SIG_DFL);
-+}
-+
-+void Dongle::update()
-+{
-+    if (signaledPowerOff) {
-+        powerOffControllers();
-+        signaledPowerOff = false;
-+    }
-+}
+     Log::info("Dongle power-off");
  
- void Dongle::added()
- {
-@@ -148,5 +174,17 @@ bool Dongle::sendControllerPacket(
+-    for (std::unique_ptr<Controller> &controller : controllers)
+-    {
+-        if (controller && !controller->powerOff())
+-        {
+-            Log::error("Failed to power off controller");
+-        }
+-    }
++    powerOffControllers();
+ 
+     if (!Mt76::beforeClose())
+     {
+@@ -58,6 +52,14 @@ bool Dongle::beforeClose()
      return true;
  }
  
++void Dongle::userSignal()
++{
++    std::lock_guard<std::mutex> lock(handlePacketMutex);
++
++    Log::info("Powering off controllers");
++    powerOffControllers();
++}
++
+ void Dongle::clientConnected(uint8_t wcid, Bytes address)
+ {
+     auto sendPacket = std::bind(
+@@ -156,3 +158,14 @@ bool Dongle::sendControllerPacket(
+ 
+     return true;
+ }
++
 +void Dongle::powerOffControllers()
 +{
-+    Log::info("Powering off controllers");
-+
 +    for (std::unique_ptr<Controller> &controller : controllers)
 +    {
-+        if (controller) {
-+            controller->setPowerMode(POWER_OFF);
++        if (controller && !controller->powerOff())
++        {
++            Log::error("Failed to power off controller");
 +        }
 +    }
 +}
-+
- DongleException::DongleException(std::string message)
-     : std::runtime_error(message) {}
 diff --git a/dongle/dongle.h b/dongle/dongle.h
-index 9497b8b..11a0136 100644
+index 86429a4..974e344 100644
 --- a/dongle/dongle.h
 +++ b/dongle/dongle.h
-@@ -42,7 +42,12 @@ class Bytes;
-  */
- class Dongle : public MT76
- {
-+public:
-+    Dongle();
-+    ~Dongle();
-+
+@@ -41,6 +41,7 @@ class Dongle : public Mt76
  private:
-+    void update() override;
-     void added() override;
-     void terminate() override;
+     bool afterOpen() override;
+     bool beforeClose() override;
++    void userSignal() override;
  
-@@ -56,6 +61,8 @@ private:
+     void clientConnected(uint8_t wcid, Bytes address) override;
+     void clientDisconnected(uint8_t wcid) override;
+@@ -52,5 +53,7 @@ private:
          const Bytes &packet
      );
  
@@ -172,45 +148,54 @@ index 9497b8b..11a0136 100644
 +
      std::array<std::unique_ptr<Controller>, MT_WCID_COUNT> controllers;
  };
- 
-diff --git a/dongle/mt76.cpp b/dongle/mt76.cpp
-index a426199..cfd745b 100644
---- a/dongle/mt76.cpp
-+++ b/dongle/mt76.cpp
-@@ -45,6 +45,8 @@ void MT76::added()
-         // Read while device is connected
-         do
-         {
-+            update();
-+
-             read = nextBulkPacket(packet);
- 
-             handleBulkPacket(packet);
-diff --git a/dongle/mt76.h b/dongle/mt76.h
-index 0ad641f..a98fc33 100644
---- a/dongle/mt76.h
-+++ b/dongle/mt76.h
-@@ -1259,6 +1259,7 @@ protected:
-     virtual void terminate() override;
- 
-     /* WLAN client callbacks */
-+    virtual void update() = 0;
-     virtual void clientConnected(uint8_t wcid, Bytes address) = 0;
-     virtual void clientDisconnected(uint8_t wcid) = 0;
-     virtual void packetReceived(uint8_t wcid, const Bytes &packet) = 0;
 diff --git a/dongle/usb.cpp b/dongle/usb.cpp
-index 2bf3c3e..f76ca59 100644
+index 68f088b..23cc282 100644
 --- a/dongle/usb.cpp
 +++ b/dongle/usb.cpp
-@@ -353,7 +353,7 @@ void UsbDeviceManager::handleEvents(UsbDevice &device)
+@@ -185,6 +185,7 @@ UsbDeviceManager::UsbDeviceManager()
+     sigemptyset(&signalMask);
+     sigaddset(&signalMask, SIGINT);
+     sigaddset(&signalMask, SIGTERM);
++    sigaddset(&signalMask, SIGUSR1);
+ 
+     // Block signals in all threads
+     if (pthread_sigmask(SIG_BLOCK, &signalMask, nullptr) < 0)
+@@ -252,10 +253,19 @@ void UsbDeviceManager::handleEvents(UsbDevice &device)
      {
-         int error = libusb_handle_events_completed(nullptr, nullptr);
+         signalfd_siginfo info = {};
  
--        if (error)
-+        if (error && error != LIBUSB_ERROR_INTERRUPTED)
+-        if (read(signalFile, &info, sizeof(info)) != sizeof(info))
++        do
          {
-             libusb_exit(nullptr);
+-            throw UsbException("Error reading signal: ", strerror(errno));
+-        }
++            if (read(signalFile, &info, sizeof(info)) != sizeof(info))
++            {
++                throw UsbException("Error reading signal: ", strerror(errno));
++            }
++
++            if (info.ssi_signo == SIGUSR1)
++            {
++                device.userSignal();
++            }
++        
++        } while (info.ssi_signo != SIGINT && info.ssi_signo != SIGTERM);
  
+         Log::debug("Stop signal received");
+ 
+diff --git a/dongle/usb.h b/dongle/usb.h
+index 3ed2295..0bb314d 100644
+--- a/dongle/usb.h
++++ b/dongle/usb.h
+@@ -42,6 +42,8 @@ public:
+     void open(libusb_device *device);
+     void close();
+ 
++    virtual void userSignal() { }
++
+     Terminate terminate;
+ 
+ protected:
 diff --git a/utils/log.cpp b/utils/log.cpp
 index d6178ba..ae267f3 100644
 --- a/utils/log.cpp

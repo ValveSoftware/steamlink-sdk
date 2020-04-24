@@ -20,52 +20,44 @@
 #include "../utils/log.h"
 
 #include <functional>
-#include <signal.h>
 
-static bool signaledPowerOff;
-
-void handlePowerOffSignal(int)
-{
-    signaledPowerOff = true;
-}
-
-Dongle::Dongle()
-{
-    signal(SIGUSR1, handlePowerOffSignal);
-}
-
-Dongle::~Dongle()
-{
-    signal(SIGUSR1, SIG_DFL);
-}
-
-void Dongle::update()
-{
-    if (signaledPowerOff) {
-        powerOffControllers();
-        signaledPowerOff = false;
-    }
-}
-
-void Dongle::added()
+bool Dongle::afterOpen()
 {
     Log::info("Dongle plugged in");
 
-    MT76::added();
-
-    Log::info("Dongle initialized");
-}
-
-void Dongle::terminate()
-{
-    for (std::unique_ptr<Controller> &controller : controllers)
+    if (!Mt76::afterOpen())
     {
-        controller.reset();
+        return false;
     }
 
-    MT76::terminate();
+    Log::info("Dongle initialized");
 
-    Log::info("Dongle disconnected");
+    return true;
+}
+
+bool Dongle::beforeClose()
+{
+    // Prevent controller connect/disconnect race conditions
+    std::lock_guard<std::mutex> lock(handlePacketMutex);
+
+    Log::info("Dongle power-off");
+
+    powerOffControllers();
+
+    if (!Mt76::beforeClose())
+    {
+        return false;
+    }
+
+    return true;
+}
+
+void Dongle::userSignal()
+{
+    std::lock_guard<std::mutex> lock(handlePacketMutex);
+
+    Log::info("Powering off controllers");
+    powerOffControllers();
 }
 
 void Dongle::clientConnected(uint8_t wcid, Bytes address)
@@ -78,19 +70,9 @@ void Dongle::clientConnected(uint8_t wcid, Bytes address)
         std::placeholders::_1
     );
 
-    try
-    {
-        controllers[wcid - 1].reset(new Controller(sendPacket));
+    controllers[wcid - 1].reset(new Controller(sendPacket));
 
-        Log::info("Controller '%d' connected", wcid);
-    }
-
-    catch (const ControllerException &exception)
-    {
-        removeClient(wcid);
-
-        Log::error("Error initializing controller: %s", exception.what());
-    }
+    Log::info("Controller '%d' connected", wcid);
 }
 
 void Dongle::clientDisconnected(uint8_t wcid)
@@ -116,7 +98,10 @@ void Dongle::packetReceived(uint8_t wcid, const Bytes &packet)
         return;
     }
 
-    controllers[wcid - 1]->packetReceived(packet);
+    if (!controllers[wcid - 1]->handlePacket(packet))
+    {
+        Log::error("Error handling packet for controller '%d'", wcid);
+    }
 }
 
 bool Dongle::sendControllerPacket(
@@ -150,8 +135,8 @@ bool Dongle::sendControllerPacket(
     // Frames and data must be 32-bit aligned
     uint32_t length = sizeof(txWi) + sizeof(wlanFrame) + sizeof(qosFrame);
     uint32_t wcidData = __builtin_bswap32(wcid - 1);
-    uint8_t framePadding = sizeof(uint32_t) - length % sizeof(uint32_t);
-    uint8_t dataPadding = sizeof(uint32_t) - packet.size() % sizeof(uint32_t);
+    uint8_t framePadding = Bytes::padding<uint32_t>(length);
+    uint8_t dataPadding = Bytes::padding<uint32_t>(packet.size());
 
     Bytes out;
 
@@ -176,15 +161,11 @@ bool Dongle::sendControllerPacket(
 
 void Dongle::powerOffControllers()
 {
-    Log::info("Powering off controllers");
-
     for (std::unique_ptr<Controller> &controller : controllers)
     {
-        if (controller) {
-            controller->setPowerMode(POWER_OFF);
+        if (controller && !controller->powerOff())
+        {
+            Log::error("Failed to power off controller");
         }
     }
 }
-
-DongleException::DongleException(std::string message)
-    : std::runtime_error(message) {}

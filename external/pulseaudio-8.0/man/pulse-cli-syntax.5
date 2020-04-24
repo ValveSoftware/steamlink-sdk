@@ -1,0 +1,171 @@
+.TH pulse-cli-syntax 5 User Manuals
+.SH NAME
+pulse-cli-syntax \- PulseAudio Command Line Interface Syntax
+.SH SYNOPSIS
+\fB\fI~/.config/pulse/default.pa\fB
+
+\fI/etc/pulse/default.pa\fB
+
+\fI/etc/pulse/system.pa\fB
+\f1
+.SH DESCRIPTION
+PulseAudio provides a simple command line language used by configuration scripts, the pacmd interactive shell, and the modules module-cli and module-cli-protocol-{unix,tcp}. Empty lines and lines beginning with a hashmark (#) are silently ignored. Several commands are supported. 
+
+Note that any boolean arguments can be given positively as '1', 't', 'y', 'true', 'yes' or 'on'. Likewise, negative values can be given as '0', 'f', 'n', 'false', 'no' or 'off'. Case is ignored. 
+.SH GENERAL COMMANDS
+.TP
+\fBhelp\f1
+Show a quick help on the commands available.
+.SH STATUS COMMANDS
+.TP
+\fBlist-modules\f1
+Show all currently loaded modules with their arguments.
+.TP
+\fBlist-cards\f1
+Show all currently registered cards
+.TP
+\fBlist-sinks\f1 or \fBlist-sources\f1
+Show all currently registered sinks (resp. sources).
+.TP
+\fBlist-clients\f1
+Show all currently active clients.
+.TP
+\fBlist-sink-inputs\f1 or \fBlist-source-outputs\f1
+Show all currently active inputs to sinks a.k.a. playback streams (resp. outputs of sources a.k.a. recording streams).
+.TP
+\fBstat\f1
+Show some simple statistics about the allocated memory blocks and the space used by them.
+.TP
+\fBinfo\f1 or \fBls\f1 or \fBlist\f1
+A combination of all status commands described above (all three commands are synonyms).
+.SH MODULE MANAGEMENT
+.TP
+\fBload-module\f1 \fIname\f1 [\fIarguments...\f1]
+Load a module specified by its name and arguments. For most modules it is OK to be loaded more than once.
+.TP
+\fBunload-module\f1 \fIindex|name\f1
+Unload a module, specified either by its index in the module list or its name.
+.TP
+\fBdescribe-module\f1 \fIname\f1
+Give information about a module specified by its name.
+.SH VOLUME COMMANDS
+.TP
+\fBset-sink-volume|set-source-volume\f1 \fIindex|name\f1 \fIvolume\f1
+Set the volume of the specified sink (resp. source). You may specify the sink (resp. source) either by its index in the sink/source list or by its name. The volume should be an integer value greater or equal than 0 (muted). Volume 65536 (0x10000) is 'normal' volume a.k.a. 100%. Values greater than this amplify the audio signal (with clipping).
+.TP
+\fBset-sink-mute|set-source-mute\f1 \fIindex|name\f1 \fIboolean\f1
+Mute or unmute the specified sink (resp. source). You may specify the sink (resp. source) either by its index or by its name. The mute value is either 0 (not muted) or 1 (muted).
+.TP
+\fBset-sink-input-volume|set-source-output-volume\f1 \fIindex\f1 \fIvolume\f1
+Set the volume of a sink input (resp. source output) specified by its index. The same volume rules apply as with set-sink-volume.
+.TP
+\fBset-sink-input-mute|set-source-output-mute\f1 \fIindex\f1 \fIboolean\f1
+Mute or unmute a sink input (resp. source output) specified by its index. The same mute rules apply as with set-sink-mute.
+.SH CONFIGURATION COMMANDS
+.TP
+\fBset-default-sink|set-default-source\f1 \fIindex|name\f1
+Make a sink (resp. source) the default. You may specify the sink (resp. source) by its index in the sink (resp. source) list or by its name.
+
+Note that defaults may be overridden by various policy modules or by specific stream configurations.
+.TP
+\fBset-card-profile\f1 \fIindex|name\f1 \fIprofile-name\f1
+Change the profile of a card.
+.TP
+\fBset-sink-port|set-source-port\f1 \fIindex|name\f1 \fIport-name\f1
+Change the profile of a sink (resp. source).
+.TP
+\fBset-port-latency-offset\f1 \fIcard-index|card-name\f1 \fIport-name\f1 \fIoffset\f1
+Change the latency offset of a port belonging to the specified card
+.TP
+\fBsuspend-sink|suspend-source\f1 \fIindex|name\f1 \fIboolean\f1
+Suspend (i.e. disconnect from the underlying hardware) a sink (resp. source).
+.TP
+\fBsuspend\f1 \fIboolean\f1
+Suspend all sinks and sources.
+.SH MOVING STREAMS
+.TP
+\fBmove-sink-input|move-source-output\f1 \fIindex\f1 \fIsink-index|sink-name\f1
+Move sink input (resp. source output) to another sink (resp. source).
+.SH PROPERTY LISTS
+.TP
+\fBupdate-sink-proplist|update-source-proplist\f1 \fIindex|name\f1 \fIproperties\f1
+Update the properties of a sink (resp. source) specified by name or index. The property is specified as e.g. device.description="My Preferred Name"
+.TP
+\fBupdate-sink-input-proplist|update-source-output-proplist\f1 \fIindex\f1 \fIproperties\f1
+Update the properties of a sink input (resp. source output) specified by index. The properties are specified as above.
+.SH SAMPLE CACHE
+.TP
+\fBlist-samples\f1
+Lists the contents of the sample cache.
+.TP
+\fBplay-sample\f1 \fIname\f1 \fIsink-index|sink-name\f1
+Play a sample cache entry to a sink.
+.TP
+\fBremove-sample\f1 \fIname\f1
+Remove an entry from the sample cache.
+.TP
+\fBload-sample\f1 \fIname\f1 \fIfilename\f1
+Load an audio file to the sample cache.
+.TP
+\fBload-sample-lazy\f1 \fIname\f1 \fIfilename\f1
+Create a new entry in the sample cache, but don't load the sample immediately. The sample is loaded only when it is first used. After a certain idle time it is freed again.
+.TP
+\fBload-sample-dir-lazy\f1 \fIpath\f1
+Load all entries in the specified directory into the sample cache as lazy entries. A shell globbing expression (e.g. *.wav) may be appended to the path of the directory to add.
+.SH KILLING CLIENTS/STREAMS
+.TP
+\fBkill-client\f1 \fIindex\f1
+Remove a client forcibly from the server. There is no protection against the client reconnecting immediately.
+.TP
+\fBkill-sink-input|kill-source-output\f1 \fIindex\f1
+Remove a sink input (resp. source output) forcibly from the server. This will not remove the owning client or any other streams opened by the same client from the server.
+.SH LOG COMMANDS
+.TP
+\fBset-log-level\f1 \fInumeric-level\f1
+Change the log level.
+.TP
+\fBset-log-meta\f1 \fIboolean\f1
+Show source code location in log messages.
+.TP
+\fBset-log-target\f1 \fItarget\f1
+Change the log target (null, auto, journal, syslog, stderr, file:PATH, newfile:PATH).
+.TP
+\fBset-log-time\f1 \fIboolean\f1
+Show timestamps in log messages.
+.TP
+\fBset-log-backtrace\f1 \fInum-frames\f1
+Show backtrace in log messages.
+.SH MISCELLANEOUS COMMANDS
+.TP
+\fBplay-file\f1 \fIfilename\f1 \fIsink-index|sink-name\f1
+Play an audio file to a sink.
+.TP
+\fBdump\f1
+Dump the daemon's current configuration in CLI commands.
+.TP
+\fBdump-volumes\f1
+Debug: Shows the current state of all volumes.
+.TP
+\fBshared\f1
+Debug: Show shared properties.
+.TP
+\fBexit\f1
+Terminate the daemon. If you want to terminate a CLI connection ("log out") you might want to use ctrl+d
+.SH META COMMANDS
+In addition to the commands described above there are a few meta directives supported by the command line interpreter. 
+.TP
+\fB.include\f1 \fIfilename|folder\f1
+Executes the commands from the specified script file or in all of the *.pa files within the folder.
+.TP
+\fB.fail\f1 and \fB.nofail\f1
+Enable (resp. disable) that following failing commands will cancel the execution of the current script file. This is ignored when used on the interactive command line.
+.TP
+\fB.ifexists\f1 \fIfilename\f1
+Execute the subsequent block of commands only if the specified file exists. Typically \fIfilename\f1 indicates a module. Relative paths are resolved using the module directory as the base. By using an absolute path, the existance of other files can be checked as well.
+.TP
+\fB.else\f1 and \fB.endif\f1
+A block of commands is delimited by an \fB.else\f1 or \fB.endif\f1 meta command. Nesting conditional commands is not supported.
+.SH AUTHORS
+The PulseAudio Developers <pulseaudio-discuss (at) lists (dot) freedesktop (dot) org>; PulseAudio is available from \fBhttp://pulseaudio.org/\f1
+.SH SEE ALSO
+\fBdefault.pa(5)\f1, \fBpacmd(1)\f1, \fBpulseaudio(1)\f1

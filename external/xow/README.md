@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-    <a href="https://travis-ci.com/medusalix/xow">
-        <img src="https://img.shields.io/travis/com/medusalix/xow" alt="Build Badge">
+    <a href="https://github.com/medusalix/xow/actions">
+        <img src="https://img.shields.io/github/workflow/status/medusalix/xow/Continuous%20Integration" alt="Build Badge">
     </a>
     <a href="https://github.com/medusalix/xow/releases/latest">
         <img src="https://img.shields.io/github/v/release/medusalix/xow" alt="Release Badge">
@@ -34,27 +34,36 @@ The following Xbox One controllers are currently compatible with the driver:
 
 | Model number | Year | Additional information    | Status       |
 |--------------|------|---------------------------|--------------|
-| 1537         | 2013 | Original controller       | **Working*** |
-| 1697         | 2015 | Added audio jack          | **Working**  |
+| 1537         | 2013 | Original controller       | **Working**  |
+| 1697         | 2015 | Audio jack                | **Working**  |
 | 1698         | 2015 | Elite controller          | **Working**  |
-| 1708         | 2016 | Bluetooth functionality   | **Working**  |
+| 1708         | 2016 | Bluetooth connectivity    | **Working**  |
 | 1797         | 2019 | Elite controller series 2 | **Working**  |
-
-*Some controllers (especially model 1537) might not pair on the first try.
-If they refuse to pair after multiple attempts you may have to pair them on Windows.
-The cause of the pairing problems is known but no solution has been found yet.
+| 1914         | 2020 | Share button and USB-C    | **Untested** |
 
 ## Releases
 
+### Linux distributions
+
 - Arch Linux ([master](https://aur.archlinux.org/packages/xow-git), [stable](https://aur.archlinux.org/packages/xow))
-- Debian (coming soon)
+- Debian ([sid](https://packages.debian.org/sid/xow))
+
+### Third-party hardware
+
+- EmuELEC (starting with [version 3.3](https://github.com/EmuELEC/EmuELEC/releases/tag/v3.3))
 - GamerOS (starting with [version 13](https://github.com/gamer-os/gamer-os/releases/tag/13))
 - Steam Link (starting with [build 747](https://steamcommunity.com/app/353380/discussions/0/1735510154204276395))
 
 Feel free to create prebuilt releases of xow for any Linux distribution or hardware you like.
 Any issues regarding the packaging should be reported to the respective maintainers.
 
-## Building
+## Installation
+
+### Prerequisites
+
+- Linux (kernel 4.5 or newer)
+- libusb (libusb-1.0-0-dev for Debian)
+- systemd (version 232 or newer)
 
 Clone the repository (necessary for version tagging to work):
 
@@ -62,7 +71,7 @@ Clone the repository (necessary for version tagging to work):
 git clone https://github.com/medusalix/xow
 ```
 
-Make sure that `libusb` is installed on your machine. You can build xow using the following command:
+Build xow using the following command:
 
 ```
 make BUILD=RELEASE
@@ -70,7 +79,7 @@ make BUILD=RELEASE
 
 **NOTE:** Please use `BUILD=DEBUG` when asked for your debug logs.
 
-**Option 1 (recommended):** Install xow as a `systemd` service (starts xow at boot time):
+Install xow as a `systemd` service (starts xow at boot time):
 
 ```
 sudo make install
@@ -80,13 +89,15 @@ sudo systemctl start xow
 
 **NOTE:** A reboot might be required for xow to work correctly.
 
-**Option 2:** Run xow manually:
+### Updating
+
+Make sure to completely uninstall xow before updating:
 
 ```
-sudo ./xow
+sudo systemctl stop xow
+sudo systemctl disable xow
+sudo make uninstall
 ```
-
-Running xow without `make install` is **not recommended** (except for debugging) as it requires root privileges to operate.
 
 ## Troubleshooting
 

@@ -1,0 +1,176 @@
+.TH pulseaudio 1 User Manuals
+.SH NAME
+pulseaudio \- The PulseAudio Sound System
+.SH SYNOPSIS
+\fBpulseaudio [\fIoptions\fB]
+
+pulseaudio --help\fB
+
+pulseaudio --version\fB
+
+pulseaudio --dump-conf\fB
+
+pulseaudio --dump-modules\fB
+
+pulseaudio --dump-resample-methods\fB
+
+pulseaudio --cleanup-shm\fB
+
+pulseaudio --start\fB
+
+pulseaudio --kill\fB
+
+pulseaudio --check\fB
+\f1
+.SH DESCRIPTION
+PulseAudio is a networked low-latency sound server for Linux, POSIX and Windows systems.
+.SH OPTIONS
+.TP
+\fB-h | --help\f1
+Show help.
+.TP
+\fB--version\f1
+Show version information.
+.TP
+\fB--dump-conf\f1
+Load the daemon configuration file \fIdaemon.conf\f1 (see below), parse remaining configuration options on the command line and dump the resulting daemon configuration, in a format that is compatible with \fIdaemon.conf\f1.
+.TP
+\fB--dump-modules\f1
+List available loadable modules. Combine with \fB-v\f1 for a more elaborate listing.
+.TP
+\fB--dump-resample-methods\f1
+List available audio resamplers.
+.TP
+\fB--cleanup-shm\f1
+Identify stale PulseAudio POSIX shared memory segments in \fI/dev/shm\f1 and remove them if possible. This is done implicitly whenever a new daemon starts up or a client tries to connect to a daemon. It should normally not be necessary to issue this command by hand. Only available on systems with POSIX shared memory segments implemented via a virtual file system mounted to \fI/dev/shm\f1 (e.g. Linux).
+.TP
+\fB--start\f1
+Start PulseAudio if it is not running yet. This is different from starting PulseAudio without \fB--start\f1 which would fail if PA is already running. PulseAudio is guaranteed to be fully initialized when this call returns. Implies \fB--daemonize\f1.
+.TP
+\fB-k | --kill\f1
+Kill an already running PulseAudio daemon of the calling user (Equivalent to sending a SIGTERM).
+.TP
+\fB--check\f1
+Return 0 as return code when the PulseAudio daemon is already running for the calling user, or non-zero otherwise. Produces no output on the console except for errors to stderr.
+.TP
+\fB--system\f1\fI[=BOOL]\f1
+Run as system-wide instance instead of per-user. Please note that this disables certain features of PulseAudio and is generally not recommended unless the system knows no local users (e.g. is a thin client). This feature needs special configuration and a dedicated UNIX user set up. It is highly recommended to combine this with \fB--disallow-module-loading\f1 (see below).
+.TP
+\fB-D | --daemonize\f1\fI[=BOOL]\f1
+Daemonize after startup, i.e. detach from the terminal. Note that when running as a systemd service you should use \fB--daemonize=no\f1 for systemd notification to work. 
+.TP
+\fB--fail\f1\fI[=BOOL]\f1
+Fail startup when any of the commands specified in the startup script \fIdefault.pa\f1 (see below) fails.
+.TP
+\fB--high-priority\f1\fI[=BOOL]\f1
+Try to acquire a high Unix nice level. This will only succeed if the calling user has a non-zero RLIMIT_NICE resource limit set (on systems that support this), or we're called SUID root (see below), or we are configure to be run as system daemon (see \fI--system\f1 above). It is recommended to enable this, since it is only a negligible security risk (see below).
+.TP
+\fB--realtime\f1\fI[=BOOL]\f1
+Try to acquire a real-time scheduling for PulseAudio's I/O threads. This will only succeed if the calling user has a non-zero RLIMIT_RTPRIO resource limit set (on systems that support this), or we're called SUID root (see below), or we are configure to be run as system daemon (see \fI--system\f1 above). It is recommended to enable this only for trusted users, since it is a major security risk (see below).
+.TP
+\fB--disallow-module-loading\f1\fI[=BOOL]\f1
+Disallow module loading after startup. This is a security feature since it disallows additional module loading during runtime and on user request. It is highly recommended when \fI--system\f1 is used (see above). Note however, that this breaks certain features like automatic module loading on hot plug.
+.TP
+\fB--disallow-exit\f1\fI[=BOOL]\f1
+Disallow user requested exit
+.TP
+\fB--exit-idle-time\f1\fI=SECS\f1
+Terminate the daemon when idle and the specified number of seconds passed.
+.TP
+\fB--scache-idle-time\f1\fI=SECS\f1
+Unload autoloaded samples from the cache when the haven't been used for the specified number of seconds.
+.TP
+\fB--log-level\f1\fI[=LEVEL]\f1
+If an argument is passed, set the log level to the specified value, otherwise increase the configured verbosity level by one. The log levels are numerical from 0 to 4, corresponding to \fIerror\f1, \fIwarn\f1, \fInotice\f1, \fIinfo\f1, \fIdebug\f1. Default log level is \fInotice\f1, i.e. all log messages with lower log levels are printed: \fIerror\f1, \fIwarn\f1, \fInotice\f1.
+.TP
+\fB-v | --verbose\f1
+Increase the configured verbosity level by one (see \fB--log-level\f1 above). Specify multiple times to increase log level multiple times.
+.TP
+\fB--log-target\f1\fI={auto,syslog,journal,stderr,file:PATH,newfile:PATH}\f1
+Specify the log target. If set to \fIauto\f1 (which is the default), then logging is directed to syslog when \fB--daemonize\f1 is passed, otherwise to STDERR. If set to \fIjournal\f1 logging is directed to the systemd journal. If set to \fIfile:PATH\f1, logging is directed to the file indicated by PATH. \fInewfile:PATH\f1 is otherwise the same as file:PATH, but existing files are never overwritten. If the specified file already exists, a suffix is added to the file name to avoid overwriting.
+.TP
+\fB--log-meta\f1\fI[=BOOL]\f1
+Show source code location in log messages.
+.TP
+\fB--log-time\f1\fI[=BOOL]\f1
+Show timestamps in log messages.
+.TP
+\fB--log-backtrace\f1\fI=FRAMES\f1
+When FRAMES is greater than 0, log for each message a stack trace up to the number of specified stack frames.
+.TP
+\fB-p | --dl-search-path\f1\fI=PATH\f1
+Set the search path for dynamic shared objects (plugins).
+.TP
+\fB--resample-method\f1\fI=METHOD\f1
+Use the specified resampler by default (See \fB--dump-resample-methods\f1 above for possible values).
+.TP
+\fB--use-pid-file\f1\fI[=BOOL]\f1
+Create a PID file. If this options is disabled it is possible to run multiple sound servers per user.
+.TP
+\fB--no-cpu-limit\f1\fI[=BOOL]\f1
+Do not install CPU load limiter on platforms that support it. By default, PulseAudio will terminate itself when it notices that it takes up too much CPU time. This is useful as a protection against system lockups when real-time scheduling is used (see below). Disabling this mechanism is useful when debugging PulseAudio with tools like \fBvalgrind(1)\f1 which slow down execution.
+.TP
+\fB--disable-shm\f1\fI[=BOOL]\f1
+PulseAudio clients and the server can exchange audio data via POSIX shared memory segments (on systems that support this). If disabled PulseAudio will communicate exclusively over sockets. Please note that data transfer via shared memory segments is always disabled when PulseAudio is running with \fB--system\f1 enabled (see above).
+.TP
+\fB-L | --load\f1\fI="MODULE ARGUMENTS"\f1
+Load the specified plugin module with the specified arguments.
+.TP
+\fB-F | --file\f1\fI=FILENAME\f1
+Run the specified script on startup. May be specified multiple times to specify multiple scripts to be run in order. Combine with \fB-n\f1 to disable loading of the default script \fIdefault.pa\f1 (see below).
+.TP
+\fB-C\f1
+Open a command interpreter on STDIN/STDOUT after startup. This may be used to configure PulseAudio dynamically during runtime. Equivalent to \fB--load\f1\fI=module-cli\f1.
+.TP
+\fB-n\f1
+Don't load default script file \fIdefault.pa\f1 (see below) on startup. Useful in conjunction with \fB-C\f1 or \fB--file\f1.
+.SH FILES
+\fI~/.config/pulse/daemon.conf\f1, \fI/etc/pulse/daemon.conf\f1: configuration settings for the PulseAudio daemon. If the version in the user's home directory does not exist the global configuration file is loaded. See \fBpulse-daemon.conf(5)\f1 for more information.
+
+\fI~/.config/pulse/default.pa\f1, \fI/etc/pulse/default.pa\f1: the default configuration script to execute when the PulseAudio daemon is started. If the version in the user's home directory does not exist the global configuration script is loaded. See \fBdefault.pa(5)\f1 for more information.
+
+\fI~/.config/pulse/client.conf\f1, \fI/etc/pulse/client.conf\f1: configuration settings for PulseAudio client applications. If the version in the user's home directory does not exist the global configuration file is loaded. See \fBpulse-client.conf(5)\f1 for more information.
+.SH SIGNALS
+\fISIGINT, SIGTERM\f1: the PulseAudio daemon will shut down (Same as \fB--kill\f1).
+
+\fISIGHUP\f1: dump a long status report to STDOUT or syslog, depending on the configuration.
+
+\fISIGUSR1\f1: load module-cli, allowing runtime reconfiguration via STDIN/STDOUT.
+
+\fISIGUSR2\f1: load module-cli-protocol-unix, allowing runtime reconfiguration via a AF_UNIX socket. See \fBpacmd(1)\f1 for more information.
+.SH UNIX GROUPS AND USERS
+Group \fIpulse-rt\f1: if the PulseAudio binary is marked SUID root, then membership of the calling user in this group decides whether real-time and/or high-priority scheduling is enabled. Please note that enabling real-time scheduling is a security risk (see below).
+
+Group \fIpulse-access\f1: if PulseAudio is running as a system daemon (see \fB--system\f1 above) access is granted to members of this group when they connect via AF_UNIX sockets. If PulseAudio is running as a user daemon this group has no meaning.
+
+User \fIpulse\f1, group \fIpulse\f1: if PulseAudio is running as a system daemon (see \fB--system\f1 above) and is started as root the daemon will drop privileges and become a normal user process using this user and group. If PulseAudio is running as a user daemon this user and group has no meaning.
+.SH REAL-TIME AND HIGH-PRIORITY SCHEDULING
+To minimize the risk of drop-outs during playback it is recommended to run PulseAudio with real-time scheduling if the underlying platform supports it. This decouples the scheduling latency of the PulseAudio daemon from the system load and is thus the best way to make sure that PulseAudio always gets CPU time when it needs it to refill the hardware playback buffers. Unfortunately this is a security risk on most systems, since PulseAudio runs as user process, and giving realtime scheduling privileges to a user process always comes with the risk that the user misuses it to lock up the system -- which is possible since making a process real-time effectively disables preemption.
+
+To minimize the risk PulseAudio by default does not enable real-time scheduling. It is however recommended to enable it on trusted systems. To do that start PulseAudio with \fB--realtime\f1 (see above) or enabled the appropriate option in \fIdaemon.conf\f1. Since acquiring realtime scheduling is a privileged operation on most systems, some special changes to the system configuration need to be made to allow them to the calling user. Two options are available:
+
+On newer Linux systems the system resource limit RLIMIT_RTPRIO (see \fBsetrlimit(2)\f1 for more information) can be used to allow specific users to acquire real-time scheduling. This can be configured in \fI/etc/security/limits.conf\f1, a resource limit of 9 is recommended.
+
+Alternatively, the SUID root bit can be set for the PulseAudio binary. Then, the daemon will drop root privileges immediately on startup, however retain the CAP_NICE capability (on systems that support it), but only if the calling user is a member of the \fIpulse-rt\f1 group (see above). For all other users all capabilities are dropped immediately. The advantage of this solution is that the real-time privileges are only granted to the PulseAudio daemon -- not to all the user's processes.
+
+Alternatively, if the risk of locking up the machine is considered too big to enable real-time scheduling, high-priority scheduling can be enabled instead (i.e. negative nice level). This can be enabled by passing \fB--high-priority\f1 (see above) when starting PulseAudio and may also be enabled with the appropriate option in \fIdaemon.conf\f1. Negative nice levels can only be enabled when the appropriate resource limit RLIMIT_NICE is set (see \fBsetrlimit(2)\f1 for more information), possibly configured in \fI/etc/security/limits.conf\f1. A resource limit of 31 (corresponding with nice level -11) is recommended.
+.SH ENVIRONMENT VARIABLES
+The PulseAudio client libraries check for the existence of the following environment variables and change their local configuration accordingly:
+
+\fI$PULSE_SERVER\f1: the server string specifying the server to connect to when a client asks for a sound server connection and doesn't explicitly ask for a specific server. The server string is a list of server addresses separated by whitespace which are tried in turn. A server address consists of an optional address type specifier (unix:, tcp:, tcp4:, tcp6:), followed by a path or host address. A host address may include an optional port number. A server address may be prefixed by a string enclosed in {}. In this case the following server address is ignored unless the prefix string equals the local hostname or the machine id (/etc/machine-id).
+
+\fI$PULSE_SINK\f1: the symbolic name of the sink to connect to when a client creates a playback stream and doesn't explicitly ask for a specific sink.
+
+\fI$PULSE_SOURCE\f1: the symbolic name of the source to connect to when a client creates a record stream and doesn't explicitly ask for a specific source.
+
+\fI$PULSE_BINARY\f1: path of PulseAudio executable to run when server auto-spawning is used.
+
+\fI$PULSE_CLIENTCONFIG\f1: path of file that shall be read instead of \fIclient.conf\f1 (see above) for client configuration.
+
+\fI$PULSE_COOKIE\f1: path of file that contains the PulseAudio authentication cookie. Defaults to \fI~/.config/pulse/cookie\f1.
+
+These environment settings take precedence -- if set -- over the configuration settings from \fIclient.conf\f1 (see above).
+.SH AUTHORS
+The PulseAudio Developers <pulseaudio-discuss (at) lists (dot) freedesktop (dot) org>; PulseAudio is available from \fBhttp://pulseaudio.org/\f1
+.SH SEE ALSO
+\fBpulse-daemon.conf(5)\f1, \fBdefault.pa(5)\f1, \fBpulse-client.conf(5)\f1, \fBpacmd(1)\f1

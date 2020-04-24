@@ -2,7 +2,7 @@
 BUILD := DEBUG
 CHANNEL := 1
 #VERSION := $(shell git describe --tags)
-VERSION := v0.3-24-gc8a1554
+VERSION := v0.4-5-g222063c
 
 FLAGS := -Wall -Wpedantic -std=c++11 -MMD
 DEBUG_FLAGS := -Og -g -DDEBUG

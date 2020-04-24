@@ -27,7 +27,7 @@
 
 #define INPUT_MAX_FF_EFFECTS 1
 
-InputDevice::InputDevice()
+InputDevice::InputDevice(FeedbackReceived feedbackReceived)
 {
     memset(&setup, 0, sizeof(setup));
 
@@ -37,6 +37,8 @@ InputDevice::InputDevice()
     {
         throw InputException("Error opening device");
     }
+
+    this->feedbackReceived = feedbackReceived;
 }
 
 InputDevice::~InputDevice()
@@ -133,6 +135,8 @@ void InputDevice::create(
     if (ioctl(file, UI_DEV_CREATE) < 0) {
         throw InputException("Error creating device");
     }
+
+    readEvents();
 }
 
 void InputDevice::readEvents()

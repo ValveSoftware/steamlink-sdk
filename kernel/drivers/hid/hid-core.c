@@ -846,11 +846,11 @@ int hid_open_report(struct hid_device *device)
 		if (start == end) {
 			if (parser->collection_stack_ptr) {
 				hid_err(device, "unbalanced collection at end of report description\n");
-				goto err;
+				//goto err;
 			}
 			if (parser->local.delimiter_depth) {
 				hid_err(device, "unbalanced delimiter at end of report description\n");
-				goto err;
+				//goto err;
 			}
 			vfree(parser);
 			device->status |= HID_STAT_PARSED;
