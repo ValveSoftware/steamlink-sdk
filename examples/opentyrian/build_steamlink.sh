@@ -15,8 +15,8 @@ SRC="${BUILD}/opentyrian-src"
 # Download the source
 #
 if [ ! -d "${SRC}" ]; then
-	hg clone https://bitbucket.org/opentyrian/opentyrian "${SRC}"
-	(cd "${SRC}"; hg update sdl2)
+	git clone https://github.com/opentyrian/opentyrian "${SRC}"
+	#(cd "${SRC}"; git checkout sdl2)
 	rm -f "${BUILD}/.patch-applied"
 fi
 
@@ -25,7 +25,7 @@ fi
 #
 if [ "${TOP}/opentyrian.patch" -nt "${BUILD}/.patch-applied" ]; then
 	pushd "${SRC}"
-	hg checkout -C
+	git reset --hard
 	patch -p1 <"${TOP}/opentyrian.patch" || exit 1
 	popd
 	touch "${BUILD}/.patch-applied"
