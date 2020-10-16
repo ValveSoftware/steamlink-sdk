@@ -23,7 +23,9 @@
 
 #include <cstdint>
 #include <array>
-#include <memory>
+#include <atomic>
+#include <thread>
+#include <mutex>
 
 // Microsoft's vendor ID
 #define DONGLE_VID 0x045e
@@ -38,22 +40,27 @@
  */
 class Dongle : public Mt76
 {
-private:
-    bool afterOpen() override;
-    bool beforeClose() override;
-    void userSignal() override;
-
-    void clientConnected(uint8_t wcid, Bytes address) override;
-    void clientDisconnected(uint8_t wcid) override;
-    void packetReceived(uint8_t wcid, const Bytes &packet) override;
-
-    bool sendControllerPacket(
-        uint8_t wcid,
-        Bytes address,
-        const Bytes &packet
-    );
+public:
+    Dongle(std::unique_ptr<UsbDevice> usbDevice);
+    ~Dongle();
 
     void powerOffControllers();
 
+    using Mt76::setPairingStatus;
+
+private:
+    /* Packet handling */
+    void handleControllerConnect(Bytes address);
+    void handleControllerDisconnect(uint8_t wcid);
+    void handleControllerPair(Bytes address, const Bytes &packet);
+    void handleControllerPacket(uint8_t wcid, const Bytes &packet);
+    void handleWlanPacket(const Bytes &packet);
+    void handleBulkData(const Bytes &data);
+    void readBulkPackets(uint8_t endpoint);
+
+    std::vector<std::thread> threads;
+    std::atomic<bool> stopThreads;
+
+    std::mutex controllerMutex;
     std::array<std::unique_ptr<Controller>, MT_WCID_COUNT> controllers;
 };

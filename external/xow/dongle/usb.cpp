@@ -18,77 +18,59 @@
 
 #include "usb.h"
 #include "../utils/log.h"
-#include "../utils/bytes.h"
-
-#include <thread>
-#include <cstring>
-#include <atomic>
-#include <csignal>
-#include <sys/signalfd.h>
-#include <unistd.h>
 
 // Timeouts in milliseconds
-// No timeout for reading
-#define USB_TIMEOUT_READ 0
+#define USB_TIMEOUT_READ 1000
 #define USB_TIMEOUT_WRITE 1000
 
-void UsbDevice::open(libusb_device *device)
+UsbDevice::UsbDevice(
+    libusb_device *device,
+    Terminate terminate
+) : terminate(terminate)
 {
-    // Device is already open
-    if (handle)
-    {
-        return;
-    }
-
     Log::debug("Opening device...");
 
     int error = libusb_open(device, &handle);
 
     if (error)
     {
-        throw UsbException("Error opening device: ", error);
+        throw UsbException("Error opening device", error);
     }
 
     error = libusb_reset_device(handle);
 
     if (error)
     {
-        throw UsbException("Error resetting device: ", error);
+        throw UsbException("Error resetting device", error);
     }
 
     error = libusb_set_configuration(handle, 1);
 
     if (error)
     {
-        throw UsbException("Error setting configuration: ", error);
+        throw UsbException("Error setting configuration", error);
     }
 
     error = libusb_claim_interface(handle, 0);
 
     if (error)
     {
-        throw UsbException("Error claiming interface: ", error);
-    }
-
-    if (!afterOpen())
-    {
-        throw UsbException("Error opening device");
+        throw UsbException("Error claiming interface", error);
     }
 }
 
-void UsbDevice::close()
+UsbDevice::~UsbDevice()
 {
-    // Device is closed
-    if (!handle)
-    {
-        return;
-    }
-
     Log::debug("Closing device...");
 
-    if (!beforeClose())
+    int error = libusb_release_interface(handle, 0);
+
+    if (error)
     {
-        throw UsbException("Error closing device");
+        Log::error(
+            "Error releasing interface: %s",
+            libusb_error_name(error)
+        );
     }
 
     libusb_close(handle);
@@ -96,14 +78,12 @@ void UsbDevice::close()
 
 void UsbDevice::controlTransfer(ControlPacket packet, bool write)
 {
-    uint8_t type = LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE;
-
-    type |= write ? LIBUSB_ENDPOINT_OUT : LIBUSB_ENDPOINT_IN;
+    uint8_t direction = write ? LIBUSB_ENDPOINT_OUT : LIBUSB_ENDPOINT_IN;
 
     // Number of bytes or error code
     int transferred = libusb_control_transfer(
         handle,
-        type,
+        LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_RECIPIENT_DEVICE | direction,
         packet.request,
         packet.value,
         packet.index,
@@ -125,7 +105,7 @@ void UsbDevice::controlTransfer(ControlPacket packet, bool write)
 
 int UsbDevice::bulkRead(
     uint8_t endpoint,
-    FixedBytes<USB_BUFFER_SIZE> &buffer
+    FixedBytes<USB_MAX_BULK_TRANSFER_SIZE> &buffer
 ) {
     int transferred = 0;
     int error = libusb_bulk_transfer(
@@ -137,13 +117,13 @@ int UsbDevice::bulkRead(
         USB_TIMEOUT_READ
     );
 
-    if (error)
+    if (error && error != LIBUSB_ERROR_TIMEOUT)
     {
         Log::error("Error in bulk read: %s", libusb_error_name(error));
 
         terminate();
 
-        return 0;
+        return -1;
     }
 
     return transferred;
@@ -151,12 +131,6 @@ int UsbDevice::bulkRead(
 
 bool UsbDevice::bulkWrite(uint8_t endpoint, Bytes &data)
 {
-    // Device was disconnected
-    if (!handle)
-    {
-        return false;
-    }
-
     int error = libusb_bulk_transfer(
         handle,
         endpoint | LIBUSB_ENDPOINT_OUT,
@@ -180,39 +154,27 @@ bool UsbDevice::bulkWrite(uint8_t endpoint, Bytes &data)
 
 UsbDeviceManager::UsbDeviceManager()
 {
-    sigset_t signalMask;
-
-    sigemptyset(&signalMask);
-    sigaddset(&signalMask, SIGINT);
-    sigaddset(&signalMask, SIGTERM);
-    sigaddset(&signalMask, SIGUSR1);
-
-    // Block signals in all threads
-    if (pthread_sigmask(SIG_BLOCK, &signalMask, nullptr) < 0)
-    {
-        throw UsbException("Error setting signal mask: ", strerror(errno));
-    }
-
     int error = libusb_init(nullptr);
 
     if (error)
     {
-        throw UsbException("Error initializing libusb: ", error);
-    }
-
-    // Signals can be read from the file descriptor
-    signalFile = signalfd(-1, &signalMask, 0);
-
-    if (signalFile < 0)
-    {
-        throw UsbException("Error creating signal file: ", strerror(errno));
+        throw UsbException("Error initializing libusb", error);
     }
 }
 
-void UsbDeviceManager::registerDevice(
-    UsbDevice &device,
-    std::initializer_list<HardwareId> ids
+UsbDeviceManager::~UsbDeviceManager()
+{
+    libusb_exit(nullptr);
+}
+
+std::unique_ptr<UsbDevice> UsbDeviceManager::getDevice(
+    std::initializer_list<HardwareId> ids,
+    UsbDevice::Terminate terminate
 ) {
+    std::vector<libusb_hotplug_callback_handle> handles(ids.size());
+    size_t counter = 0;
+    libusb_device *device = nullptr;
+
     for (HardwareId id : ids)
     {
         int error = libusb_hotplug_register_callback(
@@ -226,67 +188,41 @@ void UsbDeviceManager::registerDevice(
             LIBUSB_HOTPLUG_MATCH_ANY,
             hotplugCallback,
             &device,
-            &hotplugHandle
+            &handles[counter]
         );
 
         if (error)
         {
-            throw UsbException("Error registering hotplug: ", error);
+            throw UsbException("Error registering hotplug", error);
         }
+
+        counter++;
     }
-}
 
-void UsbDeviceManager::handleEvents(UsbDevice &device)
-{
-    std::atomic<bool> run(true);
+    Log::info("Waiting for device...");
 
-    // Device termination callback (in case of errors)
-    device.terminate = [this, &run]
-    {
-        Log::debug("Device error, terminating...");
-
-        run = false;
-    };
-
-    // Dedicated thread for signal handling
-    std::thread([this, &device, &run]
-    {
-        signalfd_siginfo info = {};
-
-        do
-        {
-            if (read(signalFile, &info, sizeof(info)) != sizeof(info))
-            {
-                throw UsbException("Error reading signal: ", strerror(errno));
-            }
-
-            if (info.ssi_signo == SIGUSR1)
-            {
-                device.userSignal();
-            }
-        
-        } while (info.ssi_signo != SIGINT && info.ssi_signo != SIGTERM);
-
-        Log::debug("Stop signal received");
-
-        device.close();
-        run = false;
-
-        // Interrupt the event handling
-        libusb_hotplug_deregister_callback(nullptr, hotplugHandle);
-    }).detach();
-
-    while (run)
+    // Handle events until device is plugged in
+    while (!device)
     {
         int error = libusb_handle_events_completed(nullptr, nullptr);
 
         if (error)
         {
-            throw UsbException("Error handling events: ", error);
+            throw UsbException("Error handling events", error);
         }
     }
 
-    libusb_exit(nullptr);
+    // Remove all hotplug callbacks
+    for (libusb_hotplug_callback_handle handle : handles)
+    {
+        libusb_hotplug_deregister_callback(nullptr, handle);
+    }
+
+    // Pass ownership of device to caller
+    return std::unique_ptr<UsbDevice>(new UsbDevice(
+        device,
+        terminate
+    ));
 }
 
 int UsbDeviceManager::hotplugCallback(
@@ -295,16 +231,15 @@ int UsbDeviceManager::hotplugCallback(
     libusb_hotplug_event event,
     void *userData
 ) {
-    UsbDevice *usbDevice = static_cast<UsbDevice*>(userData);
+    libusb_device **newDevice = static_cast<libusb_device**>(userData);
 
-    // Transfers inside the callback are not allowed
-    std::thread(&UsbDevice::open, usbDevice, device).detach();
+    *newDevice = device;
 
-    return 0;
+    // Deregister hotplug callback
+    return 1;
 }
 
-UsbException::UsbException(std::string message, int error)
-    : std::runtime_error(message + libusb_error_name(error)) {}
-
-UsbException::UsbException(std::string message, std::string error)
-    : std::runtime_error(message + error) {}
+UsbException::UsbException(
+    std::string message,
+    int error
+) : std::runtime_error(message + ": " + libusb_error_name(error)) {}

@@ -205,7 +205,7 @@
 
 /* #undef HAVE_ALTIVEC_H */
 #define HAVE_DBUS_DBUS_H 1
-/* #undef HAVE_FCITX_FRONTEND_H */
+#define HAVE_FCITX 1
 /* #undef HAVE_IBUS_IBUS_H */
 /* #undef HAVE_IMMINTRIN_H */
 /* #undef HAVE_LIBSAMPLERATE_H */
@@ -216,8 +216,11 @@
 /* #undef HAVE_DSOUND_H */
 /* #undef HAVE_DXGI_H */
 /* #undef HAVE_XINPUT_H */
+
 /* #undef HAVE_MMDEVICEAPI_H */
 /* #undef HAVE_AUDIOCLIENT_H */
+/* #undef HAVE_SENSORSAPI_H */
+
 /* #undef HAVE_XINPUT_GAMEPAD_EX */
 /* #undef HAVE_XINPUT_STATE_EX */
 
@@ -292,7 +295,7 @@
 #define SDL_JOYSTICK_HIDAPI 1
 /* #undef SDL_JOYSTICK_RAWINPUT */
 /* #undef SDL_JOYSTICK_EMSCRIPTEN */
-/* #undef SDL_JOYSTICK_VIRTUAL */
+#define SDL_JOYSTICK_VIRTUAL 1
 /* #undef SDL_HAPTIC_DUMMY */
 /* #undef SDL_HAPTIC_ANDROID */
 #define SDL_HAPTIC_LINUX 1
@@ -302,6 +305,8 @@
 
 /* Enable various sensor drivers */
 /* #undef SDL_SENSOR_ANDROID */
+/* #undef SDL_SENSOR_COREMOTION */
+/* #undef SDL_SENSOR_WINDOWS */
 #define SDL_SENSOR_DUMMY 1
 
 /* Enable various shared object loading systems */
@@ -415,7 +420,7 @@
 /* Enable assembly routines */
 #define SDL_ASSEMBLY_ROUTINES 1
 /* #undef SDL_ALTIVEC_BLITTERS */
-#define SDL_ARM_SIMD_BLITTERS 1
+/* #undef SDL_ARM_SIMD_BLITTERS */
 /* #undef SDL_ARM_NEON_BLITTERS */
 
 /* Enable ime support */

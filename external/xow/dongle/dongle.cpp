@@ -19,51 +19,53 @@
 #include "dongle.h"
 #include "../utils/log.h"
 
-#include <functional>
-
-bool Dongle::afterOpen()
+Dongle::Dongle(
+    std::unique_ptr<UsbDevice> usbDevice
+) : Mt76(std::move(usbDevice)), stopThreads(false)
 {
-    Log::info("Dongle plugged in");
-
-    if (!Mt76::afterOpen())
-    {
-        return false;
-    }
-
     Log::info("Dongle initialized");
 
-    return true;
+    threads.emplace_back(
+        &Dongle::readBulkPackets,
+        this,
+        MT_EP_READ
+    );
+    threads.emplace_back(
+        &Dongle::readBulkPackets,
+        this,
+        MT_EP_READ_PACKET
+    );
 }
 
-bool Dongle::beforeClose()
+Dongle::~Dongle()
 {
-    // Prevent controller connect/disconnect race conditions
-    std::lock_guard<std::mutex> lock(handlePacketMutex);
+    stopThreads = true;
 
-    Log::info("Dongle power-off");
-
-    powerOffControllers();
-
-    if (!Mt76::beforeClose())
+    // Wait for all threads to shut down
+    for (std::thread &thread : threads)
     {
-        return false;
+        if (thread.joinable())
+        {
+            thread.join();
+        }
+    }
+}
+
+void Dongle::handleControllerConnect(Bytes address)
+{
+    std::lock_guard<std::mutex> lock(controllerMutex);
+
+    uint8_t wcid = associateClient(address);
+
+    if (wcid == 0)
+    {
+        Log::error("Failed to associate controller");
+
+        return;
     }
 
-    return true;
-}
-
-void Dongle::userSignal()
-{
-    std::lock_guard<std::mutex> lock(handlePacketMutex);
-
-    Log::info("Powering off controllers");
-    powerOffControllers();
-}
-
-void Dongle::clientConnected(uint8_t wcid, Bytes address)
-{
-    auto sendPacket = std::bind(
-        &Dongle::sendControllerPacket,
+    GipDevice::SendPacket sendPacket = std::bind(
+        &Dongle::sendClientPacket,
         this,
         wcid,
         address,
@@ -75,92 +77,242 @@ void Dongle::clientConnected(uint8_t wcid, Bytes address)
     Log::info("Controller '%d' connected", wcid);
 }
 
-void Dongle::clientDisconnected(uint8_t wcid)
+void Dongle::handleControllerDisconnect(uint8_t wcid)
 {
+    // Ignore invalid WCIDs
+    if (wcid == 0 || wcid > MT_WCID_COUNT)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(controllerMutex);
+
+    // Ignore unconnected controllers
     if (!controllers[wcid - 1])
     {
-        Log::error("Controller '%d' is not connected", wcid);
-
         return;
     }
 
     controllers[wcid - 1].reset();
 
-    Log::info("Controller '%d' disconnected", wcid);
-}
-
-void Dongle::packetReceived(uint8_t wcid, const Bytes &packet)
-{
-    if (!controllers[wcid - 1])
+    if (!removeClient(wcid))
     {
-        Log::error("Packet for unconnected controller '%d'", wcid);
+        Log::error("Failed to remove controller");
 
         return;
     }
 
-    if (!controllers[wcid - 1]->handlePacket(packet))
+    Log::info("Controller '%d' disconnected", wcid);
+}
+
+void Dongle::handleControllerPair(Bytes address, const Bytes &packet)
+{
+    // Ignore invalid packets
+    if (packet.size() < sizeof(ReservedFrame))
+    {
+        return;
+    }
+
+    const ReservedFrame *frame = packet.toStruct<ReservedFrame>();
+
+    // Type 0x01 is for pairing requests
+    if (frame->type != 0x01)
+    {
+        return;
+    }
+
+    if (!pairClient(address))
+    {
+        Log::error("Failed to pair controller");
+
+        return;
+    }
+
+    if (!setPairingStatus(false))
+    {
+        Log::error("Failed to disable pairing");
+
+        return;
+    }
+
+    Log::debug(
+        "Controller paired: %s",
+        Log::formatBytes(address).c_str()
+    );
+}
+
+void Dongle::handleControllerPacket(uint8_t wcid, const Bytes &packet)
+{
+    // Invalid WCID
+    if (wcid == 0 || wcid > MT_WCID_COUNT)
+    {
+        return;
+    }
+
+    // Ignore invalid or empty packets
+    if (packet.size() <= sizeof(QosFrame) + sizeof(uint16_t))
+    {
+        return;
+    }
+
+    // Skip 2 bytes of padding
+    const Bytes data(packet, sizeof(QosFrame) + sizeof(uint16_t));
+
+    std::lock_guard<std::mutex> lock(controllerMutex);
+
+    // Ignore unconnected controllers
+    if (!controllers[wcid - 1])
+    {
+        return;
+    }
+
+    if (!controllers[wcid - 1]->handlePacket(data))
     {
         Log::error("Error handling packet for controller '%d'", wcid);
     }
 }
 
-bool Dongle::sendControllerPacket(
-    uint8_t wcid,
-    Bytes address,
-    const Bytes &packet
-) {
-    TxWi txWi = {};
-
-    // OFDM transmission method
-    // Wait for acknowledgement
-    txWi.phyType = MT_PHY_TYPE_OFDM;
-    txWi.ack = 1;
-    txWi.mpduByteCount = sizeof(WlanFrame) + sizeof(QosFrame) + packet.size();
-
-    WlanFrame wlanFrame = {};
-
-    // Frame is sent from AP (DS)
-    // Duration is the time required to transmit (μs)
-    wlanFrame.frameControl.type = MT_WLAN_DATA;
-    wlanFrame.frameControl.subtype = MT_WLAN_QOS_DATA;
-    wlanFrame.frameControl.fromDs = 1;
-    wlanFrame.duration = 144;
-
-    address.copy(wlanFrame.destination);
-    macAddress.copy(wlanFrame.source);
-    macAddress.copy(wlanFrame.bssId);
-
-    QosFrame qosFrame = {};
-
-    // Frames and data must be 32-bit aligned
-    uint32_t length = sizeof(txWi) + sizeof(wlanFrame) + sizeof(qosFrame);
-    uint32_t wcidData = __builtin_bswap32(wcid - 1);
-    uint8_t framePadding = Bytes::padding<uint32_t>(length);
-    uint8_t dataPadding = Bytes::padding<uint32_t>(packet.size());
-
-    Bytes out;
-
-    out.append(wcidData);
-    out.pad(sizeof(uint32_t));
-    out.append(txWi);
-    out.append(wlanFrame);
-    out.append(qosFrame);
-    out.pad(framePadding);
-    out.append(packet);
-    out.pad(dataPadding);
-
-    if (!sendCommand(CMD_PACKET_TX, out))
+void Dongle::handleWlanPacket(const Bytes &packet)
+{
+    // Ignore invalid or empty packets
+    if (packet.size() <= sizeof(RxWi) + sizeof(WlanFrame))
     {
-        Log::error("Failed to send controller packet");
-
-        return false;
+        return;
     }
 
-    return true;
+    const RxWi *rxWi = packet.toStruct<RxWi>();
+    const WlanFrame *wlanFrame = packet.toStruct<WlanFrame>(sizeof(RxWi));
+
+    const Bytes source(
+        wlanFrame->source,
+        wlanFrame->source + macAddress.size()
+    );
+    const Bytes destination(
+        wlanFrame->destination,
+        wlanFrame->destination + macAddress.size()
+    );
+
+    // Packet has wrong destination address
+    if (destination != macAddress)
+    {
+        return;
+    }
+
+    uint8_t type = wlanFrame->frameControl.type;
+    uint8_t subtype = wlanFrame->frameControl.subtype;
+
+    if (type == MT_WLAN_MANAGEMENT)
+    {
+        switch (subtype)
+        {
+            case MT_WLAN_ASSOCIATION_REQ:
+                handleControllerConnect(source);
+                break;
+
+            // Only kept for compatibility with 1537 controllers
+            // They associate, disassociate and associate again during pairing
+            // Disassociations happen without triggering EVT_CLIENT_LOST
+            case MT_WLAN_DISASSOCIATION:
+                handleControllerDisconnect(rxWi->wcid);
+                break;
+
+            // Reserved frames are used for different purposes
+            // Most of them are yet to be discovered
+            case MT_WLAN_RESERVED:
+                const Bytes innerPacket(
+                    packet,
+                    sizeof(RxWi) + sizeof(WlanFrame)
+                );
+
+                handleControllerPair(source, innerPacket);
+                break;
+        }
+    }
+
+    else if (type == MT_WLAN_DATA && subtype == MT_WLAN_QOS_DATA)
+    {
+        const Bytes innerPacket(
+            packet,
+            sizeof(RxWi) + sizeof(WlanFrame)
+        );
+
+        handleControllerPacket(rxWi->wcid, innerPacket);
+    }
+}
+
+void Dongle::handleBulkData(const Bytes &data)
+{
+    // Ignore invalid or empty data
+    if (data.size() <= sizeof(RxInfoGeneric) + sizeof(uint32_t))
+    {
+        return;
+    }
+
+    // Skip packet end marker (4 bytes, identical to header)
+    const RxInfoGeneric *rxInfo = data.toStruct<RxInfoGeneric>();
+    const Bytes packet(data, sizeof(RxInfoGeneric), sizeof(uint32_t));
+
+    if (rxInfo->port == CPU_RX_PORT)
+    {
+        const RxInfoCommand *info = data.toStruct<RxInfoCommand>();
+
+        switch (info->eventType)
+        {
+            case EVT_BUTTON_PRESS:
+                // Setting the pairing status doesn't require locking the mutex
+                setPairingStatus(true);
+                break;
+
+            case EVT_PACKET_RX:
+                handleWlanPacket(packet);
+                break;
+
+            case EVT_CLIENT_LOST:
+                // Packet is guaranteed not to be empty
+                handleControllerDisconnect(packet[0]);
+                break;
+        }
+    }
+
+    else if (rxInfo->port == WLAN_PORT)
+    {
+        const RxInfoPacket *info = data.toStruct<RxInfoPacket>();
+
+        if (info->is80211)
+        {
+            handleWlanPacket(packet);
+        }
+    }
+}
+
+void Dongle::readBulkPackets(uint8_t endpoint)
+{
+    FixedBytes<USB_MAX_BULK_TRANSFER_SIZE> buffer;
+
+    while (!stopThreads)
+    {
+        int transferred = usbDevice->bulkRead(endpoint, buffer);
+
+        // Bulk read failed
+        if (transferred < 0)
+        {
+            break;
+        }
+
+        if (transferred > 0)
+        {
+            Bytes data = buffer.toBytes(transferred);
+
+            handleBulkData(data);
+        }
+    }
 }
 
 void Dongle::powerOffControllers()
 {
+    std::lock_guard<std::mutex> lock(controllerMutex);
+
+    Log::info("Powering off controllers");
     for (std::unique_ptr<Controller> &controller : controllers)
     {
         if (controller && !controller->powerOff())

@@ -19,8 +19,6 @@
 #pragma once
 
 #include <string>
-#include <mutex>
-#include <cstdio>
 
 class Bytes;
 
@@ -30,31 +28,20 @@ class Bytes;
  */
 namespace Log
 {
-    extern std::mutex mutex;
-
     std::string formatBytes(const Bytes &bytes);
-
-    void printHeader(
-        FILE *output,
-        std::string level,
-        std::string message
-    );
+    std::string formatLog(std::string level, std::string message);
 
     inline void init()
     {
-        // Disable buffering
-        setbuf(stdout, nullptr);
+        // Switch to line buffering
+        setlinebuf(stdout);
     }
 
     inline void debug(std::string message)
     {
         #ifdef DEBUG
-        std::lock_guard<std::mutex> lock(mutex);
-
-        printHeader(stdout, "DEBUG", message);
-
-        std::fputs(message.c_str(), stdout);
-        std::fputs("\n", stdout);
+        std::string output = formatLog("DEBUG", message);
+        std::fputs(output.c_str(), stdout);
         #endif
     }
 
@@ -62,54 +49,34 @@ namespace Log
     inline void debug(std::string message, Args... args)
     {
         #ifdef DEBUG
-        std::lock_guard<std::mutex> lock(mutex);
-
-        printHeader(stdout, "DEBUG", message);
-
-        std::fprintf(stdout, message.c_str(), args...);
-        std::fprintf(stdout, "\n");
+        std::string output = formatLog("DEBUG", message);
+        std::fprintf(stdout, output.c_str(), args...);
         #endif
     }
 
     inline void info(std::string message)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-
-        printHeader(stdout, "INFO", message);
-
-        std::fputs(message.c_str(), stdout);
-        std::fputs("\n", stdout);
+        std::string output = formatLog("INFO", message);
+        std::fputs(output.c_str(), stdout);
     }
 
     template<typename... Args>
     inline void info(std::string message, Args... args)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-
-        printHeader(stdout, "INFO", message);
-
-        std::fprintf(stdout, message.c_str(), args...);
-        std::fprintf(stdout, "\n");
+        std::string output = formatLog("INFO", message);
+        std::fprintf(stdout, output.c_str(), args...);
     }
 
     inline void error(std::string message)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-
-        printHeader(stderr, "ERROR", message);
-
-        std::fputs(message.c_str(), stderr);
-        std::fputs("\n", stderr);
+        std::string output = formatLog("ERROR", message);
+        std::fputs(output.c_str(), stderr);
     }
 
     template<typename... Args>
     inline void error(std::string message, Args... args)
     {
-        std::lock_guard<std::mutex> lock(mutex);
-
-        printHeader(stderr, "ERROR", message);
-
-        std::fprintf(stderr, message.c_str(), args...);
-        std::fprintf(stderr, "\n");
+        std::string output = formatLog("ERROR", message);
+        std::fprintf(stderr, output.c_str(), args...);
     }
 }

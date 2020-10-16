@@ -15,25 +15,25 @@ if(NOT TARGET SDL2::SDL2)
   # This may require "libdir" beeing set (from above)
   string(REPLACE "-lSDL2 " "" SDL2_EXTRA_LINK_FLAGS "-Wl,-rpath,${libdir} -Wl,--enable-new-dtags -lSDL2 ")
   string(STRIP "${SDL2_EXTRA_LINK_FLAGS}" SDL2_EXTRA_LINK_FLAGS)
-  string(REPLACE "-lSDL2 " "" SDL2_EXTRA_LINK_FLAGS_STATIC "-Wl,-rpath,${libdir} -Wl,--enable-new-dtags -lSDL2  -Wl,--no-undefined -lm -ldl -lpthread -lrt ")
+  string(REPLACE "-lSDL2 " "" SDL2_EXTRA_LINK_FLAGS_STATIC " -Wl,--no-undefined -lm -ldl -lpthread -lrt ")
   string(STRIP "${SDL2_EXTRA_LINK_FLAGS_STATIC}" SDL2_EXTRA_LINK_FLAGS_STATIC)
 
   add_library(SDL2::SDL2 SHARED IMPORTED)
   set_target_properties(SDL2::SDL2 PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${prefix}/include/SDL2"
     IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-    IMPORTED_LOCATION "${exec_prefix}/lib/libSDL2.so"
+    IMPORTED_LOCATION "${exec_prefix}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}SDL2${CMAKE_SHARED_LIBRARY_SUFFIX}"
     INTERFACE_LINK_LIBRARIES "${SDL2_EXTRA_LINK_FLAGS}")
 
   add_library(SDL2::SDL2-static STATIC IMPORTED)
   set_target_properties(SDL2::SDL2-static PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${prefix}/include/SDL2"
     IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-    IMPORTED_LOCATION "${exec_prefix}/lib/libSDL2.a"
+    IMPORTED_LOCATION "${exec_prefix}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}SDL2${CMAKE_STATIC_LIBRARY_SUFFIX}"
     INTERFACE_LINK_LIBRARIES "${SDL2_EXTRA_LINK_FLAGS_STATIC}")
 
   add_library(SDL2::SDL2main STATIC IMPORTED)
   set_target_properties(SDL2::SDL2main PROPERTIES
     IMPORTED_LINK_INTERFACE_LANGUAGES "C"
-    IMPORTED_LOCATION "${exec_prefix}/lib/libSDL2main.a")
+    IMPORTED_LOCATION "${exec_prefix}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}SDL2main${CMAKE_STATIC_LIBRARY_SUFFIX}")
 endif()

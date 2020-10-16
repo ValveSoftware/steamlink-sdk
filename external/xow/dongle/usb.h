@@ -22,31 +22,23 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <stdexcept>
 
 #include <libusb-1.0/libusb.h>
 
-#define USB_BUFFER_SIZE 512
+#define USB_MAX_BULK_TRANSFER_SIZE 512
 
 /*
  * Base class for interfacing with USB devices
- * Provides control/bulk transfers
+ * Provides control/bulk transfer capabilities
  */
 class UsbDevice
 {
-private:
+public:
     using Terminate = std::function<void()>;
 
-public:
-    void open(libusb_device *device);
-    void close();
-
-    virtual void userSignal() { }
-
-    Terminate terminate;
-
-protected:
     struct ControlPacket
     {
         uint8_t request;
@@ -56,22 +48,24 @@ protected:
         uint16_t length;
     };
 
-    virtual bool afterOpen() = 0;
-    virtual bool beforeClose() = 0;
+    UsbDevice(libusb_device *device, Terminate terminate);
+    virtual ~UsbDevice();
 
     void controlTransfer(ControlPacket packet, bool write);
     int bulkRead(
         uint8_t endpoint,
-        FixedBytes<USB_BUFFER_SIZE> &buffer
+        FixedBytes<USB_MAX_BULK_TRANSFER_SIZE> &buffer
     );
     bool bulkWrite(uint8_t endpoint, Bytes &data);
 
 private:
-    libusb_device_handle *handle = nullptr;
+    libusb_device_handle *handle;
+    Terminate terminate;
 };
 
 /*
- * Registers hotplugs, handles libusb events and signals
+ * Provides access to USB devices
+ * Handles device enumeration and hot plugging
  */
 class UsbDeviceManager
 {
@@ -82,12 +76,12 @@ public:
     };
 
     UsbDeviceManager();
+    ~UsbDeviceManager();
 
-    void registerDevice(
-        UsbDevice &device,
-        std::initializer_list<HardwareId> ids
+    std::unique_ptr<UsbDevice> getDevice(
+        std::initializer_list<HardwareId> ids,
+        UsbDevice::Terminate terminate
     );
-    void handleEvents(UsbDevice &device);
 
 private:
     static int hotplugCallback(
@@ -96,15 +90,10 @@ private:
         libusb_hotplug_event event,
         void *userData
     );
-
-    int signalFile;
-
-    libusb_hotplug_callback_handle hotplugHandle;
 };
 
 class UsbException : public std::runtime_error
 {
 public:
     UsbException(std::string message, int error);
-    UsbException(std::string message, std::string error = "");
 };

@@ -19,25 +19,52 @@
 #include "controller.h"
 #include "../utils/log.h"
 
+#include <cstdlib>
 #include <cmath>
 #include <linux/input.h>
 
-Controller::Controller(SendPacket sendPacket) :
-    GipDevice(sendPacket), inputDevice(std::bind(
-        &Controller::feedbackReceived,
+// Configuration for the compatibility mode
+#define COMPATIBILITY_ENV "XOW_COMPATIBILITY"
+#define COMPATIBILITY_NAME "Microsoft X-Box 360 pad"
+#define COMPATIBILITY_PID 0x028e
+#define COMPATIBILITY_VERSION 0x0104
+
+// Accessories use IDs greater than zero
+#define DEVICE_ID_CONTROLLER 0
+#define DEVICE_NAME "Xbox One Wireless Controller"
+
+#define INPUT_STICK_FUZZ 255
+#define INPUT_STICK_FLAT 4095
+#define INPUT_TRIGGER_FUZZ 3
+#define INPUT_TRIGGER_FLAT 63
+
+Controller::Controller(
+    SendPacket sendPacket
+) : GipDevice(sendPacket),
+    inputDevice(std::bind(
+        &Controller::inputFeedbackReceived,
         this,
         std::placeholders::_1,
-        std::placeholders::_2
+        std::placeholders::_2,
+        std::placeholders::_3
     )) {}
+
+Controller::~Controller()
+{
+    if (!powerOff())
+    {
+        Log::error("Failed to turn off controller");
+    }
+}
 
 bool Controller::powerOff()
 {
-    return setPowerMode(POWER_OFF);
+    return setPowerMode(DEVICE_ID_CONTROLLER, POWER_OFF);
 }
 
-void Controller::deviceAnnounced(const AnnounceData *announce)
+void Controller::deviceAnnounced(uint8_t id, const AnnounceData *announce)
 {
-    Log::info("Product ID: %04x", announce->productId);
+    Log::info("Device announced, product id: %04x", announce->productId);
     Log::debug(
         "Firmware version: %d.%d.%d.%d",
         announce->firmwareVersion.major,
@@ -53,44 +80,23 @@ void Controller::deviceAnnounced(const AnnounceData *announce)
         announce->hardwareVersion.revision
     );
 
-    LedModeData ledMode = {};
-
-    // Dim the LED a little bit, like the original driver
-    // Brightness ranges from 0x00 to 0x20
-    ledMode.mode = LED_ON;
-    ledMode.brightness = 0x14;
-
-    if (!setPowerMode(POWER_ON))
-    {
-        Log::error("Failed to set initial power mode");
-
-        return;
-    }
-
-    if (!setLedMode(ledMode))
-    {
-        Log::error("Failed to set initial LED mode");
-
-        return;
-    }
-
-    if (!requestSerialNumber())
-    {
-        Log::error("Failed to request serial number");
-
-        return;
-    }
-
-    setupInput(announce->vendorId, announce->productId);
+    initInput(announce);
 }
 
-void Controller::statusReceived(const StatusData *status)
+void Controller::statusReceived(uint8_t id, const StatusData *status)
 {
-    Log::debug(
-        "Battery type: %d, level: %d",
-        status->batteryType,
-        status->batteryLevel
-    );
+    uint8_t type = status->batteryType;
+    uint8_t level = status->batteryLevel;
+
+    // Controller is charging or level hasn't changed
+    if (type == BATT_TYPE_CHARGING || level == batteryLevel)
+    {
+        return;
+    }
+
+    Log::info("Battery level: %d", level);
+
+    batteryLevel = level;
 }
 
 void Controller::guideButtonPressed(const GuideButtonData *button)
@@ -138,23 +144,51 @@ void Controller::inputReceived(const InputData *input)
     inputDevice.report();
 }
 
-void Controller::setupInput(uint16_t vendorId, uint16_t productId)
+void Controller::initInput(const AnnounceData *announce)
 {
+    LedModeData ledMode = {};
+
+    // Dim the LED a little bit, like the original driver
+    // Brightness ranges from 0x00 to 0x20
+    ledMode.mode = LED_ON;
+    ledMode.brightness = 0x14;
+
+    if (!setPowerMode(DEVICE_ID_CONTROLLER, POWER_ON))
+    {
+        Log::error("Failed to set initial power mode");
+
+        return;
+    }
+
+    if (!setLedMode(ledMode))
+    {
+        Log::error("Failed to set initial LED mode");
+
+        return;
+    }
+
+    if (!requestSerialNumber())
+    {
+        Log::error("Failed to request serial number");
+
+        return;
+    }
+
     InputDevice::AxisConfig stickConfig = {};
 
     // 16 bits (signed) for the sticks
     stickConfig.minimum = -32768;
     stickConfig.maximum = 32767;
-    stickConfig.fuzz = 255;
-    stickConfig.flat = 4095;
+    stickConfig.fuzz = INPUT_STICK_FUZZ;
+    stickConfig.flat = INPUT_STICK_FLAT;
 
     InputDevice::AxisConfig triggerConfig = {};
 
     // 10 bits (unsigned) for the triggers
     triggerConfig.minimum = 0;
     triggerConfig.maximum = 1023;
-    triggerConfig.fuzz = 3;
-    triggerConfig.flat = 63;
+    triggerConfig.fuzz = INPUT_TRIGGER_FUZZ;
+    triggerConfig.flat = INPUT_TRIGGER_FLAT;
 
     InputDevice::AxisConfig dpadConfig = {};
 
@@ -182,48 +216,79 @@ void Controller::setupInput(uint16_t vendorId, uint16_t productId)
     inputDevice.addAxis(ABS_HAT0X, dpadConfig);
     inputDevice.addAxis(ABS_HAT0Y, dpadConfig);
     inputDevice.addFeedback(FF_RUMBLE);
-    inputDevice.create(
-        vendorId,
-        productId,
-        "Xbox One Wireless Controller"
-    );
+
+    InputDevice::DeviceConfig deviceConfig = {};
+
+    deviceConfig.vendorId = announce->vendorId;
+
+    if (std::getenv(COMPATIBILITY_ENV))
+    {
+        // Certain games compare the gamepad's name with a hardcoded value
+        // Pretending to be an Xbox 360 controller fixes these problems
+        deviceConfig.productId = COMPATIBILITY_PID;
+        deviceConfig.version = COMPATIBILITY_VERSION;
+
+        inputDevice.create(COMPATIBILITY_NAME, deviceConfig);
+    }
+
+    else
+    {
+        uint16_t version = (announce->firmwareVersion.major << 8) |
+            announce->firmwareVersion.minor;
+
+        deviceConfig.productId = announce->productId;
+        deviceConfig.version = version;
+
+        inputDevice.create(DEVICE_NAME, deviceConfig);
+    }
 }
 
-void Controller::feedbackReceived(ff_effect effect, uint16_t gain)
-{
+void Controller::inputFeedbackReceived(
+    uint16_t gain,
+    ff_effect effect,
+    uint8_t replayCount
+) {
+    // Ignore other types of force feedback
     if (effect.type != FF_RUMBLE)
     {
         return;
     }
 
-    if (!rumbling && gain == 0)
-    {
-        return;
-    }
-
-    // Map Linux' magnitudes to rumble power
-    uint8_t weak = static_cast<uint32_t>(
-        effect.u.rumble.weak_magnitude
-    ) * gain / 0xffffff;
-    uint8_t strong = static_cast<uint32_t>(
-        effect.u.rumble.strong_magnitude
-    ) * gain / 0xffffff;
-
     Log::debug(
-        "Feedback length: %d, delay: %d, direction: %d, weak: %d, strong: %d",
+        "Rumble count: %d, duration: %d, delay: %d",
+        replayCount,
         effect.replay.length,
-        effect.replay.delay,
-        effect.direction,
-        weak,
-        strong
+        effect.replay.delay
     );
 
     RumbleData rumble = {};
 
-    rumble.motors = RUMBLE_ALL;
-    rumble.left = strong;
-    rumble.right = weak;
-    rumble.duration = 0xff;
+    rumble.setRight = true;
+    rumble.setLeft = true;
+    rumble.setRightTrigger = true;
+    rumble.setLeftTrigger = true;
+
+    if (replayCount == 0 || gain == 0)
+    {
+        performRumble(rumble);
+
+        return;
+    }
+
+    Log::debug(
+        "Rumble strong: %d, weak: %d, direction: %d",
+        effect.u.rumble.strong_magnitude,
+        effect.u.rumble.weak_magnitude,
+        effect.direction
+    );
+
+    // Map effect's magnitudes to rumble power
+    rumble.left = static_cast<uint32_t>(
+        effect.u.rumble.strong_magnitude
+    ) * gain / 0xffffff;
+    rumble.right = static_cast<uint32_t>(
+        effect.u.rumble.weak_magnitude
+    ) * gain / 0xffffff;
 
     // Upper half of the controller (from left to right)
     if (effect.direction >= 0x4000 && effect.direction <= 0xc000)
@@ -232,18 +297,37 @@ void Controller::feedbackReceived(ff_effect effect, uint16_t gain)
         float angle = static_cast<float>(effect.direction) / 0xffff - 0.125;
         float left = sin(2 * M_PI * angle);
         float right = cos(2 * M_PI * angle);
-        uint8_t maxPower = strong > weak ? strong : weak;
+        uint8_t maxPower = rumble.left > rumble.right ?
+            rumble.left :
+            rumble.right;
 
-        // Limit values to the left and right areas
+        // Limit values to left and right areas
         left = left > 0 ? left : 0;
         right = right < 0 ? -right : 0;
 
         // The trigger motors are very strong
-        rumble.triggerLeft = left * maxPower / 4;
-        rumble.triggerRight = right * maxPower / 4;
+        rumble.leftTrigger = left * maxPower / 4;
+        rumble.rightTrigger = right * maxPower / 4;
     }
 
-    performRumble(rumble);
+    uint16_t duration = effect.replay.length / 10;
+    uint16_t delay = effect.replay.delay / 10;
 
-    rumbling = gain > 0;
+    // Use maximum duration if not specified or out of range
+    if (duration == 0x00 || duration > 0xff)
+    {
+        duration = 0xff;
+    }
+
+    if (delay > 0xff)
+    {
+        delay = 0xff;
+    }
+
+    // Time in multiples of 10 ms
+    rumble.duration = duration;
+    rumble.delay = delay;
+    rumble.repeat = replayCount - 1;
+
+    performRumble(rumble);
 }

@@ -1,17 +1,53 @@
+diff --git a/controller/controller.cpp b/controller/controller.cpp
+index a072aea..97dd8e9 100644
+--- a/controller/controller.cpp
++++ b/controller/controller.cpp
+@@ -51,12 +51,17 @@ Controller::Controller(
+ 
+ Controller::~Controller()
+ {
+-    if (!setPowerMode(DEVICE_ID_CONTROLLER, POWER_OFF))
++    if (!powerOff())
+     {
+         Log::error("Failed to turn off controller");
+     }
+ }
+ 
++bool Controller::powerOff()
++{
++    return setPowerMode(DEVICE_ID_CONTROLLER, POWER_OFF);
++}
++
+ void Controller::deviceAnnounced(uint8_t id, const AnnounceData *announce)
+ {
+     Log::info("Device announced, product id: %04x", announce->productId);
+diff --git a/controller/controller.h b/controller/controller.h
+index 5486895..3d15652 100644
+--- a/controller/controller.h
++++ b/controller/controller.h
+@@ -31,6 +31,8 @@ public:
+     Controller(SendPacket sendPacket);
+     ~Controller();
+ 
++    bool powerOff();
++
+ private:
+     /* GIP events */
+     void deviceAnnounced(uint8_t id, const AnnounceData *announce) override;
 diff --git a/controller/input.cpp b/controller/input.cpp
-index 9a903a2..291a2fd 100644
+index ab6f8b8..abb4145 100644
 --- a/controller/input.cpp
 +++ b/controller/input.cpp
-@@ -29,6 +29,8 @@
- 
- InputDevice::InputDevice(FeedbackReceived feedbackReceived)
+@@ -29,6 +29,8 @@ InputDevice::InputDevice(
+     FeedbackReceived feedbackReceived
+ ) : feedbackReceived(feedbackReceived)
  {
 +    memset(&setup, 0, sizeof(setup));
 +
      file = open("/dev/uinput", O_RDWR | O_NONBLOCK);
  
      if (file < 0)
-@@ -78,6 +80,7 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
+@@ -73,6 +75,7 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
          throw InputException("Error adding axis code");
      }
  
@@ -19,7 +55,7 @@ index 9a903a2..291a2fd 100644
      uinput_abs_setup setup = {};
  
      setup.code = code;
-@@ -90,6 +93,12 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
+@@ -85,6 +88,12 @@ void InputDevice::addAxis(uint16_t code, AxisConfig config)
      {
          throw InputException("Error setting up axis");
      }
@@ -32,16 +68,16 @@ index 9a903a2..291a2fd 100644
  }
  
  void InputDevice::addFeedback(uint16_t code)
-@@ -107,8 +116,6 @@ void InputDevice::create(
-     uint16_t productId,
-     std::string name
- ) {
+@@ -99,8 +108,6 @@ void InputDevice::addFeedback(uint16_t code)
+ 
+ void InputDevice::create(std::string name, DeviceConfig config)
+ {
 -    uinput_setup setup = {};
 -
      setup.id.bustype = BUS_USB;
-     setup.id.vendor = vendorId;
-     setup.id.product = productId;
-@@ -116,10 +123,16 @@ void InputDevice::create(
+     setup.id.vendor = config.vendorId;
+     setup.id.product = config.productId;
+@@ -109,10 +116,16 @@ void InputDevice::create(std::string name, DeviceConfig config)
  
      std::copy(name.begin(), name.end(), std::begin(setup.name));
  
@@ -63,10 +99,10 @@ index 9a903a2..291a2fd 100644
      }
  
 diff --git a/controller/input.h b/controller/input.h
-index 8070839..a3de53a 100644
+index c3c2cfd..89727a7 100644
 --- a/controller/input.h
 +++ b/controller/input.h
-@@ -86,6 +86,12 @@ private:
+@@ -94,6 +94,12 @@ private:
      ff_effect effect = {};
      uint16_t effectGain = 0xffff;
      FeedbackReceived feedbackReceived;
@@ -80,46 +116,19 @@ index 8070839..a3de53a 100644
  
  class InputException : public std::runtime_error
 diff --git a/dongle/dongle.cpp b/dongle/dongle.cpp
-index 3628795..e9f516c 100644
+index b931ff8..324430c 100644
 --- a/dongle/dongle.cpp
 +++ b/dongle/dongle.cpp
-@@ -42,13 +42,7 @@ bool Dongle::beforeClose()
- 
-     Log::info("Dongle power-off");
- 
--    for (std::unique_ptr<Controller> &controller : controllers)
--    {
--        if (controller && !controller->powerOff())
--        {
--            Log::error("Failed to power off controller");
--        }
--    }
-+    powerOffControllers();
- 
-     if (!Mt76::beforeClose())
-     {
-@@ -58,6 +52,14 @@ bool Dongle::beforeClose()
-     return true;
- }
- 
-+void Dongle::userSignal()
-+{
-+    std::lock_guard<std::mutex> lock(handlePacketMutex);
-+
-+    Log::info("Powering off controllers");
-+    powerOffControllers();
-+}
-+
- void Dongle::clientConnected(uint8_t wcid, Bytes address)
- {
-     auto sendPacket = std::bind(
-@@ -156,3 +158,14 @@ bool Dongle::sendControllerPacket(
- 
-     return true;
+@@ -307,3 +307,17 @@ void Dongle::readBulkPackets(uint8_t endpoint)
+         }
+     }
  }
 +
 +void Dongle::powerOffControllers()
 +{
++    std::lock_guard<std::mutex> lock(controllerMutex);
++
++    Log::info("Powering off controllers");
 +    for (std::unique_ptr<Controller> &controller : controllers)
 +    {
 +        if (controller && !controller->powerOff())
@@ -129,88 +138,59 @@ index 3628795..e9f516c 100644
 +    }
 +}
 diff --git a/dongle/dongle.h b/dongle/dongle.h
-index 86429a4..974e344 100644
+index cb41cbc..aefaf01 100644
 --- a/dongle/dongle.h
 +++ b/dongle/dongle.h
-@@ -41,6 +41,7 @@ class Dongle : public Mt76
- private:
-     bool afterOpen() override;
-     bool beforeClose() override;
-+    void userSignal() override;
- 
-     void clientConnected(uint8_t wcid, Bytes address) override;
-     void clientDisconnected(uint8_t wcid) override;
-@@ -52,5 +53,7 @@ private:
-         const Bytes &packet
-     );
+@@ -44,6 +44,8 @@ public:
+     Dongle(std::unique_ptr<UsbDevice> usbDevice);
+     ~Dongle();
  
 +    void powerOffControllers();
 +
-     std::array<std::unique_ptr<Controller>, MT_WCID_COUNT> controllers;
- };
-diff --git a/dongle/usb.cpp b/dongle/usb.cpp
-index 68f088b..23cc282 100644
---- a/dongle/usb.cpp
-+++ b/dongle/usb.cpp
-@@ -185,6 +185,7 @@ UsbDeviceManager::UsbDeviceManager()
-     sigemptyset(&signalMask);
-     sigaddset(&signalMask, SIGINT);
-     sigaddset(&signalMask, SIGTERM);
-+    sigaddset(&signalMask, SIGUSR1);
+     using Mt76::setPairingStatus;
  
-     // Block signals in all threads
-     if (pthread_sigmask(SIG_BLOCK, &signalMask, nullptr) < 0)
-@@ -252,10 +253,19 @@ void UsbDeviceManager::handleEvents(UsbDevice &device)
-     {
-         signalfd_siginfo info = {};
- 
--        if (read(signalFile, &info, sizeof(info)) != sizeof(info))
-+        do
-         {
--            throw UsbException("Error reading signal: ", strerror(errno));
--        }
-+            if (read(signalFile, &info, sizeof(info)) != sizeof(info))
-+            {
-+                throw UsbException("Error reading signal: ", strerror(errno));
-+            }
-+
-+            if (info.ssi_signo == SIGUSR1)
-+            {
-+                device.userSignal();
-+            }
-+        
-+        } while (info.ssi_signo != SIGINT && info.ssi_signo != SIGTERM);
- 
-         Log::debug("Stop signal received");
- 
-diff --git a/dongle/usb.h b/dongle/usb.h
-index 3ed2295..0bb314d 100644
---- a/dongle/usb.h
-+++ b/dongle/usb.h
-@@ -42,6 +42,8 @@ public:
-     void open(libusb_device *device);
-     void close();
- 
-+    virtual void userSignal() { }
-+
-     Terminate terminate;
- 
- protected:
+ private:
 diff --git a/utils/log.cpp b/utils/log.cpp
-index d6178ba..ae267f3 100644
+index e93ccbb..cad0752 100644
 --- a/utils/log.cpp
 +++ b/utils/log.cpp
-@@ -55,7 +55,13 @@ namespace Log
-         std::tm localTime = *std::localtime(&time);
-         std::ostringstream stream;
- 
+@@ -53,7 +53,13 @@ namespace Log
+         // Add local time to output if available
+         if (localtime_r(&time, &localTime))
+         {
 +#if !defined(__GNUC__) || (__GNUC__ >= 5)
-         stream << std::put_time(&localTime, "%F %T");
+             stream << std::put_time(&localTime, "%F %T") << " ";
 +#else
-+        char timestr[128];
-+        strftime(timestr, sizeof(timestr), "%F %T", &localTime);
-+        stream << timestr;
++            char timestr[128];
++            strftime(timestr, sizeof(timestr), "%F %T", &localTime);
++            stream << timestr << " ";
 +#endif
+         }
  
-         std::fprintf(output, "%s %-5s - ", stream.str().c_str(), level.c_str());
+         stream << std::left << std::setw(5);
+diff --git a/xow.cpp b/xow.cpp
+index 6dfc255..bf7a1a5 100644
+--- a/xow.cpp
++++ b/xow.cpp
+@@ -58,6 +58,7 @@ bool run()
+     sigaddset(&signalMask, SIGINT);
+     sigaddset(&signalMask, SIGTERM);
+     sigaddset(&signalMask, SIGUSR1);
++    sigaddset(&signalMask, SIGUSR2);
+ 
+     // Block signals for all USB threads
+     if (pthread_sigmask(SIG_BLOCK, &signalMask, nullptr) < 0)
+@@ -125,6 +126,13 @@ bool run()
+ 
+             dongle.setPairingStatus(true);
+         }
++
++        if (type == SIGUSR2)
++        {
++            Log::debug("User signal received");
++
++            dongle.powerOffControllers();
++        }
      }
+ 
+     Log::info("Shutting down...");

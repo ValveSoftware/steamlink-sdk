@@ -529,6 +529,8 @@ extern DECLSPEC double SDLCALL SDL_fabs(double x);
 extern DECLSPEC float SDLCALL SDL_fabsf(float x);
 extern DECLSPEC double SDLCALL SDL_floor(double x);
 extern DECLSPEC float SDLCALL SDL_floorf(float x);
+extern DECLSPEC double SDLCALL SDL_trunc(double x);
+extern DECLSPEC float SDLCALL SDL_truncf(float x);
 extern DECLSPEC double SDLCALL SDL_fmod(double x, double y);
 extern DECLSPEC float SDLCALL SDL_fmodf(float x, float y);
 extern DECLSPEC double SDLCALL SDL_log(double x);
@@ -575,6 +577,17 @@ extern DECLSPEC char *SDLCALL SDL_iconv_string(const char *tocode,
 /* force builds using Clang's static analysis tools to use literal C runtime
    here, since there are possibly tests that are ineffective otherwise. */
 #if defined(__clang_analyzer__) && !defined(SDL_DISABLE_ANALYZE_MACROS)
+
+/* The analyzer knows about strlcpy even when the system doesn't provide it */
+#ifndef HAVE_STRLCPY
+size_t strlcpy(char* dst, const char* src, size_t size);
+#endif
+
+/* The analyzer knows about strlcat even when the system doesn't provide it */
+#ifndef HAVE_STRLCAT
+size_t strlcat(char* dst, const char* src, size_t size);
+#endif
+
 #define SDL_malloc malloc
 #define SDL_calloc calloc
 #define SDL_realloc realloc
@@ -583,16 +596,23 @@ extern DECLSPEC char *SDLCALL SDL_iconv_string(const char *tocode,
 #define SDL_memcpy memcpy
 #define SDL_memmove memmove
 #define SDL_memcmp memcmp
-#define SDL_strlen strlen
 #define SDL_strlcpy strlcpy
 #define SDL_strlcat strlcat
+#define SDL_strlen strlen
+#define SDL_wcslen wcslen
+#define SDL_wcslcpy wcslcpy
+#define SDL_wcslcat wcslcat
 #define SDL_strdup strdup
+#define SDL_wcsdup wcsdup
 #define SDL_strchr strchr
 #define SDL_strrchr strrchr
 #define SDL_strstr strstr
+#define SDL_wcsstr wcsstr
 #define SDL_strtokr strtok_r
 #define SDL_strcmp strcmp
+#define SDL_wcscmp wcscmp
 #define SDL_strncmp strncmp
+#define SDL_wcsncmp wcsncmp
 #define SDL_strcasecmp strcasecmp
 #define SDL_strncasecmp strncasecmp
 #define SDL_sscanf sscanf

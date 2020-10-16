@@ -29,22 +29,29 @@ class Controller : public GipDevice
 {
 public:
     Controller(SendPacket sendPacket);
+    ~Controller();
 
     bool powerOff();
 
 private:
-    void deviceAnnounced(const AnnounceData *announce) override;
-    void statusReceived(const StatusData *status) override;
+    /* GIP events */
+    void deviceAnnounced(uint8_t id, const AnnounceData *announce) override;
+    void statusReceived(uint8_t id, const StatusData *status) override;
     void guideButtonPressed(const GuideButtonData *button) override;
     void serialNumberReceived(const SerialData *serial) override;
     void inputReceived(const InputData *input) override;
 
-    void setupInput(uint16_t vendorId, uint16_t productId);
-    void feedbackReceived(
+    /* Device initialization */
+    void initInput(const AnnounceData *announce);
+
+    /* OS interface */
+    void inputFeedbackReceived(
+        uint16_t gain,
         ff_effect effect,
-        uint16_t gain
+        uint8_t replayCount
     );
 
     InputDevice inputDevice;
-    bool rumbling = false;
+
+    uint8_t batteryLevel = 0xff;
 };

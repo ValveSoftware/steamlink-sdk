@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="logo.png" alt="Logo">
+    <img src="assets/logo.png" alt="Logo">
 </p>
 
 <p align="center">
@@ -15,7 +15,7 @@
 </p>
 
 <p align="center">
-  <img src="screenshot.png" alt="Screenshot">
+  <img src="assets/screenshot.png" alt="Screenshot">
 </p>
 
 ## About
@@ -24,8 +24,12 @@ xow is a Linux user mode driver for the Xbox One wireless dongle.
 It communicates with the dongle via `libusb` and provides joystick input through the `uinput` kernel module.
 The input mapping is based on existing kernel drivers like [xpad](https://github.com/paroj/xpad).
 
-**NOTE:** xow is still at a **VERY EARLY** stage of development. Do not be surprised if it does not work *at all*.
-In case of problems, please open an issue with all the relevant details (dongle version, controller version, logs, captures, etc.) and I will see what I can do.
+## Important notes
+
+The Xbox One wireless dongle requires a proprietary firmware to operate.
+The firmware is included with the *Xbox - Net - 7/11/2017 12:00:00 AM - 1.0.46.1* driver available from *Microsoft Update Catalog*.
+The package is automatically downloaded and extracted during the build process due to Microsoft's [Terms of Use](https://www.microsoft.com/en-us/legal/intellectualproperty/copyright/default.aspx), which strictly disallow the distribution of the firmware.
+**By using xow, you accept Microsoft's license terms for their driver package.**
 
 ## Supported devices
 
@@ -45,8 +49,7 @@ The following Xbox One controllers are currently compatible with the driver:
 
 ### Linux distributions
 
-- Arch Linux ([master](https://aur.archlinux.org/packages/xow-git), [stable](https://aur.archlinux.org/packages/xow))
-- Debian ([sid](https://packages.debian.org/sid/xow))
+[![Packaging status](https://repology.org/badge/vertical-allrepos/xow.svg)](https://repology.org/project/xow/versions)
 
 ### Third-party hardware
 
@@ -62,6 +65,8 @@ Any issues regarding the packaging should be reported to the respective maintain
 ### Prerequisites
 
 - Linux (kernel 4.5 or newer)
+- curl (for proprietary driver download)
+- cabextract (for firmware extraction)
 - libusb (libusb-1.0-0-dev for Debian)
 - systemd (version 232 or newer)
 
@@ -99,16 +104,42 @@ sudo systemctl disable xow
 sudo make uninstall
 ```
 
+## Interoperability
+
+You can enable the dongle's pairing mode by sending the `SIGUSR1` signal to xow:
+
+```
+sudo systemctl kill -s SIGUSR1 xow
+```
+
+**NOTE:** Signals are only handled *after* a dongle has been plugged in. The default behavior for `SIGUSR1` is to terminate the process.
+
 ## Troubleshooting
 
+### Error messages
+
+- `InputException`: No such file or directory
+    - Make sure that `/dev/uinput` is available (requires the `uinput` kernel module).
+- `InputException`: Permission denied
+    - Make sure that the `udev` rules are correctly installed and that the permissions for `/dev/uinput` allow read and write access.
+    There might be conflicts with existing `udev` rules on some systems that need to be resolved.
+- `Mt76Exception` or `LIBUSB_ERROR_NO_DEVICE`
+    - Make sure that you are only running one instance of xow at a time.
+    If you are running xow manually you have to stop the `systemd` service.
+
+### Configuration issues
+
+- Certain games do not detect wireless controllers
+    - Enable the *compatibility mode* in the service configuration, reload the `systemd` daemon and restart the service.
+    Controllers connected to the dongle will appear as Xbox 360 controllers.
 - Buttons/triggers/sticks are mapped incorrectly
     - Try the options listed on [this page](https://wiki.archlinux.org/index.php/Gamepad#Setting_up_deadzones_and_calibration) to remap your inputs.
 - Input from the sticks is jumping around
     - Try the options listed on [this page](https://wiki.archlinux.org/index.php/Gamepad#Setting_up_deadzones_and_calibration) to set your deadzones.
-- Controller does not connect to the dongle
-    - See [supported devices](#supported-devices). Do a packet capture and open an issue.
 
-**NOTE:** Please refrain from opening issues concerning input remapping, deadzones or game compatibility, as these topics are outside the scope of this project.
+In case of any problems, please open an issue with all the relevant details (dongle version, controller version, logs, captures, etc.) and I will see what I can do.
+
+**NOTE:** Please refrain from creating issues concerning input remapping, deadzones or game compatibility as these topics are outside the scope of this project.
 
 ## How it works
 
@@ -118,7 +149,7 @@ Most of the reverse engineering was done by capturing the communication between 
 As no datasheets for this chip are publicly available, I have used datasheets of similar wireless radios for assistance.
 Special thanks to the authors of OpenWrt's [`mt76`](https://github.com/openwrt/mt76) kernel driver.
 It would have been impossible for me to create this driver without `mt76`'s source code.
-If anyone has a greater understanding of the GIP or the weird quirks I had to add to make the driver work (like `initGain`), please contact me.
+If anyone has a greater understanding of the GIP or the weird quirks I had to add to make the driver work, please contact me.
 
 ## License
 
@@ -132,5 +163,3 @@ modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
 of the License, or (at your option) any later version.
 ```
-
-The included `firmware.bin` file, extracted from the Windows drivers, is provided under a [special proprietary license](LICENSE-FIRMWARE).

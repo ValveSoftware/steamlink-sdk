@@ -20,14 +20,14 @@
 #include "../utils/log.h"
 
 #include <cstring>
-#include <thread>
 #include <unistd.h>
 #include <fcntl.h>
-#include <poll.h>
 
 #define INPUT_MAX_FF_EFFECTS 1
 
-InputDevice::InputDevice(FeedbackReceived feedbackReceived)
+InputDevice::InputDevice(
+    FeedbackReceived feedbackReceived
+) : feedbackReceived(feedbackReceived)
 {
     memset(&setup, 0, sizeof(setup));
 
@@ -37,27 +37,22 @@ InputDevice::InputDevice(FeedbackReceived feedbackReceived)
     {
         throw InputException("Error opening device");
     }
-
-    this->feedbackReceived = feedbackReceived;
 }
 
 InputDevice::~InputDevice()
 {
+    // Wait for event thread to shut down
+    if (eventThread.joinable())
+    {
+        eventReader.interrupt();
+        eventThread.join();
+    }
+
     if (
         ioctl(file, UI_DEV_DESTROY) < 0 ||
         close(file) < 0
     ) {
         Log::error("Error closing device: %s", strerror(errno));
-    }
-
-    bool stop = true;
-
-    // Stop event loop
-    if (
-        write(stopPipe, &stop, sizeof(stop)) != sizeof(stop) ||
-        close(stopPipe) < 0
-    ) {
-        Log::error("Error stopping event loop: %s", strerror(errno));
     }
 }
 
@@ -111,14 +106,12 @@ void InputDevice::addFeedback(uint16_t code)
     }
 }
 
-void InputDevice::create(
-    uint16_t vendorId,
-    uint16_t productId,
-    std::string name
-) {
+void InputDevice::create(std::string name, DeviceConfig config)
+{
     setup.id.bustype = BUS_USB;
-    setup.id.vendor = vendorId;
-    setup.id.product = productId;
+    setup.id.vendor = config.vendorId;
+    setup.id.product = config.productId;
+    setup.id.version = config.version;
     setup.ff_effects_max = INPUT_MAX_FF_EFFECTS;
 
     std::copy(name.begin(), name.end(), std::begin(setup.name));
@@ -136,47 +129,18 @@ void InputDevice::create(
         throw InputException("Error creating device");
     }
 
-    readEvents();
+    eventReader.prepare(file);
+    eventThread = std::thread(&InputDevice::readEvents, this);
 }
 
 void InputDevice::readEvents()
 {
-    int pipes[2];
+    input_event event = {};
 
-    if (pipe(pipes))
+    while (eventReader.read(&event, sizeof(event)))
     {
-        throw InputException("Error creating stop pipe");
+        handleEvent(event);
     }
-
-    stopPipe = pipes[1];
-
-    pollfd polls[2] = {};
-
-    // Wait for an input event or a stop signal
-    polls[0].fd = file;
-    polls[1].fd = pipes[0];
-    polls[0].events = POLLIN;
-    polls[1].events = POLLIN;
-
-    std::thread([this, polls]() mutable
-    {
-        while (poll(polls, 2, -1) > 0)
-        {
-            // Event loop should stop
-            if (polls[1].revents & POLLIN)
-            {
-                break;
-            }
-
-            input_event event = {};
-            ssize_t count = read(file, &event, sizeof(event));
-
-            if (count == sizeof(event))
-            {
-                handleEvent(event);
-            }
-        }
-    }).detach();
 }
 
 void InputDevice::emitCode(
@@ -221,8 +185,6 @@ void InputDevice::handleFeedbackUpload(uint32_t id)
             "Error ending feedback upload: %s",
             strerror(errno)
         );
-
-        return;
     }
 }
 
@@ -251,8 +213,6 @@ void InputDevice::handleFeedbackErase(uint32_t id)
             "Error ending feedback erase: %s",
             strerror(errno)
         );
-
-        return;
     }
 }
 
@@ -268,9 +228,6 @@ void InputDevice::handleEvent(input_event event)
         else if (event.code == UI_FF_ERASE)
         {
             handleFeedbackErase(event.value);
-
-            // Stop feedback
-            feedbackReceived(effect, 0);
         }
     }
 
@@ -282,10 +239,13 @@ void InputDevice::handleEvent(input_event event)
             effectGain = event.value;
         }
 
-        // Start or stop feedback based on event value
-        feedbackReceived(effect, event.value > 0 ? effectGain : 0);
+        else if (event.code == effect.id)
+        {
+            feedbackReceived(effectGain, effect, event.value);
+        }
     }
 }
 
-InputException::InputException(std::string message) :
-    std::runtime_error(message + ": " + strerror(errno)) {}
+InputException::InputException(
+    std::string message
+) : std::runtime_error(message + ": " + strerror(errno)) {}

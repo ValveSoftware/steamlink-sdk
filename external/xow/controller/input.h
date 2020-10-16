@@ -18,8 +18,11 @@
 
 #pragma once
 
+#include "../utils/reader.h"
+
 #include <cstdint>
 #include <functional>
+#include <thread>
 #include <string>
 #include <stdexcept>
 #include <linux/uinput.h>
@@ -32,8 +35,9 @@ class InputDevice
 {
 public:
     using FeedbackReceived = std::function<void(
+        uint16_t gain,
         ff_effect effect,
-        uint16_t gain
+        uint8_t replayCount
     )>;
 
     struct AxisConfig
@@ -42,17 +46,19 @@ public:
         int32_t fuzz, flat;
     };
 
+    struct DeviceConfig
+    {
+        uint16_t vendorId, productId;
+        uint16_t version;
+    };
+
     InputDevice(FeedbackReceived feedbackReceived);
     virtual ~InputDevice();
 
     void addKey(uint16_t code);
     void addAxis(uint16_t code, AxisConfig config);
     void addFeedback(uint16_t code);
-    void create(
-        uint16_t vendorId,
-        uint16_t productId,
-        std::string name
-    );
+    void create(std::string name, DeviceConfig config);
 
     inline void setKey(uint16_t key, bool pressed)
     {
@@ -81,7 +87,9 @@ private:
     void handleFeedbackErase(uint32_t id);
     void handleEvent(input_event event);
 
-    int file, stopPipe;
+    int file;
+    InterruptibleReader eventReader;
+    std::thread eventThread;
 
     ff_effect effect = {};
     uint16_t effectGain = 0xffff;

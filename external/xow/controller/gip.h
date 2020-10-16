@@ -42,13 +42,14 @@ class Bytes;
 class GipDevice
 {
 public:
+    using SendPacket = std::function<bool(const Bytes &data)>;
+
     bool handlePacket(const Bytes &packet);
 
 protected:
-    using SendPacket = std::function<bool(const Bytes &data)>;
-
     enum BatteryType
     {
+        BATT_TYPE_CHARGING = 0x00,
         BATT_TYPE_ALKALINE = 0x01,
         BATT_TYPE_NIMH = 0x02,
     };
@@ -58,7 +59,7 @@ protected:
         BATT_LEVEL_EMPTY = 0x00,
         BATT_LEVEL_LOW = 0x01,
         BATT_LEVEL_MED = 0x02,
-        BATT_LEVEL_HIGH = 0x03,
+        BATT_LEVEL_FULL = 0x03,
     };
 
     // Controller input can be paused temporarily
@@ -67,15 +68,6 @@ protected:
         POWER_ON = 0x00,
         POWER_SLEEP = 0x01,
         POWER_OFF = 0x04,
-    };
-
-    enum RumbleMotors
-    {
-        RUMBLE_RIGHT = 0x01,
-        RUMBLE_LEFT = 0x02,
-        RUMBLE_LT = 0x04,
-        RUMBLE_RT = 0x08,
-        RUMBLE_ALL = 0x0f,
     };
 
     enum LedMode
@@ -89,22 +81,20 @@ protected:
         LED_FADE_FAST = 0x09,
     };
 
-    struct VersionInfo
-    {
-        uint16_t major;
-        uint16_t minor;
-        uint16_t build;
-        uint16_t revision;
-    } __attribute__((packed));
-
     struct AnnounceData
     {
         uint8_t macAddress[6];
         uint16_t unknown;
         uint16_t vendorId;
         uint16_t productId;
-        VersionInfo firmwareVersion;
-        VersionInfo hardwareVersion;
+
+        struct
+        {
+            uint16_t major;
+            uint16_t minor;
+            uint16_t build;
+            uint16_t revision;
+        } __attribute__((packed)) firmwareVersion, hardwareVersion;
     } __attribute__((packed));
 
     struct StatusData
@@ -124,10 +114,14 @@ protected:
 
     struct RumbleData
     {
-        uint8_t unknown1;
-        uint8_t motors;
-        uint8_t triggerLeft;
-        uint8_t triggerRight;
+        uint8_t unknown;
+        uint8_t setRight : 1;
+        uint8_t setLeft : 1;
+        uint8_t setRightTrigger : 1;
+        uint8_t setLeftTrigger : 1;
+        uint8_t padding : 4;
+        uint8_t leftTrigger;
+        uint8_t rightTrigger;
         uint8_t left;
         uint8_t right;
         uint8_t duration;
@@ -148,28 +142,27 @@ protected:
         char serialNumber[14];
     } __attribute__((packed));
 
-    struct Buttons
-    {
-        uint32_t unknown : 2;
-        uint32_t start : 1;
-        uint32_t select : 1;
-        uint32_t a : 1;
-        uint32_t b : 1;
-        uint32_t x : 1;
-        uint32_t y : 1;
-        uint32_t dpadUp : 1;
-        uint32_t dpadDown : 1;
-        uint32_t dpadLeft : 1;
-        uint32_t dpadRight : 1;
-        uint32_t bumperLeft : 1;
-        uint32_t bumperRight : 1;
-        uint32_t stickLeft : 1;
-        uint32_t stickRight : 1;
-    } __attribute__((packed));
-
     struct InputData
     {
-        Buttons buttons;
+        struct
+        {
+            uint32_t unknown : 2;
+            uint32_t start : 1;
+            uint32_t select : 1;
+            uint32_t a : 1;
+            uint32_t b : 1;
+            uint32_t x : 1;
+            uint32_t y : 1;
+            uint32_t dpadUp : 1;
+            uint32_t dpadDown : 1;
+            uint32_t dpadLeft : 1;
+            uint32_t dpadRight : 1;
+            uint32_t bumperLeft : 1;
+            uint32_t bumperRight : 1;
+            uint32_t stickLeft : 1;
+            uint32_t stickRight : 1;
+        } __attribute__((packed)) buttons;
+
         uint16_t triggerLeft;
         uint16_t triggerRight;
         int16_t stickLeftX;
@@ -179,20 +172,24 @@ protected:
     } __attribute__((packed));
 
     GipDevice(SendPacket sendPacket);
+    virtual ~GipDevice() = default;
 
-    virtual void deviceAnnounced(const AnnounceData *announce) = 0;
-    virtual void statusReceived(const StatusData *status) = 0;
+    virtual void deviceAnnounced(uint8_t id, const AnnounceData *announce) = 0;
+    virtual void statusReceived(uint8_t id, const StatusData *status) = 0;
     virtual void guideButtonPressed(const GuideButtonData *button) = 0;
     virtual void serialNumberReceived(const SerialData *serial) = 0;
     virtual void inputReceived(const InputData *input) = 0;
 
-    bool setPowerMode(PowerMode mode);
-    bool performRumble(RumbleData data);
-    bool setLedMode(LedModeData data);
+    bool setPowerMode(uint8_t id, PowerMode mode);
+    bool performRumble(RumbleData rumble);
+    bool setLedMode(LedModeData mode);
     bool requestSerialNumber();
 
 private:
-    bool acknowledgePacket(const Frame *packet);
+    bool acknowledgePacket(Frame frame);
+    uint8_t getSequence(bool accessory = false);
 
+    uint8_t sequence = 0x01;
+    uint8_t accessorySequence = 0x01;
     SendPacket sendPacket;
 };

@@ -39,14 +39,20 @@ public:
 
     inline Bytes() {}
 
-    inline Bytes(std::initializer_list<uint8_t> elements)
-        : data(elements) {}
+    inline Bytes(
+        std::initializer_list<uint8_t> elements
+    ) : data(elements) {}
 
-    inline Bytes(const uint8_t *begin, const uint8_t *end)
-        : data(begin, end) {}
+    inline Bytes(
+        const uint8_t *begin,
+        const uint8_t *end
+    ) : data(begin, end) {}
 
-    inline Bytes(const Bytes &bytes, size_t skip)
-        : data(bytes.data.begin() + skip, bytes.data.end()) {}
+    inline Bytes(
+        const Bytes &bytes,
+        size_t skipBegin,
+        size_t skipEnd = 0
+    ) : data(bytes.data.begin() + skipBegin, bytes.data.end() - skipEnd) {}
 
     inline Iterator begin() const
     {
@@ -61,6 +67,11 @@ public:
     inline size_t size() const
     {
         return data.size();
+    }
+
+    inline const uint8_t* raw() const
+    {
+        return data.data();
     }
 
     inline uint8_t* raw()
@@ -115,6 +126,11 @@ public:
         return data[index];
     }
 
+    inline uint8_t& operator[](size_t index)
+    {
+        return data[index];
+    }
+
     inline bool operator==(const Bytes &other) const
     {
         return data == other.data;
@@ -141,7 +157,7 @@ public:
     {
         return Bytes(
             data.begin(),
-            data.end() + count
+            data.begin() + count
         );
     }
 

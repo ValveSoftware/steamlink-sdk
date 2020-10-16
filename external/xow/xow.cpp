@@ -17,33 +17,141 @@
  */
 
 #include "utils/log.h"
+#include "utils/reader.h"
 #include "dongle/usb.h"
 #include "dongle/dongle.h"
 
 #include <cstdlib>
-#include <stdexcept>
+#include <cstring>
+#include <csignal>
+#include <sys/file.h>
+#include <sys/signalfd.h>
+
+bool acquireLock()
+{
+    // Open lock file, read and writable by all users
+    int file = open(LOCK_FILE, O_CREAT | O_RDWR, 0666);
+
+    if (flock(file, LOCK_EX | LOCK_NB))
+    {
+        if (errno == EWOULDBLOCK)
+        {
+            Log::error("Another instance of xow is already running");
+        }
+
+        else
+        {
+            Log::error("Error creating lock file: %s", strerror(errno));
+        }
+
+        return false;
+    }
+
+    return true;
+}
+
+bool run()
+{
+    sigset_t signalMask;
+
+    sigemptyset(&signalMask);
+    sigaddset(&signalMask, SIGINT);
+    sigaddset(&signalMask, SIGTERM);
+    sigaddset(&signalMask, SIGUSR1);
+    sigaddset(&signalMask, SIGUSR2);
+
+    // Block signals for all USB threads
+    if (pthread_sigmask(SIG_BLOCK, &signalMask, nullptr) < 0)
+    {
+        Log::error("Error blocking signals: %s", strerror(errno));
+
+        return false;
+    }
+
+    UsbDeviceManager manager;
+
+    // Unblock signals for current thread to allow interruption
+    if (pthread_sigmask(SIG_UNBLOCK, &signalMask, nullptr) < 0)
+    {
+        Log::error("Error unblocking signals: %s", strerror(errno));
+
+        return false;
+    }
+
+    // Bind USB device termination to signal reader interruption
+    InterruptibleReader signalReader;
+    UsbDevice::Terminate terminate = std::bind(
+        &InterruptibleReader::interrupt,
+        &signalReader
+    );
+    std::unique_ptr<UsbDevice> device = manager.getDevice({
+        { DONGLE_VID, DONGLE_PID_OLD },
+        { DONGLE_VID, DONGLE_PID_NEW }
+    }, terminate);
+
+    // Block signals and pass them to the signalfd
+    if (pthread_sigmask(SIG_BLOCK, &signalMask, nullptr) < 0)
+    {
+        Log::error("Error blocking signals: %s", strerror(errno));
+
+        return false;
+    }
+
+    int file = signalfd(-1, &signalMask, 0);
+
+    if (file < 0)
+    {
+        Log::error("Error creating signal file: %s", strerror(errno));
+
+        return false;
+    }
+
+    signalReader.prepare(file);
+
+    Dongle dongle(std::move(device));
+    signalfd_siginfo info = {};
+
+    while (signalReader.read(&info, sizeof(info)))
+    {
+        uint32_t type = info.ssi_signo;
+
+        if (type == SIGINT || type == SIGTERM)
+        {
+            break;
+        }
+
+        if (type == SIGUSR1)
+        {
+            Log::debug("User signal received");
+
+            dongle.setPairingStatus(true);
+        }
+
+        if (type == SIGUSR2)
+        {
+            Log::debug("User signal received");
+
+            dongle.powerOffControllers();
+        }
+    }
+
+    Log::info("Shutting down...");
+
+    return true;
+}
 
 int main()
 {
     Log::init();
     Log::info("xow %s ©Severin v. W.", VERSION);
 
-    try
+    if (!acquireLock())
     {
-        UsbDeviceManager manager;
-        Dongle dongle;
-
-        manager.registerDevice(dongle, {
-            { DONGLE_VID, DONGLE_PID_OLD },
-            { DONGLE_VID, DONGLE_PID_NEW }
-        });
-        manager.handleEvents(dongle);
+        return EXIT_FAILURE;
     }
 
-    catch (const std::runtime_error &exception)
+    if (!run())
     {
-        Log::error(exception.what());
-
         return EXIT_FAILURE;
     }
 
