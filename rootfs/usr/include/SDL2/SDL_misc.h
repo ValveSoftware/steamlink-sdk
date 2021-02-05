@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2020 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2021 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -70,6 +70,6 @@ extern DECLSPEC int SDLCALL SDL_OpenURL(const char *url);
 #endif
 #include "close_code.h"
 
-#endif /* SDL_filesystem_h_ */
+#endif /* SDL_misc_h_ */
 
 /* vi: set ts=4 sw=4 expandtab: */
