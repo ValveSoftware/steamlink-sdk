@@ -203,6 +203,8 @@ inline qreal qPow(qreal x, qreal y)
 #define M_SQRT1_2 (0.70710678118654752440)
 #endif
 
+#define _MATH_DEFINES_DEFINED
+
 inline qreal qFastSin(qreal x)
 {
     int si = int(x * (0.5 * QT_SINE_TABLE_SIZE / M_PI)); // Would be more accurate with qRound, but slower.

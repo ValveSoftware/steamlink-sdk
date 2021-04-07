@@ -1,5 +1,5 @@
 
-#line 180 "/home/saml/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
+#line 180 "/home/saml/Downloads/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
 /****************************************************************************
 **
 ** Copyright (C) 2016 The Qt Company Ltd.
@@ -305,27 +305,27 @@ protected:
 
 
 
-#line 1716 "/home/saml/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
+#line 1716 "/home/saml/Downloads/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
 
 #define J_SCRIPT_REGEXPLITERAL_RULE1 136
 
-#line 1728 "/home/saml/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
+#line 1728 "/home/saml/Downloads/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
 
 #define J_SCRIPT_REGEXPLITERAL_RULE2 137
 
-#line 3228 "/home/saml/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
+#line 3228 "/home/saml/Downloads/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
 
 #define J_SCRIPT_EXPRESSIONSTATEMENTLOOKAHEAD_RULE 427
 
-#line 3880 "/home/saml/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
+#line 3880 "/home/saml/Downloads/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
 
 #define J_SCRIPT_CONCISEBODYLOOKAHEAD_RULE 497
 
-#line 4420 "/home/saml/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
+#line 4420 "/home/saml/Downloads/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
 
 #define J_SCRIPT_EXPORTDECLARATIONLOOKAHEAD_RULE 565
 
-#line 4704 "/home/saml/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
+#line 4704 "/home/saml/Downloads/qt-everywhere-src-5.14.1/qtdeclarative/src/qml/parser/qqmljs.g"
 
 QT_END_NAMESPACE
 

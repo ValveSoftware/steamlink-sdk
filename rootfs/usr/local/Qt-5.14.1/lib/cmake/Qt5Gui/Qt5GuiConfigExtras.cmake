@@ -66,9 +66,9 @@ macro(_qt5gui_find_extra_libs Name Libs LibDir IncDirs)
 endmacro()
 
 
-_qt5gui_find_extra_libs(EGL "EGL;GLESv2" "" "")
+_qt5gui_find_extra_libs(EGL "EGL;EGL;GAL;VSC;shm;OSAL;PEAgent" "" "")
 
-_qt5gui_find_extra_libs(OPENGL "GLESv2" "" "")
+_qt5gui_find_extra_libs(OPENGL "GLESv2;GLESv2;EGL;EGL;GAL;VSC;shm;OSAL;PEAgent" "" "")
 
 
 

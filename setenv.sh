@@ -34,6 +34,7 @@ find "$TOP/toolchain" -name '*.la' | \
 while read file; do
 	sed -i -e "s,libdir='.*',libdir='$(dirname $file)'," $file
 done
+export LD_LIBRARY_PATH="$TOP/toolchain/lib"
 
 export CROSS=armv7a-cros-linux-gnueabi-
 export CROSS_COMPILE=${CROSS}
