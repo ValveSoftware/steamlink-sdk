@@ -1,4 +1,6 @@
 # Makefile.am for the SDL truetype font loading library and viewer
+ACLOCAL_AMFLAGS = -I acinclude
+AUTOMAKE_OPTIONS= foreign
 
 lib_LTLIBRARIES = libSDL2_ttf.la
 
@@ -14,13 +16,15 @@ EXTRA_DIST =			\
 	debian			\
 	external		\
 	version.rc		\
+	Makefile.os2		\
 	VisualC			\
+	VisualC-WinRT		\
 	Xcode			\
-	Xcode-iOS		\
 	SDL2_ttf.spec		\
-	SDL2_ttf.spec.in		\
+	SDL2_ttf.spec.in	\
+	SDL2_ttfConfig.cmake	\
 	gcc-fat.sh		\
-	autogen.sh			\
+	autogen.sh		\
 	$(srcdir)/*.txt
 
 if USE_VERSION_RC

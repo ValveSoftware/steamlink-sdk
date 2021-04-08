@@ -1,6 +1,6 @@
 /*
   showfont:  An example of using the SDL_ttf library with 2D graphics.
-  Copyright (C) 2001-2016 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 2001-2021 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -21,24 +21,27 @@
 
 /* A simple program to test the text rendering feature of the TTF library */
 
-/* quiet windows compiler warnings */
-#define _CRT_SECURE_NO_WARNINGS
+#include "SDL.h"
+#include "SDL_ttf.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "SDL.h"
-#include "SDL_ttf.h"
-
 #define DEFAULT_PTSIZE  18
 #define DEFAULT_TEXT    "The quick brown fox jumped over the lazy dog"
-#define NUM_COLORS      256
 #define WIDTH   640
 #define HEIGHT  480
 
-static char *Usage =
-"Usage: %s [-solid] [-utf8|-unicode] [-b] [-i] [-u] [-s] [-outline size] [-hintlight|-hintmono|-hintnone] [-nokerning] [-fgcol r,g,b] [-bgcol r,g,b] <font>.ttf [ptsize] [text]\n";
+#define TTF_SHOWFONT_USAGE \
+"Usage: %s [-solid] [-shaded] [-blended] [-utf8|-unicode] [-b] [-i] [-u] [-s] [-outline size] [-hintlight|-hintmono|-hintnone] [-nokerning] [-fgcol r,g,b,a] [-bgcol r,g,b,a] <font>.ttf [ptsize] [text]\n"
+
+typedef enum
+{
+    TextRenderSolid,
+    TextRenderShaded,
+    TextRenderBlended
+} TextRenderMethod;
 
 typedef struct {
     SDL_Texture *caption;
@@ -71,7 +74,7 @@ int main(int argc, char *argv[])
     SDL_Window *window;
     SDL_Renderer *renderer;
     TTF_Font *font;
-    SDL_Surface *text;
+    SDL_Surface *text = NULL;
     Scene scene;
     int ptsize;
     int i, done;
@@ -80,7 +83,7 @@ int main(int argc, char *argv[])
     SDL_Color *forecol;
     SDL_Color *backcol;
     SDL_Event event;
-    int rendersolid;
+    TextRenderMethod rendermethod;
     int renderstyle;
     int outline;
     int hinting;
@@ -96,7 +99,7 @@ int main(int argc, char *argv[])
     /* Look for special execution mode */
     dump = 0;
     /* Look for special rendering types */
-    rendersolid = 0;
+    rendermethod = TextRenderShaded;
     renderstyle = TTF_STYLE_NORMAL;
     rendertype = RENDER_LATIN1;
     outline = 0;
@@ -105,70 +108,78 @@ int main(int argc, char *argv[])
     /* Default is black and white */
     forecol = &black;
     backcol = &white;
-    for ( i=1; argv[i] && argv[i][0] == '-'; ++i ) {
-        if ( strcmp(argv[i], "-solid") == 0 ) {
-            rendersolid = 1;
+    for (i=1; argv[i] && argv[i][0] == '-'; ++i) {
+        if (strcmp(argv[i], "-solid") == 0) {
+            rendermethod = TextRenderSolid;
         } else
-        if ( strcmp(argv[i], "-utf8") == 0 ) {
+        if (strcmp(argv[i], "-shaded") == 0) {
+            rendermethod = TextRenderShaded;
+        } else
+        if (strcmp(argv[i], "-blended") == 0) {
+            rendermethod = TextRenderBlended;
+        } else
+        if (strcmp(argv[i], "-utf8") == 0) {
             rendertype = RENDER_UTF8;
         } else
-        if ( strcmp(argv[i], "-unicode") == 0 ) {
+        if (strcmp(argv[i], "-unicode") == 0) {
             rendertype = RENDER_UNICODE;
         } else
-        if ( strcmp(argv[i], "-b") == 0 ) {
+        if (strcmp(argv[i], "-b") == 0) {
             renderstyle |= TTF_STYLE_BOLD;
         } else
-        if ( strcmp(argv[i], "-i") == 0 ) {
+        if (strcmp(argv[i], "-i") == 0) {
             renderstyle |= TTF_STYLE_ITALIC;
         } else
-        if ( strcmp(argv[i], "-u") == 0 ) {
+        if (strcmp(argv[i], "-u") == 0) {
             renderstyle |= TTF_STYLE_UNDERLINE;
         } else
-        if ( strcmp(argv[i], "-s") == 0 ) {
+        if (strcmp(argv[i], "-s") == 0) {
             renderstyle |= TTF_STYLE_STRIKETHROUGH;
         } else
-        if ( strcmp(argv[i], "-outline") == 0 ) {
-            if ( sscanf (argv[++i], "%d", &outline) != 1 ) {
-                fprintf(stderr, Usage, argv0);
+        if (strcmp(argv[i], "-outline") == 0) {
+            if (sscanf (argv[++i], "%d", &outline) != 1) {
+                fprintf(stderr, TTF_SHOWFONT_USAGE, argv0);
                 return(1);
             }
         } else
-        if ( strcmp(argv[i], "-hintlight") == 0 ) {
+        if (strcmp(argv[i], "-hintlight") == 0) {
             hinting = TTF_HINTING_LIGHT;
         } else
-        if ( strcmp(argv[i], "-hintmono") == 0 ) {
+        if (strcmp(argv[i], "-hintmono") == 0) {
             hinting = TTF_HINTING_MONO;
         } else
-        if ( strcmp(argv[i], "-hintnone") == 0 ) {
+        if (strcmp(argv[i], "-hintnone") == 0) {
             hinting = TTF_HINTING_NONE;
         } else
-        if ( strcmp(argv[i], "-nokerning") == 0 ) {
+        if (strcmp(argv[i], "-nokerning") == 0) {
             kerning = 0;
         } else
-        if ( strcmp(argv[i], "-dump") == 0 ) {
+        if (strcmp(argv[i], "-dump") == 0) {
             dump = 1;
         } else
-        if ( strcmp(argv[i], "-fgcol") == 0 ) {
-            int r, g, b;
-            if ( sscanf (argv[++i], "%d,%d,%d", &r, &g, &b) != 3 ) {
-                fprintf(stderr, Usage, argv0);
+        if (strcmp(argv[i], "-fgcol") == 0) {
+            int r, g, b, a = 0xFF;
+            if (sscanf (argv[++i], "%d,%d,%d,%d", &r, &g, &b, &a) < 3) {
+                fprintf(stderr, TTF_SHOWFONT_USAGE, argv0);
                 return(1);
             }
             forecol->r = (Uint8)r;
             forecol->g = (Uint8)g;
             forecol->b = (Uint8)b;
+            forecol->a = (Uint8)a;
         } else
-        if ( strcmp(argv[i], "-bgcol") == 0 ) {
-            int r, g, b;
-            if ( sscanf (argv[++i], "%d,%d,%d", &r, &g, &b) != 3 ) {
-                fprintf(stderr, Usage, argv0);
+        if (strcmp(argv[i], "-bgcol") == 0) {
+            int r, g, b, a = 0xFF;
+            if (sscanf (argv[++i], "%d,%d,%d,%d", &r, &g, &b, &a) < 3) {
+                fprintf(stderr, TTF_SHOWFONT_USAGE, argv0);
                 return(1);
             }
             backcol->r = (Uint8)r;
             backcol->g = (Uint8)g;
             backcol->b = (Uint8)b;
+            backcol->a = (Uint8)a;
         } else {
-            fprintf(stderr, Usage, argv0);
+            fprintf(stderr, TTF_SHOWFONT_USAGE, argv0);
             return(1);
         }
     }
@@ -176,13 +187,13 @@ int main(int argc, char *argv[])
     argc -= i;
 
     /* Check usage */
-    if ( ! argv[0] ) {
-        fprintf(stderr, Usage, argv0);
+    if (!argv[0]) {
+        fprintf(stderr, TTF_SHOWFONT_USAGE, argv0);
         return(1);
     }
 
     /* Initialize the TTF library */
-    if ( TTF_Init() < 0 ) {
+    if (TTF_Init() < 0) {
         fprintf(stderr, "Couldn't initialize TTF: %s\n",SDL_GetError());
         SDL_Quit();
         return(2);
@@ -190,17 +201,17 @@ int main(int argc, char *argv[])
 
     /* Open the font file with the requested point size */
     ptsize = 0;
-    if ( argc > 1 ) {
+    if (argc > 1) {
         ptsize = atoi(argv[1]);
     }
-    if ( ptsize == 0 ) {
+    if (ptsize == 0) {
         i = 2;
         ptsize = DEFAULT_PTSIZE;
     } else {
         i = 3;
     }
     font = TTF_OpenFont(argv[0], ptsize);
-    if ( font == NULL ) {
+    if (font == NULL) {
         fprintf(stderr, "Couldn't load %d pt font from %s: %s\n",
                     ptsize, argv[0], SDL_GetError());
         cleanup(2);
@@ -210,16 +221,16 @@ int main(int argc, char *argv[])
     TTF_SetFontKerning(font, kerning);
     TTF_SetFontHinting(font, hinting);
 
-    if( dump ) {
-        for( i = 48; i < 123; i++ ) {
+    if(dump) {
+        for(i = 48; i < 123; i++) {
             SDL_Surface* glyph = NULL;
 
-            glyph = TTF_RenderGlyph_Shaded( font, i, *forecol, *backcol );
+            glyph = TTF_RenderGlyph_Shaded(font, i, *forecol, *backcol);
 
-            if( glyph ) {
+            if(glyph) {
                 char outname[64];
-                sprintf( outname, "glyph-%d.bmp", i );
-                SDL_SaveBMP( glyph, outname );
+                SDL_snprintf(outname, sizeof(outname), "glyph-%d.bmp", i);
+                SDL_SaveBMP(glyph, outname);
             }
 
         }
@@ -233,13 +244,19 @@ int main(int argc, char *argv[])
     }
 
     /* Show which font file we're looking at */
-    sprintf(string, "Font file: %s", argv[0]);  /* possible overflow */
-    if ( rendersolid ) {
+    SDL_snprintf(string, sizeof(string), "Font file: %s", argv[0]);  /* possible overflow */
+    switch (rendermethod) {
+    case TextRenderSolid:
         text = TTF_RenderText_Solid(font, string, *forecol);
-    } else {
+        break;
+    case TextRenderShaded:
         text = TTF_RenderText_Shaded(font, string, *forecol, *backcol);
+        break;
+    case TextRenderBlended:
+        text = TTF_RenderText_Blended(font, string, *forecol);
+        break;
     }
-    if ( text != NULL ) {
+    if (text != NULL) {
         scene.captionRect.x = 4;
         scene.captionRect.y = 4;
         scene.captionRect.w = text->w;
@@ -249,46 +266,59 @@ int main(int argc, char *argv[])
     }
 
     /* Render and center the message */
-    if ( argc > 2 ) {
+    if (argc > 2) {
         message = argv[2];
     } else {
         message = DEFAULT_TEXT;
     }
     switch (rendertype) {
         case RENDER_LATIN1:
-        if ( rendersolid ) {
-            text = TTF_RenderText_Solid(font,message,*forecol);
-        } else {
-            text = TTF_RenderText_Shaded(font,message,*forecol,*backcol);
-        }
-        break;
+            switch (rendermethod) {
+            case TextRenderSolid:
+                text = TTF_RenderText_Solid(font, message, *forecol);
+                break;
+            case TextRenderShaded:
+                text = TTF_RenderText_Shaded(font, message, *forecol, *backcol);
+                break;
+            case TextRenderBlended:
+                text = TTF_RenderText_Blended(font, message, *forecol);
+                break;
+            }
+            break;
 
         case RENDER_UTF8:
-        if ( rendersolid ) {
-            text = TTF_RenderUTF8_Solid(font,message,*forecol);
-        } else {
-            text = TTF_RenderUTF8_Shaded(font,message,*forecol,*backcol);
-        }
-        break;
+            switch (rendermethod) {
+            case TextRenderSolid:
+                text = TTF_RenderUTF8_Solid(font, message, *forecol);
+                break;
+            case TextRenderShaded:
+                text = TTF_RenderUTF8_Shaded(font, message, *forecol, *backcol);
+                break;
+            case TextRenderBlended:
+                text = TTF_RenderUTF8_Blended(font, message, *forecol);
+                break;
+            }
+            break;
 
         case RENDER_UNICODE:
         {
             Uint16 *unicode_text = SDL_iconv_utf8_ucs2(message);
-            if ( rendersolid ) {
-                text = TTF_RenderUNICODE_Solid(font,
-                    unicode_text, *forecol);
-            } else {
-                text = TTF_RenderUNICODE_Shaded(font,
-                    unicode_text, *forecol, *backcol);
+            switch (rendermethod) {
+            case TextRenderSolid:
+                text = TTF_RenderUNICODE_Solid(font, unicode_text, *forecol);
+                break;
+            case TextRenderShaded:
+                text = TTF_RenderUNICODE_Shaded(font, unicode_text, *forecol, *backcol);
+                break;
+            case TextRenderBlended:
+                text = TTF_RenderUNICODE_Blended(font, unicode_text, *forecol);
+                break;
             }
             SDL_free(unicode_text);
         }
         break;
-        default:
-        text = NULL; /* This shouldn't happen */
-        break;
     }
-    if ( text == NULL ) {
+    if (text == NULL) {
         fprintf(stderr, "Couldn't render text: %s\n", SDL_GetError());
         TTF_CloseFont(font);
         cleanup(2);
@@ -305,8 +335,8 @@ int main(int argc, char *argv[])
 
     /* Wait for a keystroke, and blit text on mouse press */
     done = 0;
-    while ( ! done ) {
-        if ( SDL_WaitEvent(&event) < 0 ) {
+    while (!done) {
+        if (SDL_WaitEvent(&event) < 0) {
             fprintf(stderr, "SDL_PullEvent() error: %s\n",
                                 SDL_GetError());
             done = 1;

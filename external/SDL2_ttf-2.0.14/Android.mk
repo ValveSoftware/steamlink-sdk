@@ -1,62 +1,43 @@
-LOCAL_PATH := $(call my-dir)
+# Save the local path
+SDL_TTF_LOCAL_PATH := $(call my-dir)
 
+# Enable this if you want to use HarfBuzz
+SUPPORT_HARFBUZZ ?= true
+HARFBUZZ_LIBRARY_PATH := external/harfbuzz-2.8.0
+
+FREETYPE_LIBRARY_PATH := external/freetype-2.10.4
+
+# Build freetype library
+ifneq ($(FREETYPE_LIBRARY_PATH),)
+    include $(SDL_TTF_LOCAL_PATH)/$(FREETYPE_LIBRARY_PATH)/Android.mk
+endif
+
+# Build the library
+ifeq ($(SUPPORT_HARFBUZZ),true)
+    include $(SDL_TTF_LOCAL_PATH)/$(HARFBUZZ_LIBRARY_PATH)/Android.mk
+endif
+
+# Restore local path
+LOCAL_PATH := $(SDL_TTF_LOCAL_PATH)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := SDL2_ttf
 
-FREETYPE_LIBRARY_PATH := external/freetype-2.4.12
-
 LOCAL_C_INCLUDES := $(LOCAL_PATH)
 
-LOCAL_SRC_FILES := SDL_ttf.c \
+LOCAL_SRC_FILES := SDL_ttf.c.neon
+
+LOCAL_CFLAGS += -O2
 
 ifneq ($(FREETYPE_LIBRARY_PATH),)
     LOCAL_C_INCLUDES += $(LOCAL_PATH)/$(FREETYPE_LIBRARY_PATH)/include
-    LOCAL_CFLAGS += -DFT2_BUILD_LIBRARY
-    LOCAL_SRC_FILES += \
-        $(FREETYPE_LIBRARY_PATH)/src/autofit/autofit.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftbase.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftbbox.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftbdf.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftbitmap.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftcid.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftdebug.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftfstype.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftgasp.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftglyph.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftgxval.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftinit.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftlcdfil.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftmm.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftotval.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftpatent.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftpfr.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftstroke.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftsynth.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftsystem.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/fttype1.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftwinfnt.c \
-        $(FREETYPE_LIBRARY_PATH)/src/base/ftxf86.c \
-        $(FREETYPE_LIBRARY_PATH)/src/bdf/bdf.c \
-        $(FREETYPE_LIBRARY_PATH)/src/bzip2/ftbzip2.c \
-        $(FREETYPE_LIBRARY_PATH)/src/cache/ftcache.c \
-        $(FREETYPE_LIBRARY_PATH)/src/cff/cff.c \
-        $(FREETYPE_LIBRARY_PATH)/src/cid/type1cid.c \
-        $(FREETYPE_LIBRARY_PATH)/src/gzip/ftgzip.c \
-        $(FREETYPE_LIBRARY_PATH)/src/lzw/ftlzw.c \
-        $(FREETYPE_LIBRARY_PATH)/src/pcf/pcf.c \
-        $(FREETYPE_LIBRARY_PATH)/src/pfr/pfr.c \
-        $(FREETYPE_LIBRARY_PATH)/src/psaux/psaux.c \
-        $(FREETYPE_LIBRARY_PATH)/src/pshinter/pshinter.c \
-        $(FREETYPE_LIBRARY_PATH)/src/psnames/psmodule.c \
-        $(FREETYPE_LIBRARY_PATH)/src/raster/raster.c \
-        $(FREETYPE_LIBRARY_PATH)/src/sfnt/sfnt.c \
-        $(FREETYPE_LIBRARY_PATH)/src/smooth/smooth.c \
-        $(FREETYPE_LIBRARY_PATH)/src/tools/apinames.c \
-        $(FREETYPE_LIBRARY_PATH)/src/truetype/truetype.c \
-        $(FREETYPE_LIBRARY_PATH)/src/type1/type1.c \
-        $(FREETYPE_LIBRARY_PATH)/src/type42/type42.c \
-        $(FREETYPE_LIBRARY_PATH)/src/winfonts/winfnt.c
+    LOCAL_STATIC_LIBRARIES += freetype
+endif
+
+ifeq ($(SUPPORT_HARFBUZZ),true)
+    LOCAL_C_INCLUDES += $(LOCAL_PATH)/$(HARFBUZZ_LIBRARY_PATH)/src
+    LOCAL_CFLAGS += -DTTF_USE_HARFBUZZ
+    LOCAL_STATIC_LIBRARIES += harfbuzz
 endif
 
 LOCAL_SHARED_LIBRARIES := SDL2
@@ -64,3 +45,19 @@ LOCAL_SHARED_LIBRARIES := SDL2
 LOCAL_EXPORT_C_INCLUDES += $(LOCAL_C_INCLUDES)
 
 include $(BUILD_SHARED_LIBRARY)
+
+###########################
+#
+# SDL2_ttf static library
+#
+###########################
+
+LOCAL_MODULE := SDL2_ttf_static
+
+LOCAL_MODULE_FILENAME := libSDL2_ttf
+
+LOCAL_LDLIBS :=
+LOCAL_EXPORT_LDLIBS :=
+
+include $(BUILD_STATIC_LIBRARY)
+
