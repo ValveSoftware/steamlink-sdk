@@ -9,6 +9,9 @@
     <a href="https://github.com/medusalix/xow/releases/latest">
         <img src="https://img.shields.io/github/v/release/medusalix/xow" alt="Release Badge">
     </a>
+    <a href="https://discord.gg/FDQxwWk">
+        <img src="https://img.shields.io/discord/733964971842732042" alt="Discord Badge">
+    </a>
     <a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=PLN6F3UGS37DE&lc=US">
         <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" alt="Donate Button">
     </a>
@@ -33,7 +36,7 @@ The package is automatically downloaded and extracted during the build process d
 
 ## Supported devices
 
-xow supports both versions of the wireless dongle (slim and bulky one).
+xow supports both versions of the wireless dongle (slim and bulky one) and the Surface Book 2's built-in adapter.
 The following Xbox One controllers are currently compatible with the driver:
 
 | Model number | Year | Additional information    | Status       |
@@ -51,13 +54,16 @@ The following Xbox One controllers are currently compatible with the driver:
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/xow.svg)](https://repology.org/project/xow/versions)
 
+- [RPM packaging instructions](https://gitlab.com/yajoman/xow-rpm) (for distributions like Fedora)
+
 ### Third-party hardware
 
 - EmuELEC (starting with [version 3.3](https://github.com/EmuELEC/EmuELEC/releases/tag/v3.3))
 - GamerOS (starting with [version 13](https://github.com/gamer-os/gamer-os/releases/tag/13))
 - Steam Link (starting with [build 747](https://steamcommunity.com/app/353380/discussions/0/1735510154204276395))
 
-Feel free to create prebuilt releases of xow for any Linux distribution or hardware you like.
+Feel free to package xow for any Linux distribution or hardware you like, as long as you do not publish any prebuilt executables.
+The build process embeds a copy of Microsoft's proprietary firmware into the binary, prohibiting any type of distribution.
 Any issues regarding the packaging should be reported to the respective maintainers.
 
 ## Installation
@@ -84,7 +90,7 @@ make BUILD=RELEASE
 
 **NOTE:** Please use `BUILD=DEBUG` when asked for your debug logs.
 
-Install xow as a `systemd` service (starts xow at boot time):
+Install xow as a `systemd` unit (runs xow at boot time) and start the service:
 
 ```
 sudo make install
@@ -92,7 +98,7 @@ sudo systemctl enable xow
 sudo systemctl start xow
 ```
 
-**NOTE:** A reboot might be required for xow to work correctly.
+**NOTE:** Running xow manually is **strongly discouraged**. A reboot might be required for xow to work correctly.
 
 ### Updating
 
@@ -119,13 +125,23 @@ sudo systemctl kill -s SIGUSR1 xow
 ### Error messages
 
 - `InputException`: No such file or directory
-    - Make sure that `/dev/uinput` is available (requires the `uinput` kernel module).
+    - The `/dev/uinput` device has to be available. The `uinput` kernel module needs to be loaded.
 - `InputException`: Permission denied
-    - Make sure that the `udev` rules are correctly installed and that the permissions for `/dev/uinput` allow read and write access.
-    There might be conflicts with existing `udev` rules on some systems that need to be resolved.
-- `Mt76Exception` or `LIBUSB_ERROR_NO_DEVICE`
-    - Make sure that you are only running one instance of xow at a time.
-    If you are running xow manually you have to stop the `systemd` service.
+    - The permissions for `/dev/uinput` have to allow read and write access. The `udev` rules need to be installed and any conflicts with existing rules have to be resolved.
+- `Mt76Exception`: Failed to load firmware
+    - Another driver might have already loaded the dongle's firmware. The dongle needs to be unplugged to reset its internal memory, followed by a restart of xow's `systemd` service.
+- `LIBUSB_ERROR_TIMEOUT`
+    - See the [USB incompatibilities](#usb-incompatibilities) section.
+- `LIBUSB_ERROR_BUSY` or `LIBUSB_ERROR_NO_DEVICE`
+    - Only a single program can communicate with the dongle at once. Any existing drivers that might interfere with xow need to be disabled. This includes running multiple instances of xow.
+- `LIBUSB_ERROR_ACCESS`
+    - The permissions for the dongle's USB device have to be set correctly. This is also handled by the `udev` rules.
+
+Using an outdated version of `libusb` can cause various issues. Make sure to update `libusb` to the latest version.
+
+### Pairing problems
+
+The controller only remembers the *last* device it was connected to. It will not automatically establish a connection to the dongle if it was previously plugged into a USB port or paired via bluetooth, even if the same computer was used.
 
 ### Configuration issues
 
@@ -137,7 +153,14 @@ sudo systemctl kill -s SIGUSR1 xow
 - Input from the sticks is jumping around
     - Try the options listed on [this page](https://wiki.archlinux.org/index.php/Gamepad#Setting_up_deadzones_and_calibration) to set your deadzones.
 
-In case of any problems, please open an issue with all the relevant details (dongle version, controller version, logs, captures, etc.) and I will see what I can do.
+### USB incompatibilities
+
+Some USB controllers are known to cause issues with xow. Plugging your dongle into a USB port that uses an `ASMedia` controller will lead to problems. Most `Intel` USB controllers work well with xow.
+Power management issues can arise when using a USB 3 controller. These can lead to timeouts of the USB communication. The use of a USB hub can mitigate these problems.
+
+### Other problems
+
+In case of any other problems, please open an issue with all the relevant details (dongle version, controller version, logs, captures, etc.).
 
 **NOTE:** Please refrain from creating issues concerning input remapping, deadzones or game compatibility as these topics are outside the scope of this project.
 

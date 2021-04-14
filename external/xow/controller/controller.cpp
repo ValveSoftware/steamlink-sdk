@@ -38,6 +38,9 @@
 #define INPUT_TRIGGER_FUZZ 3
 #define INPUT_TRIGGER_FLAT 63
 
+#define RUMBLE_MAX_POWER 100
+#define RUMBLE_DELAY std::chrono::milliseconds(10)
+
 Controller::Controller(
     SendPacket sendPacket
 ) : GipDevice(sendPacket),
@@ -47,10 +50,19 @@ Controller::Controller(
         std::placeholders::_1,
         std::placeholders::_2,
         std::placeholders::_3
-    )) {}
+    )),
+    stopRumbleThread(false) {}
 
 Controller::~Controller()
 {
+    stopRumbleThread = true;
+    rumbleCondition.notify_one();
+
+    if (rumbleThread.joinable())
+    {
+        rumbleThread.join();
+    }
+
     if (!powerOff())
     {
         Log::error("Failed to turn off controller");
@@ -85,6 +97,8 @@ void Controller::deviceAnnounced(uint8_t id, const AnnounceData *announce)
 
 void Controller::statusReceived(uint8_t id, const StatusData *status)
 {
+    const std::string levels[] = { "empty", "low", "medium", "full" };
+
     uint8_t type = status->batteryType;
     uint8_t level = status->batteryLevel;
 
@@ -94,7 +108,7 @@ void Controller::statusReceived(uint8_t id, const StatusData *status)
         return;
     }
 
-    Log::info("Battery level: %d", level);
+    Log::info("Battery level: %s", levels[level].c_str());
 
     batteryLevel = level;
 }
@@ -241,6 +255,27 @@ void Controller::initInput(const AnnounceData *announce)
 
         inputDevice.create(DEVICE_NAME, deviceConfig);
     }
+
+    rumbleThread = std::thread(&Controller::processRumble, this);
+}
+
+void Controller::processRumble()
+{
+    RumbleData rumble = {};
+    std::unique_lock<std::mutex> lock(rumbleMutex);
+
+    while (!stopRumbleThread)
+    {
+        rumbleCondition.wait(lock);
+
+        while (rumbleBuffer.get(rumble))
+        {
+            performRumble(rumble);
+
+            // Delay rumble to work around firmware bug
+            std::this_thread::sleep_for(RUMBLE_DELAY);
+        }
+    }
 }
 
 void Controller::inputFeedbackReceived(
@@ -270,7 +305,8 @@ void Controller::inputFeedbackReceived(
 
     if (replayCount == 0 || gain == 0)
     {
-        performRumble(rumble);
+        rumbleBuffer.put(rumble);
+        rumbleCondition.notify_one();
 
         return;
     }
@@ -282,13 +318,17 @@ void Controller::inputFeedbackReceived(
         effect.direction
     );
 
-    // Map effect's magnitudes to rumble power
-    rumble.left = static_cast<uint32_t>(
+    // Apply force feedback gain
+    uint16_t weak = static_cast<uint32_t>(
         effect.u.rumble.strong_magnitude
-    ) * gain / 0xffffff;
-    rumble.right = static_cast<uint32_t>(
+    ) * gain / 0xffff;
+    uint16_t strong = static_cast<uint32_t>(
         effect.u.rumble.weak_magnitude
-    ) * gain / 0xffffff;
+    ) * gain / 0xffff;
+
+    // Map effect's magnitudes to rumble power
+    rumble.left = weak * RUMBLE_MAX_POWER / 0xffff;
+    rumble.right = strong * RUMBLE_MAX_POWER / 0xffff;
 
     // Upper half of the controller (from left to right)
     if (effect.direction >= 0x4000 && effect.direction <= 0xc000)
@@ -306,8 +346,8 @@ void Controller::inputFeedbackReceived(
         right = right < 0 ? -right : 0;
 
         // The trigger motors are very strong
-        rumble.leftTrigger = left * maxPower / 4;
-        rumble.rightTrigger = right * maxPower / 4;
+        rumble.leftTrigger = left * maxPower / 2;
+        rumble.rightTrigger = right * maxPower / 2;
     }
 
     uint16_t duration = effect.replay.length / 10;
@@ -329,5 +369,6 @@ void Controller::inputFeedbackReceived(
     rumble.delay = delay;
     rumble.repeat = replayCount - 1;
 
-    performRumble(rumble);
+    rumbleBuffer.put(rumble);
+    rumbleCondition.notify_one();
 }

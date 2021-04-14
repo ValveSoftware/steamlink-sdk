@@ -53,7 +53,7 @@ Dongle::~Dongle()
 
 void Dongle::handleControllerConnect(Bytes address)
 {
-    std::lock_guard<std::mutex> lock(controllerMutex);
+    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
 
     uint8_t wcid = associateClient(address);
 
@@ -85,7 +85,7 @@ void Dongle::handleControllerDisconnect(uint8_t wcid)
         return;
     }
 
-    std::lock_guard<std::mutex> lock(controllerMutex);
+    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
 
     // Ignore unconnected controllers
     if (!controllers[wcid - 1])
@@ -158,7 +158,7 @@ void Dongle::handleControllerPacket(uint8_t wcid, const Bytes &packet)
     // Skip 2 bytes of padding
     const Bytes data(packet, sizeof(QosFrame) + sizeof(uint16_t));
 
-    std::lock_guard<std::mutex> lock(controllerMutex);
+    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
 
     // Ignore unconnected controllers
     if (!controllers[wcid - 1])
@@ -310,7 +310,7 @@ void Dongle::readBulkPackets(uint8_t endpoint)
 
 void Dongle::powerOffControllers()
 {
-    std::lock_guard<std::mutex> lock(controllerMutex);
+    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
 
     Log::info("Powering off controllers");
     for (std::unique_ptr<Controller> &controller : controllers)

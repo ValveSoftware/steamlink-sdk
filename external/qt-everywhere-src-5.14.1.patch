@@ -1,7 +1,7 @@
 diff -ruN qt-everywhere-src-5.14.1.orig/build-android/build.sh qt-everywhere-src-5.14.1/build-android/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-android/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-android/build.sh	2021-02-18 18:15:03.000000000 -0800
-@@ -0,0 +1,23 @@
++++ qt-everywhere-src-5.14.1/build-android/build.sh	2021-04-09 23:55:48.000000000 -0700
+@@ -0,0 +1,25 @@
 +#!/bin/sh
 +
 +ANDROID_NDK=$ANDROID_NDK_ROOT #$HOME/android/android-ndk-r21
@@ -21,28 +21,26 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-android/build.sh qt-everywhere-src
 +        ;;
 +esac
 +
++QT_OPENSSL_CONFIGURE_FLAGS="-openssl-linked -I/Users/valve/valve/Steam/rel/streaming_client/src/external/openssl-1.1.1/steaminc -L/Users/valve/valve/Steam/rel/streaming_client/src/lib/android/release"
++
 +. ../build_common.sh
 +QT_COMMON_CONFIGURE_FLAGS=$(echo "$QT_COMMON_CONFIGURE_FLAGS" | sed 's,-skip qtandroidextras,,')
-+./../configure $QT_COMMON_CONFIGURE_FLAGS -force-debug-info -xplatform android-clang -android-ndk "$ANDROID_NDK" -android-sdk "$ANDROID_SDK" -android-ndk-platform $ANDROID_PLATFORM -prefix /tmp/Qt/$HOST_ARCH-targeting-android || exit 1
++./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS -force-debug-info -xplatform android-clang -android-ndk "$ANDROID_NDK" -android-sdk "$ANDROID_SDK" -android-ndk-platform $ANDROID_PLATFORM -prefix /tmp/Qt/$HOST_ARCH-targeting-android || exit 1
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-ios/build.sh qt-everywhere-src-5.14.1/build-ios/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-ios/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-ios/build.sh	2021-02-18 18:15:03.000000000 -0800
-@@ -0,0 +1,5 @@
++++ qt-everywhere-src-5.14.1/build-ios/build.sh	2021-04-09 22:19:48.000000000 -0700
+@@ -0,0 +1,11 @@
 +#!/bin/sh
 +
-+. ../build_common.sh
-+./../configure $QT_COMMON_CONFIGURE_FLAGS -xplatform macx-ios-clang -shared -prefix /tmp/Qt/macosx-targeting-iOS || exit 1
-+make $MAKE_J && make install
-diff -ruN qt-everywhere-src-5.14.1.orig/build-ios-debug/build.sh qt-everywhere-src-5.14.1/build-ios-debug/build.sh
---- qt-everywhere-src-5.14.1.orig/build-ios-debug/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-ios-debug/build.sh	2021-02-18 18:15:03.000000000 -0800
-@@ -0,0 +1,6 @@
-+#!/bin/sh
++# Uncomment this to enable debug build
++#QT_BUILD_TYPE="-debug-and-release"
 +
-+QT_BUILD_TYPE="-debug-and-release"
++# OpenSSL isn't needed on iOS
++#QT_OPENSSL_CONFIGURE_FLAGS="-openssl-linked OPENSSL_INCDIR=/Users/valve/valve/Steam/rel/streaming_client/src/external/openssl-1.1.1/steaminc OPENSSL_LIBDIR=/Users/valve/valve/Steam/rel/streaming_client/src/lib/ios/release"
++
 +. ../build_common.sh
-+./../configure $QT_COMMON_CONFIGURE_FLAGS -xplatform macx-ios-clang -sdk iphoneos -shared -prefix /tmp/Qt/macosx-targeting-iOS || exit 1
++./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS -xplatform macx-ios-clang -sdk iphoneos -shared -prefix /tmp/Qt/macosx-targeting-iOS || exit 1
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-linux/build.sh qt-everywhere-src-5.14.1/build-linux/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-linux/build.sh	1969-12-31 16:00:00.000000000 -0800
@@ -61,20 +59,23 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-linux/build.sh qt-everywhere-src-5
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-osx/build.sh qt-everywhere-src-5.14.1/build-osx/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-osx/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-osx/build.sh	2021-02-25 11:29:26.000000000 -0800
-@@ -0,0 +1,8 @@
++++ qt-everywhere-src-5.14.1/build-osx/build.sh	2021-04-09 22:20:39.000000000 -0700
+@@ -0,0 +1,11 @@
 +#!/bin/sh
 +
 +# Uncomment this to enable symbols in the build
 +#QT_DEBUG_CONFIGURE_FLAGS=-force-debug-info
 +
++# OpenSSL isn't needed on macOS
++#QT_OPENSSL_CONFIGURE_FLAGS="-openssl-linked OPENSSL_INCDIR=/Users/valve/valve/Steam/rel/streaming_client/src/external/openssl-1.1.1/steaminc OPENSSL_LIBDIR=/Users/valve/valve/Steam/rel/streaming_client/src/lib/osx/release"
++
 +. ../build_common.sh
-+./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_DEBUG_CONFIGURE_FLAGS -prefix /tmp/Qt/macosx-targeting-macOS || exit 1
++./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_DEBUG_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS -prefix /tmp/Qt/macosx-targeting-macOS || exit 1
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-rpi/build.sh qt-everywhere-src-5.14.1/build-rpi/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-rpi/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-rpi/build.sh	2021-02-18 18:15:03.000000000 -0800
-@@ -0,0 +1,13 @@
++++ qt-everywhere-src-5.14.1/build-rpi/build.sh	2021-04-09 21:45:41.000000000 -0700
+@@ -0,0 +1,15 @@
 +#!/bin/sh
 +
 +# Core dependencies
@@ -83,18 +84,20 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-rpi/build.sh qt-everywhere-src-5.1
 +# X11 support
 +#sudo apt-get install libx11-dev libxcb1-dev libxkbcommon-x11-dev libx11-xcb-dev libxext-dev
 +
++QT_OPENSSL_CONFIGURE_FLAGS="-openssl-linked OPENSSL_INCDIR=$HOME/dev/steamlink/streaming_client/src/external/openssl-1.1.1/steaminc OPENSSL_LIBDIR=$HOME/dev/steamlink/streaming_client/src/lib/rpi/release"
++
 +. ../build_common.sh
 +PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig \
 +PKG_CONFIG_SYSROOT_DIR=/ \
-+./../configure $QT_COMMON_CONFIGURE_FLAGS -force-debug-info -opengl es2 -eglfs -no-gtk -device linux-rasp-pi3-g++ -device-option CROSS_COMPILE=/usr/bin/ -reduce-exports -force-pkg-config -no-kms -no-pch -skip qtwayland -qt-pcre -ssl -evdev -system-freetype -fontconfig -glib -prefix /tmp/Qt/rpi-targeting-rpi3
++./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS OPENSSL_LIBS="-lssl -lcrypto -lpthread" -force-debug-info -opengl es2 -eglfs -no-gtk -device linux-rasp-pi3-g++ -device-option CROSS_COMPILE=/usr/bin/ -reduce-exports -force-pkg-config -no-kms -no-pch -skip qtwayland -qt-pcre -ssl -evdev -system-freetype -fontconfig -glib -prefix /tmp/Qt/rpi-targeting-rpi3
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh qt-everywhere-src-5.14.1/build-steamlink/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-steamlink/build.sh	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/build-steamlink/build.sh	2021-04-12 21:18:28.000000000 -0700
 @@ -0,0 +1,26 @@
 +#!/bin/bash
 +
-+source ../../../setenv_external.sh
++source $HOME/dev/steamlink/firmware/setenv_external.sh
 +unset CC CPP CXX AS LD LDFLAGS STRIP
 +
 +. ../build_common.sh
@@ -120,12 +123,15 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh qt-everywhere-s
 +steamlink_make_install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-tvos/build.sh qt-everywhere-src-5.14.1/build-tvos/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-tvos/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-tvos/build.sh	2021-02-18 18:15:03.000000000 -0800
-@@ -0,0 +1,5 @@
++++ qt-everywhere-src-5.14.1/build-tvos/build.sh	2021-04-09 22:22:38.000000000 -0700
+@@ -0,0 +1,8 @@
 +#!/bin/sh
 +
++# OpenSSL isn't needed on tvOS
++#QT_OPENSSL_CONFIGURE_FLAGS="-openssl-linked OPENSSL_INCDIR=/Users/valve/valve/Steam/rel/streaming_client/src/external/openssl-1.1.1/steaminc OPENSSL_LIBDIR=/Users/valve/valve/Steam/rel/streaming_client/src/lib/tvos/release"
++
 +. ../build_common.sh
-+./../configure $QT_COMMON_CONFIGURE_FLAGS -xplatform macx-tvos-clang -shared -feature-widgets -prefix /tmp/Qt/macosx-targeting-tvOS || exit 1
++./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS -xplatform macx-tvos-clang -sdk appletvos -shared -feature-widgets -prefix /tmp/Qt/macosx-targeting-tvOS || exit 1
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-uwp/build.bat qt-everywhere-src-5.14.1/build-uwp/build.bat
 --- qt-everywhere-src-5.14.1.orig/build-uwp/build.bat	1969-12-31 16:00:00.000000000 -0800
@@ -134,9 +140,9 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-uwp/build.bat qt-everywhere-src-5.
 +..\\qt-everywhere-src-5.14.1\\configure -xplatform winrt-x64-msvc2019 -release -opensource -confirm-license -nomake examples -nomake tests -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcanvas3d -skip qtcharts -skip qtconnectivity -skip qtdatavis3d -skip qtdeclarative -skip qtdoc -skip qtdocgallery -skip qtfeedback -skip qtgamepad -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation -skip qtlottie -skip qtmacextras -skip qtmultimedia -skip qtnetworkauth -skip qtpim -skip qtpurchasing -skip qtqa -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtrepotools -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtsystems -skip qtvirtualkeyboard -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebglplugin -skip qtwebsockets -skip qtwebview -skip qtwinextras -skip qtx11extras -skip qtxmlpatterns
 diff -ruN qt-everywhere-src-5.14.1.orig/build-windows/build.bat qt-everywhere-src-5.14.1/build-windows/build.bat
 --- qt-everywhere-src-5.14.1.orig/build-windows/build.bat	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-windows/build.bat	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/build-windows/build.bat	2021-04-09 23:49:43.000000000 -0700
 @@ -0,0 +1 @@
-+..\\qt-everywhere-src-5.14.1\\configure -release -opensource -confirm-license -nomake examples -nomake tests -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcanvas3d -skip qtcharts -skip qtconnectivity -skip qtdatavis3d -skip qtdeclarative -skip qtdoc -skip qtdocgallery -skip qtfeedback -skip qtgamepad -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation -skip qtlottie -skip qtmacextras -skip qtmultimedia -skip qtnetworkauth -skip qtpim -skip qtpurchasing -skip qtqa -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtrepotools -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtsystems -skip qtvirtualkeyboard -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebglplugin -skip qtwebsockets -skip qtwebview -skip qtwinextras -skip qtx11extras -skip qtxmlpatterns
++..\\qt5\\configure -release -opensource -confirm-license -nomake examples -nomake tests -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcanvas3d -skip qtcharts -skip qtconnectivity -skip qtdatavis3d -skip qtdeclarative -skip qtdoc -skip qtdocgallery -skip qtfeedback -skip qtgamepad -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation -skip qtlottie -skip qtmacextras -skip qtmultimedia -skip qtnetworkauth -skip qtpim -skip qtpurchasing -skip qtqa -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtrepotools -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtsystems -skip qtvirtualkeyboard -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebglplugin -skip qtwebsockets -skip qtwebview -skip qtwinextras -skip qtx11extras -skip qtxmlpatterns -openssl-linked OPENSSL_INCDIR="D:\dev\Steam\rel\streaming_client\src\external\openssl-1.1.1\steaminc" OPENSSL_LIBDIR="D:\dev\Steam\rel\streaming_client\src\lib\win32\release"
 diff -ruN qt-everywhere-src-5.14.1.orig/build_common.sh qt-everywhere-src-5.14.1/build_common.sh
 --- qt-everywhere-src-5.14.1.orig/build_common.sh	1969-12-31 16:00:00.000000000 -0800
 +++ qt-everywhere-src-5.14.1/build_common.sh	2021-02-18 18:15:03.000000000 -0800

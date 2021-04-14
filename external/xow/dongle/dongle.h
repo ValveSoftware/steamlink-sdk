@@ -34,6 +34,9 @@
 #define DONGLE_PID_OLD 0x02e6
 #define DONGLE_PID_NEW 0x02fe
 
+// Product ID for Microsoft Surface Book 2 built-in dongle
+#define DONGLE_PID_SURFACE 0x091e
+
 /*
  * Handles received 802.11 packets
  * Delegates GIP (Game Input Protocol) packets to controllers
@@ -61,6 +64,6 @@ private:
     std::vector<std::thread> threads;
     std::atomic<bool> stopThreads;
 
-    std::mutex controllerMutex;
+    std::recursive_mutex controllerMutex;
     std::array<std::unique_ptr<Controller>, MT_WCID_COUNT> controllers;
 };

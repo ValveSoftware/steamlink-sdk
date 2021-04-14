@@ -1,11 +1,23 @@
+diff --git a/Makefile b/Makefile
+index fa5aa64..b37ea54 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,5 +1,5 @@
+-BUILD := DEBUG
+-VERSION := $(shell git describe --tags)
++BUILD := RELEASE
++VERSION := v0.5-26-g99100fb#$(shell git describe --tags)
+ 
+ FLAGS := -Wall -Wpedantic -std=c++11 -MMD -MP
+ DEBUG_FLAGS := -Og -g -DDEBUG
 diff --git a/controller/controller.cpp b/controller/controller.cpp
-index a072aea..97dd8e9 100644
+index b0e95cd..1dd2f60 100644
 --- a/controller/controller.cpp
 +++ b/controller/controller.cpp
-@@ -51,12 +51,17 @@ Controller::Controller(
+@@ -63,12 +63,17 @@ Controller::~Controller()
+         rumbleThread.join();
+     }
  
- Controller::~Controller()
- {
 -    if (!setPowerMode(DEVICE_ID_CONTROLLER, POWER_OFF))
 +    if (!powerOff())
      {
@@ -22,10 +34,10 @@ index a072aea..97dd8e9 100644
  {
      Log::info("Device announced, product id: %04x", announce->productId);
 diff --git a/controller/controller.h b/controller/controller.h
-index 5486895..3d15652 100644
+index 59297e8..52e99a1 100644
 --- a/controller/controller.h
 +++ b/controller/controller.h
-@@ -31,6 +31,8 @@ public:
+@@ -37,6 +37,8 @@ public:
      Controller(SendPacket sendPacket);
      ~Controller();
  
@@ -116,9 +128,36 @@ index c3c2cfd..89727a7 100644
  
  class InputException : public std::runtime_error
 diff --git a/dongle/dongle.cpp b/dongle/dongle.cpp
-index b931ff8..324430c 100644
+index b931ff8..cc4314c 100644
 --- a/dongle/dongle.cpp
 +++ b/dongle/dongle.cpp
+@@ -53,7 +53,7 @@ Dongle::~Dongle()
+ 
+ void Dongle::handleControllerConnect(Bytes address)
+ {
+-    std::lock_guard<std::mutex> lock(controllerMutex);
++    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
+ 
+     uint8_t wcid = associateClient(address);
+ 
+@@ -85,7 +85,7 @@ void Dongle::handleControllerDisconnect(uint8_t wcid)
+         return;
+     }
+ 
+-    std::lock_guard<std::mutex> lock(controllerMutex);
++    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
+ 
+     // Ignore unconnected controllers
+     if (!controllers[wcid - 1])
+@@ -158,7 +158,7 @@ void Dongle::handleControllerPacket(uint8_t wcid, const Bytes &packet)
+     // Skip 2 bytes of padding
+     const Bytes data(packet, sizeof(QosFrame) + sizeof(uint16_t));
+ 
+-    std::lock_guard<std::mutex> lock(controllerMutex);
++    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
+ 
+     // Ignore unconnected controllers
+     if (!controllers[wcid - 1])
 @@ -307,3 +307,17 @@ void Dongle::readBulkPackets(uint8_t endpoint)
          }
      }
@@ -126,7 +165,7 @@ index b931ff8..324430c 100644
 +
 +void Dongle::powerOffControllers()
 +{
-+    std::lock_guard<std::mutex> lock(controllerMutex);
++    std::lock_guard<std::recursive_mutex> lock(controllerMutex);
 +
 +    Log::info("Powering off controllers");
 +    for (std::unique_ptr<Controller> &controller : controllers)
@@ -138,10 +177,10 @@ index b931ff8..324430c 100644
 +    }
 +}
 diff --git a/dongle/dongle.h b/dongle/dongle.h
-index cb41cbc..aefaf01 100644
+index 597d1d0..a721f9c 100644
 --- a/dongle/dongle.h
 +++ b/dongle/dongle.h
-@@ -44,6 +44,8 @@ public:
+@@ -47,6 +47,8 @@ public:
      Dongle(std::unique_ptr<UsbDevice> usbDevice);
      ~Dongle();
  
@@ -150,6 +189,14 @@ index cb41cbc..aefaf01 100644
      using Mt76::setPairingStatus;
  
  private:
+@@ -62,6 +64,6 @@ private:
+     std::vector<std::thread> threads;
+     std::atomic<bool> stopThreads;
+ 
+-    std::mutex controllerMutex;
++    std::recursive_mutex controllerMutex;
+     std::array<std::unique_ptr<Controller>, MT_WCID_COUNT> controllers;
+ };
 diff --git a/utils/log.cpp b/utils/log.cpp
 index e93ccbb..cad0752 100644
 --- a/utils/log.cpp
@@ -169,10 +216,10 @@ index e93ccbb..cad0752 100644
  
          stream << std::left << std::setw(5);
 diff --git a/xow.cpp b/xow.cpp
-index 6dfc255..bf7a1a5 100644
+index 68ab700..8824dd4 100644
 --- a/xow.cpp
 +++ b/xow.cpp
-@@ -58,6 +58,7 @@ bool run()
+@@ -36,6 +36,7 @@ int main()
      sigaddset(&signalMask, SIGINT);
      sigaddset(&signalMask, SIGTERM);
      sigaddset(&signalMask, SIGUSR1);
@@ -180,7 +227,7 @@ index 6dfc255..bf7a1a5 100644
  
      // Block signals for all USB threads
      if (pthread_sigmask(SIG_BLOCK, &signalMask, nullptr) < 0)
-@@ -125,6 +126,13 @@ bool run()
+@@ -104,6 +105,13 @@ int main()
  
              dongle.setPairingStatus(true);
          }

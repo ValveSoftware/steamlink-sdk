@@ -25,9 +25,9 @@ enum FrameCommand
     CMD_ACKNOWLEDGE = 0x01,
     CMD_ANNOUNCE = 0x02,
     CMD_STATUS = 0x03,
-    CMD_AUTHENTICATE = 0x04,
+    CMD_IDENTIFY = 0x04,
     CMD_POWER_MODE = 0x05,
-    CMD_CUSTOM = 0x06,
+    CMD_AUTHENTICATE = 0x06,
     CMD_GUIDE_BTN = 0x07,
     CMD_AUDIO_CONFIG = 0x08,
     CMD_RUMBLE = 0x09,
@@ -74,6 +74,12 @@ bool GipDevice::handlePacket(const Bytes &packet)
         Log::error("Failed to acknowledge packet");
 
         return false;
+    }
+
+    // Ignore packets from accessories
+    if (frame->deviceId > 0)
+    {
+        return true;
     }
 
     const Bytes data(packet, sizeof(Frame));

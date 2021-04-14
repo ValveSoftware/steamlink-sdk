@@ -18,7 +18,7 @@ The Steam Link software is custom Linux firmware based on `kernel 3.8` and `glib
 The Steam Link SDK has support for the following major APIs:
 
 - `OpenGL ES 2.0`
-- `Qt 5.8`
+- `Qt 5.14.1`
 - `SDL 2.0`
 
 The SDL game controller API is recommended for Steam Controller support on the Steam Link.
@@ -27,6 +27,8 @@ The SDL game controller API is recommended for Steam Controller support on the S
 ## Repository Contents
 ### examples
 Examples to demonstrate how to build applications using the SDK. Each application directory has a `build_steamlink.sh` script to build and package the example.
+
+Native app icons should be 138x138, and will be scaled to that size if needed.
 
 ### external
 Source code to 3rd party components of the Steam Link, each directory has a `build_steamlink.sh` script to rebuild the component.
