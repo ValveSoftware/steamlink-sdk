@@ -268,8 +268,10 @@ void Dongle::handleBulkData(const Bytes &data)
                 break;
 
             case EVT_CLIENT_LOST:
+#if 0 // Apparently this causes disconnection when the controller is actually still connected
                 // Packet is guaranteed not to be empty
                 handleControllerDisconnect(packet[0]);
+#endif
                 break;
         }
     }

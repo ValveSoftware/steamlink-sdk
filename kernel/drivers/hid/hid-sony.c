@@ -2094,6 +2094,7 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		ret = sixaxis_set_operational_bt(hdev);
 		sony_init_work(sc, sixaxis_state_worker);
 	} else if (sc->quirks & DUALSHOCK4_CONTROLLER) {
+#if 0 /* This isn't needed, and fails on the 8BitDo Pro 2 */
 		if (sc->quirks & DUALSHOCK4_CONTROLLER_BT) {
 			ret = dualshock4_set_operational_bt(hdev);
 			if (ret < 0) {
@@ -2101,7 +2102,7 @@ static int sony_probe(struct hid_device *hdev, const struct hid_device_id *id)
 				goto err_stop;
 			}
 		}
-
+#endif
 		sony_init_work(sc, dualshock4_state_worker);
 	} else {
 		ret = 0;

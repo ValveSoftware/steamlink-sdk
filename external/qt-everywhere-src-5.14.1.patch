@@ -1,6 +1,6 @@
 diff -ruN qt-everywhere-src-5.14.1.orig/build-android/build.sh qt-everywhere-src-5.14.1/build-android/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-android/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-android/build.sh	2021-04-09 23:55:48.000000000 -0700
++++ qt-everywhere-src-5.14.1/build-android/build.sh	2021-11-05 13:22:04.418543701 -0700
 @@ -0,0 +1,25 @@
 +#!/bin/sh
 +
@@ -27,9 +27,28 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-android/build.sh qt-everywhere-src
 +QT_COMMON_CONFIGURE_FLAGS=$(echo "$QT_COMMON_CONFIGURE_FLAGS" | sed 's,-skip qtandroidextras,,')
 +./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS -force-debug-info -xplatform android-clang -android-ndk "$ANDROID_NDK" -android-sdk "$ANDROID_SDK" -android-ndk-platform $ANDROID_PLATFORM -prefix /tmp/Qt/$HOST_ARCH-targeting-android || exit 1
 +make $MAKE_J && make install
+diff -ruN qt-everywhere-src-5.14.1.orig/build-deckard/build.sh qt-everywhere-src-5.14.1/build-deckard/build.sh
+--- qt-everywhere-src-5.14.1.orig/build-deckard/build.sh	1969-12-31 16:00:00.000000000 -0800
++++ qt-everywhere-src-5.14.1/build-deckard/build.sh	2022-06-14 10:48:46.113000876 -0700
+@@ -0,0 +1,15 @@
++#!/bin/sh
++
++# Core dependencies
++#sudo apt-get install build-essential libfontconfig1-dev libdbus-1-dev libfreetype6-dev libicu-dev libinput-dev libxkbcommon-dev libsqlite3-dev libssl-dev libpng-dev libjpeg-dev libglib2.0-dev libraspberrypi-dev
++
++# X11 support
++#sudo apt-get install libx11-dev libxcb1-dev libxkbcommon-x11-dev libx11-xcb-dev libxext-dev
++
++. ../build_common.sh
++QT_COMMON_CONFIGURE_FLAGS=$(echo "$QT_COMMON_CONFIGURE_FLAGS" | \
++sed \
++    -e 's,-skip qtwayland ,,' \
++)
++./../configure $QT_COMMON_CONFIGURE_FLAGS  -platform linux-g++ -prefix /tmp/Qt/linux-targeting-deckard
++make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-ios/build.sh qt-everywhere-src-5.14.1/build-ios/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-ios/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-ios/build.sh	2021-04-09 22:19:48.000000000 -0700
++++ qt-everywhere-src-5.14.1/build-ios/build.sh	2021-11-05 13:22:04.418543701 -0700
 @@ -0,0 +1,11 @@
 +#!/bin/sh
 +
@@ -44,7 +63,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-ios/build.sh qt-everywhere-src-5.1
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-linux/build.sh qt-everywhere-src-5.14.1/build-linux/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-linux/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-linux/build.sh	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/build-linux/build.sh	2021-11-05 13:22:04.418543701 -0700
 @@ -0,0 +1,11 @@
 +#!/bin/sh
 +
@@ -59,7 +78,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-linux/build.sh qt-everywhere-src-5
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-osx/build.sh qt-everywhere-src-5.14.1/build-osx/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-osx/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-osx/build.sh	2021-04-09 22:20:39.000000000 -0700
++++ qt-everywhere-src-5.14.1/build-osx/build.sh	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,11 @@
 +#!/bin/sh
 +
@@ -74,8 +93,8 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-osx/build.sh qt-everywhere-src-5.1
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-rpi/build.sh qt-everywhere-src-5.14.1/build-rpi/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-rpi/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-rpi/build.sh	2021-04-09 21:45:41.000000000 -0700
-@@ -0,0 +1,15 @@
++++ qt-everywhere-src-5.14.1/build-rpi/build.sh	2021-11-05 15:25:50.000000000 -0700
+@@ -0,0 +1,18 @@
 +#!/bin/sh
 +
 +# Core dependencies
@@ -84,17 +103,20 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-rpi/build.sh qt-everywhere-src-5.1
 +# X11 support
 +#sudo apt-get install libx11-dev libxcb1-dev libxkbcommon-x11-dev libx11-xcb-dev libxext-dev
 +
++# DRM support
++#sudo apt-get install libdrm-dev libgbm-dev libgles2-mesa-dev
++
 +QT_OPENSSL_CONFIGURE_FLAGS="-openssl-linked OPENSSL_INCDIR=$HOME/dev/steamlink/streaming_client/src/external/openssl-1.1.1/steaminc OPENSSL_LIBDIR=$HOME/dev/steamlink/streaming_client/src/lib/rpi/release"
 +
 +. ../build_common.sh
 +PKG_CONFIG_LIBDIR=/usr/lib/arm-linux-gnueabihf/pkgconfig:/usr/share/pkgconfig \
 +PKG_CONFIG_SYSROOT_DIR=/ \
-+./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS OPENSSL_LIBS="-lssl -lcrypto -lpthread" -force-debug-info -opengl es2 -eglfs -no-gtk -device linux-rasp-pi3-g++ -device-option CROSS_COMPILE=/usr/bin/ -reduce-exports -force-pkg-config -no-kms -no-pch -skip qtwayland -qt-pcre -ssl -evdev -system-freetype -fontconfig -glib -prefix /tmp/Qt/rpi-targeting-rpi3
++./../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS OPENSSL_LIBS="-lssl -lcrypto -lpthread" -force-debug-info -opengl es2 -no-gtk -device linux-rasp-pi3-g++ -device-option CROSS_COMPILE=/usr/bin/ -reduce-exports -force-pkg-config -no-pch -skip qtwayland -qt-pcre -ssl -evdev -system-freetype -fontconfig -glib -prefix /tmp/Qt/rpi-targeting-rpi3
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh qt-everywhere-src-5.14.1/build-steamlink/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-steamlink/build.sh	2021-04-12 21:18:28.000000000 -0700
-@@ -0,0 +1,26 @@
++++ qt-everywhere-src-5.14.1/build-steamlink/build.sh	2021-11-05 13:22:04.422543701 -0700
+@@ -0,0 +1,30 @@
 +#!/bin/bash
 +
 +source $HOME/dev/steamlink/firmware/setenv_external.sh
@@ -117,13 +139,17 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-steamlink/build.sh qt-everywhere-s
 +    )
 +    QT_COMMON_CONFIGURE_FLAGS="$QT_COMMON_CONFIGURE_FLAGS -no-pulseaudio"
 +fi
-+../configure $QT_COMMON_CONFIGURE_FLAGS -force-debug-info -qt-harfbuzz -no-feature-bearermanagement -no-linuxfb -no-glib -device marvell -device-option CROSS_COMPILE=armv7a-cros-linux-gnueabi- -sysroot "${MARVELL_ROOTFS}" || exit 1
++
++QT_OPENSSL_CONFIGURE_FLAGS="-openssl-linked -I$HOME/dev/steamlink/streaming_client/src/external/openssl-1.1.1/steaminc -L$HOME/dev/steamlink/streaming_client/src/lib/steamlink/release"
++export OPENSSL_LIBS="-lssl -lcrypto -lpthread"
++
++../configure $QT_COMMON_CONFIGURE_FLAGS $QT_OPENSSL_CONFIGURE_FLAGS -force-debug-info -qt-harfbuzz -no-feature-bearermanagement -no-linuxfb -no-glib -device marvell -device-option CROSS_COMPILE=armv7a-cros-linux-gnueabi- -sysroot "${MARVELL_ROOTFS}" || exit 1
 +
 +steamlink_make || exit 1
 +steamlink_make_install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-tvos/build.sh qt-everywhere-src-5.14.1/build-tvos/build.sh
 --- qt-everywhere-src-5.14.1.orig/build-tvos/build.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-tvos/build.sh	2021-04-09 22:22:38.000000000 -0700
++++ qt-everywhere-src-5.14.1/build-tvos/build.sh	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,8 @@
 +#!/bin/sh
 +
@@ -135,17 +161,17 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build-tvos/build.sh qt-everywhere-src-5.
 +make $MAKE_J && make install
 diff -ruN qt-everywhere-src-5.14.1.orig/build-uwp/build.bat qt-everywhere-src-5.14.1/build-uwp/build.bat
 --- qt-everywhere-src-5.14.1.orig/build-uwp/build.bat	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-uwp/build.bat	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/build-uwp/build.bat	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1 @@
 +..\\qt-everywhere-src-5.14.1\\configure -xplatform winrt-x64-msvc2019 -release -opensource -confirm-license -nomake examples -nomake tests -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcanvas3d -skip qtcharts -skip qtconnectivity -skip qtdatavis3d -skip qtdeclarative -skip qtdoc -skip qtdocgallery -skip qtfeedback -skip qtgamepad -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation -skip qtlottie -skip qtmacextras -skip qtmultimedia -skip qtnetworkauth -skip qtpim -skip qtpurchasing -skip qtqa -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtrepotools -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtsystems -skip qtvirtualkeyboard -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebglplugin -skip qtwebsockets -skip qtwebview -skip qtwinextras -skip qtx11extras -skip qtxmlpatterns
 diff -ruN qt-everywhere-src-5.14.1.orig/build-windows/build.bat qt-everywhere-src-5.14.1/build-windows/build.bat
 --- qt-everywhere-src-5.14.1.orig/build-windows/build.bat	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build-windows/build.bat	2021-04-09 23:49:43.000000000 -0700
++++ qt-everywhere-src-5.14.1/build-windows/build.bat	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1 @@
 +..\\qt5\\configure -release -opensource -confirm-license -nomake examples -nomake tests -skip qt3d -skip qtactiveqt -skip qtandroidextras -skip qtcanvas3d -skip qtcharts -skip qtconnectivity -skip qtdatavis3d -skip qtdeclarative -skip qtdoc -skip qtdocgallery -skip qtfeedback -skip qtgamepad -skip qtgraphicaleffects -skip qtimageformats -skip qtlocation -skip qtlottie -skip qtmacextras -skip qtmultimedia -skip qtnetworkauth -skip qtpim -skip qtpurchasing -skip qtqa -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtrepotools -skip qtscript -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtsystems -skip qtvirtualkeyboard -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebglplugin -skip qtwebsockets -skip qtwebview -skip qtwinextras -skip qtx11extras -skip qtxmlpatterns -openssl-linked OPENSSL_INCDIR="D:\dev\Steam\rel\streaming_client\src\external\openssl-1.1.1\steaminc" OPENSSL_LIBDIR="D:\dev\Steam\rel\streaming_client\src\lib\win32\release"
 diff -ruN qt-everywhere-src-5.14.1.orig/build_common.sh qt-everywhere-src-5.14.1/build_common.sh
 --- qt-everywhere-src-5.14.1.orig/build_common.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/build_common.sh	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/build_common.sh	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,51 @@
 +if [ "$QT_BUILD_TYPE" = "" ]; then
 +	QT_BUILD_TYPE="-release"
@@ -200,7 +226,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/build_common.sh qt-everywhere-src-5.14.1
 +MAKE_J=-j10
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/configure qt-everywhere-src-5.14.1/qtbase/configure
 --- qt-everywhere-src-5.14.1.orig/qtbase/configure	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/configure	2021-02-18 18:25:19.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/configure	2021-11-05 13:22:04.422543701 -0700
 @@ -244,6 +244,7 @@
          ;;
          iphonesimulator*)
@@ -225,7 +251,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/configure qt-everywhere-src-5.14.
              ;;
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/configure.json qt-everywhere-src-5.14.1/qtbase/configure.json
 --- qt-everywhere-src-5.14.1.orig/qtbase/configure.json	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/configure.json	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/configure.json	2021-11-05 13:22:04.422543701 -0700
 @@ -343,6 +343,7 @@
                  "head": [
                      "#if __cplusplus > 201402L",
@@ -245,7 +271,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/configure.json qt-everywhere-src-
                  "privateFeature",
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/android-g++/qmake.conf.dist qt-everywhere-src-5.14.1/qtbase/mkspecs/android-g++/qmake.conf.dist
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/android-g++/qmake.conf.dist	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/android-g++/qmake.conf.dist	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/android-g++/qmake.conf.dist	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,37 @@
 +# qmake configuration for building with android-g++
 +MAKEFILE_GENERATOR      = UNIX
@@ -286,7 +312,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/android-g++/qmake.conf.di
 +include(../common/android-base-tail.conf)
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/common/gcc-base.conf qt-everywhere-src-5.14.1/qtbase/mkspecs/common/gcc-base.conf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/common/gcc-base.conf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/common/gcc-base.conf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/common/gcc-base.conf	2021-11-05 13:22:04.422543701 -0700
 @@ -41,7 +41,7 @@
  QMAKE_CFLAGS_WARN_ON       += -Wall -Wextra
  QMAKE_CFLAGS_WARN_OFF      += -w
@@ -298,7 +324,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/common/gcc-base.conf qt-e
  QMAKE_CFLAGS_STATIC_LIB    += $$QMAKE_CFLAGS_PIC
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qeglfshooks_marvell.cpp qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qeglfshooks_marvell.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qeglfshooks_marvell.cpp	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qeglfshooks_marvell.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qeglfshooks_marvell.cpp	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,103 @@
 +/****************************************************************************
 +**
@@ -405,7 +431,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++
 +QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,25 @@
 +#
 +# qmake configuration for the Marvell BG2CD
@@ -434,7 +460,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++
 +load(qt_config)
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf.directfb qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf.directfb
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf.directfb	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf.directfb	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qmake.conf.directfb	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,13 @@
 +#
 +# qmake configuration for the Marvell BG2CD
@@ -451,7 +477,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++
 +load(qt_config)
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qplatformdefs.h qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qplatformdefs.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++/qplatformdefs.h	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qplatformdefs.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-marvell-g++/qplatformdefs.h	2021-11-05 13:22:04.422543701 -0700
 @@ -0,0 +1,42 @@
 +/****************************************************************************
 +**
@@ -497,7 +523,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-marvell-g++
 +#include "../../linux-g++/qplatformdefs.h"
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-rasp-pi3-g++/qmake.conf qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-rasp-pi3-g++/qmake.conf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-rasp-pi3-g++/qmake.conf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-rasp-pi3-g++/qmake.conf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/devices/linux-rasp-pi3-g++/qmake.conf	2021-11-05 13:22:04.422543701 -0700
 @@ -11,9 +11,9 @@
  QMAKE_RPATHLINKDIR_POST += $$[QT_SYSROOT]/opt/vc/lib
  
@@ -525,7 +551,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/devices/linux-rasp-pi3-g+
  QMAKE_INCDIR_BCM_HOST   = $$VC_INCLUDE_PATH
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/mac/default_post.prf qt-everywhere-src-5.14.1/qtbase/mkspecs/features/mac/default_post.prf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/mac/default_post.prf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/mac/default_post.prf	2021-02-18 18:25:19.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/mac/default_post.prf	2021-11-05 13:22:04.422543701 -0700
 @@ -198,7 +198,7 @@
                  -isysroot$$xcodeSDKInfo(Path, $$sdk)
              QMAKE_XARCH_LFLAGS_$${arch} = $$version_min_flags \
@@ -546,7 +572,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/mac/default_post
      # Enable precompiled headers for multiple architectures
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/qt.prf qt-everywhere-src-5.14.1/qtbase/mkspecs/features/qt.prf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/qt.prf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/qt.prf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/qt.prf	2021-11-05 13:22:04.422543701 -0700
 @@ -16,7 +16,7 @@
  qtConfig(force_asserts): DEFINES += QT_FORCE_ASSERTS
  no_keywords:DEFINES += QT_NO_KEYWORDS
@@ -558,7 +584,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/qt.prf qt-everyw
  
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/toolchain.prf qt-everywhere-src-5.14.1/qtbase/mkspecs/features/toolchain.prf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/toolchain.prf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/toolchain.prf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/toolchain.prf	2021-11-05 13:22:04.426543701 -0700
 @@ -182,6 +182,10 @@
          # UIKit simulator platforms will see the device SDK's sysroot in
          # QMAKE_DEFAULT_*DIRS, because they're handled in a single build pass.
@@ -572,7 +598,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/toolchain.prf qt
              else: \
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/uikit/default_post.prf qt-everywhere-src-5.14.1/qtbase/mkspecs/features/uikit/default_post.prf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/uikit/default_post.prf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/uikit/default_post.prf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/features/uikit/default_post.prf	2021-11-05 13:22:04.426543701 -0700
 @@ -27,30 +27,6 @@
      device_family.name = TARGETED_DEVICE_FAMILY
      device_family.value = $$QMAKE_APPLE_TARGETED_DEVICE_FAMILY
@@ -606,7 +632,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/features/uikit/default_po
  !xcodebuild:equals(TEMPLATE, app):!isEmpty(QMAKE_INFO_PLIST) {
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/linux-g++-5/qmake.conf qt-everywhere-src-5.14.1/qtbase/mkspecs/linux-g++-5/qmake.conf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/linux-g++-5/qmake.conf	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/linux-g++-5/qmake.conf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/linux-g++-5/qmake.conf	2021-11-05 13:22:04.426543701 -0700
 @@ -0,0 +1,17 @@
 +#
 +# qmake configuration for linux-g++
@@ -627,7 +653,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/linux-g++-5/qmake.conf qt
 +QMAKE_LINK_C            = gcc-5
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/linux-g++-5/qplatformdefs.h qt-everywhere-src-5.14.1/qtbase/mkspecs/linux-g++-5/qplatformdefs.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/linux-g++-5/qplatformdefs.h	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/linux-g++-5/qplatformdefs.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/linux-g++-5/qplatformdefs.h	2021-11-05 13:22:04.426543701 -0700
 @@ -0,0 +1,95 @@
 +/****************************************************************************
 +**
@@ -726,7 +752,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/linux-g++-5/qplatformdefs
 +#endif // QPLATFORMDEFS_H
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-clang/Info.plist.lib qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-clang/Info.plist.lib
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-clang/Info.plist.lib	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-clang/Info.plist.lib	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-clang/Info.plist.lib	2021-11-05 13:22:04.426543701 -0700
 @@ -14,6 +14,30 @@
  	<string>${QMAKE_PKGINFO_TYPEINFO}</string>
  	<key>CFBundleVersion</key>
@@ -760,7 +786,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-clang/Info.plist.lib
  </dict>
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-ios-clang/Info.plist.lib qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-ios-clang/Info.plist.lib
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-ios-clang/Info.plist.lib	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-ios-clang/Info.plist.lib	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-ios-clang/Info.plist.lib	2021-11-05 13:22:04.426543701 -0700
 @@ -14,6 +14,12 @@
  	<string>${QMAKE_PKGINFO_TYPEINFO}</string>
  	<key>CFBundleVersion</key>
@@ -776,7 +802,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-ios-clang/Info.plist
  </dict>
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-ios-clang/qmake.conf qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-ios-clang/qmake.conf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-ios-clang/qmake.conf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-ios-clang/qmake.conf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-ios-clang/qmake.conf	2021-11-05 13:22:04.426543701 -0700
 @@ -2,7 +2,7 @@
  # qmake configuration for macx-ios-clang
  #
@@ -788,7 +814,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-ios-clang/qmake.conf
  QMAKE_APPLE_TARGETED_DEVICE_FAMILY = 1,2
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-tvos-clang/Info.plist.lib qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-tvos-clang/Info.plist.lib
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-tvos-clang/Info.plist.lib	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-tvos-clang/Info.plist.lib	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-tvos-clang/Info.plist.lib	2021-11-05 13:22:04.426543701 -0700
 @@ -14,6 +14,8 @@
  	<string>${QMAKE_PKGINFO_TYPEINFO}</string>
  	<key>CFBundleVersion</key>
@@ -800,7 +826,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-tvos-clang/Info.plis
  </dict>
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-tvos-clang/qmake.conf qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-tvos-clang/qmake.conf
 --- qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-tvos-clang/qmake.conf	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-tvos-clang/qmake.conf	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/mkspecs/macx-tvos-clang/qmake.conf	2021-11-05 13:22:04.426543701 -0700
 @@ -2,7 +2,7 @@
  # qmake configuration for macx-tvos-clang
  #
@@ -812,7 +838,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/mkspecs/macx-tvos-clang/qmake.con
  
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/qmake/generators/mac/pbuilder_pbx.cpp qt-everywhere-src-5.14.1/qtbase/qmake/generators/mac/pbuilder_pbx.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/qmake/generators/mac/pbuilder_pbx.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/qmake/generators/mac/pbuilder_pbx.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/qmake/generators/mac/pbuilder_pbx.cpp	2021-11-05 13:22:04.426543701 -0700
 @@ -1674,7 +1674,7 @@
                  if (!project->isEmpty("QMAKE_IOS_DEPLOYMENT_TARGET"))
                      t << "\t\t\t\t" << writeSettings("IPHONEOS_DEPLOYMENT_TARGET", project->first("QMAKE_IOS_DEPLOYMENT_TARGET")) << ";\n";
@@ -824,7 +850,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/qmake/generators/mac/pbuilder_pbx
  
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/qmake/library/proitems.h qt-everywhere-src-5.14.1/qtbase/qmake/library/proitems.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/qmake/library/proitems.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/qmake/library/proitems.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/qmake/library/proitems.h	2021-11-05 13:22:04.426543701 -0700
 @@ -138,6 +138,7 @@
      qlonglong toLongLong(bool *ok = nullptr, int base = 10) const { return toQStringRef().toLongLong(ok, base); }
      int toInt(bool *ok = nullptr, int base = 10) const { return toQStringRef().toInt(ok, base); }
@@ -835,7 +861,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/qmake/library/proitems.h qt-every
      static uint hash(const QChar *p, int n);
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/qmake/library/qmakebuiltins.cpp qt-everywhere-src-5.14.1/qtbase/qmake/library/qmakebuiltins.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/qmake/library/qmakebuiltins.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/qmake/library/qmakebuiltins.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/qmake/library/qmakebuiltins.cpp	2021-11-05 13:22:04.426543701 -0700
 @@ -1666,6 +1666,15 @@
                  return returnBool(lhs_int < rhs_int);
              }
@@ -854,7 +880,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/qmake/library/qmakebuiltins.cpp q
          return returnBool(lhs < rhs.toQStringRef());
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qcompilerdetection.h qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qcompilerdetection.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qcompilerdetection.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qcompilerdetection.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qcompilerdetection.h	2021-11-05 13:22:04.426543701 -0700
 @@ -769,10 +769,14 @@
  #    if __has_feature(cxx_alias_templates)
  #      define Q_COMPILER_TEMPLATE_ALIAS
@@ -887,7 +913,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qcompilerdetec
          * 4.x series, see e.g. https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57694 */
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qendian.h qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qendian.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qendian.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qendian.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qendian.h	2021-11-05 13:22:04.426543701 -0700
 @@ -93,11 +93,11 @@
   * This function can be used if you are not concerned about alignment issues,
   * and it is therefore a bit more convenient and in most cases more efficient.
@@ -953,9 +979,21 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qendian.h qt-e
  {
      return source;
  }
+diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qglobal.cpp qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qglobal.cpp
+--- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qglobal.cpp	2020-01-23 04:37:32.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qglobal.cpp	2022-10-12 19:18:00.000000000 -0700
+@@ -3041,7 +3041,7 @@
+ */
+ QByteArray QSysInfo::machineUniqueId()
+ {
+-#if defined(Q_OS_DARWIN) && __has_include(<IOKit/IOKitLib.h>)
++#if defined(Q_OS_DARWIN) && __has_include(<IOKit/IOKitLib.h>) && !defined(Q_OS_IOS) && !defined(Q_OS_TVOS)
+     char uuid[UuidStringLen + 1];
+     io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
+     QCFString stringRef = (CFStringRef)IORegistryEntryCreateCFProperty(service, CFSTR(kIOPlatformUUIDKey), kCFAllocatorDefault, 0);
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qfloat16.cpp qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qfloat16.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qfloat16.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qfloat16.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qfloat16.cpp	2021-11-05 13:22:04.426543701 -0700
 @@ -205,7 +205,7 @@
  #undef f16cextern
  }
@@ -965,9 +1003,20 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qfloat16.cpp q
  static inline bool hasFastF16()
  {
      return true;
+diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qfloat16.h qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qfloat16.h
+--- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/global/qfloat16.h	2020-01-23 04:37:32.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/global/qfloat16.h	2022-06-14 10:50:41.517000866 -0700
+@@ -44,6 +44,7 @@
+ #include <QtCore/qglobal.h>
+ #include <QtCore/qmetatype.h>
+ #include <string.h>
++#include <limits>
+ 
+ #if defined(QT_COMPILER_SUPPORTS_F16C) && defined(__AVX2__) && !defined(__F16C__)
+ // All processors that support AVX2 do support F16C too. That doesn't mean
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/io/qloggingcategory.h qt-everywhere-src-5.14.1/qtbase/src/corelib/io/qloggingcategory.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/io/qloggingcategory.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/io/qloggingcategory.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/io/qloggingcategory.h	2021-11-05 13:22:04.430543701 -0700
 @@ -109,7 +109,7 @@
  };
  
@@ -979,7 +1028,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/io/qloggingcategory.h
      const QLoggingCategory &name() \
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/kernel/qcoreevent.h qt-everywhere-src-5.14.1/qtbase/src/corelib/kernel/qcoreevent.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/kernel/qcoreevent.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/kernel/qcoreevent.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/kernel/qcoreevent.h	2021-11-05 13:22:04.430543701 -0700
 @@ -289,6 +289,8 @@
          // 512 reserved for Qt Jambi's MetaCall event
          // 513 reserved for Qt Jambi's DeleteOnMainThread event
@@ -991,7 +1040,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/kernel/qcoreevent.h q
      };
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/kernel/qmath.h qt-everywhere-src-5.14.1/qtbase/src/corelib/kernel/qmath.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/kernel/qmath.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/kernel/qmath.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/kernel/qmath.h	2021-11-05 13:22:04.430543701 -0700
 @@ -203,6 +203,8 @@
  #define M_SQRT1_2 (0.70710678118654752440)
  #endif
@@ -1003,7 +1052,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/kernel/qmath.h qt-eve
      int si = int(x * (0.5 * QT_SINE_TABLE_SIZE / M_PI)); // Would be more accurate with qRound, but slower.
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/plugin/qplugin.h qt-everywhere-src-5.14.1/qtbase/src/corelib/plugin/qplugin.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/plugin/qplugin.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/plugin/qplugin.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/plugin/qplugin.h	2021-11-05 13:22:04.430543701 -0700
 @@ -132,7 +132,7 @@
  
  
@@ -1022,9 +1071,20 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/plugin/qplugin.h qt-e
          QT_PREPEND_NAMESPACE(QStaticPlugin) plugin = { qt_plugin_instance_##PLUGINCLASSNAME, qt_plugin_query_metadata_##PLUGINCLASSNAME}; \
          return plugin; \
      }
+diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/text/qbytearraymatcher.h qt-everywhere-src-5.14.1/qtbase/src/corelib/text/qbytearraymatcher.h
+--- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/text/qbytearraymatcher.h	2020-01-23 04:37:32.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/text/qbytearraymatcher.h	2022-06-14 10:50:41.525000866 -0700
+@@ -41,6 +41,7 @@
+ #define QBYTEARRAYMATCHER_H
+ 
+ #include <QtCore/qbytearray.h>
++#include <limits>
+ 
+ QT_BEGIN_NAMESPACE
+ 
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/thread/qbasicatomic.h qt-everywhere-src-5.14.1/qtbase/src/corelib/thread/qbasicatomic.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/thread/qbasicatomic.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/corelib/thread/qbasicatomic.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/corelib/thread/qbasicatomic.h	2021-11-05 13:22:04.430543701 -0700
 @@ -49,7 +49,7 @@
  // If C++11 atomics are supported, use them!
  // Note that constexpr support is sometimes disabled in QNX builds but its
@@ -1036,7 +1096,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/corelib/thread/qbasicatomic.h
  // We only support one fallback: MSVC, because even on version 2015, it lacks full constexpr support
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/image/image.pri qt-everywhere-src-5.14.1/qtbase/src/gui/image/image.pri
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/image/image.pri	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/image/image.pri	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/image/image.pri	2021-11-05 13:22:04.430543701 -0700
 @@ -97,7 +97,7 @@
      MIPS_DSPR2_ASM += image/qimage_mips_dspr2_asm.S
  } else {
@@ -1048,7 +1108,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/image/image.pri qt-everyw
      x86 | x86_64 {
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qevent.cpp qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qevent.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qevent.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qevent.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qevent.cpp	2021-11-05 13:22:04.430543701 -0700
 @@ -5322,4 +5322,68 @@
      return qHash(key.numericId(), seed);
  }
@@ -1120,7 +1180,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qevent.cpp qt-ever
  QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qevent.h qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qevent.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qevent.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qevent.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qevent.h	2021-11-05 13:22:04.430543701 -0700
 @@ -1094,6 +1094,122 @@
      Qt::ApplicationState m_applicationState;
  };
@@ -1246,7 +1306,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qevent.h qt-everyw
  #endif // QEVENT_H
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qwindowsysteminterface.cpp qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qwindowsysteminterface.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qwindowsysteminterface.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qwindowsysteminterface.cpp	2021-02-25 11:27:51.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/kernel/qwindowsysteminterface.cpp	2021-11-05 13:22:04.430543701 -0700
 @@ -812,10 +812,12 @@
  
      QGuiApplicationPrivate::resetCachedDevicePixelRatio();
@@ -1265,7 +1325,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/kernel/qwindowsysteminter
  /*!
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/opengl/qopenglvertexarrayobject.cpp qt-everywhere-src-5.14.1/qtbase/src/gui/opengl/qopenglvertexarrayobject.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/opengl/qopenglvertexarrayobject.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/opengl/qopenglvertexarrayobject.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/opengl/qopenglvertexarrayobject.cpp	2021-11-05 13:22:04.430543701 -0700
 @@ -209,7 +209,7 @@
          // Before going through the effort of creating an offscreen surface
          // check that we are on the GUI thread because otherwise many platforms
@@ -1277,7 +1337,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/opengl/qopenglvertexarray
              // Cannot just make the current surface current again with another context.
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/painting.pri qt-everywhere-src-5.14.1/qtbase/src/gui/painting/painting.pri
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/painting.pri	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/painting/painting.pri	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/painting/painting.pri	2021-11-05 13:22:04.434543701 -0700
 @@ -166,7 +166,7 @@
          DEFINES += QT_COMPILER_SUPPORTS_SSE4_1 QT_COMPILER_SUPPORTS_SSE4_2
          SOURCES += painting/qdrawhelper_sse4.cpp painting/qimagescale_sse4.cpp
@@ -1289,7 +1349,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/painting.pri qt-
      }
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/qpainter.cpp qt-everywhere-src-5.14.1/qtbase/src/gui/painting/qpainter.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/qpainter.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/painting/qpainter.cpp	2021-04-07 10:34:36.000000000 -0700
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/painting/qpainter.cpp	2021-11-05 13:22:04.434543701 -0700
 @@ -7644,8 +7644,12 @@
      else
          engine.option.setAlignment(Qt::AlignLeft); // do not do alignment twice
@@ -1307,7 +1367,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/qpainter.cpp qt-
          engine.forceJustification = true;
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/qplatformbackingstore.h qt-everywhere-src-5.14.1/qtbase/src/gui/painting/qplatformbackingstore.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/qplatformbackingstore.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/gui/painting/qplatformbackingstore.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/gui/painting/qplatformbackingstore.h	2021-11-05 13:22:04.434543701 -0700
 @@ -60,7 +60,7 @@
  
  QT_BEGIN_NAMESPACE
@@ -1319,7 +1379,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/gui/painting/qplatformbacking
  class QRect;
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev.cpp qt-everywhere-src-5.14.1/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev.cpp	2021-11-05 13:22:04.434543701 -0700
 @@ -45,8 +45,34 @@
  #include <QHash>
  #include <QSocketNotifier>
@@ -1571,7 +1631,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/devicediscove
  QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev_p.h qt-everywhere-src-5.14.1/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev_p.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev_p.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev_p.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/devicediscovery/qdevicediscovery_udev_p.h	2021-11-05 13:22:04.434543701 -0700
 @@ -69,7 +69,7 @@
      void handleUDevNotification();
  
@@ -1591,7 +1651,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/devicediscove
  QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager.cpp qt-everywhere-src-5.14.1/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager.cpp	2021-11-05 13:22:04.434543701 -0700
 @@ -51,15 +51,19 @@
  #include <private/qinputdevicemanager_p_p.h>
  #include <private/qhighdpiscaling_p.h>
@@ -1685,7 +1745,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/input/evdevmo
  QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager_p.h qt-everywhere-src-5.14.1/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager_p.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager_p.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager_p.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/platformsupport/input/evdevmouse/qevdevmousemanager_p.h	2021-11-05 13:22:04.434543701 -0700
 @@ -78,6 +78,9 @@
      void removeMouse(const QString &deviceNode);
  
@@ -1710,7 +1770,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/platformsupport/input/evdevmo
  QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/android/qandroidassetsfileenginehandler.cpp qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/android/qandroidassetsfileenginehandler.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/android/qandroidassetsfileenginehandler.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/android/qandroidassetsfileenginehandler.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/android/qandroidassetsfileenginehandler.cpp	2021-11-05 13:22:04.434543701 -0700
 @@ -174,10 +174,8 @@
          return !empty() && m_index + 1 < size();
      }
@@ -1743,9 +1803,78 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/android/qan
      }
  
  private:
+diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.cpp qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.cpp
+--- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.cpp	2020-01-23 04:37:32.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.cpp	2021-11-06 21:02:33.782534483 -0700
+@@ -49,6 +49,7 @@
+ #include <QtCore/QLoggingCategory>
+ #include <QtGui/QScreen>
+ #include <QtDeviceDiscoverySupport/private/qdevicediscovery_p.h>
++#include <QtCore/private/qcore_unix_p.h>
+ 
+ #include <gbm.h>
+ 
+@@ -130,6 +131,27 @@
+     screen->flip();
+ }
+ 
++bool QEglFSKmsGbmIntegration::validDevicePath(const QString &path)
++{
++    int fd = qt_safe_open(path.toLocal8Bit().constData(), O_RDWR | O_CLOEXEC);
++    if (fd < 0) {
++        qCDebug(qLcEglfsKmsDebug) << "Couldn't open" << path;
++        return false;
++    }
++
++    bool valid = false;
++    drmModeResPtr res = drmModeGetResources(fd);
++    if (res) {
++        valid = true;
++        drmModeFreeResources(res);
++    } else {
++        qCDebug(qLcEglfsKmsDebug) << "drmModeGetResources(" << path << ") failed:" << strerror(errno);
++    }
++    qt_safe_close(fd);
++
++    return valid;
++}
++
+ QKmsDevice *QEglFSKmsGbmIntegration::createDevice()
+ {
+     QString path = screenConfig()->devicePath();
+@@ -141,10 +163,16 @@
+         qCDebug(qLcEglfsKmsDebug) << "Found the following video devices:" << devices;
+         d->deleteLater();
+ 
+-        if (Q_UNLIKELY(devices.isEmpty()))
++        Q_FOREACH(QString candidate, devices) {
++            if (validDevicePath(candidate)) {
++                path = candidate;
++                break;
++            }
++        }
++
++        if (Q_UNLIKELY(path.isEmpty()))
+             qFatal("Could not find DRM device!");
+ 
+-        path = devices.first();
+         qCDebug(qLcEglfsKmsDebug) << "Using" << path;
+     }
+ 
+diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.h qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.h
+--- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.h	2020-01-23 04:37:32.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/eglfs/deviceintegration/eglfs_kms/qeglfskmsgbmintegration.h	2021-11-06 20:27:23.306534653 -0700
+@@ -64,6 +64,7 @@
+     QEglFSWindow *createWindow(QWindow *window) const override;
+ 
+ protected:
++    bool validDevicePath(const QString &path);
+     QKmsDevice *createDevice() override;
+ 
+ private:
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiosintegration.mm qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiosintegration.mm
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiosintegration.mm	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiosintegration.mm	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiosintegration.mm	2021-11-05 13:22:04.434543701 -0700
 @@ -253,8 +253,9 @@
          // this number is based on timing the native delay
          // since there is no API to get it
@@ -1760,7 +1889,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiosint
      default:
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiosscreen.mm qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiosscreen.mm
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiosscreen.mm	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiosscreen.mm	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiosscreen.mm	2022-10-12 23:51:51.000000000 -0700
 @@ -96,10 +96,12 @@
  + (void)load
  {
@@ -1785,9 +1914,28 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiosscr
  }
  
  @end
+@@ -316,7 +320,17 @@
+     QRect previousGeometry = m_geometry;
+     QRect previousAvailableGeometry = m_availableGeometry;
+ 
+-    m_geometry = QRectF::fromCGRect(m_uiScreen.bounds).toRect();
++    CGRect bounds = m_uiScreen.bounds;
++#ifndef Q_OS_TVOS
++    // Sometimes the bounds are incorrectly rotated relative to the status bar orientation
++    if (m_uiScreen == [UIScreen mainScreen] &&
++        UIInterfaceOrientationIsLandscape(qt_apple_sharedApplication().statusBarOrientation) &&
++        bounds.size.width < bounds.size.height) {
++        // Skip this update and it will be corrected later.
++        return;
++    }
++#endif
++    m_geometry = QRectF::fromCGRect(bounds).toRect();
+ 
+     // The application frame doesn't take safe area insets into account, and
+     // the safe area insets are not available before the UIWindow is shown,
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiostheme.mm qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiostheme.mm
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiostheme.mm	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiostheme.mm	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qiostheme.mm	2021-11-05 13:22:04.434543701 -0700
 @@ -53,6 +53,10 @@
  #include <UIKit/UIInterface.h>
  
@@ -1847,7 +1995,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qiosthe
          break;
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qioswindow.mm qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qioswindow.mm
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qioswindow.mm	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qioswindow.mm	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/qioswindow.mm	2021-11-05 13:22:04.434543701 -0700
 @@ -225,9 +225,14 @@
  
  QMargins QIOSWindow::safeAreaMargins() const
@@ -1865,7 +2013,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/qioswin
  bool QIOSWindow::isExposed() const
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview.h qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview.h	2021-11-05 13:22:04.434543701 -0700
 @@ -56,6 +56,9 @@
  - (instancetype)initWithQIOSWindow:(QT_PREPEND_NAMESPACE(QIOSWindow) *)window;
  - (void)sendUpdatedExposeEvent;
@@ -1878,7 +2026,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview
  
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview.mm qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview.mm
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview.mm	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview.mm	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview.mm	2021-11-05 13:22:04.434543701 -0700
 @@ -111,6 +111,25 @@
          if (isQtApplication())
              self.hidden = YES;
@@ -1960,7 +2108,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview
  #ifndef Q_OS_TVOS
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview_accessibility.mm qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview_accessibility.mm
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview_accessibility.mm	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview_accessibility.mm	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/ios/quiview_accessibility.mm	2021-11-05 13:22:04.434543701 -0700
 @@ -74,10 +74,12 @@
      if ([m_accessibleElements count])
          return;
@@ -1978,9 +2126,21 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/ios/quiview
  }
  
  - (void)clearAccessibleCache
+diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/xcb/gl_integrations/xcb_egl/qxcbeglwindow.cpp qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/xcb/gl_integrations/xcb_egl/qxcbeglwindow.cpp
+--- qt-everywhere-src-5.14.1.orig/qtbase/src/plugins/platforms/xcb/gl_integrations/xcb_egl/qxcbeglwindow.cpp	2020-01-23 04:37:32.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/plugins/platforms/xcb/gl_integrations/xcb_egl/qxcbeglwindow.cpp	2021-11-05 16:11:25.070542879 -0700
+@@ -93,7 +93,7 @@
+ {
+     QXcbWindow::create();
+ 
+-    m_surface = eglCreateWindowSurface(m_glIntegration->eglDisplay(), m_config, m_window, 0);
++    m_surface = eglCreateWindowSurface(m_glIntegration->eglDisplay(), m_config, (EGLNativeWindowType)m_window, 0);
+ }
+ 
+ QT_END_NAMESPACE
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/dialogs/qdialog.cpp qt-everywhere-src-5.14.1/qtbase/src/widgets/dialogs/qdialog.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/dialogs/qdialog.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/widgets/dialogs/qdialog.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/widgets/dialogs/qdialog.cpp	2021-11-05 13:22:04.434543701 -0700
 @@ -1214,6 +1214,31 @@
  #endif
  }
@@ -2015,7 +2175,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/dialogs/qdialog.cpp q
  
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/dialogs/qdialog.h qt-everywhere-src-5.14.1/qtbase/src/widgets/dialogs/qdialog.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/dialogs/qdialog.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/widgets/dialogs/qdialog.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/widgets/dialogs/qdialog.h	2021-11-05 13:22:04.434543701 -0700
 @@ -111,6 +111,7 @@
  #ifndef QT_NO_CONTEXTMENU
      void contextMenuEvent(QContextMenuEvent *) override;
@@ -2026,7 +2186,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/dialogs/qdialog.h qt-
  private:
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/kernel/qwidget.cpp qt-everywhere-src-5.14.1/qtbase/src/widgets/kernel/qwidget.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/kernel/qwidget.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/widgets/kernel/qwidget.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/widgets/kernel/qwidget.cpp	2021-11-05 13:22:04.438543701 -0700
 @@ -8622,6 +8622,7 @@
  #if QT_CONFIG(wheelevent)
          case QEvent::Wheel:
@@ -2083,7 +2243,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/kernel/qwidget.cpp qt
  
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/kernel/qwidget.h qt-everywhere-src-5.14.1/qtbase/src/widgets/kernel/qwidget.h
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/kernel/qwidget.h	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/widgets/kernel/qwidget.h	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/widgets/kernel/qwidget.h	2021-11-05 13:22:04.438543701 -0700
 @@ -88,6 +88,7 @@
  class QScreen;
  class QShowEvent;
@@ -2103,7 +2263,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/kernel/qwidget.h qt-e
  
 diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/util/qflickgesture.cpp qt-everywhere-src-5.14.1/qtbase/src/widgets/util/qflickgesture.cpp
 --- qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/util/qflickgesture.cpp	2020-01-23 04:37:32.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtbase/src/widgets/util/qflickgesture.cpp	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtbase/src/widgets/util/qflickgesture.cpp	2021-11-05 13:22:04.438543701 -0700
 @@ -138,7 +138,7 @@
  
      static PressDelayHandler *instance()
@@ -2115,7 +2275,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtbase/src/widgets/util/qflickgesture.cp
          return inst;
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/create_lang.sh qt-everywhere-src-5.14.1/qttranslations/translations/create_lang.sh
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/create_lang.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/create_lang.sh	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/create_lang.sh	2021-11-05 13:22:04.438543701 -0700
 @@ -0,0 +1,16 @@
 +#!/bin/bash
 +
@@ -2135,7 +2295,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/create_lang.
 +done
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/create_patch.sh qt-everywhere-src-5.14.1/qttranslations/translations/create_patch.sh
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/create_patch.sh	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/create_patch.sh	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/create_patch.sh	2021-11-05 13:22:04.438543701 -0700
 @@ -0,0 +1,10 @@
 +#!/bin/sh
 +
@@ -2149,7 +2309,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/create_patch
 +echo "If you are done, remove qtbase_untranslated.ts"
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/localization.patch qt-everywhere-src-5.14.1/qttranslations/translations/localization.patch
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/localization.patch	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/localization.patch	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/localization.patch	2021-11-05 13:22:04.438543701 -0700
 @@ -0,0 +1,740 @@
 +--- qtbase_untranslated.ts	2017-08-31 09:10:42.507270302 -0700
 ++++ qtbase_el.ts	2017-08-31 10:40:34.146005995 -0700
@@ -2893,7 +3053,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/localization
 +         <location line="+2"/>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_el.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_el.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_el.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_el.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_el.ts	2021-11-05 13:22:04.438543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -11692,7 +11852,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_el.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_nb.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_nb.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_nb.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_nb.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_nb.ts	2021-11-05 13:22:04.438543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -20491,7 +20651,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_nb.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_nl.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_nl.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_nl.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_nl.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_nl.ts	2021-11-05 13:22:04.442543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -29290,7 +29450,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_nl.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_pt.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_pt.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_pt.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_pt.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_pt.ts	2021-11-05 13:22:04.442543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -38089,7 +38249,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_pt.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_ro.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_ro.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_ro.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_ro.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_ro.ts	2021-11-05 13:22:04.442543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -46888,7 +47048,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_ro.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_sv.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_sv.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_sv.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_sv.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_sv.ts	2021-11-05 13:22:04.446543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -55687,7 +55847,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_sv.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_th.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_th.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_th.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_th.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_th.ts	2021-11-05 13:22:04.446543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -64486,7 +64646,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_th.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_tr.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_tr.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_tr.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_tr.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_tr.ts	2021-11-05 13:22:04.446543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -73285,7 +73445,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_tr.ts
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_zh_CN.ts qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_zh_CN.ts
 --- qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_zh_CN.ts	1969-12-31 16:00:00.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_zh_CN.ts	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qttranslations/translations/qtbase_zh_CN.ts	2021-11-05 13:22:04.450543701 -0700
 @@ -0,0 +1,8795 @@
 +<?xml version="1.0" encoding="utf-8"?>
 +<!DOCTYPE TS>
@@ -82084,7 +82244,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qttranslations/translations/qtbase_zh_CN
 +</TS>
 diff -ruN qt-everywhere-src-5.14.1.orig/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc qt-everywhere-src-5.14.1/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc
 --- qt-everywhere-src-5.14.1.orig/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc	2020-01-20 02:37:42.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtwebengine/src/3rdparty/chromium/sandbox/linux/seccomp-bpf-helpers/syscall_parameters_restrictions.cc	2021-11-05 13:22:04.450543701 -0700
 @@ -410,12 +410,12 @@
  ResultExpr RestrictPtrace() {
    const Arg<int> request(0);
@@ -82102,7 +82262,7 @@ diff -ruN qt-everywhere-src-5.14.1.orig/qtwebengine/src/3rdparty/chromium/sandbo
          PTRACE_GETREGSET,
 diff -ruN qt-everywhere-src-5.14.1.orig/qtwebengine/src/core/api/core_api.pro qt-everywhere-src-5.14.1/qtwebengine/src/core/api/core_api.pro
 --- qt-everywhere-src-5.14.1.orig/qtwebengine/src/core/api/core_api.pro	2020-01-20 03:17:16.000000000 -0800
-+++ qt-everywhere-src-5.14.1/qtwebengine/src/core/api/core_api.pro	2021-02-18 18:15:03.000000000 -0800
++++ qt-everywhere-src-5.14.1/qtwebengine/src/core/api/core_api.pro	2021-11-05 13:22:04.450543701 -0700
 @@ -66,11 +66,12 @@
      qwebengineurlschemehandler.cpp
  

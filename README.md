@@ -28,7 +28,7 @@ The SDL game controller API is recommended for Steam Controller support on the S
 ### examples
 Examples to demonstrate how to build applications using the SDK. Each application directory has a `build_steamlink.sh` script to build and package the example.
 
-Native app icons should be 138x138, and will be scaled to that size if needed.
+Native app icons should be 116x116, and will be scaled to that size if needed.
 
 ### external
 Source code to 3rd party components of the Steam Link, each directory has a `build_steamlink.sh` script to rebuild the component.

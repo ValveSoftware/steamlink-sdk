@@ -1,3 +1,5 @@
+EXTRA_INCLUDEPATH += /home/saml/dev/steamlink/streaming_client/src/external/openssl-1.1.1/steaminc
+EXTRA_LIBDIR += /home/saml/dev/steamlink/streaming_client/src/lib/steamlink/release
 host_build {
     QT_CPU_FEATURES.x86_64 = mmx sse sse2
 } else {

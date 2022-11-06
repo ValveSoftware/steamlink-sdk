@@ -149,8 +149,8 @@ if (NOT TARGET Qt5::Network)
     set_property(TARGET Qt5::Network PROPERTY
       INTERFACE_COMPILE_DEFINITIONS QT_NETWORK_LIB)
 
-    set_property(TARGET Qt5::Network PROPERTY INTERFACE_QT_ENABLED_FEATURES dnslookup;udpsocket;ftp;http;localserver;networkdiskcache;networkinterface;networkproxy;socks5;ssl)
-    set_property(TARGET Qt5::Network PROPERTY INTERFACE_QT_DISABLED_FEATURES bearermanagement;securetransport;schannel;dtls;gssapi;opensslv11;ocsp;sctp;sspi)
+    set_property(TARGET Qt5::Network PROPERTY INTERFACE_QT_ENABLED_FEATURES dnslookup;udpsocket;dtls;ftp;http;localserver;networkdiskcache;networkinterface;networkproxy;opensslv11;ocsp;socks5;ssl)
+    set_property(TARGET Qt5::Network PROPERTY INTERFACE_QT_DISABLED_FEATURES bearermanagement;securetransport;schannel;gssapi;sctp;sspi)
 
     set_property(TARGET Qt5::Network PROPERTY INTERFACE_QT_PLUGIN_TYPES "bearer")
 
