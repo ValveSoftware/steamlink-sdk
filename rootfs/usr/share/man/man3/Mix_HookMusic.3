@@ -1,0 +1,82 @@
+.\" This manpage content is licensed under Creative Commons
+.\"  Attribution 4.0 International (CC BY 4.0)
+.\"   https://creativecommons.org/licenses/by/4.0/
+.\" This manpage was generated from SDL_mixer's wiki page for Mix_HookMusic:
+.\"   https://wiki.libsdl.org/SDL_mixer/Mix_HookMusic
+.\" Generated with SDL/build-scripts/wikiheaders.pl
+.\"  revision 3.0.0-no-vcs
+.\" Please report issues in this manpage's content at:
+.\"   https://github.com/libsdl-org/sdlwiki/issues/new
+.\" Please report issues in the generation of this manpage from the wiki at:
+.\"   https://github.com/libsdl-org/SDL/issues/new?title=Misgenerated%20manpage%20for%20Mix_HookMusic
+.\" SDL_mixer can be found at https://libsdl.org/projects/SDL_mixer
+.de URL
+\$2 \(laURL: \$1 \(ra\$3
+..
+.if \n[.g] .mso www.tmac
+.TH Mix_HookMusic 3 "SDL_mixer 3.0.0" "SDL_mixer" "SDL_mixer3 FUNCTIONS"
+.SH NAME
+Mix_HookMusic \- Add your own music player or additional mixer function\[char46]
+.SH HEADER FILE
+Defined in SDL3_mixer/SDL_mixer\[char46]h
+
+.SH SYNOPSIS
+.nf
+.B #include \(dqSDL3_mixer/SDL_mixer.h\(dq
+.PP
+.BI "void Mix_HookMusic(Mix_MixCallback mix_func, void *arg);
+.fi
+.SH DESCRIPTION
+This works something like 
+.BR Mix_SetPostMix
+(), but it has
+some crucial differences\[char46] Note that an app can use this _and_
+
+.BR Mix_SetPostMix
+() at the same time\[char46] This allows an app to
+replace the built-in music playback, either with it's own music decoder or
+with some sort of procedurally-generated audio output\[char46]
+
+The supplied callback will fire every time SDL_mixer is preparing to supply
+more data to the audio device\[char46] This runs inside an SDL audio callback, so
+it's important that the callback return quickly, or there could be problems
+in the audio playback\[char46]
+
+Running this callback is the first thing SDL_mixer will do when starting to
+mix more audio\[char46] The buffer will contain silence upon entry, so the callback
+does not need to mix into existing data or initialize the buffer\[char46]
+
+Note that while a callback is set through this function, SDL_mixer will not
+mix any playing music; this callback is used instead\[char46] To disable this
+callback (and thus reenable built-in music playback) call this function
+with a NULL callback\[char46]
+
+The data written to by the callback is in the format that the audio device
+was opened in, and upon return from the callback, SDL_mixer will mix any
+playing chunks (but not music!) into the buffer\[char46] The callback cannot resize
+the buffer (so you must be prepared to provide exactly the amount of data
+demanded or leave it as silence)\[char46]
+
+The
+.BR arg
+pointer supplied here is passed to the callback as-is, for
+whatever the callback might want to do with it (keep track of some ongoing
+state, settings, etc)\[char46]
+
+As there is only one music "channel" mixed, there is only one callback
+available\[char46] If you need to mix multiple inputs, be prepared to handle them
+from a single function\[char46]
+
+.SH FUNCTION PARAMETERS
+.TP
+.I mix_func
+the callback function to become the new post-mix callback\[char46]
+.TP
+.I arg
+a pointer that is passed, untouched, to the callback\[char46]
+.SH AVAILABILITY
+This function is available since SDL_mixer 3\[char46]0\[char46]0\[char46]
+
+.SH SEE ALSO
+.BR \(bu (3),
+.BR Mix_SetPostMix (3)

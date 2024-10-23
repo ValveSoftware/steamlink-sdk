@@ -9,6 +9,7 @@
 # * also look for SDL2.framework under Mac OS X
 # * removed HP/UX 9 support.
 # * updated for newer autoconf.
+# * (v3) use $PKG_CONFIG for pkg-config cross-compiling support
 
 # serial 3
 
@@ -19,7 +20,6 @@ AC_DEFUN([AM_PATH_SDL2],
 [dnl
 dnl Get the cflags and libraries from the sdl2-config script
 dnl
-AC_MSG_WARN([[$0 is deprecated, please use PKG_CHECK_MODULES([SDL], [sdl2 >= MINIMUM_VERSION]) instead]])
 AC_ARG_WITH(sdl-prefix,[  --with-sdl-prefix=PFX   Prefix where SDL is installed (optional)],
             sdl_prefix="$withval", sdl_prefix="")
 AC_ARG_WITH(sdl-exec-prefix,[  --with-sdl-exec-prefix=PFX Exec prefix where SDL is installed (optional)],
@@ -55,7 +55,7 @@ AC_ARG_VAR(SDL2_FRAMEWORK, [Path to SDL2.framework])
 
   if test "x$sdl_pc" = xyes ; then
     no_sdl=""
-    SDL2_CONFIG="pkg-config sdl2"
+    SDL2_CONFIG="$PKG_CONFIG sdl2"
   else
     as_save_PATH="$PATH"
     if test "x$prefix" != xNONE && test "$cross_compiling" != yes; then

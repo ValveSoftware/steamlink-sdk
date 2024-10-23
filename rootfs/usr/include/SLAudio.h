@@ -104,6 +104,7 @@ extern SLAUDIO_DECLSPEC int SLAudio_GetSpeakerCount( CSLAudioContext *pContext )
 // 3 channels: left, center, right
 // 4 channels: front left, front right, rear left, rear right
 // 6 channels: front left, center, front right, rear left, rear right, LFE
+// 8 channels: front left, center, front right, rear left, rear right, side left, side right, LFE
 //
 // You should calculate nFrameSizeBytes as the amount of data you want to write in one chunk,
 // for example if you're opening at 48000 Hz, 2 channels, you might want to write 50 ms at a
@@ -145,9 +146,6 @@ extern SLAUDIO_DECLSPEC void SLAudio_FreeContext( CSLAudioContext *pContext );
 typedef void (*SLAudio_InputStreamChanged)( void *pContext, CSLAudioInputStream *pStream, int nChannels, int nSamplerate );
 typedef void (*SLAudio_InputStreamData)( void *pContext, CSLAudioInputStream *pStream, const void *pData, int nBytes );
 
-//--------------------------------------------------------------------------------------------------
-// Free a Steam Link audio context
-//--------------------------------------------------------------------------------------------------
 extern SLAUDIO_DECLSPEC CSLAudioInputStream *SLAudio_CreateInputStream( CSLAudioContext *pAudioContext, SLAudio_InputStreamChanged pStreamChanged, SLAudio_InputStreamData pStreamData, void *pContext );
 
 extern SLAUDIO_DECLSPEC void SLAudio_FreeInputStream( CSLAudioInputStream *pStream );

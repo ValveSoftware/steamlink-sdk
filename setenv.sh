@@ -14,6 +14,9 @@ if [ ! -d "$MARVELL_ROOTFS/etc" ]; then
 	return 1
 fi
 
+# Set up CMake environment
+export CMAKE_TOOLCHAIN_FILE=$TOP/toolchain/steamlink-toolchain.cmake
+
 # Set up Qt environment
 QT_VERSION=5.14.1
 QT_HOST_PREFIX=$MARVELL_ROOTFS/usr/local/Qt-$QT_VERSION

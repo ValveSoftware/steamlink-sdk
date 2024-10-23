@@ -14,6 +14,7 @@ macro(set_and_check _var _file)
     endif()
 endmacro()
 
+get_filename_component(CMAKE_CURRENT_LIST_DIR ${CMAKE_CURRENT_LIST_DIR} REALPATH)
 get_filename_component(prefix "${CMAKE_CURRENT_LIST_DIR}/../../.." ABSOLUTE)
 
 set(exec_prefix "${prefix}")
@@ -40,7 +41,7 @@ unset(libdir)
 unset(includedir)
 
 set(_sdl2_libraries_in "-lSDL2")
-set(_sdl2_static_private_libs_in " -lm -ldl -lpthread -lrt")
+set(_sdl2_static_private_libs_in " -lm -ldl -lpthread")
 
 # Convert _sdl2_libraries to list and keep only libraries + library directories
 string(REGEX MATCHALL "-[lm]([-a-zA-Z0-9._]+)" _sdl2_libraries "${_sdl2_libraries_in}")
@@ -59,12 +60,17 @@ string(REGEX MATCHALL "-L([-a-zA-Z0-9._/]+)" _sdl2_static_private_libdirs "${_sd
 string(REGEX REPLACE "^-L" "" _sdl2_static_private_libdirs "${_sdl2_static_private_libdirs}")
 string(REGEX REPLACE ";-L" ";" _sdl2_static_private_libdirs "${_sdl2_static_private_libdirs}")
 
+# Set SDL2_NO_MWINDOWS to a true-ish value to not add the -mwindows link option
+if(SDL2_NO_MWINDOWS)
+  list(REMOVE_ITEM _sdl2_libraries "-mwindows")
+endif()
+
 if(_sdl2_libraries MATCHES ".*SDL2main.*")
   list(INSERT SDL2_LIBRARIES 0 SDL2::SDL2main)
   list(INSERT SDL2_STATIC_LIBRARIES 0 SDL2::SDL2main)
 endif()
 
-set(_sdl2main_library ${SDL2_LIBDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}SDL2main${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(_sdl2main_library ${SDL2_LIBDIR}/libSDL2main.a)
 if(EXISTS "${_sdl2main_library}")
   set(SDL2MAIN_LIBRARY SDL2::SDL2main)
   if(NOT TARGET SDL2::SDL2main)
@@ -72,6 +78,8 @@ if(EXISTS "${_sdl2main_library}")
     set_target_properties(SDL2::SDL2main
       PROPERTIES
         IMPORTED_LOCATION "${_sdl2main_library}"
+        COMPATIBLE_INTERFACE_STRING "SDL_VERSION"
+        INTERFACE_SDL_VERSION "SDL2"
     )
     if(WIN32)
       # INTERFACE_LINK_OPTIONS needs CMake 3.13
@@ -103,8 +111,8 @@ set(_sdl2_link_libraries ${_sdl2_libraries})
 list(REMOVE_ITEM _sdl2_link_libraries SDL2 SDL2main mingw32 cygwin)
 
 if(WIN32)
-  set(_sdl2_implib "${SDL2_LIBDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}SDL2${CMAKE_SHARED_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(_sdl2_dll "${SDL2_BINDIR}/SDL2${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(_sdl2_implib "${SDL2_LIBDIR}/libSDL2.dll.a")
+  set(_sdl2_dll "${SDL2_BINDIR}/SDL2.dll")
   if(EXISTS "${_sdl2_implib}" AND EXISTS "${_sdl2_dll}")
     if(NOT TARGET SDL2::SDL2)
       add_library(SDL2::SDL2 SHARED IMPORTED)
@@ -115,6 +123,8 @@ if(WIN32)
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
         IMPORTED_IMPLIB "${_sdl2_implib}"
         IMPORTED_LOCATION "${_sdl2_dll}"
+        COMPATIBLE_INTERFACE_STRING "SDL_VERSION"
+        INTERFACE_SDL_VERSION "SDL2"
       )
     endif()
     set(SDL2_SDL2_FOUND TRUE)
@@ -124,7 +134,7 @@ if(WIN32)
   unset(_sdl2_implib)
   unset(_sdl2_dll)
 else()
-  set(_sdl2_shared "${SDL2_LIBDIR}/${CMAKE_SHARED_LIBRARY_PREFIX}SDL2${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(_sdl2_shared "${SDL2_LIBDIR}/libSDL2${CMAKE_SHARED_LIBRARY_SUFFIX}")
   if(EXISTS "${_sdl2_shared}")
     if(NOT TARGET SDL2::SDL2)
       add_library(SDL2::SDL2 SHARED IMPORTED)
@@ -134,6 +144,8 @@ else()
         INTERFACE_LINK_DIRECTORIES "${_sdl2_libdirs}"
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
         IMPORTED_LOCATION "${_sdl2_shared}"
+        COMPATIBLE_INTERFACE_STRING "SDL_VERSION"
+        INTERFACE_SDL_VERSION "SDL2"
       )
     endif()
     set(SDL2_SDL2_FOUND TRUE)
@@ -143,7 +155,7 @@ else()
   unset(_sdl2_shared)
 endif()
 
-set(_sdl2_static "${SDL2_LIBDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}SDL2${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(_sdl2_static "${SDL2_LIBDIR}/libSDL2.a")
 if(EXISTS "${_sdl2_static}")
   if(NOT TARGET SDL2::SDL2-static)
     add_library(SDL2::SDL2-static STATIC IMPORTED)
@@ -154,6 +166,8 @@ if(EXISTS "${_sdl2_static}")
         INTERFACE_LINK_LIBRARIES "${_sdl2_link_libraries};${_sdl2_static_private_libs}"
         INTERFACE_LINK_DIRECTORIES "${_sdl2_libdirs};${_sdl2_static_private_libdirs}"
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+        COMPATIBLE_INTERFACE_STRING "SDL_VERSION"
+        INTERFACE_SDL_VERSION "SDL2"
     )
   endif()
   set(SDL2_SDL2-static_FOUND TRUE)
@@ -164,7 +178,7 @@ unset(_sdl2_static)
 
 unset(_sdl2_link_libraries)
 
-set(_sdl2test_library "${SDL2_LIBDIR}/${CMAKE_STATIC_LIBRARY_PREFIX}SDL2_test${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(_sdl2test_library "${SDL2_LIBDIR}/libSDL2_test.a")
 if(EXISTS "${_sdl2test_library}")
   if(NOT TARGET SDL2::SDL2test)
     add_library(SDL2::SDL2test STATIC IMPORTED)
@@ -173,6 +187,8 @@ if(EXISTS "${_sdl2test_library}")
         IMPORTED_LOCATION "${_sdl2test_library}"
         INTERFACE_INCLUDE_DIRECTORIES "${SDL2_INCLUDE_DIR}"
         IMPORTED_LINK_INTERFACE_LANGUAGES "C"
+        COMPATIBLE_INTERFACE_STRING "SDL_VERSION"
+        INTERFACE_SDL_VERSION "SDL2"
     )
   endif()
   set(SDL2_SDL2test_FOUND TRUE)

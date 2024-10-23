@@ -1,0 +1,131 @@
+.\" This manpage content is licensed under Creative Commons
+.\"  Attribution 4.0 International (CC BY 4.0)
+.\"   https://creativecommons.org/licenses/by/4.0/
+.\" This manpage was generated from SDL_mixer's wiki page for Mix_RegisterEffect:
+.\"   https://wiki.libsdl.org/SDL_mixer/Mix_RegisterEffect
+.\" Generated with SDL/build-scripts/wikiheaders.pl
+.\"  revision 3.0.0-no-vcs
+.\" Please report issues in this manpage's content at:
+.\"   https://github.com/libsdl-org/sdlwiki/issues/new
+.\" Please report issues in the generation of this manpage from the wiki at:
+.\"   https://github.com/libsdl-org/SDL/issues/new?title=Misgenerated%20manpage%20for%20Mix_RegisterEffect
+.\" SDL_mixer can be found at https://libsdl.org/projects/SDL_mixer
+.de URL
+\$2 \(laURL: \$1 \(ra\$3
+..
+.if \n[.g] .mso www.tmac
+.TH Mix_RegisterEffect 3 "SDL_mixer 3.0.0" "SDL_mixer" "SDL_mixer3 FUNCTIONS"
+.SH NAME
+Mix_RegisterEffect \- Register a special effect function\[char46]
+.SH HEADER FILE
+Defined in SDL3_mixer/SDL_mixer\[char46]h
+
+.SH SYNOPSIS
+.nf
+.B #include \(dqSDL3_mixer/SDL_mixer.h\(dq
+.PP
+.BI "int Mix_RegisterEffect(int chan, Mix_EffectFunc_t f, Mix_EffectDone_t d, void *arg);
+.fi
+.SH DESCRIPTION
+At mixing time, the channel data is copied into a buffer and passed through
+each registered effect function\[char46] After it passes through all the functions,
+it is mixed into the final output stream\[char46] The copy to buffer is performed
+once, then each effect function performs on the output of the previous
+effect\[char46] Understand that this extra copy to a buffer is not performed if
+there are no effects registered for a given chunk, which saves CPU cycles,
+and any given effect will be extra cycles, too, so it is crucial that your
+code run fast\[char46] Also note that the data that your function is given is in
+the format of the sound device, and not the format you gave to
+
+.BR Mix_OpenAudio
+(), although they may in reality be the same\[char46]
+This is an unfortunate but necessary speed concern\[char46] Use
+
+.BR Mix_QuerySpec
+() to determine if you can handle the data
+before you register your effect, and take appropriate actions\[char46]
+
+You may also specify a callback (
+.BR Mix_EffectDone_t
+) that
+is called when the channel finishes playing\[char46] This gives you a more
+fine-grained control than 
+.BR Mix_ChannelFinished
+(), in
+case you need to free effect-specific resources, etc\[char46] If you don't need
+this, you can specify NULL\[char46]
+
+You may set the callbacks before or after calling
+
+.BR Mix_PlayChannel
+()\[char46]
+
+Things like 
+.BR Mix_SetPanning
+() are just internal special
+effect functions, so if you are using that, you've already incurred the
+overhead of a copy to a separate buffer, and that these effects will be in
+the queue with any functions you've registered\[char46] The list of registered
+effects for a channel is reset when a chunk finishes playing, so you need
+to explicitly set them with each call to
+
+.BR Mix_PlayChannel
+*()\[char46]
+
+You may also register a special effect function that is to be run after
+final mixing occurs\[char46] The rules for these callbacks are identical to those
+in 
+.BR Mix_RegisterEffect
+, but they are run after all the
+channels and the music have been mixed into a single stream, whereas
+channel-specific effects run on a given channel before any other mixing
+occurs\[char46] These global effect callbacks are call "posteffects"\[char46] Posteffects
+only have their 
+.BR Mix_EffectDone_t
+ function called when
+they are unregistered (since the main output stream is never "done" in the
+same sense as a channel)\[char46] You must unregister them manually when you've had
+enough\[char46] Your callback will be told that the channel being mixed is
+
+.BR
+.BR MIX_CHANNEL_POST
+if the processing is considered a
+posteffect\[char46]
+
+After all these effects have finished processing, the callback registered
+through 
+.BR Mix_SetPostMix
+() runs, and then the stream goes
+to the audio device\[char46]
+
+DO NOT EVER call SDL_LockAudio() from your callback function! You are
+already running in the audio thread and the lock is already held!
+
+Note that unlike most SDL and SDL_mixer functions, this function returns
+zero if there's an error, not on success\[char46] We apologize for the API design
+inconsistency here\[char46]
+
+.SH FUNCTION PARAMETERS
+.TP
+.I chan
+the channel to register an effect to, or 
+.BR MIX_CHANNEL_POST
+\[char46]
+.TP
+.I f
+effect the callback to run when more of this channel is to be mixed\[char46]
+.TP
+.I d
+effect done callback\[char46]
+.TP
+.I arg
+argument\[char46]
+.SH RETURN VALUE
+Returns zero if error (no such channel), nonzero if added\[char46] Error
+messages can be retrieved from 
+.BR Mix_GetError
+()\[char46]
+
+.SH AVAILABILITY
+This function is available since SDL_mixer 3\[char46]0\[char46]0\[char46]
+

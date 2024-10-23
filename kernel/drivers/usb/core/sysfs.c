@@ -350,7 +350,8 @@ static int steamlink_low_power_enter(unsigned long next_state)
 	/* Validate the transition
 	 */
 	if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_NORMAL
-		&& next_state != STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP) {
+		&& next_state != STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP
+		&& next_state != STEAMLINK_LOW_POWER_STATE_NAP) {
 		ret = 0;
 		goto done;
 	}
@@ -378,7 +379,8 @@ static int steamlink_low_power_enter(unsigned long next_state)
 		save_marvell_regs();
 		write_marvell_regs();
 	}
-	else if (next_state == STEAMLINK_LOW_POWER_STATE_NAP) {
+	else if (steamlink_low_power_state == STEAMLINK_LOW_POWER_STATE_DEEP_SLEEP
+			&& next_state == STEAMLINK_LOW_POWER_STATE_NAP) {
 		restore_marvell_regs();
 	}
 
