@@ -22,11 +22,11 @@ cp -v icon.bmp "${DESTDIR}"
 # Create the table of contents and icon
 cat >"${DESTDIR}/toc.txt" <<__EOF__
 name=Snake
-icon=icon.png
+icon=icon.bmp
 run=snake
 __EOF__
 
-base64 -d >"${DESTDIR}/icon.png" <<__EOF__
+base64 -d >"${DESTDIR}/icon.bmp" <<__EOF__
 iVBORw0KGgoAAAANSUhEUgAAAF4AAABeCAYAAACq0qNuAAAABmJLR0QABgB+AKIQtMlBAAAACXBI
 WXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH3wwYECM0/Nq2jwAABkVJREFUeNrtnUuoFXUcxz8znsY2
 RXZ9hC7ymhWGSoJhPjYW5JNskYFKfwJbuNBCJG1RE01CL1qYLVwYxAQKhZKBJsG1jY/EhXiVIDv5
