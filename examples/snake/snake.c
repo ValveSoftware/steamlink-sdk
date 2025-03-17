@@ -364,15 +364,19 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
                 SDL_Log("Failed to open joystick ID %u: %s", (unsigned int) event->jdevice.which, SDL_GetError());
             }
         }
+        break;
     case SDL_EVENT_JOYSTICK_REMOVED:
         if (joystick && (SDL_GetJoystickID(joystick) == event->jdevice.which)) {
             SDL_CloseJoystick(joystick);
             joystick = NULL;
         }
+        break;
     case SDL_EVENT_JOYSTICK_HAT_MOTION:
         return handle_hat_event_(ctx, event->jhat.value);
     case SDL_EVENT_KEY_DOWN:
         return handle_key_event_(ctx, event->key.scancode);
+    default:
+        break;
     }
     return SDL_APP_CONTINUE;
 }
